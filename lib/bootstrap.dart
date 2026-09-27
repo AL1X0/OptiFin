@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
 import 'core/platform/device_identity.dart';
+import 'core/network/retry_policy.dart';
 import 'core/providers.dart';
 import 'core/storage/app_database.dart';
 import 'core/storage/token_vault.dart';
@@ -34,6 +35,7 @@ Future<void> bootstrap() async {
   container.dispose();
 
   runApp(ProviderScope(
+    retry: networkRetry,
     overrides: [
       appDatabaseProvider.overrideWithValue(db),
       tokenVaultProvider.overrideWithValue(vault),

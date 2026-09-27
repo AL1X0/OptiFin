@@ -140,7 +140,9 @@ Future<T?> showOFSheet<T>(BuildContext context, {required WidgetBuilder builder}
         child: GlassSurface(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(OFRadius.lg)),
           sigma: 32,
-          child: ColoredBox(
+          // Material (et non ColoredBox) : les ListTile du contenu y peignent leur
+          // fond et leurs effets de toucher.
+          child: Material(
             color: const Color(0xB3141416),
             child: Column(
               mainAxisSize: MainAxisSize.min,

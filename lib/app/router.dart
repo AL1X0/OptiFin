@@ -11,6 +11,8 @@ import '../features/library/presentation/libraries_screen.dart';
 import '../features/library/presentation/library_providers.dart';
 import '../features/library/presentation/library_screen.dart';
 import '../features/person/presentation/person_screen.dart';
+import '../features/player/presentation/player_controller.dart';
+import '../features/player/presentation/player_screen.dart';
 import '../features/search/presentation/search_screen.dart';
 import 'app_shell.dart';
 
@@ -20,6 +22,10 @@ abstract final class Routes {
   static const search = '/search';
   static const connect = '/connect';
   static const login = '/connect/login';
+
+  /// Lecteur plein écran ; `start` en millisecondes (absent = reprise serveur).
+  static String play(String itemId, {Duration? start}) =>
+      Uri(path: '/play/$itemId', queryParameters: start == null ? null : {'start': '${start.inMilliseconds}'}).toString();
 }
 
 final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -79,6 +85,24 @@ final routerProvider = Provider<GoRouter>((ref) {
             GoRoute(path: Routes.search, builder: (_, _) => const SearchScreen(), routes: _contentRoutes()),
           ]),
         ],
+      ),
+      GoRoute(
+        path: '/play/:id',
+        parentNavigatorKey: _rootKey,
+        pageBuilder: (_, s) {
+          final startMs = int.tryParse(s.uri.queryParameters['start'] ?? '');
+          return CustomTransitionPage<void>(
+            key: s.pageKey,
+            opaque: true,
+            barrierColor: const Color(0xFF000000),
+            transitionDuration: const Duration(milliseconds: 250),
+            reverseTransitionDuration: const Duration(milliseconds: 200),
+            transitionsBuilder: (_, animation, _, child) => FadeTransition(opacity: animation, child: child),
+            child: PlayerScreen(
+              args: PlayerArgs(s.pathParameters['id']!, start: startMs == null ? null : Duration(milliseconds: startMs)),
+            ),
+          );
+        },
       ),
       GoRoute(
         path: Routes.connect,

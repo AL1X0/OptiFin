@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 /// Erreurs réseau/API traduites en cas métier, avec message utilisateur clair.
-sealed class ApiFailure implements Exception {
+abstract class ApiFailure implements Exception {
   const ApiFailure();
 
   String get userMessage;

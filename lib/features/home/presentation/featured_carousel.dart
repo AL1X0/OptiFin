@@ -234,7 +234,9 @@ class _FeaturedPage extends ConsumerWidget {
                     OFButton(
                       label: 'Lecture',
                       icon: Icons.play_arrow_rounded,
-                      onPressed: () => context.openItem(item),
+                      // Film : lecture directe. Série : la fiche choisit l'épisode à suivre.
+                      onPressed: () =>
+                          item.kind.isPlayableVideo ? context.play(item.id) : context.openItem(item),
                     ),
                     const SizedBox(width: OFSpacing.md),
                     OFButton.secondary(

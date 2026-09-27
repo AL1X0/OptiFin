@@ -57,3 +57,30 @@
   l'app construite).
 - **Numéro de build = numéro d'exécution CI** (`--build-number`), croissant à chaque push :
   chaque version est reconnue comme une mise à jour.
+
+## Phase 3 — Moteur de lecture (socle) (2026-09-28)
+
+1. **Interface `PlaybackEngine`** (lib/features/player/domain) : commandes, flux d'états
+   (`PlayerSnapshot`), événements, capacités déclarées (`EngineCapabilities`), surface vidéo.
+   L'UI du lecteur ne connaît que ce contrat.
+2. **Pistes : index Jellyfin → ordinal moteur.** Le serveur identifie une piste par son index
+   global de flux ; les moteurs par sa position parmi les pistes du même type. `embeddedOrdinal`
+   fait la conversion (les sous-titres externes n'ont pas d'ordinal : chargés par URL).
+3. **Changement de piste** : instantané en Direct Play ; en Direct Stream / transcodage le serveur
+   n'envoie que la piste choisie → nouveau `PlaybackInfo` et rechargement à la position courante.
+   Sous-titre image pendant un transcodage → incrustation serveur (rechargement).
+4. **libmpv** : chargé au premier lancement d'une lecture (`MpvEngine.create`), décodage matériel
+   `auto-safe`, sous-titres rendus par libass dans l'image (styles ASS et PGS fidèles).
+   Android : libass pointé sur `/system/fonts` (pas de fontconfig), sinon texte invisible.
+5. **Token jamais dans l'URL du flux** : envoyé en en-tête `Authorization` à mpv.
+6. **`PlaybackInfo` préchargé** à l'ouverture de la fiche (conservé 2 min) : l'appui sur Lecture
+   ne fait plus que créer le moteur et ouvrir le flux.
+7. **Reporting** : start, progress toutes les 10 s + à chaque pause/reprise/seek, stopped avec la
+   dernière position. Erreurs réseau ignorées (la lecture continue).
+8. **Retry Riverpod** : la politique par défaut de Riverpod 3 (10 tentatives) masquait les erreurs
+   définitives (refus de lecture) derrière un chargement. Désormais : erreurs réseau
+   transitoires seulement, 2 tentatives (`networkRetry`).
+9. **Gestes** : double-tap ±10 s ; la couche de gestes est sous les contrôles pour que les boutons
+   répondent sans le délai de 300 ms du double-tap. Luminosité/volume, verrouillage : phase 5.
+10. **À vérifier sur appareil** : décodage matériel 4K HEVC, polices libass Android, HDR (mpv fait
+    du tone-mapping ; le HDR natif relève des moteurs natifs de la phase 4).

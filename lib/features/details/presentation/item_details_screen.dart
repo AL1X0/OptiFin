@@ -12,6 +12,7 @@ import '../../../core/network/api_failure.dart';
 import '../../../core/providers.dart';
 import '../../common/presentation/media_cards.dart';
 import '../../home/domain/home_data.dart';
+import '../../player/presentation/player_controller.dart';
 import 'details_providers.dart';
 import 'details_sections.dart';
 
@@ -318,15 +319,19 @@ class _Summary extends ConsumerWidget {
     final user = ref.watch(userStateProvider(item.id)) ?? item.user;
     final nextUp = item.kind == MediaKind.series ? ref.watch(nextUpForSeriesProvider(item.id)).value : null;
     final playTarget = nextUp ?? item;
-    final canPlay = item.kind.isPlayableVideo || nextUp != null || item.kind == MediaKind.boxSet;
+    // Collections / playlists : lecture en file d'attente en phase 5.
+    final canPlay = item.kind.isPlayableVideo || nextUp != null;
     final resumable = item.kind.isPlayableVideo && user.positionTicks > 0 && !user.played;
+    // Préchargement de PlaybackInfo dès l'ouverture : la lecture démarre plus vite.
+    if (playTarget.kind.isPlayableVideo) ref.watch(playbackPrefetchProvider(playTarget.id));
+    final targetResumable = playTarget.user.positionTicks > 0 && !playTarget.user.played;
     final directors = item.people.where((p) => p.kind == PersonKind.director).toList();
     final writers = item.people.where((p) => p.kind == PersonKind.writer).toList();
 
     String playLabel() {
-      if (resumable) return 'Reprendre';
-      if (nextUp != null) return 'Lecture ${nextUp.episodeLabel ?? ''}'.trim();
-      return 'Lecture';
+      final verb = targetResumable ? 'Reprendre' : 'Lecture';
+      if (nextUp != null) return '$verb ${nextUp.episodeLabel ?? ''}'.trim();
+      return verb;
     }
 
     Future<void> run(Future<void> Function() action) async {
@@ -338,6 +343,7 @@ class _Summary extends ConsumerWidget {
     }
 
     final controller = ref.read(userStateProvider(item.id).notifier);
+
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -351,9 +357,13 @@ class _Summary extends ConsumerWidget {
               OFButton(
                 label: playLabel(),
                 icon: Icons.play_arrow_rounded,
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Lecture de « ${playTarget.name} » : le lecteur arrive à la phase 3.')),
-                ),
+                onPressed: () => context.play(playTarget.id, start: targetResumable ? null : Duration.zero),
+              ),
+            if (canPlay && targetResumable)
+              OFIconButton(
+                icon: Icons.restart_alt_rounded,
+                tooltip: 'Lire depuis le début',
+                onPressed: () => context.play(playTarget.id, start: Duration.zero),
               ),
             if (item.kind != MediaKind.person)
               _ToggleIcon(
