@@ -1,0 +1,48 @@
+# Génération : dart run tool/prepare_spec.dart && dart run swagger_parser && dart run build_runner build -d
+swagger_parser:
+  schema_path: openapi/jellyfin-openapi.prepared.json
+  output_directory: lib/src/generated
+  name: jellyfin
+  language: dart
+  json_serializer: json_serializable
+  root_client: true
+  root_client_name: JellyfinClient
+  put_clients_in_folder: true
+  enums_to_json: true
+  unknown_enum_value: true
+  mark_files_as_generated: true
+  # Seuls les tags utilisés par l'app sont générés (les tags d'admin sont exclus).
+  include_tags:
+    - Authentication
+    - System
+    - User
+    - UserView
+    - Library
+    - Filter
+    - Genre
+    - Studio
+    - Person
+    - Artist
+    - MusicGenre
+    - Search
+    - Show
+    - Movie
+    - Suggestion
+    - UserData
+    - MediaInfo
+    - MediaSegment
+    - TrickPlay
+    - Playlist
+    - Collection
+    - InstantMix
+    - Lyric
+    - Session
+    - Subtitle
+    - LiveTv
+    - SyncPlay
+    - Video
+    - Audio
+    - Trailer
+    - DisplayPreference
+    - Branding
+    - Year

@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jar binary
+*.g.dart linguist-generated=true
+packages/jellyfin_api/lib/src/generated/** linguist-generated=true

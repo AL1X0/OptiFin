@@ -1,0 +1,20 @@
+name: jellyfin_api
+description: Client Jellyfin généré depuis la spécification OpenAPI officielle (ne pas éditer lib/src/generated).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  dio: ^5.11.1
+  retrofit: ^4.10.0
+  json_annotation: ^4.12.0
+
+dev_dependencies:
+  swagger_parser: ^1.45.0
+  build_runner: ^2.16.1
+  retrofit_generator: ^10.2.11
+  json_serializable: ^6.14.1
+  test: ^1.32.0
+  lints: ^6.1.0
