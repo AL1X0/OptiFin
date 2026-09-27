@@ -13,4 +13,7 @@ SessionUserInfo _$SessionUserInfoFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$SessionUserInfoToJson(SessionUserInfo instance) =>
-    <String, dynamic>{'UserId': instance.userId, 'UserName': instance.userName};
+    <String, dynamic>{
+      'UserId': ?instance.userId,
+      'UserName': ?instance.userName,
+    };

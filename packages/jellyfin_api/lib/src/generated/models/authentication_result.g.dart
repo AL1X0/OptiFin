@@ -22,8 +22,8 @@ AuthenticationResult _$AuthenticationResultFromJson(
 Map<String, dynamic> _$AuthenticationResultToJson(
   AuthenticationResult instance,
 ) => <String, dynamic>{
-  'User': instance.user,
-  'SessionInfo': instance.sessionInfo,
-  'AccessToken': instance.accessToken,
-  'ServerId': instance.serverId,
+  'User': ?instance.user,
+  'SessionInfo': ?instance.sessionInfo,
+  'AccessToken': ?instance.accessToken,
+  'ServerId': ?instance.serverId,
 };

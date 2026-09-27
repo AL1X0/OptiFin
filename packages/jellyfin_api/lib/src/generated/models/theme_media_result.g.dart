@@ -18,8 +18,8 @@ ThemeMediaResult _$ThemeMediaResultFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$ThemeMediaResultToJson(ThemeMediaResult instance) =>
     <String, dynamic>{
-      'Items': instance.items,
-      'TotalRecordCount': instance.totalRecordCount,
-      'StartIndex': instance.startIndex,
-      'OwnerId': instance.ownerId,
+      'Items': ?instance.items,
+      'TotalRecordCount': ?instance.totalRecordCount,
+      'StartIndex': ?instance.startIndex,
+      'OwnerId': ?instance.ownerId,
     };

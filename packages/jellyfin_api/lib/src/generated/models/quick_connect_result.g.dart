@@ -22,12 +22,12 @@ QuickConnectResult _$QuickConnectResultFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$QuickConnectResultToJson(QuickConnectResult instance) =>
     <String, dynamic>{
-      'Authenticated': instance.authenticated,
-      'Secret': instance.secret,
-      'Code': instance.code,
-      'DeviceId': instance.deviceId,
-      'DeviceName': instance.deviceName,
-      'AppName': instance.appName,
-      'AppVersion': instance.appVersion,
-      'DateAdded': instance.dateAdded?.toIso8601String(),
+      'Authenticated': ?instance.authenticated,
+      'Secret': ?instance.secret,
+      'Code': ?instance.code,
+      'DeviceId': ?instance.deviceId,
+      'DeviceName': ?instance.deviceName,
+      'AppName': ?instance.appName,
+      'AppVersion': ?instance.appVersion,
+      'DateAdded': ?instance.dateAdded?.toIso8601String(),
     };

@@ -19,9 +19,9 @@ SubtitleProfile _$SubtitleProfileFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$SubtitleProfileToJson(SubtitleProfile instance) =>
     <String, dynamic>{
-      'Format': instance.format,
-      'Method': instance.method,
-      'DidlMode': instance.didlMode,
-      'Language': instance.language,
-      'Container': instance.container,
+      'Format': ?instance.format,
+      'Method': ?instance.method,
+      'DidlMode': ?instance.didlMode,
+      'Language': ?instance.language,
+      'Container': ?instance.container,
     };

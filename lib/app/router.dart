@@ -14,6 +14,8 @@ import '../features/person/presentation/person_screen.dart';
 import '../features/player/presentation/player_controller.dart';
 import '../features/player/presentation/player_screen.dart';
 import '../features/search/presentation/search_screen.dart';
+import '../features/settings/presentation/logs_screen.dart';
+import '../features/settings/presentation/settings_screen.dart';
 import 'app_shell.dart';
 
 abstract final class Routes {
@@ -22,6 +24,8 @@ abstract final class Routes {
   static const search = '/search';
   static const connect = '/connect';
   static const login = '/connect/login';
+  static const settings = '/settings';
+  static const logs = '/settings/logs';
 
   /// Lecteur plein écran ; `start` en millisecondes (absent = reprise serveur).
   static String play(String itemId, {Duration? start}) =>
@@ -103,6 +107,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           );
         },
+      ),
+      GoRoute(
+        path: Routes.settings,
+        parentNavigatorKey: _rootKey,
+        builder: (_, _) => const SettingsScreen(),
+        routes: [GoRoute(path: 'logs', builder: (_, _) => const LogsScreen())],
       ),
       GoRoute(
         path: Routes.connect,

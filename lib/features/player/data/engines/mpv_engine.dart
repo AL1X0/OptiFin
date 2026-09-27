@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../../../../core/logging/app_log.dart';
 import '../../domain/playback_engine.dart';
 
 /// Moteur libmpv (via media_kit) : lit quasiment tout (MKV, HEVC, AV1, DTS,
@@ -33,7 +34,18 @@ class MpvEngine implements PlaybackEngine {
         _emit(_snapshot.copyWith(status: PlaybackStatus.ended, playing: false));
         _events.add(const PlaybackCompleted());
       }),
+      _player.stream.log.listen((log) => AppLog.instance.add(
+            switch (log.level) {
+              'fatal' || 'error' => LogLevel.error,
+              'warn' => LogLevel.warning,
+              'info' => LogLevel.info,
+              _ => LogLevel.debug,
+            },
+            'mpv',
+            '[${log.prefix}] ${log.text.trim()}',
+          )),
       _player.stream.error.listen((message) {
+        AppLog.w('mpv', 'Erreur : $message');
         // mpv signale aussi des erreurs non fatales (piste illisible…) une fois la lecture lancée.
         if (_started) return;
         _emit(_snapshot.copyWith(status: PlaybackStatus.error, error: message));
@@ -45,19 +57,21 @@ class MpvEngine implements PlaybackEngine {
   static bool _initialized = false;
 
   /// Charge libmpv à la demande puis crée le moteur.
-  static Future<MpvEngine> create() async {
+  /// [verbose] : logs mpv détaillés (mode debug).
+  static Future<MpvEngine> create({bool verbose = false}) async {
     if (!_initialized) {
       MediaKit.ensureInitialized();
       _initialized = true;
     }
+    AppLog.i('mpv', 'Création du moteur (libmpv, décodage matériel auto-safe)');
     final player = Player(
-      configuration: const PlayerConfiguration(
+      configuration: PlayerConfiguration(
         title: 'OptiFin',
         // Sous-titres rendus par mpv/libass dans l'image : styles ASS et PGS fidèles.
         libass: true,
         // Tampon démuxeur généreux : remux 4K à haut débit sans à-coups.
         bufferSize: 96 * 1024 * 1024,
-        logLevel: MPVLogLevel.warn,
+        logLevel: verbose ? MPVLogLevel.info : MPVLogLevel.warn,
       ),
     );
     final video = VideoController(

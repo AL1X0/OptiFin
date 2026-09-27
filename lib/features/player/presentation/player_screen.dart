@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/media/formatters.dart';
 import '../../../core/media/media_item.dart';
+import '../../../app/router.dart';
+import '../../settings/presentation/settings_providers.dart';
 import '../domain/playback_engine.dart';
 import 'player_controller.dart';
 import 'player_sheets.dart';
@@ -81,7 +83,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           children: [
             if (engine != null && state.phase == PlayerPhase.playing) Center(child: engine.buildView(fit: _fit)),
             switch (state.phase) {
-              PlayerPhase.error => _ErrorView(message: state.error ?? 'Erreur de lecture.', onClose: _requestClose),
+              PlayerPhase.error => _ErrorView(
+                message: state.error ?? 'Erreur de lecture.',
+                // Mode debug : détail technique + accès direct aux journaux.
+                detail: ref.watch(settingsProvider).debugMode ? state.technicalError : null,
+                onLogs: ref.watch(settingsProvider).debugMode ? () => context.push(Routes.logs) : null,
+                onClose: _requestClose,
+              ),
               PlayerPhase.playing when engine != null => PlayerControls(
                 state: state,
                 engine: engine,
@@ -89,6 +97,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 fit: _fit,
                 onToggleFit: () => setState(() => _fit = _fit == BoxFit.contain ? BoxFit.cover : BoxFit.contain),
                 onClose: _requestClose,
+                debugByDefault: ref.watch(settingsProvider).debugMode,
               ),
               PlayerPhase.closed => const SizedBox.shrink(),
               _ => _Preparing(title: state.item?.name, onClose: _requestClose),
@@ -129,9 +138,11 @@ class _Preparing extends StatelessWidget {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onClose});
+  const _ErrorView({required this.message, required this.onClose, this.detail, this.onLogs});
 
   final String message;
+  final String? detail;
+  final VoidCallback? onLogs;
   final VoidCallback onClose;
 
   @override
@@ -149,8 +160,22 @@ class _ErrorView extends StatelessWidget {
               textAlign: TextAlign.center,
               style: OFTypography.body.copyWith(color: OFColors.textSecondary),
             ),
+            if (detail != null) ...[
+              const SizedBox(height: OFSpacing.md),
+              SelectableText(
+                detail!,
+                textAlign: TextAlign.center,
+                style: OFTypography.caption.copyWith(fontFamily: 'monospace', color: OFColors.textTertiary),
+              ),
+            ],
             const SizedBox(height: OFSpacing.xl),
-            OFButton.secondary(label: 'Fermer', onPressed: onClose),
+            Wrap(
+              spacing: OFSpacing.md,
+              children: [
+                if (onLogs != null) OFButton.secondary(label: 'Journaux', icon: Icons.receipt_long_outlined, onPressed: onLogs),
+                OFButton.secondary(label: 'Fermer', onPressed: onClose),
+              ],
+            ),
           ],
         ),
       ),
@@ -182,7 +207,11 @@ class PlayerControls extends StatefulWidget {
     required this.fit,
     required this.onToggleFit,
     required this.onClose,
+    this.debugByDefault = false,
   });
+
+  /// Mode debug : l'overlay technique est affiché d'emblée.
+  final bool debugByDefault;
 
   final PlayerUiState state;
   final PlaybackEngine engine;
@@ -197,7 +226,7 @@ class PlayerControls extends StatefulWidget {
 
 class _PlayerControlsState extends State<PlayerControls> {
   bool _visible = true;
-  bool _debug = false;
+  late bool _debug = widget.debugByDefault;
   Timer? _hideTimer;
   Duration? _scrubbing;
   _SeekFeedback? _feedback;

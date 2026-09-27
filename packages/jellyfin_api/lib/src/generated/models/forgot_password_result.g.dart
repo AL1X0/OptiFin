@@ -21,7 +21,7 @@ ForgotPasswordResult _$ForgotPasswordResultFromJson(
 Map<String, dynamic> _$ForgotPasswordResultToJson(
   ForgotPasswordResult instance,
 ) => <String, dynamic>{
-  'Action': instance.action,
-  'PinFile': instance.pinFile,
-  'PinExpirationDate': instance.pinExpirationDate?.toIso8601String(),
+  'Action': ?instance.action,
+  'PinFile': ?instance.pinFile,
+  'PinExpirationDate': ?instance.pinExpirationDate?.toIso8601String(),
 };

@@ -20,8 +20,8 @@ ProfileCondition _$ProfileConditionFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$ProfileConditionToJson(ProfileCondition instance) =>
     <String, dynamic>{
-      'Condition': instance.condition,
-      'Property': instance.property,
-      'Value': instance.value,
-      'IsRequired': instance.isRequired,
+      'Condition': ?instance.condition,
+      'Property': ?instance.property,
+      'Value': ?instance.value,
+      'IsRequired': ?instance.isRequired,
     };

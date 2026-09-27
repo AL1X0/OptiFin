@@ -12,4 +12,4 @@ CollectionCreationResult _$CollectionCreationResultFromJson(
 
 Map<String, dynamic> _$CollectionCreationResultToJson(
   CollectionCreationResult instance,
-) => <String, dynamic>{'Id': instance.id};
+) => <String, dynamic>{'Id': ?instance.id};

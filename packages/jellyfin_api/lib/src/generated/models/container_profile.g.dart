@@ -20,8 +20,8 @@ ContainerProfile _$ContainerProfileFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$ContainerProfileToJson(ContainerProfile instance) =>
     <String, dynamic>{
-      'Type': instance.type,
-      'Conditions': instance.conditions,
-      'Container': instance.container,
-      'SubContainer': instance.subContainer,
+      'Type': ?instance.type,
+      'Conditions': ?instance.conditions,
+      'Container': ?instance.container,
+      'SubContainer': ?instance.subContainer,
     };

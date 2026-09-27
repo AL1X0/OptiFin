@@ -20,13 +20,13 @@ VersionInfo _$VersionInfoFromJson(Map<String, dynamic> json) => VersionInfo(
 
 Map<String, dynamic> _$VersionInfoToJson(VersionInfo instance) =>
     <String, dynamic>{
-      'version': instance.version,
-      'VersionNumber': instance.versionNumber,
-      'changelog': instance.changelog,
-      'targetAbi': instance.targetAbi,
-      'sourceUrl': instance.sourceUrl,
-      'checksum': instance.checksum,
-      'timestamp': instance.timestamp,
-      'repositoryName': instance.repositoryName,
-      'repositoryUrl': instance.repositoryUrl,
+      'version': ?instance.version,
+      'VersionNumber': ?instance.versionNumber,
+      'changelog': ?instance.changelog,
+      'targetAbi': ?instance.targetAbi,
+      'sourceUrl': ?instance.sourceUrl,
+      'checksum': ?instance.checksum,
+      'timestamp': ?instance.timestamp,
+      'repositoryName': ?instance.repositoryName,
+      'repositoryUrl': ?instance.repositoryUrl,
     };

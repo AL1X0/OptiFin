@@ -12,4 +12,4 @@ PreviousItemRequestDto _$PreviousItemRequestDtoFromJson(
 
 Map<String, dynamic> _$PreviousItemRequestDtoToJson(
   PreviousItemRequestDto instance,
-) => <String, dynamic>{'PlaylistItemId': instance.playlistItemId};
+) => <String, dynamic>{'PlaylistItemId': ?instance.playlistItemId};

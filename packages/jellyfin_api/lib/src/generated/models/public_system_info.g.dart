@@ -19,11 +19,11 @@ PublicSystemInfo _$PublicSystemInfoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$PublicSystemInfoToJson(PublicSystemInfo instance) =>
     <String, dynamic>{
-      'LocalAddress': instance.localAddress,
-      'ServerName': instance.serverName,
-      'Version': instance.version,
-      'ProductName': instance.productName,
-      'OperatingSystem': instance.operatingSystem,
-      'Id': instance.id,
-      'StartupWizardCompleted': instance.startupWizardCompleted,
+      'LocalAddress': ?instance.localAddress,
+      'ServerName': ?instance.serverName,
+      'Version': ?instance.version,
+      'ProductName': ?instance.productName,
+      'OperatingSystem': ?instance.operatingSystem,
+      'Id': ?instance.id,
+      'StartupWizardCompleted': ?instance.startupWizardCompleted,
     };

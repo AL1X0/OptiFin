@@ -21,10 +21,10 @@ CodecProfile _$CodecProfileFromJson(Map<String, dynamic> json) => CodecProfile(
 
 Map<String, dynamic> _$CodecProfileToJson(CodecProfile instance) =>
     <String, dynamic>{
-      'Type': instance.type,
-      'Conditions': instance.conditions,
-      'ApplyConditions': instance.applyConditions,
-      'Codec': instance.codec,
-      'Container': instance.container,
-      'SubContainer': instance.subContainer,
+      'Type': ?instance.type,
+      'Conditions': ?instance.conditions,
+      'ApplyConditions': ?instance.applyConditions,
+      'Codec': ?instance.codec,
+      'Container': ?instance.container,
+      'SubContainer': ?instance.subContainer,
     };

@@ -16,4 +16,4 @@ SetRepeatModeRequestDto _$SetRepeatModeRequestDtoFromJson(
 
 Map<String, dynamic> _$SetRepeatModeRequestDtoToJson(
   SetRepeatModeRequestDto instance,
-) => <String, dynamic>{'Mode': instance.mode};
+) => <String, dynamic>{'Mode': ?instance.mode};

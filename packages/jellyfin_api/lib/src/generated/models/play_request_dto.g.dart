@@ -17,7 +17,7 @@ PlayRequestDto _$PlayRequestDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$PlayRequestDtoToJson(PlayRequestDto instance) =>
     <String, dynamic>{
-      'PlayingQueue': instance.playingQueue,
-      'PlayingItemPosition': instance.playingItemPosition,
-      'StartPositionTicks': instance.startPositionTicks,
+      'PlayingQueue': ?instance.playingQueue,
+      'PlayingItemPosition': ?instance.playingItemPosition,
+      'StartPositionTicks': ?instance.startPositionTicks,
     };

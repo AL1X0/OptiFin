@@ -16,6 +16,6 @@ PinRedeemResult _$PinRedeemResultFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$PinRedeemResultToJson(PinRedeemResult instance) =>
     <String, dynamic>{
-      'Success': instance.success,
-      'UsersReset': instance.usersReset,
+      'Success': ?instance.success,
+      'UsersReset': ?instance.usersReset,
     };

@@ -16,4 +16,4 @@ LiveStreamResponse _$LiveStreamResponseFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$LiveStreamResponseToJson(LiveStreamResponse instance) =>
-    <String, dynamic>{'MediaSource': instance.mediaSource};
+    <String, dynamic>{'MediaSource': ?instance.mediaSource};

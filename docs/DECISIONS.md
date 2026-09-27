@@ -84,3 +84,22 @@
    répondent sans le délai de 300 ms du double-tap. Luminosité/volume, verrouillage : phase 5.
 10. **À vérifier sur appareil** : décodage matériel 4K HEVC, polices libass Android, HDR (mpv fait
     du tone-mapping ; le HDR natif relève des moteurs natifs de la phase 4).
+
+## Correctifs et outillage (2026-09-28)
+
+1. **Lecture en échec systématique** : le client généré envoyait tous les champs `null`
+   (ex. `TranscodingProfile.TranscodeSeekInfo`) ; le serveur .NET refuse `null` sur ses
+   propriétés non-nullables → 400 sur `PlaybackInfo`. `build.yaml` du client :
+   `include_if_null: false`. Test de régression : aucun `null` dans les corps envoyés.
+2. **Journal** (`AppLog`) : tampon circulaire de 3000 lignes, secrets masqués à l'écriture
+   (token, ApiKey, mots de passe). Alimenté par Dio (statut, durée, début de réponse en cas
+   d'erreur), le lecteur (plan, URL, pistes), mpv (mode debug), les erreurs Flutter.
+   Paramètres › Journaux : filtre, copie, effacement.
+3. **Paramètres** stockés en base (clé `settings`, JSON tolérant aux versions) : débit max
+   Wi-Fi / cellulaire (connectivity_plus), langues audio / sous-titres, mode des sous-titres,
+   style des sous-titres, mode debug. Préférences de langue appliquées localement en Direct
+   Play, via un nouveau `PlaybackInfo` sinon.
+4. **Icône** : logo ruban « play » noir et blanc ; icône adaptative Android (fond noir,
+   premier plan blanc à alpha = luminance), écran de démarrage noir.
+5. **Source SideStore** : Release GitHub par build (`build-N`, 10 dernières conservées) avec
+   l'IPA et `source.json` ; URL stable `releases/latest/download/source.json`.

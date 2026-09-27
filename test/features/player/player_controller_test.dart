@@ -12,6 +12,7 @@ import 'package:optifin/features/player/domain/playback_engine.dart';
 import 'package:optifin/features/player/domain/playback_plan.dart';
 import 'package:optifin/features/player/presentation/player_controller.dart';
 import 'package:optifin/features/player/presentation/player_screen.dart';
+import 'package:optifin/features/settings/presentation/settings_providers.dart';
 
 import 'fakes.dart';
 
@@ -43,6 +44,7 @@ void main() {
       playbackRepositoryProvider.overrideWithValue(playback),
       mediaRepositoryProvider.overrideWithValue(FakeMediaRepository(movie)),
       playbackEngineFactoryProvider.overrideWithValue(() async => engine),
+      maxBitrateResolverProvider.overrideWithValue(() async => 40000000),
     ]);
   }
 

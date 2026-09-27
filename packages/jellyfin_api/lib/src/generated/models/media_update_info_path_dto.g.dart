@@ -16,6 +16,6 @@ MediaUpdateInfoPathDto _$MediaUpdateInfoPathDtoFromJson(
 Map<String, dynamic> _$MediaUpdateInfoPathDtoToJson(
   MediaUpdateInfoPathDto instance,
 ) => <String, dynamic>{
-  'Path': instance.path,
-  'UpdateType': instance.updateType,
+  'Path': ?instance.path,
+  'UpdateType': ?instance.updateType,
 };

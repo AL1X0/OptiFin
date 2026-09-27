@@ -27,15 +27,15 @@ PlaybackStopInfo _$PlaybackStopInfoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$PlaybackStopInfoToJson(PlaybackStopInfo instance) =>
     <String, dynamic>{
-      'Item': instance.item,
-      'ItemId': instance.itemId,
-      'SessionId': instance.sessionId,
-      'MediaSourceId': instance.mediaSourceId,
-      'PositionTicks': instance.positionTicks,
-      'LiveStreamId': instance.liveStreamId,
-      'PlaySessionId': instance.playSessionId,
-      'Failed': instance.failed,
-      'NextMediaType': instance.nextMediaType,
-      'PlaylistItemId': instance.playlistItemId,
-      'NowPlayingQueue': instance.nowPlayingQueue,
+      'Item': ?instance.item,
+      'ItemId': ?instance.itemId,
+      'SessionId': ?instance.sessionId,
+      'MediaSourceId': ?instance.mediaSourceId,
+      'PositionTicks': ?instance.positionTicks,
+      'LiveStreamId': ?instance.liveStreamId,
+      'PlaySessionId': ?instance.playSessionId,
+      'Failed': ?instance.failed,
+      'NextMediaType': ?instance.nextMediaType,
+      'PlaylistItemId': ?instance.playlistItemId,
+      'NowPlayingQueue': ?instance.nowPlayingQueue,
     };

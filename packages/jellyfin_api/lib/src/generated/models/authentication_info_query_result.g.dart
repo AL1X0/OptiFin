@@ -19,7 +19,7 @@ AuthenticationInfoQueryResult _$AuthenticationInfoQueryResultFromJson(
 Map<String, dynamic> _$AuthenticationInfoQueryResultToJson(
   AuthenticationInfoQueryResult instance,
 ) => <String, dynamic>{
-  'Items': instance.items,
-  'TotalRecordCount': instance.totalRecordCount,
-  'StartIndex': instance.startIndex,
+  'Items': ?instance.items,
+  'TotalRecordCount': ?instance.totalRecordCount,
+  'StartIndex': ?instance.startIndex,
 };

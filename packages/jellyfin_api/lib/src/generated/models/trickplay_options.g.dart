@@ -31,16 +31,16 @@ TrickplayOptions _$TrickplayOptionsFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$TrickplayOptionsToJson(TrickplayOptions instance) =>
     <String, dynamic>{
-      'EnableHwAcceleration': instance.enableHwAcceleration,
-      'EnableHwEncoding': instance.enableHwEncoding,
-      'EnableKeyFrameOnlyExtraction': instance.enableKeyFrameOnlyExtraction,
-      'ScanBehavior': instance.scanBehavior,
-      'ProcessPriority': instance.processPriority,
-      'Interval': instance.interval,
-      'WidthResolutions': instance.widthResolutions,
-      'TileWidth': instance.tileWidth,
-      'TileHeight': instance.tileHeight,
-      'Qscale': instance.qscale,
-      'JpegQuality': instance.jpegQuality,
-      'ProcessThreads': instance.processThreads,
+      'EnableHwAcceleration': ?instance.enableHwAcceleration,
+      'EnableHwEncoding': ?instance.enableHwEncoding,
+      'EnableKeyFrameOnlyExtraction': ?instance.enableKeyFrameOnlyExtraction,
+      'ScanBehavior': ?instance.scanBehavior,
+      'ProcessPriority': ?instance.processPriority,
+      'Interval': ?instance.interval,
+      'WidthResolutions': ?instance.widthResolutions,
+      'TileWidth': ?instance.tileWidth,
+      'TileHeight': ?instance.tileHeight,
+      'Qscale': ?instance.qscale,
+      'JpegQuality': ?instance.jpegQuality,
+      'ProcessThreads': ?instance.processThreads,
     };

@@ -16,6 +16,6 @@ MovePlaylistItemRequestDto _$MovePlaylistItemRequestDtoFromJson(
 Map<String, dynamic> _$MovePlaylistItemRequestDtoToJson(
   MovePlaylistItemRequestDto instance,
 ) => <String, dynamic>{
-  'PlaylistItemId': instance.playlistItemId,
-  'NewIndex': instance.newIndex,
+  'PlaylistItemId': ?instance.playlistItemId,
+  'NewIndex': ?instance.newIndex,
 };

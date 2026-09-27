@@ -16,6 +16,6 @@ SearchHintResult _$SearchHintResultFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$SearchHintResultToJson(SearchHintResult instance) =>
     <String, dynamic>{
-      'SearchHints': instance.searchHints,
-      'TotalRecordCount': instance.totalRecordCount,
+      'SearchHints': ?instance.searchHints,
+      'TotalRecordCount': ?instance.totalRecordCount,
     };

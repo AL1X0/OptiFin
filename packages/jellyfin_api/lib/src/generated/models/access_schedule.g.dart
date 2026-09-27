@@ -20,8 +20,8 @@ AccessSchedule _$AccessScheduleFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$AccessScheduleToJson(AccessSchedule instance) =>
     <String, dynamic>{
       'Id': instance.id,
-      'UserId': instance.userId,
-      'DayOfWeek': instance.dayOfWeek,
-      'StartHour': instance.startHour,
-      'EndHour': instance.endHour,
+      'UserId': ?instance.userId,
+      'DayOfWeek': ?instance.dayOfWeek,
+      'StartHour': ?instance.startHour,
+      'EndHour': ?instance.endHour,
     };

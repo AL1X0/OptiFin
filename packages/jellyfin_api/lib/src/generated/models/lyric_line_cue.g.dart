@@ -15,8 +15,8 @@ LyricLineCue _$LyricLineCueFromJson(Map<String, dynamic> json) => LyricLineCue(
 
 Map<String, dynamic> _$LyricLineCueToJson(LyricLineCue instance) =>
     <String, dynamic>{
-      'Position': instance.position,
-      'EndPosition': instance.endPosition,
-      'Start': instance.start,
-      'End': instance.end,
+      'Position': ?instance.position,
+      'EndPosition': ?instance.endPosition,
+      'Start': ?instance.start,
+      'End': ?instance.end,
     };

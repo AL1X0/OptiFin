@@ -19,7 +19,7 @@ TimerInfoDtoQueryResult _$TimerInfoDtoQueryResultFromJson(
 Map<String, dynamic> _$TimerInfoDtoQueryResultToJson(
   TimerInfoDtoQueryResult instance,
 ) => <String, dynamic>{
-  'Items': instance.items,
-  'TotalRecordCount': instance.totalRecordCount,
-  'StartIndex': instance.startIndex,
+  'Items': ?instance.items,
+  'TotalRecordCount': ?instance.totalRecordCount,
+  'StartIndex': ?instance.startIndex,
 };

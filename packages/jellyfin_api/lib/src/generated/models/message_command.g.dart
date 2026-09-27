@@ -15,7 +15,7 @@ MessageCommand _$MessageCommandFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$MessageCommandToJson(MessageCommand instance) =>
     <String, dynamic>{
-      'Header': instance.header,
-      'Text': instance.text,
-      'TimeoutMs': instance.timeoutMs,
+      'Header': ?instance.header,
+      'Text': ?instance.text,
+      'TimeoutMs': ?instance.timeoutMs,
     };

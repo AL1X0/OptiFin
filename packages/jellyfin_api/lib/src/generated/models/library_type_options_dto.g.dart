@@ -30,10 +30,10 @@ LibraryTypeOptionsDto _$LibraryTypeOptionsDtoFromJson(
 Map<String, dynamic> _$LibraryTypeOptionsDtoToJson(
   LibraryTypeOptionsDto instance,
 ) => <String, dynamic>{
-  'Type': instance.type,
-  'MetadataFetchers': instance.metadataFetchers,
-  'ImageFetchers': instance.imageFetchers,
-  'SimilarItemProviders': instance.similarItemProviders,
-  'SupportedImageTypes': instance.supportedImageTypes,
-  'DefaultImageOptions': instance.defaultImageOptions,
+  'Type': ?instance.type,
+  'MetadataFetchers': ?instance.metadataFetchers,
+  'ImageFetchers': ?instance.imageFetchers,
+  'SimilarItemProviders': ?instance.similarItemProviders,
+  'SupportedImageTypes': ?instance.supportedImageTypes,
+  'DefaultImageOptions': ?instance.defaultImageOptions,
 };

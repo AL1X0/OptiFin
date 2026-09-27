@@ -16,4 +16,4 @@ MediaUpdateInfoDto _$MediaUpdateInfoDtoFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$MediaUpdateInfoDtoToJson(MediaUpdateInfoDto instance) =>
-    <String, dynamic>{'Updates': instance.updates};
+    <String, dynamic>{'Updates': ?instance.updates};

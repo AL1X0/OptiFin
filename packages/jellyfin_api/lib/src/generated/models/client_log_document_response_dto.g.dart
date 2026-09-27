@@ -12,4 +12,4 @@ ClientLogDocumentResponseDto _$ClientLogDocumentResponseDtoFromJson(
 
 Map<String, dynamic> _$ClientLogDocumentResponseDtoToJson(
   ClientLogDocumentResponseDto instance,
-) => <String, dynamic>{'FileName': instance.fileName};
+) => <String, dynamic>{'FileName': ?instance.fileName};

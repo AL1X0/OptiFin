@@ -15,7 +15,7 @@ LyricLine _$LyricLineFromJson(Map<String, dynamic> json) => LyricLine(
 );
 
 Map<String, dynamic> _$LyricLineToJson(LyricLine instance) => <String, dynamic>{
-  'Text': instance.text,
-  'Start': instance.start,
-  'Cues': instance.cues,
+  'Text': ?instance.text,
+  'Start': ?instance.start,
+  'Cues': ?instance.cues,
 };

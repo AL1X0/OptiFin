@@ -21,8 +21,8 @@ QueryFilters _$QueryFiltersFromJson(Map<String, dynamic> json) => QueryFilters(
 
 Map<String, dynamic> _$QueryFiltersToJson(QueryFilters instance) =>
     <String, dynamic>{
-      'Genres': instance.genres,
-      'Tags': instance.tags,
-      'AudioLanguages': instance.audioLanguages,
-      'SubtitleLanguages': instance.subtitleLanguages,
+      'Genres': ?instance.genres,
+      'Tags': ?instance.tags,
+      'AudioLanguages': ?instance.audioLanguages,
+      'SubtitleLanguages': ?instance.subtitleLanguages,
     };

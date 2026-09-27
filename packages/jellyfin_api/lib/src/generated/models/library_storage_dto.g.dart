@@ -17,7 +17,7 @@ LibraryStorageDto _$LibraryStorageDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$LibraryStorageDtoToJson(LibraryStorageDto instance) =>
     <String, dynamic>{
-      'Id': instance.id,
-      'Name': instance.name,
-      'Folders': instance.folders,
+      'Id': ?instance.id,
+      'Name': ?instance.name,
+      'Folders': ?instance.folders,
     };

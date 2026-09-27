@@ -18,7 +18,7 @@ LiveTvInfo _$LiveTvInfoFromJson(Map<String, dynamic> json) => LiveTvInfo(
 
 Map<String, dynamic> _$LiveTvInfoToJson(LiveTvInfo instance) =>
     <String, dynamic>{
-      'Services': instance.services,
-      'IsEnabled': instance.isEnabled,
-      'EnabledUsers': instance.enabledUsers,
+      'Services': ?instance.services,
+      'IsEnabled': ?instance.isEnabled,
+      'EnabledUsers': ?instance.enabledUsers,
     };

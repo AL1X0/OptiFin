@@ -19,11 +19,11 @@ MediaAttachment _$MediaAttachmentFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$MediaAttachmentToJson(MediaAttachment instance) =>
     <String, dynamic>{
-      'Codec': instance.codec,
-      'CodecTag': instance.codecTag,
-      'Comment': instance.comment,
-      'Index': instance.index,
-      'FileName': instance.fileName,
-      'MimeType': instance.mimeType,
-      'DeliveryUrl': instance.deliveryUrl,
+      'Codec': ?instance.codec,
+      'CodecTag': ?instance.codecTag,
+      'Comment': ?instance.comment,
+      'Index': ?instance.index,
+      'FileName': ?instance.fileName,
+      'MimeType': ?instance.mimeType,
+      'DeliveryUrl': ?instance.deliveryUrl,
     };

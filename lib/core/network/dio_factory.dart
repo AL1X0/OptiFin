@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'jellyfin_auth.dart';
+import 'logging_interceptor.dart';
 
 /// Crée une instance Dio configurée pour un serveur Jellyfin.
 ///
@@ -25,6 +26,7 @@ Dio createJellyfinDio({
   dio.interceptors.add(
     JellyfinAuthInterceptor(identity: identity, tokenProvider: tokenProvider, onUnauthorized: onUnauthorized),
   );
-  // Pas de LogInterceptor en release : les en-têtes contiennent le token.
+  // Journal maison : jamais d'en-têtes (token), secrets masqués.
+  dio.interceptors.add(LoggingInterceptor());
   return dio;
 }

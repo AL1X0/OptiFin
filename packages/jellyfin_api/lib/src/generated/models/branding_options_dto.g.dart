@@ -15,7 +15,7 @@ BrandingOptionsDto _$BrandingOptionsDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$BrandingOptionsDtoToJson(BrandingOptionsDto instance) =>
     <String, dynamic>{
-      'LoginDisclaimer': instance.loginDisclaimer,
-      'CustomCss': instance.customCss,
-      'SplashscreenEnabled': instance.splashscreenEnabled,
+      'LoginDisclaimer': ?instance.loginDisclaimer,
+      'CustomCss': ?instance.customCss,
+      'SplashscreenEnabled': ?instance.splashscreenEnabled,
     };

@@ -15,4 +15,4 @@ SpecialViewOptionDto _$SpecialViewOptionDtoFromJson(
 
 Map<String, dynamic> _$SpecialViewOptionDtoToJson(
   SpecialViewOptionDto instance,
-) => <String, dynamic>{'Name': instance.name, 'Id': instance.id};
+) => <String, dynamic>{'Name': ?instance.name, 'Id': ?instance.id};

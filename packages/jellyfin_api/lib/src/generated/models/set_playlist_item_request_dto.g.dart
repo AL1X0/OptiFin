@@ -14,4 +14,4 @@ SetPlaylistItemRequestDto _$SetPlaylistItemRequestDtoFromJson(
 
 Map<String, dynamic> _$SetPlaylistItemRequestDtoToJson(
   SetPlaylistItemRequestDto instance,
-) => <String, dynamic>{'PlaylistItemId': instance.playlistItemId};
+) => <String, dynamic>{'PlaylistItemId': ?instance.playlistItemId};

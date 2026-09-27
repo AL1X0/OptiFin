@@ -20,8 +20,8 @@ UpdatePlaylistDto _$UpdatePlaylistDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$UpdatePlaylistDtoToJson(UpdatePlaylistDto instance) =>
     <String, dynamic>{
-      'Name': instance.name,
-      'Ids': instance.ids,
-      'Users': instance.users,
-      'IsPublic': instance.isPublic,
+      'Name': ?instance.name,
+      'Ids': ?instance.ids,
+      'Users': ?instance.users,
+      'IsPublic': ?instance.isPublic,
     };

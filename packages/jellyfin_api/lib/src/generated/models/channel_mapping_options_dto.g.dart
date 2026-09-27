@@ -24,8 +24,8 @@ ChannelMappingOptionsDto _$ChannelMappingOptionsDtoFromJson(
 Map<String, dynamic> _$ChannelMappingOptionsDtoToJson(
   ChannelMappingOptionsDto instance,
 ) => <String, dynamic>{
-  'TunerChannels': instance.tunerChannels,
-  'ProviderChannels': instance.providerChannels,
-  'Mappings': instance.mappings,
-  'ProviderName': instance.providerName,
+  'TunerChannels': ?instance.tunerChannels,
+  'ProviderChannels': ?instance.providerChannels,
+  'Mappings': ?instance.mappings,
+  'ProviderName': ?instance.providerName,
 };

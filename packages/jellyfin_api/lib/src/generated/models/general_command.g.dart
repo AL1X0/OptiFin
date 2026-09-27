@@ -19,7 +19,7 @@ GeneralCommand _$GeneralCommandFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$GeneralCommandToJson(GeneralCommand instance) =>
     <String, dynamic>{
-      'Name': instance.name,
-      'ControllingUserId': instance.controllingUserId,
-      'Arguments': instance.arguments,
+      'Name': ?instance.name,
+      'ControllingUserId': ?instance.controllingUserId,
+      'Arguments': ?instance.arguments,
     };

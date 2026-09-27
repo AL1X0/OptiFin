@@ -15,4 +15,7 @@ PlaylistUserPermissions _$PlaylistUserPermissionsFromJson(
 
 Map<String, dynamic> _$PlaylistUserPermissionsToJson(
   PlaylistUserPermissions instance,
-) => <String, dynamic>{'UserId': instance.userId, 'CanEdit': instance.canEdit};
+) => <String, dynamic>{
+  'UserId': ?instance.userId,
+  'CanEdit': ?instance.canEdit,
+};

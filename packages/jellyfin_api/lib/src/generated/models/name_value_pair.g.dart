@@ -13,4 +13,4 @@ NameValuePair _$NameValuePairFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$NameValuePairToJson(NameValuePair instance) =>
-    <String, dynamic>{'Name': instance.name, 'Value': instance.value};
+    <String, dynamic>{'Name': ?instance.name, 'Value': ?instance.value};

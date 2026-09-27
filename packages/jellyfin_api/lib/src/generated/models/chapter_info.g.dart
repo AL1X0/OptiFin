@@ -18,9 +18,9 @@ ChapterInfo _$ChapterInfoFromJson(Map<String, dynamic> json) => ChapterInfo(
 
 Map<String, dynamic> _$ChapterInfoToJson(ChapterInfo instance) =>
     <String, dynamic>{
-      'StartPositionTicks': instance.startPositionTicks,
-      'Name': instance.name,
-      'ImagePath': instance.imagePath,
-      'ImageDateModified': instance.imageDateModified?.toIso8601String(),
-      'ImageTag': instance.imageTag,
+      'StartPositionTicks': ?instance.startPositionTicks,
+      'Name': ?instance.name,
+      'ImagePath': ?instance.imagePath,
+      'ImageDateModified': ?instance.imageDateModified?.toIso8601String(),
+      'ImageTag': ?instance.imageTag,
     };

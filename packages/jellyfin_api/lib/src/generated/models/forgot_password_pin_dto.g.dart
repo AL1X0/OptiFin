@@ -12,4 +12,4 @@ ForgotPasswordPinDto _$ForgotPasswordPinDtoFromJson(
 
 Map<String, dynamic> _$ForgotPasswordPinDtoToJson(
   ForgotPasswordPinDto instance,
-) => <String, dynamic>{'Pin': instance.pin};
+) => <String, dynamic>{'Pin': ?instance.pin};

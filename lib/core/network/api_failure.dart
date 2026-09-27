@@ -15,7 +15,11 @@ abstract class ApiFailure implements Exception {
       if (status == 401) return const UnauthorizedFailure();
       if (status == 403) return const ForbiddenFailure();
       if (status != null && status >= 500) return ServerFailure(status);
-      if (status != null) return UnexpectedFailure('HTTP $status');
+      if (status != null) {
+        final data = error.response?.data;
+        final text = data == null ? '' : ': ${data is String ? data : data.toString()}';
+        return UnexpectedFailure('HTTP $status${text.length > 300 ? text.substring(0, 300) : text}');
+      }
       return switch (error.type) {
         DioExceptionType.connectionTimeout ||
         DioExceptionType.receiveTimeout ||
@@ -93,6 +97,9 @@ class UnexpectedFailure extends ApiFailure {
   final String detail;
   @override
   String get userMessage => 'Une erreur inattendue est survenue.';
+
+  /// Détail technique (statut HTTP, début de réponse) : affiché en mode debug.
+  String get technicalDetail => detail;
   @override
   String toString() => 'UnexpectedFailure($detail)';
 }

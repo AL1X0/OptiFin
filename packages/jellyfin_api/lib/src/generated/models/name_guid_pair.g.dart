@@ -10,4 +10,4 @@ NameGuidPair _$NameGuidPairFromJson(Map<String, dynamic> json) =>
     NameGuidPair(name: json['Name'] as String?, id: json['Id'] as String?);
 
 Map<String, dynamic> _$NameGuidPairToJson(NameGuidPair instance) =>
-    <String, dynamic>{'Name': instance.name, 'Id': instance.id};
+    <String, dynamic>{'Name': ?instance.name, 'Id': ?instance.id};

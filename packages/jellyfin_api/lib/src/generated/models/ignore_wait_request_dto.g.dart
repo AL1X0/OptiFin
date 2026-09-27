@@ -12,4 +12,4 @@ IgnoreWaitRequestDto _$IgnoreWaitRequestDtoFromJson(
 
 Map<String, dynamic> _$IgnoreWaitRequestDtoToJson(
   IgnoreWaitRequestDto instance,
-) => <String, dynamic>{'IgnoreWait': instance.ignoreWait};
+) => <String, dynamic>{'IgnoreWait': ?instance.ignoreWait};

@@ -11,4 +11,4 @@ JoinGroupRequestDto _$JoinGroupRequestDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$JoinGroupRequestDtoToJson(
   JoinGroupRequestDto instance,
-) => <String, dynamic>{'GroupId': instance.groupId};
+) => <String, dynamic>{'GroupId': ?instance.groupId};

@@ -32,10 +32,10 @@ LibraryOptionsResultDto _$LibraryOptionsResultDtoFromJson(
 Map<String, dynamic> _$LibraryOptionsResultDtoToJson(
   LibraryOptionsResultDto instance,
 ) => <String, dynamic>{
-  'MetadataSavers': instance.metadataSavers,
-  'MetadataReaders': instance.metadataReaders,
-  'SubtitleFetchers': instance.subtitleFetchers,
-  'LyricFetchers': instance.lyricFetchers,
-  'MediaSegmentProviders': instance.mediaSegmentProviders,
-  'TypeOptions': instance.typeOptions,
+  'MetadataSavers': ?instance.metadataSavers,
+  'MetadataReaders': ?instance.metadataReaders,
+  'SubtitleFetchers': ?instance.subtitleFetchers,
+  'LyricFetchers': ?instance.lyricFetchers,
+  'MediaSegmentProviders': ?instance.mediaSegmentProviders,
+  'TypeOptions': ?instance.typeOptions,
 };

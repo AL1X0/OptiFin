@@ -10,4 +10,4 @@ NextItemRequestDto _$NextItemRequestDtoFromJson(Map<String, dynamic> json) =>
     NextItemRequestDto(playlistItemId: json['PlaylistItemId'] as String?);
 
 Map<String, dynamic> _$NextItemRequestDtoToJson(NextItemRequestDto instance) =>
-    <String, dynamic>{'PlaylistItemId': instance.playlistItemId};
+    <String, dynamic>{'PlaylistItemId': ?instance.playlistItemId};

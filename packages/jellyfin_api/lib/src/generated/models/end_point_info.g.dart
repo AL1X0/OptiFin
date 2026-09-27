@@ -13,6 +13,6 @@ EndPointInfo _$EndPointInfoFromJson(Map<String, dynamic> json) => EndPointInfo(
 
 Map<String, dynamic> _$EndPointInfoToJson(EndPointInfo instance) =>
     <String, dynamic>{
-      'IsLocal': instance.isLocal,
-      'IsInNetwork': instance.isInNetwork,
+      'IsLocal': ?instance.isLocal,
+      'IsInNetwork': ?instance.isInNetwork,
     };

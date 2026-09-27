@@ -32,18 +32,18 @@ DeviceProfile _$DeviceProfileFromJson(Map<String, dynamic> json) =>
           .toList(),
     );
 
-Map<String, dynamic> _$DeviceProfileToJson(
-  DeviceProfile instance,
-) => <String, dynamic>{
-  'Name': instance.name,
-  'Id': instance.id,
-  'MaxStreamingBitrate': instance.maxStreamingBitrate,
-  'MaxStaticBitrate': instance.maxStaticBitrate,
-  'MusicStreamingTranscodingBitrate': instance.musicStreamingTranscodingBitrate,
-  'MaxStaticMusicBitrate': instance.maxStaticMusicBitrate,
-  'DirectPlayProfiles': instance.directPlayProfiles,
-  'TranscodingProfiles': instance.transcodingProfiles,
-  'ContainerProfiles': instance.containerProfiles,
-  'CodecProfiles': instance.codecProfiles,
-  'SubtitleProfiles': instance.subtitleProfiles,
-};
+Map<String, dynamic> _$DeviceProfileToJson(DeviceProfile instance) =>
+    <String, dynamic>{
+      'Name': ?instance.name,
+      'Id': ?instance.id,
+      'MaxStreamingBitrate': ?instance.maxStreamingBitrate,
+      'MaxStaticBitrate': ?instance.maxStaticBitrate,
+      'MusicStreamingTranscodingBitrate':
+          ?instance.musicStreamingTranscodingBitrate,
+      'MaxStaticMusicBitrate': ?instance.maxStaticMusicBitrate,
+      'DirectPlayProfiles': ?instance.directPlayProfiles,
+      'TranscodingProfiles': ?instance.transcodingProfiles,
+      'ContainerProfiles': ?instance.containerProfiles,
+      'CodecProfiles': ?instance.codecProfiles,
+      'SubtitleProfiles': ?instance.subtitleProfiles,
+    };

@@ -15,7 +15,7 @@ RepositoryInfo _$RepositoryInfoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$RepositoryInfoToJson(RepositoryInfo instance) =>
     <String, dynamic>{
-      'Name': instance.name,
-      'Url': instance.url,
-      'Enabled': instance.enabled,
+      'Name': ?instance.name,
+      'Url': ?instance.url,
+      'Enabled': ?instance.enabled,
     };

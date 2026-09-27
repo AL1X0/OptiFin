@@ -162,6 +162,42 @@ void main() {
       expect(profile['Name'], 'OptiFin (mpv)');
       expect(profile['MaxStreamingBitrate'], defaultMaxStreamingBitrate);
     });
+
+    // Régression : le serveur (.NET) répond 400 si un champ non-nullable reçoit null
+    // (ex. TranscodingProfile.TranscodeSeekInfo) → échec de TOUTES les lectures.
+    test('aucune valeur null dans les corps envoyés (PlaybackInfo et rapports)', () async {
+      final adapter = FakeHttpAdapter({
+        'POST http://s/Items/x/PlaybackInfo': FakeResponse(200, response().toJson()),
+        'POST http://s/Sessions/Playing': const FakeResponse(204, ''),
+        'POST http://s/Sessions/Playing/Progress': const FakeResponse(204, ''),
+        'POST http://s/Sessions/Playing/Stopped': const FakeResponse(204, ''),
+      });
+      final dio = createJellyfinDio(
+        baseUrl: Uri.parse('http://s'),
+        identity: const ClientIdentity(clientName: 'c', deviceName: 'd', deviceId: 'i', version: '1'),
+        tokenProvider: () => 't',
+      );
+      dio.httpClientAdapter = adapter;
+      final repo = PlaybackRepository(JellyfinClient(dio), userId: 'u', baseUrl: Uri.parse('http://s'));
+      final p = await repo.prepare(itemId: 'x');
+      const report = PlaybackReport(itemId: 'x', mediaSourceId: 'src1', playSessionId: null, method: PlayMethod.directPlay, position: Duration(seconds: 5));
+      await repo.start(report);
+      await repo.progress(report);
+      await repo.stopped(report);
+      expect(p.method, PlayMethod.directPlay);
+
+      List<String> nullPaths(Object? node, String path) => switch (node) {
+            null => [path],
+            Map<String, dynamic>() => [for (final e in node.entries) ...nullPaths(e.value, '$path.${e.key}')],
+            List<dynamic>() => [for (final (i, v) in node.indexed) ...nullPaths(v, '$path[$i]')],
+            _ => const [],
+          };
+      for (final r in adapter.requests) {
+        final body = jsonDecode(jsonEncode(r.data));
+        expect(nullPaths(body, r.path), isEmpty, reason: 'corps de ${r.path}');
+      }
+      expect(adapter.requests, hasLength(4));
+    });
   });
 
   test('profil mpv : Direct Play large, sous-titres image jamais extraits', () {

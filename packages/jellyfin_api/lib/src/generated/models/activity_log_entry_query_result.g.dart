@@ -19,7 +19,7 @@ ActivityLogEntryQueryResult _$ActivityLogEntryQueryResultFromJson(
 Map<String, dynamic> _$ActivityLogEntryQueryResultToJson(
   ActivityLogEntryQueryResult instance,
 ) => <String, dynamic>{
-  'Items': instance.items,
-  'TotalRecordCount': instance.totalRecordCount,
-  'StartIndex': instance.startIndex,
+  'Items': ?instance.items,
+  'TotalRecordCount': ?instance.totalRecordCount,
+  'StartIndex': ?instance.startIndex,
 };

@@ -13,4 +13,4 @@ CreateUserByName _$CreateUserByNameFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$CreateUserByNameToJson(CreateUserByName instance) =>
-    <String, dynamic>{'Name': instance.name, 'Password': instance.password};
+    <String, dynamic>{'Name': ?instance.name, 'Password': ?instance.password};

@@ -18,8 +18,8 @@ LogFile _$LogFileFromJson(Map<String, dynamic> json) => LogFile(
 );
 
 Map<String, dynamic> _$LogFileToJson(LogFile instance) => <String, dynamic>{
-  'DateCreated': instance.dateCreated?.toIso8601String(),
-  'DateModified': instance.dateModified?.toIso8601String(),
-  'Size': instance.size,
-  'Name': instance.name,
+  'DateCreated': ?instance.dateCreated?.toIso8601String(),
+  'DateModified': ?instance.dateModified?.toIso8601String(),
+  'Size': ?instance.size,
+  'Name': ?instance.name,
 };

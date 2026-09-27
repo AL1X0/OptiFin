@@ -10,4 +10,4 @@ NewGroupRequestDto _$NewGroupRequestDtoFromJson(Map<String, dynamic> json) =>
     NewGroupRequestDto(groupName: json['GroupName'] as String?);
 
 Map<String, dynamic> _$NewGroupRequestDtoToJson(NewGroupRequestDto instance) =>
-    <String, dynamic>{'GroupName': instance.groupName};
+    <String, dynamic>{'GroupName': ?instance.groupName};

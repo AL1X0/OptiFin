@@ -21,7 +21,7 @@ PlaybackInfoResponse _$PlaybackInfoResponseFromJson(
 Map<String, dynamic> _$PlaybackInfoResponseToJson(
   PlaybackInfoResponse instance,
 ) => <String, dynamic>{
-  'MediaSources': instance.mediaSources,
-  'PlaySessionId': instance.playSessionId,
-  'ErrorCode': instance.errorCode,
+  'MediaSources': ?instance.mediaSources,
+  'PlaySessionId': ?instance.playSessionId,
+  'ErrorCode': ?instance.errorCode,
 };

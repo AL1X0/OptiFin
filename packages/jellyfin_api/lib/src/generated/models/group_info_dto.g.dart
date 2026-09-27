@@ -22,9 +22,9 @@ GroupInfoDto _$GroupInfoDtoFromJson(Map<String, dynamic> json) => GroupInfoDto(
 
 Map<String, dynamic> _$GroupInfoDtoToJson(GroupInfoDto instance) =>
     <String, dynamic>{
-      'GroupId': instance.groupId,
-      'GroupName': instance.groupName,
-      'State': instance.state,
-      'Participants': instance.participants,
-      'LastUpdatedAt': instance.lastUpdatedAt?.toIso8601String(),
+      'GroupId': ?instance.groupId,
+      'GroupName': ?instance.groupName,
+      'State': ?instance.state,
+      'Participants': ?instance.participants,
+      'LastUpdatedAt': ?instance.lastUpdatedAt?.toIso8601String(),
     };

@@ -18,8 +18,8 @@ BufferRequestDto _$BufferRequestDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$BufferRequestDtoToJson(BufferRequestDto instance) =>
     <String, dynamic>{
-      'When': instance.whenValue?.toIso8601String(),
-      'PositionTicks': instance.positionTicks,
-      'IsPlaying': instance.isPlaying,
-      'PlaylistItemId': instance.playlistItemId,
+      'When': ?instance.whenValue?.toIso8601String(),
+      'PositionTicks': ?instance.positionTicks,
+      'IsPlaying': ?instance.isPlaying,
+      'PlaylistItemId': ?instance.playlistItemId,
     };

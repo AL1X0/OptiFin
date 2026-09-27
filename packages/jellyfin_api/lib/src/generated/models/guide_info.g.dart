@@ -16,6 +16,6 @@ GuideInfo _$GuideInfoFromJson(Map<String, dynamic> json) => GuideInfo(
 );
 
 Map<String, dynamic> _$GuideInfoToJson(GuideInfo instance) => <String, dynamic>{
-  'StartDate': instance.startDate?.toIso8601String(),
-  'EndDate': instance.endDate?.toIso8601String(),
+  'StartDate': ?instance.startDate?.toIso8601String(),
+  'EndDate': ?instance.endDate?.toIso8601String(),
 };

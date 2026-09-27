@@ -12,6 +12,6 @@ QueueItem _$QueueItemFromJson(Map<String, dynamic> json) => QueueItem(
 );
 
 Map<String, dynamic> _$QueueItemToJson(QueueItem instance) => <String, dynamic>{
-  'Id': instance.id,
-  'PlaylistItemId': instance.playlistItemId,
+  'Id': ?instance.id,
+  'PlaylistItemId': ?instance.playlistItemId,
 };

@@ -90,3 +90,39 @@ jobs:
         with:
           name: optifin-ios-unsigned
           path: build/ipa/OptiFin-unsigned.ipa
+
+  # Publication SideStore : une Release par build de main, avec l'IPA et la source.
+  # Source à ajouter dans SideStore :
+  #   https://github.com/AL1X0/OptiFin/releases/latest/download/source.json
+  release:
+    name: Publication SideStore
+    needs: ios
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: optifin-ios-unsigned
+          path: dist
+      - name: Préparer l'IPA et la source
+        run: |
+          mv dist/OptiFin-unsigned.ipa dist/OptiFin.ipa
+          VERSION=$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')
+          BUILD=${{ github.run_number }}
+          TAG="build-${BUILD}"
+          NOTES=$(git log -1 --pretty=%s)
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          .github/scripts/sidestore_source.sh dist/OptiFin.ipa "$VERSION" "$BUILD" "$TAG" "$NOTES" > dist/source.json
+          jq . dist/source.json
+      - name: Créer la Release
+        run: |
+          gh release create "$TAG" dist/OptiFin.ipa dist/source.json             --title "OptiFin $VERSION (build ${{ github.run_number }})"             --notes "$(git log -1 --pretty=%B)"             --latest
+      - name: Ne garder que les 10 dernières builds
+        run: |
+          gh release list --limit 100 --json tagName --jq '.[].tagName' | grep '^build-' | sort -t- -k2 -n -r | tail -n +11 |             xargs -r -I{} gh release delete {} --yes --cleanup-tag

@@ -19,11 +19,11 @@ TrickplayInfoDto _$TrickplayInfoDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$TrickplayInfoDtoToJson(TrickplayInfoDto instance) =>
     <String, dynamic>{
-      'Width': instance.width,
-      'Height': instance.height,
-      'TileWidth': instance.tileWidth,
-      'TileHeight': instance.tileHeight,
-      'ThumbnailCount': instance.thumbnailCount,
-      'Interval': instance.interval,
-      'Bandwidth': instance.bandwidth,
+      'Width': ?instance.width,
+      'Height': ?instance.height,
+      'TileWidth': ?instance.tileWidth,
+      'TileHeight': ?instance.tileHeight,
+      'ThumbnailCount': ?instance.thumbnailCount,
+      'Interval': ?instance.interval,
+      'Bandwidth': ?instance.bandwidth,
     };

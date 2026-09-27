@@ -25,15 +25,15 @@ UserItemDataDto _$UserItemDataDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$UserItemDataDtoToJson(UserItemDataDto instance) =>
     <String, dynamic>{
-      'Rating': instance.rating,
-      'PlayedPercentage': instance.playedPercentage,
-      'UnplayedItemCount': instance.unplayedItemCount,
-      'PlaybackPositionTicks': instance.playbackPositionTicks,
-      'PlayCount': instance.playCount,
-      'IsFavorite': instance.isFavorite,
-      'Likes': instance.likes,
-      'LastPlayedDate': instance.lastPlayedDate?.toIso8601String(),
-      'Played': instance.played,
-      'Key': instance.key,
-      'ItemId': instance.itemId,
+      'Rating': ?instance.rating,
+      'PlayedPercentage': ?instance.playedPercentage,
+      'UnplayedItemCount': ?instance.unplayedItemCount,
+      'PlaybackPositionTicks': ?instance.playbackPositionTicks,
+      'PlayCount': ?instance.playCount,
+      'IsFavorite': ?instance.isFavorite,
+      'Likes': ?instance.likes,
+      'LastPlayedDate': ?instance.lastPlayedDate?.toIso8601String(),
+      'Played': ?instance.played,
+      'Key': ?instance.key,
+      'ItemId': ?instance.itemId,
     };

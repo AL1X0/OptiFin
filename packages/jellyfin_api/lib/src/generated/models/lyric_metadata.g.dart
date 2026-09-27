@@ -22,14 +22,14 @@ LyricMetadata _$LyricMetadataFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$LyricMetadataToJson(LyricMetadata instance) =>
     <String, dynamic>{
-      'Artist': instance.artist,
-      'Album': instance.album,
-      'Title': instance.title,
-      'Author': instance.author,
-      'Length': instance.length,
-      'By': instance.by,
-      'Offset': instance.offset,
-      'Creator': instance.creator,
-      'Version': instance.version,
-      'IsSynced': instance.isSynced,
+      'Artist': ?instance.artist,
+      'Album': ?instance.album,
+      'Title': ?instance.title,
+      'Author': ?instance.author,
+      'Length': ?instance.length,
+      'By': ?instance.by,
+      'Offset': ?instance.offset,
+      'Creator': ?instance.creator,
+      'Version': ?instance.version,
+      'IsSynced': ?instance.isSynced,
     };

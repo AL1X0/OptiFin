@@ -20,8 +20,8 @@ MediaSegmentDto _$MediaSegmentDtoFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$MediaSegmentDtoToJson(MediaSegmentDto instance) =>
     <String, dynamic>{
       'Id': instance.id,
-      'ItemId': instance.itemId,
-      'Type': instance.type,
-      'StartTicks': instance.startTicks,
-      'EndTicks': instance.endTicks,
+      'ItemId': ?instance.itemId,
+      'Type': ?instance.type,
+      'StartTicks': ?instance.startTicks,
+      'EndTicks': ?instance.endTicks,
     };

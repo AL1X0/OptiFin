@@ -23,16 +23,16 @@ ItemCounts _$ItemCountsFromJson(Map<String, dynamic> json) => ItemCounts(
 
 Map<String, dynamic> _$ItemCountsToJson(ItemCounts instance) =>
     <String, dynamic>{
-      'MovieCount': instance.movieCount,
-      'SeriesCount': instance.seriesCount,
-      'EpisodeCount': instance.episodeCount,
-      'ArtistCount': instance.artistCount,
-      'ProgramCount': instance.programCount,
-      'TrailerCount': instance.trailerCount,
-      'SongCount': instance.songCount,
-      'AlbumCount': instance.albumCount,
-      'MusicVideoCount': instance.musicVideoCount,
-      'BoxSetCount': instance.boxSetCount,
-      'BookCount': instance.bookCount,
-      'ItemCount': instance.itemCount,
+      'MovieCount': ?instance.movieCount,
+      'SeriesCount': ?instance.seriesCount,
+      'EpisodeCount': ?instance.episodeCount,
+      'ArtistCount': ?instance.artistCount,
+      'ProgramCount': ?instance.programCount,
+      'TrailerCount': ?instance.trailerCount,
+      'SongCount': ?instance.songCount,
+      'AlbumCount': ?instance.albumCount,
+      'MusicVideoCount': ?instance.musicVideoCount,
+      'BoxSetCount': ?instance.boxSetCount,
+      'BookCount': ?instance.bookCount,
+      'ItemCount': ?instance.itemCount,
     };

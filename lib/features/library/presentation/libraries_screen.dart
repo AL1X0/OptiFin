@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../../app/navigation.dart';
+import '../../../app/router.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/network/api_failure.dart';
 import '../../../core/providers.dart';
@@ -34,6 +37,8 @@ class LibrariesScreen extends ConsumerWidget {
                 child: Row(
                   children: [
                     Expanded(child: Text('Bibliothèques', style: OFTypography.title1)),
+                    _SettingsButton(),
+                    SizedBox(width: OFSpacing.md),
                     AccountButton(),
                   ],
                 ),
@@ -81,4 +86,12 @@ class LibrariesScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _SettingsButton extends StatelessWidget {
+  const _SettingsButton();
+
+  @override
+  Widget build(BuildContext context) =>
+      OFIconButton(icon: Icons.settings_outlined, tooltip: 'Paramètres', onPressed: () => context.push(Routes.settings));
 }

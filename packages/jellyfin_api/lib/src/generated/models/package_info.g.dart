@@ -21,12 +21,12 @@ PackageInfo _$PackageInfoFromJson(Map<String, dynamic> json) => PackageInfo(
 
 Map<String, dynamic> _$PackageInfoToJson(PackageInfo instance) =>
     <String, dynamic>{
-      'name': instance.name,
-      'description': instance.description,
-      'overview': instance.overview,
-      'owner': instance.owner,
-      'category': instance.category,
-      'guid': instance.guid,
-      'versions': instance.versions,
-      'imageUrl': instance.imageUrl,
+      'name': ?instance.name,
+      'description': ?instance.description,
+      'overview': ?instance.overview,
+      'owner': ?instance.owner,
+      'category': ?instance.category,
+      'guid': ?instance.guid,
+      'versions': ?instance.versions,
+      'imageUrl': ?instance.imageUrl,
     };

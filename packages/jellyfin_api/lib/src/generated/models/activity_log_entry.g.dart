@@ -27,13 +27,13 @@ ActivityLogEntry _$ActivityLogEntryFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$ActivityLogEntryToJson(ActivityLogEntry instance) =>
     <String, dynamic>{
       'Id': instance.id,
-      'Name': instance.name,
-      'Overview': instance.overview,
-      'ShortOverview': instance.shortOverview,
-      'Type': instance.type,
-      'ItemId': instance.itemId,
-      'Date': instance.date?.toIso8601String(),
-      'UserId': instance.userId,
-      'UserPrimaryImageTag': instance.userPrimaryImageTag,
-      'Severity': instance.severity,
+      'Name': ?instance.name,
+      'Overview': ?instance.overview,
+      'ShortOverview': ?instance.shortOverview,
+      'Type': ?instance.type,
+      'ItemId': ?instance.itemId,
+      'Date': ?instance.date?.toIso8601String(),
+      'UserId': ?instance.userId,
+      'UserPrimaryImageTag': ?instance.userPrimaryImageTag,
+      'Severity': ?instance.severity,
     };

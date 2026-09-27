@@ -2,17 +2,20 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/logging/app_log.dart';
 import '../../../core/media/media_item.dart';
 import '../../../core/network/api_failure.dart';
 import '../../../core/network/jellyfin_auth.dart';
 import '../../../core/providers.dart';
 import '../../details/presentation/details_providers.dart';
 import '../../home/presentation/home_providers.dart';
+import '../../settings/presentation/settings_providers.dart';
 import '../data/engines/mpv_engine.dart';
 import '../data/playback_repository.dart';
 import '../domain/playback_engine.dart';
 import '../domain/playback_plan.dart';
 import '../domain/playback_reporter.dart';
+import '../domain/track_preferences.dart';
 
 final playbackRepositoryProvider = Provider<PlaybackRepository>((ref) {
   final session = ref.watch(sessionControllerProvider);
@@ -25,7 +28,9 @@ final playbackRepositoryProvider = Provider<PlaybackRepository>((ref) {
 });
 
 /// Fabrique du moteur. Phase 3 : libmpv. Phase 4 : choisi par l'EngineSelector.
-final playbackEngineFactoryProvider = Provider<Future<PlaybackEngine> Function()>((ref) => MpvEngine.create);
+final playbackEngineFactoryProvider = Provider<Future<PlaybackEngine> Function()>(
+  (ref) => () => MpvEngine.create(verbose: ref.read(settingsProvider).debugMode),
+);
 
 /// En-têtes d'authentification transmis au moteur (jamais le token dans l'URL).
 final playbackHeadersProvider = Provider<Map<String, String>>((ref) {
@@ -40,7 +45,8 @@ final playbackPrefetchProvider = FutureProvider.autoDispose.family<PlaybackPlan,
   final link = ref.keepAlive();
   final timer = Timer(const Duration(minutes: 2), link.close);
   ref.onDispose(timer.cancel);
-  return ref.watch(playbackRepositoryProvider).prepare(itemId: itemId);
+  final bitrate = await ref.read(maxBitrateResolverProvider)();
+  return ref.watch(playbackRepositoryProvider).prepare(itemId: itemId, maxStreamingBitrate: bitrate);
 });
 
 enum PlayerPhase { preparing, playing, error, closed }
@@ -54,6 +60,7 @@ class PlayerUiState {
     this.error,
     this.subtitleStyle = const SubtitleStyle(),
     this.reloading = false,
+    this.technicalError,
   });
 
   final PlayerPhase phase;
@@ -66,6 +73,9 @@ class PlayerUiState {
   /// Rechargement du flux en cours (changement de piste en transcodage).
   final bool reloading;
 
+  /// Détail technique de l'erreur (affiché en mode debug).
+  final String? technicalError;
+
   PlayerUiState copyWith({
     PlayerPhase? phase,
     MediaItem? item,
@@ -74,6 +84,7 @@ class PlayerUiState {
     String? error,
     SubtitleStyle? subtitleStyle,
     bool? reloading,
+    String? technicalError,
   }) => PlayerUiState(
     phase: phase ?? this.phase,
     item: item ?? this.item,
@@ -82,6 +93,7 @@ class PlayerUiState {
     error: error ?? this.error,
     subtitleStyle: subtitleStyle ?? this.subtitleStyle,
     reloading: reloading ?? this.reloading,
+    technicalError: technicalError ?? this.technicalError,
   );
 }
 
@@ -125,12 +137,13 @@ class PlayerController extends Notifier<PlayerUiState> {
   @override
   PlayerUiState build() {
     _reporter = PlaybackReporter(ref.read(playbackRepositoryProvider));
+    final settings = ref.read(settingsProvider);
     ref.onDispose(() {
       _disposing = true;
       unawaited(close());
     });
     Future.microtask(_start);
-    return const PlayerUiState();
+    return PlayerUiState(subtitleStyle: settings.subtitleStyle);
   }
 
   PlaybackEngine? get engine => state.engine;
@@ -144,8 +157,11 @@ class PlayerController extends Notifier<PlayerUiState> {
       // Future.wait relance l'erreur d'origine (ApiFailure et son message précis).
       final results = await Future.wait<Object>([itemFuture, planFuture]);
       final item = results[0] as MediaItem;
-      final plan = results[1] as PlaybackPlan;
+      var plan = results[1] as PlaybackPlan;
       if (_closed) return;
+      plan = await _applyPreferences(plan);
+      if (_closed) return;
+      _logPlan(item, plan);
       state = state.copyWith(item: item, plan: plan);
 
       final engine = await ref.read(playbackEngineFactoryProvider)();
@@ -163,16 +179,48 @@ class PlayerController extends Notifier<PlayerUiState> {
       state = state.copyWith(engine: engine, phase: PlayerPhase.playing);
       await engine.open(engineMediaFor(plan, start: start));
       _reporter.started(plan, position: start);
-    } catch (e) {
-      _fail(e);
+    } catch (e, stack) {
+      _fail(e, stack);
     }
   }
 
-  void _fail(Object error) {
+  /// Applique les langues préférées (Paramètres). En Direct Play c'est local ;
+  /// sinon le serveur doit préparer un flux avec ces pistes (nouveau PlaybackInfo).
+  Future<PlaybackPlan> _applyPreferences(PlaybackPlan plan) async {
+    final (audio, subtitle) = preferredTracks(plan, ref.read(settingsProvider));
+    if (audio == plan.audioIndex && subtitle == plan.subtitleIndex) return plan;
+    AppLog.i('player', 'Préférences de langue : audio ${plan.audioIndex}→$audio, sous-titres ${plan.subtitleIndex}→$subtitle');
+    if (plan.canSwitchTracksLocally) return plan.withTracks(audioIndex: audio, subtitleIndex: () => subtitle);
+    final bitrate = await ref.read(maxBitrateResolverProvider)();
+    return ref
+        .read(playbackRepositoryProvider)
+        .prepare(
+          itemId: plan.itemId,
+          mediaSourceId: plan.mediaSourceId,
+          audioIndex: audio,
+          subtitleIndex: subtitle ?? -1,
+          maxStreamingBitrate: bitrate,
+        );
+  }
+
+  void _logPlan(MediaItem item, PlaybackPlan plan) {
+    AppLog.i(
+      'player',
+      '« ${item.name} » → ${plan.method.label}, conteneur ${plan.container ?? '?'}, vidéo ${plan.videoCodec ?? '?'}, '
+          'débit ${plan.bitrate == null ? '?' : '${(plan.bitrate! / 1e6).toStringAsFixed(1)} Mb/s'}\n'
+          '  URL : ${plan.streamUrl}\n'
+          '  audio : ${plan.currentAudio?.label ?? '—'} (index ${plan.audioIndex}), '
+          'sous-titres : ${plan.currentSubtitle?.label ?? 'aucun'} (index ${plan.subtitleIndex})',
+    );
+  }
+
+  void _fail(Object error, [StackTrace? stack]) {
+    AppLog.e('player', 'Échec du démarrage de la lecture', error, stack);
     if (_closed) return;
     state = state.copyWith(
       phase: PlayerPhase.error,
       error: error is ApiFailure ? error.userMessage : 'La lecture n’a pas pu démarrer.',
+      technicalError: error is UnexpectedFailure ? error.technicalDetail : error.toString(),
     );
   }
 
@@ -182,8 +230,13 @@ class PlayerController extends Notifier<PlayerUiState> {
         // Phase 5 : épisode suivant avec compte à rebours.
         unawaited(close());
       case PlaybackFailed(:final message):
+        AppLog.e('player', 'Le moteur ${_engine?.name} a échoué : $message');
         unawaited(_reporter.stop(failed: true));
-        state = state.copyWith(phase: PlayerPhase.error, error: 'Lecture impossible : $message');
+        state = state.copyWith(
+          phase: PlayerPhase.error,
+          error: 'Le lecteur n’a pas pu lire ce fichier.',
+          technicalError: '${_engine?.name} : $message',
+        );
     }
   }
 
@@ -305,6 +358,8 @@ class PlayerController extends Notifier<PlayerUiState> {
     final position = e.snapshot.position;
     state = state.copyWith(reloading: true);
     try {
+      final bitrate = await ref.read(maxBitrateResolverProvider)();
+      AppLog.i('player', 'Rechargement du flux (audio $audioIndex, sous-titres $subtitleIndex)');
       final next = await ref
           .read(playbackRepositoryProvider)
           .prepare(
@@ -312,6 +367,7 @@ class PlayerController extends Notifier<PlayerUiState> {
             mediaSourceId: plan.mediaSourceId,
             audioIndex: audioIndex,
             subtitleIndex: subtitleIndex,
+            maxStreamingBitrate: bitrate,
           );
       if (_closed) return;
       await e.open(engineMediaFor(next, start: position));

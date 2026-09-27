@@ -33,19 +33,19 @@ OpenLiveStreamDto _$OpenLiveStreamDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$OpenLiveStreamDtoToJson(OpenLiveStreamDto instance) =>
     <String, dynamic>{
-      'OpenToken': instance.openToken,
-      'UserId': instance.userId,
-      'PlaySessionId': instance.playSessionId,
-      'MaxStreamingBitrate': instance.maxStreamingBitrate,
-      'StartTimeTicks': instance.startTimeTicks,
-      'AudioStreamIndex': instance.audioStreamIndex,
-      'SubtitleStreamIndex': instance.subtitleStreamIndex,
-      'MaxAudioChannels': instance.maxAudioChannels,
-      'ItemId': instance.itemId,
-      'EnableDirectPlay': instance.enableDirectPlay,
-      'EnableDirectStream': instance.enableDirectStream,
+      'OpenToken': ?instance.openToken,
+      'UserId': ?instance.userId,
+      'PlaySessionId': ?instance.playSessionId,
+      'MaxStreamingBitrate': ?instance.maxStreamingBitrate,
+      'StartTimeTicks': ?instance.startTimeTicks,
+      'AudioStreamIndex': ?instance.audioStreamIndex,
+      'SubtitleStreamIndex': ?instance.subtitleStreamIndex,
+      'MaxAudioChannels': ?instance.maxAudioChannels,
+      'ItemId': ?instance.itemId,
+      'EnableDirectPlay': ?instance.enableDirectPlay,
+      'EnableDirectStream': ?instance.enableDirectStream,
       'AlwaysBurnInSubtitleWhenTranscoding':
-          instance.alwaysBurnInSubtitleWhenTranscoding,
-      'DeviceProfile': instance.deviceProfile,
-      'DirectPlayProtocols': instance.directPlayProtocols,
+          ?instance.alwaysBurnInSubtitleWhenTranscoding,
+      'DeviceProfile': ?instance.deviceProfile,
+      'DirectPlayProtocols': ?instance.directPlayProtocols,
     };

@@ -12,4 +12,4 @@ UpdatePlaylistUserDto _$UpdatePlaylistUserDtoFromJson(
 
 Map<String, dynamic> _$UpdatePlaylistUserDtoToJson(
   UpdatePlaylistUserDto instance,
-) => <String, dynamic>{'CanEdit': instance.canEdit};
+) => <String, dynamic>{'CanEdit': ?instance.canEdit};

@@ -14,7 +14,7 @@ ImageOption _$ImageOptionFromJson(Map<String, dynamic> json) => ImageOption(
 
 Map<String, dynamic> _$ImageOptionToJson(ImageOption instance) =>
     <String, dynamic>{
-      'Type': instance.type,
-      'Limit': instance.limit,
-      'MinWidth': instance.minWidth,
+      'Type': ?instance.type,
+      'Limit': ?instance.limit,
+      'MinWidth': ?instance.minWidth,
     };

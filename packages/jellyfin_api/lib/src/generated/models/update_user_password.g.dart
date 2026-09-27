@@ -16,8 +16,8 @@ UpdateUserPassword _$UpdateUserPasswordFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$UpdateUserPasswordToJson(UpdateUserPassword instance) =>
     <String, dynamic>{
-      'CurrentPassword': instance.currentPassword,
-      'CurrentPw': instance.currentPw,
-      'NewPw': instance.newPw,
-      'ResetPassword': instance.resetPassword,
+      'CurrentPassword': ?instance.currentPassword,
+      'CurrentPw': ?instance.currentPw,
+      'NewPw': ?instance.newPw,
+      'ResetPassword': ?instance.resetPassword,
     };

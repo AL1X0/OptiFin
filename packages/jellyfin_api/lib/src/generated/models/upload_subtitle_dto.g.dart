@@ -17,9 +17,9 @@ UploadSubtitleDto _$UploadSubtitleDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$UploadSubtitleDtoToJson(UploadSubtitleDto instance) =>
     <String, dynamic>{
-      'Language': instance.language,
-      'Format': instance.format,
-      'IsForced': instance.isForced,
-      'IsHearingImpaired': instance.isHearingImpaired,
-      'Data': instance.data,
+      'Language': ?instance.language,
+      'Format': ?instance.format,
+      'IsForced': ?instance.isForced,
+      'IsHearingImpaired': ?instance.isHearingImpaired,
+      'Data': ?instance.data,
     };

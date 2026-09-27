@@ -24,12 +24,12 @@ LiveTvServiceInfo _$LiveTvServiceInfoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$LiveTvServiceInfoToJson(LiveTvServiceInfo instance) =>
     <String, dynamic>{
-      'Name': instance.name,
-      'HomePageUrl': instance.homePageUrl,
-      'Status': instance.status,
-      'StatusMessage': instance.statusMessage,
-      'Version': instance.version,
-      'HasUpdateAvailable': instance.hasUpdateAvailable,
-      'IsVisible': instance.isVisible,
-      'Tuners': instance.tuners,
+      'Name': ?instance.name,
+      'HomePageUrl': ?instance.homePageUrl,
+      'Status': ?instance.status,
+      'StatusMessage': ?instance.statusMessage,
+      'Version': ?instance.version,
+      'HasUpdateAvailable': ?instance.hasUpdateAvailable,
+      'IsVisible': ?instance.isVisible,
+      'Tuners': ?instance.tuners,
     };

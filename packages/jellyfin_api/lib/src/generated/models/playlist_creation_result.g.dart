@@ -12,4 +12,4 @@ PlaylistCreationResult _$PlaylistCreationResultFromJson(
 
 Map<String, dynamic> _$PlaylistCreationResultToJson(
   PlaylistCreationResult instance,
-) => <String, dynamic>{'Id': instance.id};
+) => <String, dynamic>{'Id': ?instance.id};

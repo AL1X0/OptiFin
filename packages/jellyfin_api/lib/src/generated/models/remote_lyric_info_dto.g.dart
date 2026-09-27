@@ -18,6 +18,6 @@ RemoteLyricInfoDto _$RemoteLyricInfoDtoFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$RemoteLyricInfoDtoToJson(RemoteLyricInfoDto instance) =>
     <String, dynamic>{
       'Id': instance.id,
-      'ProviderName': instance.providerName,
-      'Lyrics': instance.lyrics,
+      'ProviderName': ?instance.providerName,
+      'Lyrics': ?instance.lyrics,
     };

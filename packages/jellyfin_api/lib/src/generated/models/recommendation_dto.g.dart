@@ -22,8 +22,8 @@ RecommendationDto _$RecommendationDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$RecommendationDtoToJson(RecommendationDto instance) =>
     <String, dynamic>{
-      'Items': instance.items,
-      'RecommendationType': instance.recommendationType,
-      'BaselineItemName': instance.baselineItemName,
-      'CategoryId': instance.categoryId,
+      'Items': ?instance.items,
+      'RecommendationType': ?instance.recommendationType,
+      'BaselineItemName': ?instance.baselineItemName,
+      'CategoryId': ?instance.categoryId,
     };

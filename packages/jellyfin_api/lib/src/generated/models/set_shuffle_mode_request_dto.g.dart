@@ -16,4 +16,4 @@ SetShuffleModeRequestDto _$SetShuffleModeRequestDtoFromJson(
 
 Map<String, dynamic> _$SetShuffleModeRequestDtoToJson(
   SetShuffleModeRequestDto instance,
-) => <String, dynamic>{'Mode': instance.mode};
+) => <String, dynamic>{'Mode': ?instance.mode};

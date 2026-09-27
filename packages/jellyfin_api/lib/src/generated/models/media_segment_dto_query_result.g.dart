@@ -19,7 +19,7 @@ MediaSegmentDtoQueryResult _$MediaSegmentDtoQueryResultFromJson(
 Map<String, dynamic> _$MediaSegmentDtoQueryResultToJson(
   MediaSegmentDtoQueryResult instance,
 ) => <String, dynamic>{
-  'Items': instance.items,
-  'TotalRecordCount': instance.totalRecordCount,
-  'StartIndex': instance.startIndex,
+  'Items': ?instance.items,
+  'TotalRecordCount': ?instance.totalRecordCount,
+  'StartIndex': ?instance.startIndex,
 };

@@ -32,11 +32,11 @@ MetadataOptions _$MetadataOptionsFromJson(
 
 Map<String, dynamic> _$MetadataOptionsToJson(MetadataOptions instance) =>
     <String, dynamic>{
-      'ItemType': instance.itemType,
-      'DisabledMetadataSavers': instance.disabledMetadataSavers,
-      'LocalMetadataReaderOrder': instance.localMetadataReaderOrder,
-      'DisabledMetadataFetchers': instance.disabledMetadataFetchers,
-      'MetadataFetcherOrder': instance.metadataFetcherOrder,
-      'DisabledImageFetchers': instance.disabledImageFetchers,
-      'ImageFetcherOrder': instance.imageFetcherOrder,
+      'ItemType': ?instance.itemType,
+      'DisabledMetadataSavers': ?instance.disabledMetadataSavers,
+      'LocalMetadataReaderOrder': ?instance.localMetadataReaderOrder,
+      'DisabledMetadataFetchers': ?instance.disabledMetadataFetchers,
+      'MetadataFetcherOrder': ?instance.metadataFetcherOrder,
+      'DisabledImageFetchers': ?instance.disabledImageFetchers,
+      'ImageFetcherOrder': ?instance.imageFetcherOrder,
     };

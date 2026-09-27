@@ -19,7 +19,7 @@ BaseItemDtoQueryResult _$BaseItemDtoQueryResultFromJson(
 Map<String, dynamic> _$BaseItemDtoQueryResultToJson(
   BaseItemDtoQueryResult instance,
 ) => <String, dynamic>{
-  'Items': instance.items,
-  'TotalRecordCount': instance.totalRecordCount,
-  'StartIndex': instance.startIndex,
+  'Items': ?instance.items,
+  'TotalRecordCount': ?instance.totalRecordCount,
+  'StartIndex': ?instance.startIndex,
 };

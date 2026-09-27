@@ -16,6 +16,6 @@ LyricDto _$LyricDtoFromJson(Map<String, dynamic> json) => LyricDto(
 );
 
 Map<String, dynamic> _$LyricDtoToJson(LyricDto instance) => <String, dynamic>{
-  'Metadata': instance.metadata,
-  'Lyrics': instance.lyrics,
+  'Metadata': ?instance.metadata,
+  'Lyrics': ?instance.lyrics,
 };

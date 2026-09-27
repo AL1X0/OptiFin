@@ -10,4 +10,4 @@ QuickConnectDto _$QuickConnectDtoFromJson(Map<String, dynamic> json) =>
     QuickConnectDto(secret: json['Secret'] as String?);
 
 Map<String, dynamic> _$QuickConnectDtoToJson(QuickConnectDto instance) =>
-    <String, dynamic>{'Secret': instance.secret};
+    <String, dynamic>{'Secret': ?instance.secret};

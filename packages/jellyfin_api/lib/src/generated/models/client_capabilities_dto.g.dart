@@ -27,11 +27,11 @@ ClientCapabilitiesDto _$ClientCapabilitiesDtoFromJson(
 Map<String, dynamic> _$ClientCapabilitiesDtoToJson(
   ClientCapabilitiesDto instance,
 ) => <String, dynamic>{
-  'PlayableMediaTypes': instance.playableMediaTypes,
-  'SupportedCommands': instance.supportedCommands,
-  'SupportsMediaControl': instance.supportsMediaControl,
-  'SupportsPersistentIdentifier': instance.supportsPersistentIdentifier,
-  'DeviceProfile': instance.deviceProfile,
-  'AppStoreUrl': instance.appStoreUrl,
-  'IconUrl': instance.iconUrl,
+  'PlayableMediaTypes': ?instance.playableMediaTypes,
+  'SupportedCommands': ?instance.supportedCommands,
+  'SupportsMediaControl': ?instance.supportsMediaControl,
+  'SupportsPersistentIdentifier': ?instance.supportsPersistentIdentifier,
+  'DeviceProfile': ?instance.deviceProfile,
+  'AppStoreUrl': ?instance.appStoreUrl,
+  'IconUrl': ?instance.iconUrl,
 };

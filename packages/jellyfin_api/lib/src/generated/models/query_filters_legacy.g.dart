@@ -22,8 +22,8 @@ QueryFiltersLegacy _$QueryFiltersLegacyFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$QueryFiltersLegacyToJson(QueryFiltersLegacy instance) =>
     <String, dynamic>{
-      'Genres': instance.genres,
-      'Tags': instance.tags,
-      'OfficialRatings': instance.officialRatings,
-      'Years': instance.years,
+      'Genres': ?instance.genres,
+      'Tags': ?instance.tags,
+      'OfficialRatings': ?instance.officialRatings,
+      'Years': ?instance.years,
     };

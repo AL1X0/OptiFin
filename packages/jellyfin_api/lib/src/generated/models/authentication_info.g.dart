@@ -30,16 +30,16 @@ AuthenticationInfo _$AuthenticationInfoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$AuthenticationInfoToJson(AuthenticationInfo instance) =>
     <String, dynamic>{
-      'Id': instance.id,
-      'AccessToken': instance.accessToken,
-      'DeviceId': instance.deviceId,
-      'AppName': instance.appName,
-      'AppVersion': instance.appVersion,
-      'DeviceName': instance.deviceName,
-      'UserId': instance.userId,
-      'IsActive': instance.isActive,
-      'DateCreated': instance.dateCreated?.toIso8601String(),
-      'DateRevoked': instance.dateRevoked?.toIso8601String(),
-      'DateLastActivity': instance.dateLastActivity?.toIso8601String(),
-      'UserName': instance.userName,
+      'Id': ?instance.id,
+      'AccessToken': ?instance.accessToken,
+      'DeviceId': ?instance.deviceId,
+      'AppName': ?instance.appName,
+      'AppVersion': ?instance.appVersion,
+      'DeviceName': ?instance.deviceName,
+      'UserId': ?instance.userId,
+      'IsActive': ?instance.isActive,
+      'DateCreated': ?instance.dateCreated?.toIso8601String(),
+      'DateRevoked': ?instance.dateRevoked?.toIso8601String(),
+      'DateLastActivity': ?instance.dateLastActivity?.toIso8601String(),
+      'UserName': ?instance.userName,
     };

@@ -17,8 +17,8 @@ TunerChannelMapping _$TunerChannelMappingFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$TunerChannelMappingToJson(
   TunerChannelMapping instance,
 ) => <String, dynamic>{
-  'Name': instance.name,
-  'ProviderChannelName': instance.providerChannelName,
-  'ProviderChannelId': instance.providerChannelId,
-  'Id': instance.id,
+  'Name': ?instance.name,
+  'ProviderChannelName': ?instance.providerChannelName,
+  'ProviderChannelId': ?instance.providerChannelId,
+  'Id': ?instance.id,
 };

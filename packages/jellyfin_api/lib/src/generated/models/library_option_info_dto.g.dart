@@ -16,6 +16,6 @@ LibraryOptionInfoDto _$LibraryOptionInfoDtoFromJson(
 Map<String, dynamic> _$LibraryOptionInfoDtoToJson(
   LibraryOptionInfoDto instance,
 ) => <String, dynamic>{
-  'Name': instance.name,
-  'DefaultEnabled': instance.defaultEnabled,
+  'Name': ?instance.name,
+  'DefaultEnabled': ?instance.defaultEnabled,
 };

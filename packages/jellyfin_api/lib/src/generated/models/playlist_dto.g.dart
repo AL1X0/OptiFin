@@ -18,7 +18,7 @@ PlaylistDto _$PlaylistDtoFromJson(Map<String, dynamic> json) => PlaylistDto(
 
 Map<String, dynamic> _$PlaylistDtoToJson(PlaylistDto instance) =>
     <String, dynamic>{
-      'OpenAccess': instance.openAccess,
-      'Shares': instance.shares,
-      'ItemIds': instance.itemIds,
+      'OpenAccess': ?instance.openAccess,
+      'Shares': ?instance.shares,
+      'ItemIds': ?instance.itemIds,
     };

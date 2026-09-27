@@ -10,4 +10,4 @@ ExternalUrl _$ExternalUrlFromJson(Map<String, dynamic> json) =>
     ExternalUrl(name: json['Name'] as String?, url: json['Url'] as String?);
 
 Map<String, dynamic> _$ExternalUrlToJson(ExternalUrl instance) =>
-    <String, dynamic>{'Name': instance.name, 'Url': instance.url};
+    <String, dynamic>{'Name': ?instance.name, 'Url': ?instance.url};

@@ -21,11 +21,11 @@ InstallationInfo _$InstallationInfoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$InstallationInfoToJson(InstallationInfo instance) =>
     <String, dynamic>{
-      'Guid': instance.guid,
-      'Name': instance.name,
-      'Version': instance.version,
-      'Changelog': instance.changelog,
-      'SourceUrl': instance.sourceUrl,
-      'Checksum': instance.checksum,
-      'PackageInfo': instance.packageInfo,
+      'Guid': ?instance.guid,
+      'Name': ?instance.name,
+      'Version': ?instance.version,
+      'Changelog': ?instance.changelog,
+      'SourceUrl': ?instance.sourceUrl,
+      'Checksum': ?instance.checksum,
+      'PackageInfo': ?instance.packageInfo,
     };

@@ -15,4 +15,4 @@ AuthenticateUserByName _$AuthenticateUserByNameFromJson(
 
 Map<String, dynamic> _$AuthenticateUserByNameToJson(
   AuthenticateUserByName instance,
-) => <String, dynamic>{'Username': instance.username, 'Pw': instance.pw};
+) => <String, dynamic>{'Username': ?instance.username, 'Pw': ?instance.pw};

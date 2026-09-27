@@ -18,8 +18,8 @@ DirectPlayProfile _$DirectPlayProfileFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$DirectPlayProfileToJson(DirectPlayProfile instance) =>
     <String, dynamic>{
-      'Container': instance.container,
-      'AudioCodec': instance.audioCodec,
-      'VideoCodec': instance.videoCodec,
-      'Type': instance.type,
+      'Container': ?instance.container,
+      'AudioCodec': ?instance.audioCodec,
+      'VideoCodec': ?instance.videoCodec,
+      'Type': ?instance.type,
     };

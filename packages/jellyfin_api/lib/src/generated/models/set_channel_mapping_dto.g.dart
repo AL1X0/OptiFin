@@ -17,7 +17,7 @@ SetChannelMappingDto _$SetChannelMappingDtoFromJson(
 Map<String, dynamic> _$SetChannelMappingDtoToJson(
   SetChannelMappingDto instance,
 ) => <String, dynamic>{
-  'ProviderId': instance.providerId,
-  'TunerChannelId': instance.tunerChannelId,
-  'ProviderChannelId': instance.providerChannelId,
+  'ProviderId': ?instance.providerId,
+  'TunerChannelId': ?instance.tunerChannelId,
+  'ProviderChannelId': ?instance.providerChannelId,
 };

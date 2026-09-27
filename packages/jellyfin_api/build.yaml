@@ -1,0 +1,9 @@
+targets:
+  $default:
+    builders:
+      json_serializable:
+        options:
+          # Ne jamais envoyer de champs null : le serveur Jellyfin (.NET) refuse `null`
+          # pour ses propriétés non-nullables (ex. TranscodingProfile.EstimateContentLength)
+          # et répond 400. Les champs absents prennent la valeur par défaut serveur.
+          include_if_null: false

@@ -24,10 +24,10 @@ CreatePlaylistDto _$CreatePlaylistDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$CreatePlaylistDtoToJson(CreatePlaylistDto instance) =>
     <String, dynamic>{
-      'Name': instance.name,
-      'Ids': instance.ids,
-      'UserId': instance.userId,
-      'MediaType': instance.mediaType,
-      'Users': instance.users,
-      'IsPublic': instance.isPublic,
+      'Name': ?instance.name,
+      'Ids': ?instance.ids,
+      'UserId': ?instance.userId,
+      'MediaType': ?instance.mediaType,
+      'Users': ?instance.users,
+      'IsPublic': ?instance.isPublic,
     };

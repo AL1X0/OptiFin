@@ -18,8 +18,8 @@ FontFile _$FontFileFromJson(Map<String, dynamic> json) => FontFile(
 );
 
 Map<String, dynamic> _$FontFileToJson(FontFile instance) => <String, dynamic>{
-  'Name': instance.name,
-  'Size': instance.size,
-  'DateCreated': instance.dateCreated?.toIso8601String(),
-  'DateModified': instance.dateModified?.toIso8601String(),
+  'Name': ?instance.name,
+  'Size': ?instance.size,
+  'DateCreated': ?instance.dateCreated?.toIso8601String(),
+  'DateModified': ?instance.dateModified?.toIso8601String(),
 };

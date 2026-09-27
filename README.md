@@ -22,6 +22,17 @@ cd packages/jellyfin_api
 dart run tool/prepare_spec.dart && dart run swagger_parser && dart run build_runner build -d
 ```
 
+## Installer / mettre à jour avec SideStore
+
+Ajoutez cette source dans SideStore (onglet Sources › +) :
+
+```
+https://github.com/AL1X0/OptiFin/releases/latest/download/source.json
+```
+
+Chaque push sur `main` publie une nouvelle build (Release GitHub `build-N`) : SideStore la
+propose en mise à jour. Le bundle ID reste `app.optifin.optifin`.
+
 ## CI
 
 `.github/workflows/ci.yml` : analyse + tests, APK Android, **IPA iOS non signée**

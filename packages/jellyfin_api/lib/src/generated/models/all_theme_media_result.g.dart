@@ -28,7 +28,7 @@ AllThemeMediaResult _$AllThemeMediaResultFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$AllThemeMediaResultToJson(
   AllThemeMediaResult instance,
 ) => <String, dynamic>{
-  'ThemeVideosResult': instance.themeVideosResult,
-  'ThemeSongsResult': instance.themeSongsResult,
-  'SoundtrackSongsResult': instance.soundtrackSongsResult,
+  'ThemeVideosResult': ?instance.themeVideosResult,
+  'ThemeSongsResult': ?instance.themeSongsResult,
+  'SoundtrackSongsResult': ?instance.soundtrackSongsResult,
 };

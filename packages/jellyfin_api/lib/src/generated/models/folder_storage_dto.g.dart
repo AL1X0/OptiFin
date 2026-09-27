@@ -17,9 +17,9 @@ FolderStorageDto _$FolderStorageDtoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$FolderStorageDtoToJson(FolderStorageDto instance) =>
     <String, dynamic>{
-      'Path': instance.path,
-      'FreeSpace': instance.freeSpace,
-      'UsedSpace': instance.usedSpace,
-      'StorageType': instance.storageType,
-      'DeviceId': instance.deviceId,
+      'Path': ?instance.path,
+      'FreeSpace': ?instance.freeSpace,
+      'UsedSpace': ?instance.usedSpace,
+      'StorageType': ?instance.storageType,
+      'DeviceId': ?instance.deviceId,
     };

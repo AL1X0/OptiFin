@@ -24,10 +24,10 @@ BaseItemPerson _$BaseItemPersonFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$BaseItemPersonToJson(BaseItemPerson instance) =>
     <String, dynamic>{
-      'Name': instance.name,
+      'Name': ?instance.name,
       'Id': instance.id,
-      'Role': instance.role,
-      'Type': instance.type,
-      'PrimaryImageTag': instance.primaryImageTag,
-      'ImageBlurHashes': instance.imageBlurHashes,
+      'Role': ?instance.role,
+      'Type': ?instance.type,
+      'PrimaryImageTag': ?instance.primaryImageTag,
+      'ImageBlurHashes': ?instance.imageBlurHashes,
     };

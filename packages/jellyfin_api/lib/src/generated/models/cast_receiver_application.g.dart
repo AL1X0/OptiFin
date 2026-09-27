@@ -15,4 +15,4 @@ CastReceiverApplication _$CastReceiverApplicationFromJson(
 
 Map<String, dynamic> _$CastReceiverApplicationToJson(
   CastReceiverApplication instance,
-) => <String, dynamic>{'Id': instance.id, 'Name': instance.name};
+) => <String, dynamic>{'Id': ?instance.id, 'Name': ?instance.name};

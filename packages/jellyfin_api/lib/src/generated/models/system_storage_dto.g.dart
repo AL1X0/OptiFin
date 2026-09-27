@@ -45,12 +45,12 @@ SystemStorageDto _$SystemStorageDtoFromJson(
 
 Map<String, dynamic> _$SystemStorageDtoToJson(SystemStorageDto instance) =>
     <String, dynamic>{
-      'ProgramDataFolder': instance.programDataFolder,
-      'WebFolder': instance.webFolder,
-      'ImageCacheFolder': instance.imageCacheFolder,
-      'CacheFolder': instance.cacheFolder,
-      'LogFolder': instance.logFolder,
-      'InternalMetadataFolder': instance.internalMetadataFolder,
-      'TranscodingTempFolder': instance.transcodingTempFolder,
-      'Libraries': instance.libraries,
+      'ProgramDataFolder': ?instance.programDataFolder,
+      'WebFolder': ?instance.webFolder,
+      'ImageCacheFolder': ?instance.imageCacheFolder,
+      'CacheFolder': ?instance.cacheFolder,
+      'LogFolder': ?instance.logFolder,
+      'InternalMetadataFolder': ?instance.internalMetadataFolder,
+      'TranscodingTempFolder': ?instance.transcodingTempFolder,
+      'Libraries': ?instance.libraries,
     };

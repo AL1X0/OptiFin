@@ -50,6 +50,14 @@ class AccountSwitcherSheet extends ConsumerWidget {
           ),
         const Divider(height: OFSpacing.xl),
         ListTile(
+          leading: const Icon(Icons.settings_outlined, color: OFColors.textPrimary),
+          title: const Text('Paramètres', style: OFTypography.headline),
+          onTap: () {
+            Navigator.of(context).pop();
+            context.push(Routes.settings);
+          },
+        ),
+        ListTile(
           leading: const Icon(Icons.person_add_alt_rounded, color: OFColors.textPrimary),
           title: const Text('Ajouter un compte', style: OFTypography.headline),
           onTap: () {

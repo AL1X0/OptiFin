@@ -17,4 +17,4 @@ QueueRequestDto _$QueueRequestDtoFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$QueueRequestDtoToJson(QueueRequestDto instance) =>
-    <String, dynamic>{'ItemIds': instance.itemIds, 'Mode': instance.mode};
+    <String, dynamic>{'ItemIds': ?instance.itemIds, 'Mode': ?instance.mode};

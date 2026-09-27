@@ -30,16 +30,16 @@ PlayerStateInfo _$PlayerStateInfoFromJson(Map<String, dynamic> json) =>
 
 Map<String, dynamic> _$PlayerStateInfoToJson(PlayerStateInfo instance) =>
     <String, dynamic>{
-      'PositionTicks': instance.positionTicks,
-      'CanSeek': instance.canSeek,
-      'IsPaused': instance.isPaused,
-      'IsMuted': instance.isMuted,
-      'VolumeLevel': instance.volumeLevel,
-      'AudioStreamIndex': instance.audioStreamIndex,
-      'SubtitleStreamIndex': instance.subtitleStreamIndex,
-      'MediaSourceId': instance.mediaSourceId,
-      'PlayMethod': instance.playMethod,
-      'RepeatMode': instance.repeatMode,
-      'PlaybackOrder': instance.playbackOrder,
-      'LiveStreamId': instance.liveStreamId,
+      'PositionTicks': ?instance.positionTicks,
+      'CanSeek': ?instance.canSeek,
+      'IsPaused': ?instance.isPaused,
+      'IsMuted': ?instance.isMuted,
+      'VolumeLevel': ?instance.volumeLevel,
+      'AudioStreamIndex': ?instance.audioStreamIndex,
+      'SubtitleStreamIndex': ?instance.subtitleStreamIndex,
+      'MediaSourceId': ?instance.mediaSourceId,
+      'PlayMethod': ?instance.playMethod,
+      'RepeatMode': ?instance.repeatMode,
+      'PlaybackOrder': ?instance.playbackOrder,
+      'LiveStreamId': ?instance.liveStreamId,
     };

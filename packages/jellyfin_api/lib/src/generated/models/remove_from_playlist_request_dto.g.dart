@@ -19,7 +19,7 @@ RemoveFromPlaylistRequestDto _$RemoveFromPlaylistRequestDtoFromJson(
 Map<String, dynamic> _$RemoveFromPlaylistRequestDtoToJson(
   RemoveFromPlaylistRequestDto instance,
 ) => <String, dynamic>{
-  'PlaylistItemIds': instance.playlistItemIds,
-  'ClearPlaylist': instance.clearPlaylist,
-  'ClearPlayingItem': instance.clearPlayingItem,
+  'PlaylistItemIds': ?instance.playlistItemIds,
+  'ClearPlaylist': ?instance.clearPlaylist,
+  'ClearPlayingItem': ?instance.clearPlayingItem,
 };
