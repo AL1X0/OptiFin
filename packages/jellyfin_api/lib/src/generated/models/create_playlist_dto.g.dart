@@ -8,7 +8,7 @@ part of 'create_playlist_dto.dart';
 
 CreatePlaylistDto _$CreatePlaylistDtoFromJson(Map<String, dynamic> json) =>
     CreatePlaylistDto(
-      name: json['Name'] as String,
+      name: json['Name'] as String?,
       ids: (json['Ids'] as List<dynamic>?)?.map((e) => e as String).toList(),
       userId: json['UserId'] as String?,
       mediaType: json['MediaType'] == null

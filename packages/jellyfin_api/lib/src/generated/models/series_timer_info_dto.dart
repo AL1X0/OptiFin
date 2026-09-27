@@ -69,7 +69,7 @@ class SeriesTimerInfoDto {
 
   /// Gets or sets the channel id of the recording.
   @JsonKey(name: 'ChannelId')
-  final String channelId;
+  final String? channelId;
 
   /// Gets or sets the external channel identifier.
   @JsonKey(name: 'ExternalChannelId')
@@ -99,11 +99,11 @@ class SeriesTimerInfoDto {
 
   /// Gets or sets the start date of the recording, in UTC.
   @JsonKey(name: 'StartDate')
-  final DateTime startDate;
+  final DateTime? startDate;
 
   /// Gets or sets the end date of the recording, in UTC.
   @JsonKey(name: 'EndDate')
-  final DateTime endDate;
+  final DateTime? endDate;
 
   /// Gets or sets the name of the service.
   @JsonKey(name: 'ServiceName')
@@ -111,19 +111,19 @@ class SeriesTimerInfoDto {
 
   /// Gets or sets the priority.
   @JsonKey(name: 'Priority')
-  final int priority;
+  final int? priority;
 
   /// Gets or sets the pre padding seconds.
   @JsonKey(name: 'PrePaddingSeconds')
-  final int prePaddingSeconds;
+  final int? prePaddingSeconds;
 
   /// Gets or sets the post padding seconds.
   @JsonKey(name: 'PostPaddingSeconds')
-  final int postPaddingSeconds;
+  final int? postPaddingSeconds;
 
   /// Gets or sets a value indicating whether this instance is pre padding required.
   @JsonKey(name: 'IsPrePaddingRequired')
-  final bool isPrePaddingRequired;
+  final bool? isPrePaddingRequired;
 
   /// Gets or sets the Id of the Parent that has a backdrop if the item does not have one.
   @JsonKey(name: 'ParentBackdropItemId')
@@ -135,25 +135,25 @@ class SeriesTimerInfoDto {
 
   /// Gets or sets a value indicating whether this instance is post padding required.
   @JsonKey(name: 'IsPostPaddingRequired')
-  final bool isPostPaddingRequired;
+  final bool? isPostPaddingRequired;
   @JsonKey(name: 'KeepUntil')
-  final SeriesTimerInfoDtoKeepUntil keepUntil;
+  final SeriesTimerInfoDtoKeepUntil? keepUntil;
 
   /// Gets or sets a value indicating whether [record any time].
   @JsonKey(name: 'RecordAnyTime')
-  final bool recordAnyTime;
+  final bool? recordAnyTime;
   @JsonKey(name: 'SkipEpisodesInLibrary')
-  final bool skipEpisodesInLibrary;
+  final bool? skipEpisodesInLibrary;
 
   /// Gets or sets a value indicating whether [record any channel].
   @JsonKey(name: 'RecordAnyChannel')
-  final bool recordAnyChannel;
+  final bool? recordAnyChannel;
   @JsonKey(name: 'KeepUpTo')
-  final int keepUpTo;
+  final int? keepUpTo;
 
   /// Gets or sets a value indicating whether [record new only].
   @JsonKey(name: 'RecordNewOnly')
-  final bool recordNewOnly;
+  final bool? recordNewOnly;
 
   /// Gets or sets the days.
   @JsonKey(name: 'Days')

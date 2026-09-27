@@ -8,9 +8,11 @@ part of 'live_stream_response.dart';
 
 LiveStreamResponse _$LiveStreamResponseFromJson(Map<String, dynamic> json) =>
     LiveStreamResponse(
-      mediaSource: MediaSourceInfo.fromJson(
-        json['MediaSource'] as Map<String, dynamic>,
-      ),
+      mediaSource: json['MediaSource'] == null
+          ? null
+          : MediaSourceInfo.fromJson(
+              json['MediaSource'] as Map<String, dynamic>,
+            ),
     );
 
 Map<String, dynamic> _$LiveStreamResponseToJson(LiveStreamResponse instance) =>

@@ -8,23 +8,25 @@ part of 'trickplay_options.dart';
 
 TrickplayOptions _$TrickplayOptionsFromJson(Map<String, dynamic> json) =>
     TrickplayOptions(
-      enableHwAcceleration: json['EnableHwAcceleration'] as bool,
-      enableHwEncoding: json['EnableHwEncoding'] as bool,
+      enableHwAcceleration: json['EnableHwAcceleration'] as bool?,
+      enableHwEncoding: json['EnableHwEncoding'] as bool?,
       enableKeyFrameOnlyExtraction:
-          json['EnableKeyFrameOnlyExtraction'] as bool,
-      scanBehavior: TrickplayOptionsScanBehavior.fromJson(json['ScanBehavior']),
-      processPriority: TrickplayOptionsProcessPriority.fromJson(
-        json['ProcessPriority'],
-      ),
-      interval: (json['Interval'] as num).toInt(),
-      widthResolutions: (json['WidthResolutions'] as List<dynamic>)
-          .map((e) => (e as num).toInt())
+          json['EnableKeyFrameOnlyExtraction'] as bool?,
+      scanBehavior: json['ScanBehavior'] == null
+          ? null
+          : TrickplayOptionsScanBehavior.fromJson(json['ScanBehavior']),
+      processPriority: json['ProcessPriority'] == null
+          ? null
+          : TrickplayOptionsProcessPriority.fromJson(json['ProcessPriority']),
+      interval: (json['Interval'] as num?)?.toInt(),
+      widthResolutions: (json['WidthResolutions'] as List<dynamic>?)
+          ?.map((e) => (e as num).toInt())
           .toList(),
-      tileWidth: (json['TileWidth'] as num).toInt(),
-      tileHeight: (json['TileHeight'] as num).toInt(),
-      qscale: (json['Qscale'] as num).toInt(),
-      jpegQuality: (json['JpegQuality'] as num).toInt(),
-      processThreads: (json['ProcessThreads'] as num).toInt(),
+      tileWidth: (json['TileWidth'] as num?)?.toInt(),
+      tileHeight: (json['TileHeight'] as num?)?.toInt(),
+      qscale: (json['Qscale'] as num?)?.toInt(),
+      jpegQuality: (json['JpegQuality'] as num?)?.toInt(),
+      processThreads: (json['ProcessThreads'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$TrickplayOptionsToJson(TrickplayOptions instance) =>

@@ -10,8 +10,8 @@ part 'message_command.g.dart';
 @JsonSerializable()
 class MessageCommand {
   const MessageCommand({
-    required this.text,
     this.header,
+    this.text,
     this.timeoutMs,
   });
   
@@ -23,7 +23,7 @@ class MessageCommand {
 
   /// Gets or sets the message text.
   @JsonKey(name: 'Text')
-  final String text;
+  final String? text;
 
   /// Gets or sets the timeout in milliseconds after which the message should be dismissed.
   @JsonKey(name: 'TimeoutMs')

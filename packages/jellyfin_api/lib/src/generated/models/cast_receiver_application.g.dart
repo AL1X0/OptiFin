@@ -9,8 +9,8 @@ part of 'cast_receiver_application.dart';
 CastReceiverApplication _$CastReceiverApplicationFromJson(
   Map<String, dynamic> json,
 ) => CastReceiverApplication(
-  id: json['Id'] as String,
-  name: json['Name'] as String,
+  id: json['Id'] as String?,
+  name: json['Name'] as String?,
 );
 
 Map<String, dynamic> _$CastReceiverApplicationToJson(

@@ -7,9 +7,9 @@ part of 'search_hint.dart';
 // **************************************************************************
 
 SearchHint _$SearchHintFromJson(Map<String, dynamic> json) => SearchHint(
-  itemId: json['ItemId'] as String,
+  itemId: json['ItemId'] as String?,
   id: json['Id'] as String,
-  name: json['Name'] as String,
+  name: json['Name'] as String?,
   matchedTerm: json['MatchedTerm'] as String?,
   indexNumber: (json['IndexNumber'] as num?)?.toInt(),
   productionYear: (json['ProductionYear'] as num?)?.toInt(),
@@ -19,10 +19,12 @@ SearchHint _$SearchHintFromJson(Map<String, dynamic> json) => SearchHint(
   thumbImageItemId: json['ThumbImageItemId'] as String?,
   backdropImageTag: json['BackdropImageTag'] as String?,
   backdropImageItemId: json['BackdropImageItemId'] as String?,
-  type: SearchHintType.fromJson(json['Type']),
+  type: json['Type'] == null ? null : SearchHintType.fromJson(json['Type']),
   isFolder: json['IsFolder'] as bool?,
   runTimeTicks: (json['RunTimeTicks'] as num?)?.toInt(),
-  mediaType: SearchHintMediaType.fromJson(json['MediaType']),
+  mediaType: json['MediaType'] == null
+      ? null
+      : SearchHintMediaType.fromJson(json['MediaType']),
   startDate: json['StartDate'] == null
       ? null
       : DateTime.parse(json['StartDate'] as String),
@@ -34,7 +36,9 @@ SearchHint _$SearchHintFromJson(Map<String, dynamic> json) => SearchHint(
   album: json['Album'] as String?,
   albumId: json['AlbumId'] as String?,
   albumArtist: json['AlbumArtist'] as String?,
-  artists: (json['Artists'] as List<dynamic>).map((e) => e as String).toList(),
+  artists: (json['Artists'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
   songCount: (json['SongCount'] as num?)?.toInt(),
   episodeCount: (json['EpisodeCount'] as num?)?.toInt(),
   channelId: json['ChannelId'] as String?,

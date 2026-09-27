@@ -9,8 +9,8 @@ part of 'playback_info_response.dart';
 PlaybackInfoResponse _$PlaybackInfoResponseFromJson(
   Map<String, dynamic> json,
 ) => PlaybackInfoResponse(
-  mediaSources: (json['MediaSources'] as List<dynamic>)
-      .map((e) => MediaSourceInfo.fromJson(e as Map<String, dynamic>))
+  mediaSources: (json['MediaSources'] as List<dynamic>?)
+      ?.map((e) => MediaSourceInfo.fromJson(e as Map<String, dynamic>))
       .toList(),
   playSessionId: json['PlaySessionId'] as String?,
   errorCode: json['ErrorCode'] == null

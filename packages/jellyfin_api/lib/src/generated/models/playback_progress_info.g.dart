@@ -9,29 +9,33 @@ part of 'playback_progress_info.dart';
 PlaybackProgressInfo _$PlaybackProgressInfoFromJson(
   Map<String, dynamic> json,
 ) => PlaybackProgressInfo(
-  canSeek: json['CanSeek'] as bool,
+  canSeek: json['CanSeek'] as bool?,
   item: json['Item'] == null
       ? null
       : BaseItemDto.fromJson(json['Item'] as Map<String, dynamic>),
-  itemId: json['ItemId'] as String,
+  itemId: json['ItemId'] as String?,
   sessionId: json['SessionId'] as String?,
   mediaSourceId: json['MediaSourceId'] as String?,
   audioStreamIndex: (json['AudioStreamIndex'] as num?)?.toInt(),
   subtitleStreamIndex: (json['SubtitleStreamIndex'] as num?)?.toInt(),
-  isPaused: json['IsPaused'] as bool,
-  isMuted: json['IsMuted'] as bool,
+  isPaused: json['IsPaused'] as bool?,
+  isMuted: json['IsMuted'] as bool?,
   positionTicks: (json['PositionTicks'] as num?)?.toInt(),
   playbackStartTimeTicks: (json['PlaybackStartTimeTicks'] as num?)?.toInt(),
   volumeLevel: (json['VolumeLevel'] as num?)?.toInt(),
   brightness: (json['Brightness'] as num?)?.toInt(),
   aspectRatio: json['AspectRatio'] as String?,
-  playMethod: PlaybackProgressInfoPlayMethod.fromJson(json['PlayMethod']),
+  playMethod: json['PlayMethod'] == null
+      ? null
+      : PlaybackProgressInfoPlayMethod.fromJson(json['PlayMethod']),
   liveStreamId: json['LiveStreamId'] as String?,
   playSessionId: json['PlaySessionId'] as String?,
-  repeatMode: PlaybackProgressInfoRepeatMode.fromJson(json['RepeatMode']),
-  playbackOrder: PlaybackProgressInfoPlaybackOrder.fromJson(
-    json['PlaybackOrder'],
-  ),
+  repeatMode: json['RepeatMode'] == null
+      ? null
+      : PlaybackProgressInfoRepeatMode.fromJson(json['RepeatMode']),
+  playbackOrder: json['PlaybackOrder'] == null
+      ? null
+      : PlaybackProgressInfoPlaybackOrder.fromJson(json['PlaybackOrder']),
   nowPlayingQueue: (json['NowPlayingQueue'] as List<dynamic>?)
       ?.map((e) => QueueItem.fromJson(e as Map<String, dynamic>))
       .toList(),

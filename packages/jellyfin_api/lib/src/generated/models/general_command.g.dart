@@ -8,9 +8,13 @@ part of 'general_command.dart';
 
 GeneralCommand _$GeneralCommandFromJson(Map<String, dynamic> json) =>
     GeneralCommand(
-      name: GeneralCommandName.fromJson(json['Name']),
-      controllingUserId: json['ControllingUserId'] as String,
-      arguments: Map<String, String>.from(json['Arguments'] as Map),
+      name: json['Name'] == null
+          ? null
+          : GeneralCommandName.fromJson(json['Name']),
+      controllingUserId: json['ControllingUserId'] as String?,
+      arguments: (json['Arguments'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, e as String),
+      ),
     );
 
 Map<String, dynamic> _$GeneralCommandToJson(GeneralCommand instance) =>

@@ -8,10 +8,14 @@ part of 'profile_condition.dart';
 
 ProfileCondition _$ProfileConditionFromJson(Map<String, dynamic> json) =>
     ProfileCondition(
-      condition: ProfileConditionCondition.fromJson(json['Condition']),
-      property: ProfileConditionProperty.fromJson(json['Property']),
+      condition: json['Condition'] == null
+          ? null
+          : ProfileConditionCondition.fromJson(json['Condition']),
+      property: json['Property'] == null
+          ? null
+          : ProfileConditionProperty.fromJson(json['Property']),
       value: json['Value'] as String?,
-      isRequired: json['IsRequired'] as bool,
+      isRequired: json['IsRequired'] as bool?,
     );
 
 Map<String, dynamic> _$ProfileConditionToJson(ProfileCondition instance) =>

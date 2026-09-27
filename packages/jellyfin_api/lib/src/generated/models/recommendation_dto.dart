@@ -23,11 +23,11 @@ class RecommendationDto {
   @JsonKey(name: 'Items')
   final List<BaseItemDto>? items;
   @JsonKey(name: 'RecommendationType')
-  final RecommendationDtoRecommendationType recommendationType;
+  final RecommendationDtoRecommendationType? recommendationType;
   @JsonKey(name: 'BaselineItemName')
   final String? baselineItemName;
   @JsonKey(name: 'CategoryId')
-  final String categoryId;
+  final String? categoryId;
 
   Map<String, Object?> toJson() => _$RecommendationDtoToJson(this);
 }

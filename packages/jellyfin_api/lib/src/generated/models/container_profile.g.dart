@@ -8,9 +8,11 @@ part of 'container_profile.dart';
 
 ContainerProfile _$ContainerProfileFromJson(Map<String, dynamic> json) =>
     ContainerProfile(
-      type: ContainerProfileType.fromJson(json['Type']),
-      conditions: (json['Conditions'] as List<dynamic>)
-          .map((e) => ProfileCondition.fromJson(e as Map<String, dynamic>))
+      type: json['Type'] == null
+          ? null
+          : ContainerProfileType.fromJson(json['Type']),
+      conditions: (json['Conditions'] as List<dynamic>?)
+          ?.map((e) => ProfileCondition.fromJson(e as Map<String, dynamic>))
           .toList(),
       container: json['Container'] as String?,
       subContainer: json['SubContainer'] as String?,

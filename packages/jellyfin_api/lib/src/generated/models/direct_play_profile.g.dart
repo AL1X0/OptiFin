@@ -8,10 +8,12 @@ part of 'direct_play_profile.dart';
 
 DirectPlayProfile _$DirectPlayProfileFromJson(Map<String, dynamic> json) =>
     DirectPlayProfile(
-      container: json['Container'] as String,
+      container: json['Container'] as String?,
       audioCodec: json['AudioCodec'] as String?,
       videoCodec: json['VideoCodec'] as String?,
-      type: DirectPlayProfileType.fromJson(json['Type']),
+      type: json['Type'] == null
+          ? null
+          : DirectPlayProfileType.fromJson(json['Type']),
     );
 
 Map<String, dynamic> _$DirectPlayProfileToJson(DirectPlayProfile instance) =>

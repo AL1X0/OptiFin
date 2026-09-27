@@ -8,7 +8,7 @@ part of 'installation_info.dart';
 
 InstallationInfo _$InstallationInfoFromJson(Map<String, dynamic> json) =>
     InstallationInfo(
-      guid: json['Guid'] as String,
+      guid: json['Guid'] as String?,
       name: json['Name'] as String?,
       version: json['Version'] as String?,
       changelog: json['Changelog'] as String?,

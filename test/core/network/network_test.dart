@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:optifin/core/media/media_item.dart';
 import 'package:optifin/core/network/api_failure.dart';
 import 'package:optifin/core/network/dio_factory.dart';
 import 'package:optifin/core/network/image_url.dart';
@@ -108,20 +109,26 @@ void main() {
     });
 
     test('poster : maxWidth, qualité, WebP, tag, sous-chemin conservé', () {
-      final uri = builder.item(
-        itemId: 'i1',
-        type: JellyfinImageType.primary,
+      final uri = builder.image(
+        const ImageRef(itemId: 'i1', type: ImageKind.primary, tag: 't'),
         logicalWidth: 112,
         devicePixelRatio: 3,
-        tag: 't',
       );
       expect(uri.path, '/jf/Items/i1/Images/Primary');
       expect(uri.queryParameters, {'maxWidth': '480', 'quality': '90', 'format': 'Webp', 'tag': 't'});
     });
 
     test('backdrop indexé', () {
-      final uri = builder.item(itemId: 'i', type: JellyfinImageType.backdrop, logicalWidth: 400, devicePixelRatio: 2, index: 2);
+      final uri = builder.image(
+        const ImageRef(itemId: 'i', type: ImageKind.backdrop, tag: 'b', index: 2),
+        logicalWidth: 400,
+        devicePixelRatio: 2,
+      );
       expect(uri.path, '/jf/Items/i/Images/Backdrop/2');
+    });
+
+    test('maybe : null sans image', () {
+      expect(builder.maybe(null, logicalWidth: 100, devicePixelRatio: 2), isNull);
     });
 
     test('avatar utilisateur', () {

@@ -8,11 +8,11 @@ part of 'upload_subtitle_dto.dart';
 
 UploadSubtitleDto _$UploadSubtitleDtoFromJson(Map<String, dynamic> json) =>
     UploadSubtitleDto(
-      language: json['Language'] as String,
-      format: json['Format'] as String,
-      isForced: json['IsForced'] as bool,
-      isHearingImpaired: json['IsHearingImpaired'] as bool,
-      data: json['Data'] as String,
+      language: json['Language'] as String?,
+      format: json['Format'] as String?,
+      isForced: json['IsForced'] as bool?,
+      isHearingImpaired: json['IsHearingImpaired'] as bool?,
+      data: json['Data'] as String?,
     );
 
 Map<String, dynamic> _$UploadSubtitleDtoToJson(UploadSubtitleDto instance) =>

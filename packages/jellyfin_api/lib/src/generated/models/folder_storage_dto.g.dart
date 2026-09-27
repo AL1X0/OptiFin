@@ -8,7 +8,7 @@ part of 'folder_storage_dto.dart';
 
 FolderStorageDto _$FolderStorageDtoFromJson(Map<String, dynamic> json) =>
     FolderStorageDto(
-      path: json['Path'] as String,
+      path: json['Path'] as String?,
       freeSpace: (json['FreeSpace'] as num?)?.toInt(),
       usedSpace: (json['UsedSpace'] as num?)?.toInt(),
       storageType: json['StorageType'] as String?,

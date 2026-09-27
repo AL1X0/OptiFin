@@ -32,7 +32,7 @@ class ActivityLogEntry {
 
   /// Gets or sets the name.
   @JsonKey(name: 'Name')
-  final String name;
+  final String? name;
 
   /// Gets or sets the overview.
   @JsonKey(name: 'Overview')
@@ -44,7 +44,7 @@ class ActivityLogEntry {
 
   /// Gets or sets the type.
   @JsonKey(name: 'Type')
-  final String type;
+  final String? type;
 
   /// Gets or sets the item identifier.
   @JsonKey(name: 'ItemId')
@@ -52,11 +52,11 @@ class ActivityLogEntry {
 
   /// Gets or sets the date.
   @JsonKey(name: 'Date')
-  final DateTime date;
+  final DateTime? date;
 
   /// Gets or sets the user identifier.
   @JsonKey(name: 'UserId')
-  final String userId;
+  final String? userId;
 
   /// Gets or sets the user primary image tag.
   @JsonKey(name: 'UserPrimaryImageTag')
@@ -64,7 +64,7 @@ class ActivityLogEntry {
 
   /// Gets or sets the log severity.
   @JsonKey(name: 'Severity')
-  final ActivityLogEntrySeverity severity;
+  final ActivityLogEntrySeverity? severity;
 
   Map<String, Object?> toJson() => _$ActivityLogEntryToJson(this);
 }

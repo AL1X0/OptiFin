@@ -10,24 +10,24 @@ part 'set_channel_mapping_dto.g.dart';
 @JsonSerializable()
 class SetChannelMappingDto {
   const SetChannelMappingDto({
-    required this.providerId,
-    required this.tunerChannelId,
-    required this.providerChannelId,
+    this.providerId,
+    this.tunerChannelId,
+    this.providerChannelId,
   });
   
   factory SetChannelMappingDto.fromJson(Map<String, Object?> json) => _$SetChannelMappingDtoFromJson(json);
   
   /// Gets or sets the provider id.
   @JsonKey(name: 'ProviderId')
-  final String providerId;
+  final String? providerId;
 
   /// Gets or sets the tuner channel id.
   @JsonKey(name: 'TunerChannelId')
-  final String tunerChannelId;
+  final String? tunerChannelId;
 
   /// Gets or sets the provider channel id.
   @JsonKey(name: 'ProviderChannelId')
-  final String providerChannelId;
+  final String? providerChannelId;
 
   Map<String, Object?> toJson() => _$SetChannelMappingDtoToJson(this);
 }

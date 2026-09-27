@@ -7,7 +7,9 @@ part of 'media_stream.dart';
 // **************************************************************************
 
 MediaStream _$MediaStreamFromJson(Map<String, dynamic> json) => MediaStream(
-  videoRangeType: MediaStreamVideoRangeType.fromJson(json['VideoRangeType']),
+  videoRangeType: json['VideoRangeType'] == null
+      ? null
+      : MediaStreamVideoRangeType.fromJson(json['VideoRangeType']),
   codecTag: json['CodecTag'] as String?,
   language: json['Language'] as String?,
   colorRange: json['ColorRange'] as String?,
@@ -29,12 +31,14 @@ MediaStream _$MediaStreamFromJson(Map<String, dynamic> json) => MediaStream(
   codecTimeBase: json['CodecTimeBase'] as String?,
   title: json['Title'] as String?,
   hdr10PlusPresentFlag: json['Hdr10PlusPresentFlag'] as bool?,
-  videoRange: MediaStreamVideoRange.fromJson(json['VideoRange']),
+  videoRange: json['VideoRange'] == null
+      ? null
+      : MediaStreamVideoRange.fromJson(json['VideoRange']),
   codec: json['Codec'] as String?,
   videoDoViTitle: json['VideoDoViTitle'] as String?,
-  audioSpatialFormat: MediaStreamAudioSpatialFormat.fromJson(
-    json['AudioSpatialFormat'],
-  ),
+  audioSpatialFormat: json['AudioSpatialFormat'] == null
+      ? null
+      : MediaStreamAudioSpatialFormat.fromJson(json['AudioSpatialFormat']),
   localizedUndefined: json['LocalizedUndefined'] as String?,
   localizedDefault: json['LocalizedDefault'] as String?,
   localizedForced: json['LocalizedForced'] as String?,
@@ -44,7 +48,7 @@ MediaStream _$MediaStreamFromJson(Map<String, dynamic> json) => MediaStream(
   localizedOriginal: json['LocalizedOriginal'] as String?,
   displayTitle: json['DisplayTitle'] as String?,
   nalLengthSize: json['NalLengthSize'] as String?,
-  isInterlaced: json['IsInterlaced'] as bool,
+  isInterlaced: json['IsInterlaced'] as bool?,
   isAvc: json['IsAVC'] as bool?,
   channelLayout: json['ChannelLayout'] as String?,
   bitRate: (json['BitRate'] as num?)?.toInt(),
@@ -53,32 +57,32 @@ MediaStream _$MediaStreamFromJson(Map<String, dynamic> json) => MediaStream(
   packetLength: (json['PacketLength'] as num?)?.toInt(),
   channels: (json['Channels'] as num?)?.toInt(),
   sampleRate: (json['SampleRate'] as num?)?.toInt(),
-  isDefault: json['IsDefault'] as bool,
+  isDefault: json['IsDefault'] as bool?,
   isAnamorphic: json['IsAnamorphic'] as bool?,
-  isHearingImpaired: json['IsHearingImpaired'] as bool,
-  isOriginal: json['IsOriginal'] as bool,
+  isHearingImpaired: json['IsHearingImpaired'] as bool?,
+  isOriginal: json['IsOriginal'] as bool?,
   height: (json['Height'] as num?)?.toInt(),
   width: (json['Width'] as num?)?.toInt(),
   averageFrameRate: (json['AverageFrameRate'] as num?)?.toDouble(),
   realFrameRate: (json['RealFrameRate'] as num?)?.toDouble(),
   referenceFrameRate: (json['ReferenceFrameRate'] as num?)?.toDouble(),
   profile: json['Profile'] as String?,
-  type: MediaStreamType.fromJson(json['Type']),
+  type: json['Type'] == null ? null : MediaStreamType.fromJson(json['Type']),
   aspectRatio: json['AspectRatio'] as String?,
-  index: (json['Index'] as num).toInt(),
+  index: (json['Index'] as num?)?.toInt(),
   score: (json['Score'] as num?)?.toInt(),
-  isExternal: json['IsExternal'] as bool,
+  isExternal: json['IsExternal'] as bool?,
   deliveryMethod: json['DeliveryMethod'] == null
       ? null
       : MediaStreamDeliveryMethod.fromJson(json['DeliveryMethod']),
   deliveryUrl: json['DeliveryUrl'] as String?,
   isExternalUrl: json['IsExternalUrl'] as bool?,
-  isTextSubtitleStream: json['IsTextSubtitleStream'] as bool,
-  supportsExternalStream: json['SupportsExternalStream'] as bool,
+  isTextSubtitleStream: json['IsTextSubtitleStream'] as bool?,
+  supportsExternalStream: json['SupportsExternalStream'] as bool?,
   path: json['Path'] as String?,
   pixelFormat: json['PixelFormat'] as String?,
   level: (json['Level'] as num?)?.toDouble(),
-  isForced: json['IsForced'] as bool,
+  isForced: json['IsForced'] as bool?,
 );
 
 Map<String, dynamic> _$MediaStreamToJson(MediaStream instance) =>

@@ -9,9 +9,9 @@ part of 'set_channel_mapping_dto.dart';
 SetChannelMappingDto _$SetChannelMappingDtoFromJson(
   Map<String, dynamic> json,
 ) => SetChannelMappingDto(
-  providerId: json['ProviderId'] as String,
-  tunerChannelId: json['TunerChannelId'] as String,
-  providerChannelId: json['ProviderChannelId'] as String,
+  providerId: json['ProviderId'] as String?,
+  tunerChannelId: json['TunerChannelId'] as String?,
+  providerChannelId: json['ProviderChannelId'] as String?,
 );
 
 Map<String, dynamic> _$SetChannelMappingDtoToJson(

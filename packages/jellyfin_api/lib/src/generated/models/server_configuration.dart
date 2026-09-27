@@ -81,11 +81,11 @@ class ServerConfiguration {
   
   /// Gets or sets the number of days we should retain log files.
   @JsonKey(name: 'LogFileRetentionDays')
-  final int logFileRetentionDays;
+  final int? logFileRetentionDays;
 
   /// Gets or sets a value indicating whether this instance is first run.
   @JsonKey(name: 'IsStartupWizardCompleted')
-  final bool isStartupWizardCompleted;
+  final bool? isStartupWizardCompleted;
 
   /// Gets or sets the cache path.
   @JsonKey(name: 'CachePath')
@@ -102,134 +102,134 @@ class ServerConfiguration {
 
   /// Gets or sets a value indicating whether to enable prometheus metrics exporting.
   @JsonKey(name: 'EnableMetrics')
-  final bool enableMetrics;
+  final bool? enableMetrics;
   @JsonKey(name: 'EnableNormalizedItemByNameIds')
-  final bool enableNormalizedItemByNameIds;
+  final bool? enableNormalizedItemByNameIds;
 
   /// Gets or sets a value indicating whether this instance is port authorized.
   @JsonKey(name: 'IsPortAuthorized')
-  final bool isPortAuthorized;
+  final bool? isPortAuthorized;
 
   /// Gets or sets a value indicating whether quick connect is available for use on this server.
   @JsonKey(name: 'QuickConnectAvailable')
-  final bool quickConnectAvailable;
+  final bool? quickConnectAvailable;
 
   /// Gets or sets a value indicating whether [enable case-sensitive item ids].
   @JsonKey(name: 'EnableCaseSensitiveItemIds')
-  final bool enableCaseSensitiveItemIds;
+  final bool? enableCaseSensitiveItemIds;
   @JsonKey(name: 'DisableLiveTvChannelUserDataName')
-  final bool disableLiveTvChannelUserDataName;
+  final bool? disableLiveTvChannelUserDataName;
 
   /// Gets or sets the metadata path.
   @JsonKey(name: 'MetadataPath')
-  final String metadataPath;
+  final String? metadataPath;
 
   /// Gets or sets the preferred metadata language.
   @JsonKey(name: 'PreferredMetadataLanguage')
-  final String preferredMetadataLanguage;
+  final String? preferredMetadataLanguage;
 
   /// Gets or sets the metadata country code.
   @JsonKey(name: 'MetadataCountryCode')
-  final String metadataCountryCode;
+  final String? metadataCountryCode;
 
   /// Gets or sets characters to be replaced with a ' ' in strings to create a sort name.
   @JsonKey(name: 'SortReplaceCharacters')
-  final List<String> sortReplaceCharacters;
+  final List<String>? sortReplaceCharacters;
 
   /// Gets or sets characters to be removed from strings to create a sort name.
   @JsonKey(name: 'SortRemoveCharacters')
-  final List<String> sortRemoveCharacters;
+  final List<String>? sortRemoveCharacters;
 
   /// Gets or sets words to be removed from strings to create a sort name.
   @JsonKey(name: 'SortRemoveWords')
-  final List<String> sortRemoveWords;
+  final List<String>? sortRemoveWords;
 
   /// Gets or sets the minimum percentage of an item that must be played in order for playstate to be updated.
   @JsonKey(name: 'MinResumePct')
-  final int minResumePct;
+  final int? minResumePct;
 
   /// Gets or sets the maximum percentage of an item that can be played while still saving playstate. If this percentage is crossed playstate will be reset to the beginning and the item will be marked watched.
   @JsonKey(name: 'MaxResumePct')
-  final int maxResumePct;
+  final int? maxResumePct;
 
   /// Gets or sets the minimum duration that an item must have in order to be eligible for playstate updates..
   @JsonKey(name: 'MinResumeDurationSeconds')
-  final int minResumeDurationSeconds;
+  final int? minResumeDurationSeconds;
 
   /// Gets or sets the minimum minutes of a book that must be played in order for playstate to be updated.
   @JsonKey(name: 'MinAudiobookResume')
-  final int minAudiobookResume;
+  final int? minAudiobookResume;
 
   /// Gets or sets the remaining minutes of a book that can be played while still saving playstate. If this percentage is crossed playstate will be reset to the beginning and the item will be marked watched.
   @JsonKey(name: 'MaxAudiobookResume')
-  final int maxAudiobookResume;
+  final int? maxAudiobookResume;
 
   /// Gets or sets the threshold in minutes after a inactive session gets closed automatically.
   /// If set to 0 the check for inactive sessions gets disabled.
   @JsonKey(name: 'InactiveSessionThreshold')
-  final int inactiveSessionThreshold;
+  final int? inactiveSessionThreshold;
 
   /// Gets or sets the delay in seconds that we will wait after a file system change to try and discover what has been added/removed.
   /// Some delay is necessary with some items because their creation is not atomic.  It involves the creation of several.
   /// different directories and files.
   @JsonKey(name: 'LibraryMonitorDelay')
-  final int libraryMonitorDelay;
+  final int? libraryMonitorDelay;
 
   /// Gets or sets the duration in seconds that we will wait after a library updated event before executing the library changed notification.
   @JsonKey(name: 'LibraryUpdateDuration')
-  final int libraryUpdateDuration;
+  final int? libraryUpdateDuration;
 
   /// Gets or sets the maximum amount of items to cache.
   @JsonKey(name: 'CacheSize')
-  final int cacheSize;
+  final int? cacheSize;
 
   /// Gets or sets the image saving convention.
   @JsonKey(name: 'ImageSavingConvention')
-  final ServerConfigurationImageSavingConvention imageSavingConvention;
+  final ServerConfigurationImageSavingConvention? imageSavingConvention;
   @JsonKey(name: 'MetadataOptions')
-  final List<MetadataOptions> metadataOptions;
+  final List<MetadataOptions>? metadataOptions;
   @JsonKey(name: 'SkipDeserializationForBasicTypes')
-  final bool skipDeserializationForBasicTypes;
+  final bool? skipDeserializationForBasicTypes;
   @JsonKey(name: 'ServerName')
-  final String serverName;
+  final String? serverName;
   @JsonKey(name: 'UICulture')
-  final String uiCulture;
+  final String? uiCulture;
   @JsonKey(name: 'SaveMetadataHidden')
-  final bool saveMetadataHidden;
+  final bool? saveMetadataHidden;
   @JsonKey(name: 'ContentTypes')
-  final List<NameValuePair> contentTypes;
+  final List<NameValuePair>? contentTypes;
   @JsonKey(name: 'RemoteClientBitrateLimit')
-  final int remoteClientBitrateLimit;
+  final int? remoteClientBitrateLimit;
   @JsonKey(name: 'EnableFolderView')
-  final bool enableFolderView;
+  final bool? enableFolderView;
   @JsonKey(name: 'EnableGroupingMoviesIntoCollections')
-  final bool enableGroupingMoviesIntoCollections;
+  final bool? enableGroupingMoviesIntoCollections;
   @JsonKey(name: 'EnableGroupingShowsIntoCollections')
-  final bool enableGroupingShowsIntoCollections;
+  final bool? enableGroupingShowsIntoCollections;
   @JsonKey(name: 'DisplaySpecialsWithinSeasons')
-  final bool displaySpecialsWithinSeasons;
+  final bool? displaySpecialsWithinSeasons;
   @JsonKey(name: 'CodecsUsed')
-  final List<String> codecsUsed;
+  final List<String>? codecsUsed;
   @JsonKey(name: 'PluginRepositories')
-  final List<RepositoryInfo> pluginRepositories;
+  final List<RepositoryInfo>? pluginRepositories;
   @JsonKey(name: 'EnableExternalContentInSuggestions')
-  final bool enableExternalContentInSuggestions;
+  final bool? enableExternalContentInSuggestions;
   @JsonKey(name: 'ImageExtractionTimeoutMs')
-  final int imageExtractionTimeoutMs;
+  final int? imageExtractionTimeoutMs;
   @JsonKey(name: 'PathSubstitutions')
-  final List<PathSubstitution> pathSubstitutions;
+  final List<PathSubstitution>? pathSubstitutions;
 
   /// Gets or sets a value indicating whether slow server responses should be logged as a warning.
   @JsonKey(name: 'EnableSlowResponseWarning')
-  final bool enableSlowResponseWarning;
+  final bool? enableSlowResponseWarning;
 
   /// Gets or sets the threshold for the slow response time warning in ms.
   @JsonKey(name: 'SlowResponseThresholdMs')
-  final int slowResponseThresholdMs;
+  final int? slowResponseThresholdMs;
 
   /// Gets or sets the cors hosts.
   @JsonKey(name: 'CorsHosts')
-  final List<String> corsHosts;
+  final List<String>? corsHosts;
 
   /// Gets or sets the number of days we should retain activity logs.
   @JsonKey(name: 'ActivityLogRetentionDays')
@@ -237,39 +237,39 @@ class ServerConfiguration {
 
   /// Gets or sets the how the library scan fans out.
   @JsonKey(name: 'LibraryScanFanoutConcurrency')
-  final int libraryScanFanoutConcurrency;
+  final int? libraryScanFanoutConcurrency;
 
   /// Gets or sets the how many metadata refreshes can run concurrently.
   @JsonKey(name: 'LibraryMetadataRefreshConcurrency')
-  final int libraryMetadataRefreshConcurrency;
+  final int? libraryMetadataRefreshConcurrency;
 
   /// Gets or sets a value indicating whether clients should be allowed to upload logs.
   @JsonKey(name: 'AllowClientLogUpload')
-  final bool allowClientLogUpload;
+  final bool? allowClientLogUpload;
 
   /// Gets or sets the dummy chapter duration in seconds, use 0 (zero) or less to disable generation altogether.
   @JsonKey(name: 'DummyChapterDuration')
-  final int dummyChapterDuration;
+  final int? dummyChapterDuration;
 
   /// Gets or sets the chapter image resolution.
   @JsonKey(name: 'ChapterImageResolution')
-  final ServerConfigurationChapterImageResolution chapterImageResolution;
+  final ServerConfigurationChapterImageResolution? chapterImageResolution;
 
   /// Gets or sets the limit for parallel image encoding.
   @JsonKey(name: 'ParallelImageEncodingLimit')
-  final int parallelImageEncodingLimit;
+  final int? parallelImageEncodingLimit;
 
   /// Gets or sets the list of cast receiver applications.
   @JsonKey(name: 'CastReceiverApplications')
-  final List<CastReceiverApplication> castReceiverApplications;
+  final List<CastReceiverApplication>? castReceiverApplications;
 
   /// Gets or sets the trickplay options.
   @JsonKey(name: 'TrickplayOptions')
-  final TrickplayOptions trickplayOptions;
+  final TrickplayOptions? trickplayOptions;
 
   /// Gets or sets a value indicating whether old authorization methods are allowed.
   @JsonKey(name: 'EnableLegacyAuthorization')
-  final bool enableLegacyAuthorization;
+  final bool? enableLegacyAuthorization;
 
   Map<String, Object?> toJson() => _$ServerConfigurationToJson(this);
 }

@@ -9,7 +9,9 @@ part of 'set_repeat_mode_request_dto.dart';
 SetRepeatModeRequestDto _$SetRepeatModeRequestDtoFromJson(
   Map<String, dynamic> json,
 ) => SetRepeatModeRequestDto(
-  mode: SetRepeatModeRequestDtoMode.fromJson(json['Mode']),
+  mode: json['Mode'] == null
+      ? null
+      : SetRepeatModeRequestDtoMode.fromJson(json['Mode']),
 );
 
 Map<String, dynamic> _$SetRepeatModeRequestDtoToJson(

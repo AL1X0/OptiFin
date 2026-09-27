@@ -20,7 +20,7 @@ class ForgotPasswordResult {
   
   /// Gets or sets the action.
   @JsonKey(name: 'Action')
-  final ForgotPasswordResultAction action;
+  final ForgotPasswordResultAction? action;
 
   /// Gets or sets the pin file.
   @JsonKey(name: 'PinFile')

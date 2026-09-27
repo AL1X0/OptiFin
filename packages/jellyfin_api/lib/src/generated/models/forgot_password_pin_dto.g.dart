@@ -8,7 +8,7 @@ part of 'forgot_password_pin_dto.dart';
 
 ForgotPasswordPinDto _$ForgotPasswordPinDtoFromJson(
   Map<String, dynamic> json,
-) => ForgotPasswordPinDto(pin: json['Pin'] as String);
+) => ForgotPasswordPinDto(pin: json['Pin'] as String?);
 
 Map<String, dynamic> _$ForgotPasswordPinDtoToJson(
   ForgotPasswordPinDto instance,

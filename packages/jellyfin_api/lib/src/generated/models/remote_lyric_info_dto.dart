@@ -25,11 +25,11 @@ class RemoteLyricInfoDto {
 
   /// Gets the provider name.
   @JsonKey(name: 'ProviderName')
-  final String providerName;
+  final String? providerName;
 
   /// Gets the lyrics.
   @JsonKey(name: 'Lyrics')
-  final LyricDto lyrics;
+  final LyricDto? lyrics;
 
   Map<String, Object?> toJson() => _$RemoteLyricInfoDtoToJson(this);
 }

@@ -20,3 +20,31 @@
 7. **ATS / cleartext autorisés** : beaucoup de serveurs Jellyfin sont en HTTP sur le LAN.
 8. **media_kit / just_audio** ne sont pas encore dépendances : ajoutés en phases 3 et 6 pour
    ne pas alourdir le build tant qu'ils ne servent pas.
+
+## Phase 2 — Navigation (2026-09-27)
+
+1. **Modèle de domaine `MediaItem`** (lib/core/media) : les écrans ne voient jamais les DTO
+   générés. Le mapping choisit les images de repli (épisode → affiche/backdrop/logo de la série).
+2. **Tolérance serveur** : `prepare_spec.dart` rend nullables tous les champs des modèles
+   (sauf `Id`). Sans ça, un champ récent absent d'un serveur plus ancien (ex. `HasSegments`)
+   faisait échouer le parsing de toute la réponse. Test de non-régression dédié.
+3. **Accueil depuis le cache** : l'accueil brut (DTO) est stocké dans Drift (`CachedResponses`)
+   et affiché immédiatement au démarrage, puis remplacé par la version réseau. Hors ligne,
+   l'accueil en cache reste affiché. Purgé à la déconnexion du compte.
+4. **Bibliothèques à accès aléatoire** (`LibraryPager`) : pages de 100 chargées à la demande
+   par la grille, LRU de 12 pages. L'index alphabétique calcule la position d'une lettre
+   côté serveur (`nameLessThan` + `limit=0`) puis saute directement : pas besoin de charger
+   ce qui précède, même sur 20 000 films.
+5. **Tri aléatoire retiré des bibliothèques** : le serveur retire au sort à chaque page,
+   ce qui produit doublons/trous en pagination.
+6. **Filtre HDR non proposé** : `/Items` n'expose aucun filtre de plage dynamique ; il faudrait
+   filtrer côté client, incompatible avec la pagination. Résolution (HD/4K) disponible.
+7. **Hero** : le tag inclut la rangée source (`home-resume:<id>`) car un même titre peut
+   apparaître dans plusieurs rangées d'une page. Transmis à la fiche via `extra`.
+   Téléphone : la carte « zoome » vers le backdrop ; tablette : vers l'affiche.
+8. **Accent dynamique** : image décodée à 24 px, histogramme de teintes pondéré par la
+   saturation (la moyenne donne des couleurs boueuses), normalisé pour rester lisible.
+9. **Navigation** : 3 onglets (`StatefulShellRoute`), les fiches s'ouvrent dans l'onglet
+   courant (état de chaque onglet conservé). Rail latéral à partir de 840 px.
+10. **Bouton Lecture** présent mais informe que le lecteur arrive en phase 3.
+    `PlaybackInfo` préchargé à l'ouverture de la fiche : phase 3 (dépend du moteur).

@@ -13,47 +13,47 @@ part 'user_policy.g.dart';
 @JsonSerializable()
 class UserPolicy {
   const UserPolicy({
-    required this.authenticationProviderId,
+    required this.enableSharedDeviceControl,
+    required this.isHidden,
     required this.passwordResetProviderId,
-    this.enableSharedDeviceControl,
-    this.isHidden,
-    this.remoteClientBitrateLimit,
-    this.isDisabled,
-    this.maxParentalRating,
-    this.maxParentalSubRating,
-    this.blockedTags,
-    this.allowedTags,
-    this.enableUserPreferenceAccess,
-    this.accessSchedules,
-    this.blockUnratedItems,
-    this.enableRemoteControlOfOtherUsers,
-    this.isAdministrator,
-    this.enableRemoteAccess,
-    this.enableLiveTvManagement,
-    this.enableLiveTvAccess,
-    this.enableMediaPlayback,
-    this.enableAudioPlaybackTranscoding,
-    this.enableVideoPlaybackTranscoding,
-    this.enablePlaybackRemuxing,
-    this.forceRemoteSourceTranscoding,
-    this.enableContentDeletion,
-    this.enableContentDeletionFromFolders,
-    this.enableContentDownloading,
-    this.enableSyncTranscoding,
-    this.enableMediaConversion,
-    this.syncPlayAccess,
-    this.enableAllDevices,
-    this.enabledChannels,
-    this.enableAllChannels,
-    this.enabledFolders,
-    this.enableAllFolders,
-    this.invalidLoginAttemptCount,
-    this.loginAttemptsBeforeLockout,
-    this.maxActiveSessions,
-    this.enablePublicSharing,
-    this.blockedMediaFolders,
-    this.blockedChannels,
-    this.enabledDevices,
+    required this.authenticationProviderId,
+    required this.remoteClientBitrateLimit,
+    required this.isDisabled,
+    required this.maxParentalRating,
+    required this.maxParentalSubRating,
+    required this.blockedTags,
+    required this.allowedTags,
+    required this.enableUserPreferenceAccess,
+    required this.accessSchedules,
+    required this.blockUnratedItems,
+    required this.enableRemoteControlOfOtherUsers,
+    required this.isAdministrator,
+    required this.enableRemoteAccess,
+    required this.enableLiveTvManagement,
+    required this.enableLiveTvAccess,
+    required this.enableMediaPlayback,
+    required this.enableAudioPlaybackTranscoding,
+    required this.enableVideoPlaybackTranscoding,
+    required this.enablePlaybackRemuxing,
+    required this.forceRemoteSourceTranscoding,
+    required this.enableContentDeletion,
+    required this.enableContentDeletionFromFolders,
+    required this.enableContentDownloading,
+    required this.enableSyncTranscoding,
+    required this.enableMediaConversion,
+    required this.syncPlayAccess,
+    required this.enableAllDevices,
+    required this.enabledChannels,
+    required this.enableAllChannels,
+    required this.enabledFolders,
+    required this.enableAllFolders,
+    required this.invalidLoginAttemptCount,
+    required this.loginAttemptsBeforeLockout,
+    required this.maxActiveSessions,
+    required this.enablePublicSharing,
+    required this.blockedMediaFolders,
+    required this.blockedChannels,
+    required this.enabledDevices,
     this.enableSubtitleManagement = false,
     this.enableCollectionManagement = false,
     this.enableLyricManagement = false,
@@ -71,15 +71,15 @@ class UserPolicy {
 
   /// Gets or sets a value indicating whether this instance can manage collections.
   @JsonKey(name: 'EnableCollectionManagement')
-  final bool enableCollectionManagement;
+  final bool? enableCollectionManagement;
 
   /// Gets or sets a value indicating whether this instance can manage subtitles.
   @JsonKey(name: 'EnableSubtitleManagement')
-  final bool enableSubtitleManagement;
+  final bool? enableSubtitleManagement;
 
   /// Gets or sets a value indicating whether this user can manage lyrics.
   @JsonKey(name: 'EnableLyricManagement')
-  final bool enableLyricManagement;
+  final bool? enableLyricManagement;
 
   /// Gets or sets a value indicating whether this instance is disabled.
   @JsonKey(name: 'IsDisabled')
@@ -159,9 +159,9 @@ class UserPolicy {
   @JsonKey(name: 'RemoteClientBitrateLimit')
   final int? remoteClientBitrateLimit;
   @JsonKey(name: 'AuthenticationProviderId')
-  final String authenticationProviderId;
+  final String? authenticationProviderId;
   @JsonKey(name: 'PasswordResetProviderId')
-  final String passwordResetProviderId;
+  final String? passwordResetProviderId;
 
   /// Enum SyncPlayUserAccessType.
   @JsonKey(name: 'SyncPlayAccess')

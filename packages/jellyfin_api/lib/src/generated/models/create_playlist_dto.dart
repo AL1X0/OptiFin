@@ -14,18 +14,18 @@ part 'create_playlist_dto.g.dart';
 class CreatePlaylistDto {
   const CreatePlaylistDto({
     required this.name,
-    this.ids,
-    this.userId,
-    this.mediaType,
-    this.users,
-    this.isPublic,
+    required this.ids,
+    required this.userId,
+    required this.mediaType,
+    required this.users,
+    required this.isPublic,
   });
   
   factory CreatePlaylistDto.fromJson(Map<String, Object?> json) => _$CreatePlaylistDtoFromJson(json);
   
   /// Gets or sets the name of the new playlist.
   @JsonKey(name: 'Name')
-  final String name;
+  final String? name;
 
   /// Gets or sets item ids to add to the playlist.
   @JsonKey(name: 'Ids')

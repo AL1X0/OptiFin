@@ -69,7 +69,7 @@ class SessionInfoDto {
 
   /// Gets or sets the playable media types.
   @JsonKey(name: 'PlayableMediaTypes')
-  final List<MediaType> playableMediaTypes;
+  final List<MediaType>? playableMediaTypes;
 
   /// Gets or sets the id.
   @JsonKey(name: 'Id')
@@ -77,7 +77,7 @@ class SessionInfoDto {
 
   /// Gets or sets the user id.
   @JsonKey(name: 'UserId')
-  final String userId;
+  final String? userId;
 
   /// Gets or sets the username.
   @JsonKey(name: 'UserName')
@@ -89,11 +89,11 @@ class SessionInfoDto {
 
   /// Gets or sets the last activity date.
   @JsonKey(name: 'LastActivityDate')
-  final DateTime lastActivityDate;
+  final DateTime? lastActivityDate;
 
   /// Gets or sets the last playback check in.
   @JsonKey(name: 'LastPlaybackCheckIn')
-  final DateTime lastPlaybackCheckIn;
+  final DateTime? lastPlaybackCheckIn;
 
   /// Gets or sets the last paused date.
   @JsonKey(name: 'LastPausedDate')
@@ -129,15 +129,15 @@ class SessionInfoDto {
 
   /// Gets or sets a value indicating whether this session is active.
   @JsonKey(name: 'IsActive')
-  final bool isActive;
+  final bool? isActive;
 
   /// Gets or sets a value indicating whether the session supports media control.
   @JsonKey(name: 'SupportsMediaControl')
-  final bool supportsMediaControl;
+  final bool? supportsMediaControl;
 
   /// Gets or sets a value indicating whether the session supports remote control.
   @JsonKey(name: 'SupportsRemoteControl')
-  final bool supportsRemoteControl;
+  final bool? supportsRemoteControl;
 
   /// Gets or sets the now playing queue.
   @JsonKey(name: 'NowPlayingQueue')
@@ -145,7 +145,7 @@ class SessionInfoDto {
 
   /// Gets or sets a value indicating whether this session has a custom device name.
   @JsonKey(name: 'HasCustomDeviceName')
-  final bool hasCustomDeviceName;
+  final bool? hasCustomDeviceName;
 
   /// Gets or sets the playlist item id.
   @JsonKey(name: 'PlaylistItemId')
@@ -161,7 +161,7 @@ class SessionInfoDto {
 
   /// Gets or sets the supported commands.
   @JsonKey(name: 'SupportedCommands')
-  final List<GeneralCommandType> supportedCommands;
+  final List<GeneralCommandType>? supportedCommands;
 
   Map<String, Object?> toJson() => _$SessionInfoDtoToJson(this);
 }

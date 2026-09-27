@@ -13,17 +13,21 @@ DisplayPreferencesDto _$DisplayPreferencesDtoFromJson(
   viewType: json['ViewType'] as String?,
   sortBy: json['SortBy'] as String?,
   indexBy: json['IndexBy'] as String?,
-  rememberIndexing: json['RememberIndexing'] as bool,
-  primaryImageHeight: (json['PrimaryImageHeight'] as num).toInt(),
-  primaryImageWidth: (json['PrimaryImageWidth'] as num).toInt(),
-  customPrefs: Map<String, String?>.from(json['CustomPrefs'] as Map),
-  scrollDirection: DisplayPreferencesDtoScrollDirection.fromJson(
-    json['ScrollDirection'],
+  rememberIndexing: json['RememberIndexing'] as bool?,
+  primaryImageHeight: (json['PrimaryImageHeight'] as num?)?.toInt(),
+  primaryImageWidth: (json['PrimaryImageWidth'] as num?)?.toInt(),
+  customPrefs: (json['CustomPrefs'] as Map<String, dynamic>?)?.map(
+    (k, e) => MapEntry(k, e as String?),
   ),
-  showBackdrop: json['ShowBackdrop'] as bool,
-  rememberSorting: json['RememberSorting'] as bool,
-  sortOrder: DisplayPreferencesDtoSortOrder.fromJson(json['SortOrder']),
-  showSidebar: json['ShowSidebar'] as bool,
+  scrollDirection: json['ScrollDirection'] == null
+      ? null
+      : DisplayPreferencesDtoScrollDirection.fromJson(json['ScrollDirection']),
+  showBackdrop: json['ShowBackdrop'] as bool?,
+  rememberSorting: json['RememberSorting'] as bool?,
+  sortOrder: json['SortOrder'] == null
+      ? null
+      : DisplayPreferencesDtoSortOrder.fromJson(json['SortOrder']),
+  showSidebar: json['ShowSidebar'] as bool?,
   client: json['Client'] as String?,
 );
 

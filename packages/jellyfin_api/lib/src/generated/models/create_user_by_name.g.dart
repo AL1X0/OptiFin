@@ -8,7 +8,7 @@ part of 'create_user_by_name.dart';
 
 CreateUserByName _$CreateUserByNameFromJson(Map<String, dynamic> json) =>
     CreateUserByName(
-      name: json['Name'] as String,
+      name: json['Name'] as String?,
       password: json['Password'] as String?,
     );
 

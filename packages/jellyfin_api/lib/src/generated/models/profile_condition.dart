@@ -21,13 +21,13 @@ class ProfileCondition {
   factory ProfileCondition.fromJson(Map<String, Object?> json) => _$ProfileConditionFromJson(json);
   
   @JsonKey(name: 'Condition')
-  final ProfileConditionCondition condition;
+  final ProfileConditionCondition? condition;
   @JsonKey(name: 'Property')
-  final ProfileConditionProperty property;
+  final ProfileConditionProperty? property;
   @JsonKey(name: 'Value')
   final String? value;
   @JsonKey(name: 'IsRequired')
-  final bool isRequired;
+  final bool? isRequired;
 
   Map<String, Object?> toJson() => _$ProfileConditionToJson(this);
 }

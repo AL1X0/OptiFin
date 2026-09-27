@@ -23,23 +23,23 @@ class GroupInfoDto {
   
   /// Gets the group identifier.
   @JsonKey(name: 'GroupId')
-  final String groupId;
+  final String? groupId;
 
   /// Gets the group name.
   @JsonKey(name: 'GroupName')
-  final String groupName;
+  final String? groupName;
 
   /// Gets the group state.
   @JsonKey(name: 'State')
-  final GroupInfoDtoState state;
+  final GroupInfoDtoState? state;
 
   /// Gets the participants.
   @JsonKey(name: 'Participants')
-  final List<String> participants;
+  final List<String>? participants;
 
   /// Gets the date when this DTO has been created.
   @JsonKey(name: 'LastUpdatedAt')
-  final DateTime lastUpdatedAt;
+  final DateTime? lastUpdatedAt;
 
   Map<String, Object?> toJson() => _$GroupInfoDtoToJson(this);
 }

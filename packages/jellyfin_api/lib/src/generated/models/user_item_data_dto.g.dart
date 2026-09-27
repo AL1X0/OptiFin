@@ -8,7 +8,6 @@ part of 'user_item_data_dto.dart';
 
 UserItemDataDto _$UserItemDataDtoFromJson(Map<String, dynamic> json) =>
     UserItemDataDto(
-      key: json['Key'] as String,
       rating: (json['Rating'] as num?)?.toDouble(),
       playedPercentage: (json['PlayedPercentage'] as num?)?.toDouble(),
       unplayedItemCount: (json['UnplayedItemCount'] as num?)?.toInt(),
@@ -20,6 +19,7 @@ UserItemDataDto _$UserItemDataDtoFromJson(Map<String, dynamic> json) =>
           ? null
           : DateTime.parse(json['LastPlayedDate'] as String),
       played: json['Played'] as bool?,
+      key: json['Key'] as String?,
       itemId: json['ItemId'] as String?,
     );
 

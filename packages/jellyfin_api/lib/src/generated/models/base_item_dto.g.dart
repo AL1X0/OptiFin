@@ -85,7 +85,7 @@ BaseItemDto _$BaseItemDtoFromJson(Map<String, dynamic> json) => BaseItemDto(
   isHd: json['IsHD'] as bool?,
   name: json['Name'] as String?,
   parentId: json['ParentId'] as String?,
-  type: BaseItemDtoType.fromJson(json['Type']),
+  type: json['Type'] == null ? null : BaseItemDtoType.fromJson(json['Type']),
   people: (json['People'] as List<dynamic>?)
       ?.map((e) => BaseItemPerson.fromJson(e as Map<String, dynamic>))
       .toList(),
@@ -187,7 +187,9 @@ BaseItemDto _$BaseItemDtoFromJson(Map<String, dynamic> json) => BaseItemDto(
   isoType: json['IsoType'] == null
       ? null
       : BaseItemDtoIsoType.fromJson(json['IsoType']),
-  mediaType: BaseItemDtoMediaType.fromJson(json['MediaType']),
+  mediaType: json['MediaType'] == null
+      ? null
+      : BaseItemDtoMediaType.fromJson(json['MediaType']),
   endDate: json['EndDate'] == null
       ? null
       : DateTime.parse(json['EndDate'] as String),

@@ -44,11 +44,11 @@ class TranscodingInfo {
 
   /// Gets or sets a value indicating whether the video is passed through.
   @JsonKey(name: 'IsVideoDirect')
-  final bool isVideoDirect;
+  final bool? isVideoDirect;
 
   /// Gets or sets a value indicating whether the audio is passed through.
   @JsonKey(name: 'IsAudioDirect')
-  final bool isAudioDirect;
+  final bool? isAudioDirect;
 
   /// Gets or sets the bitrate.
   @JsonKey(name: 'Bitrate')
@@ -80,7 +80,7 @@ class TranscodingInfo {
 
   /// Gets or sets the transcode reasons.
   @JsonKey(name: 'TranscodeReasons')
-  final List<TranscodeReason> transcodeReasons;
+  final List<TranscodeReason>? transcodeReasons;
 
   Map<String, Object?> toJson() => _$TranscodingInfoToJson(this);
 }

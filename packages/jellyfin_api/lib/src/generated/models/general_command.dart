@@ -20,11 +20,11 @@ class GeneralCommand {
   
   /// This exists simply to identify a set of known commands.
   @JsonKey(name: 'Name')
-  final GeneralCommandName name;
+  final GeneralCommandName? name;
   @JsonKey(name: 'ControllingUserId')
-  final String controllingUserId;
+  final String? controllingUserId;
   @JsonKey(name: 'Arguments')
-  final Map<String, String> arguments;
+  final Map<String, String>? arguments;
 
   Map<String, Object?> toJson() => _$GeneralCommandToJson(this);
 }

@@ -8,18 +8,26 @@ part of 'transcoding_profile.dart';
 
 TranscodingProfile _$TranscodingProfileFromJson(Map<String, dynamic> json) =>
     TranscodingProfile(
-      container: json['Container'] as String,
-      type: TranscodingProfileType.fromJson(json['Type']),
-      videoCodec: json['VideoCodec'] as String,
-      audioCodec: json['AudioCodec'] as String,
-      protocol: TranscodingProfileProtocol.fromJson(json['Protocol']),
-      transcodeSeekInfo: TranscodingProfileTranscodeSeekInfo.fromJson(
-        json['TranscodeSeekInfo'],
-      ),
-      context: TranscodingProfileContext.fromJson(json['Context']),
+      container: json['Container'] as String?,
+      type: json['Type'] == null
+          ? null
+          : TranscodingProfileType.fromJson(json['Type']),
+      videoCodec: json['VideoCodec'] as String?,
+      audioCodec: json['AudioCodec'] as String?,
+      protocol: json['Protocol'] == null
+          ? null
+          : TranscodingProfileProtocol.fromJson(json['Protocol']),
+      transcodeSeekInfo: json['TranscodeSeekInfo'] == null
+          ? null
+          : TranscodingProfileTranscodeSeekInfo.fromJson(
+              json['TranscodeSeekInfo'],
+            ),
+      context: json['Context'] == null
+          ? null
+          : TranscodingProfileContext.fromJson(json['Context']),
       maxAudioChannels: json['MaxAudioChannels'] as String?,
-      conditions: (json['Conditions'] as List<dynamic>)
-          .map((e) => ProfileCondition.fromJson(e as Map<String, dynamic>))
+      conditions: (json['Conditions'] as List<dynamic>?)
+          ?.map((e) => ProfileCondition.fromJson(e as Map<String, dynamic>))
           .toList(),
       estimateContentLength: json['EstimateContentLength'] as bool? ?? false,
       enableMpegtsM2TsMode: json['EnableMpegtsM2TsMode'] as bool? ?? false,

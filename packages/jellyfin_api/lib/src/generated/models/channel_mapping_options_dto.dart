@@ -14,8 +14,8 @@ part 'channel_mapping_options_dto.g.dart';
 @JsonSerializable()
 class ChannelMappingOptionsDto {
   const ChannelMappingOptionsDto({
-    required this.tunerChannels,
-    required this.providerChannels,
+    this.tunerChannels,
+    this.providerChannels,
     this.mappings,
     this.providerName,
   });
@@ -24,11 +24,11 @@ class ChannelMappingOptionsDto {
   
   /// Gets or sets list of tuner channels.
   @JsonKey(name: 'TunerChannels')
-  final List<TunerChannelMapping> tunerChannels;
+  final List<TunerChannelMapping>? tunerChannels;
 
   /// Gets or sets list of provider channels.
   @JsonKey(name: 'ProviderChannels')
-  final List<NameIdPair> providerChannels;
+  final List<NameIdPair>? providerChannels;
 
   /// Gets or sets list of mappings.
   @JsonKey(name: 'Mappings')

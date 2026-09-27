@@ -23,11 +23,11 @@ class ContainerProfile {
   
   /// Gets or sets the MediaBrowser.Model.Dlna.DlnaProfileType which this container must meet.
   @JsonKey(name: 'Type')
-  final ContainerProfileType type;
+  final ContainerProfileType? type;
 
   /// Gets or sets the list of MediaBrowser.Model.Dlna.ProfileCondition which this container will be applied to.
   @JsonKey(name: 'Conditions')
-  final List<ProfileCondition> conditions;
+  final List<ProfileCondition>? conditions;
 
   /// Gets or sets the container(s) which this container must meet.
   @JsonKey(name: 'Container')

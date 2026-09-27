@@ -49,6 +49,7 @@ dependencies:
     path: packages/jellyfin_api
   optifin_native_player:
     path: packages/optifin_native_player
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

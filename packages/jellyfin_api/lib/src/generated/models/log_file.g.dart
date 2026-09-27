@@ -7,7 +7,6 @@ part of 'log_file.dart';
 // **************************************************************************
 
 LogFile _$LogFileFromJson(Map<String, dynamic> json) => LogFile(
-  name: json['Name'] as String,
   dateCreated: json['DateCreated'] == null
       ? null
       : DateTime.parse(json['DateCreated'] as String),
@@ -15,6 +14,7 @@ LogFile _$LogFileFromJson(Map<String, dynamic> json) => LogFile(
       ? null
       : DateTime.parse(json['DateModified'] as String),
   size: (json['Size'] as num?)?.toInt(),
+  name: json['Name'] as String?,
 );
 
 Map<String, dynamic> _$LogFileToJson(LogFile instance) => <String, dynamic>{

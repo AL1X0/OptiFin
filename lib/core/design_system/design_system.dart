@@ -6,3 +6,4 @@ export 'components/of_button.dart';
 export 'components/of_image.dart';
 export 'theme.dart';
 export 'tokens.dart';
+export 'accent.dart';

@@ -38,37 +38,37 @@ class UserConfiguration {
 
   /// Gets or sets a value indicating whether [play default audio track].
   @JsonKey(name: 'PlayDefaultAudioTrack')
-  final bool playDefaultAudioTrack;
+  final bool? playDefaultAudioTrack;
 
   /// Gets or sets the subtitle language preference.
   @JsonKey(name: 'SubtitleLanguagePreference')
   final String? subtitleLanguagePreference;
   @JsonKey(name: 'DisplayMissingEpisodes')
-  final bool displayMissingEpisodes;
+  final bool? displayMissingEpisodes;
   @JsonKey(name: 'GroupedFolders')
-  final List<String> groupedFolders;
+  final List<String>? groupedFolders;
 
   /// An enum representing a subtitle playback mode.
   @JsonKey(name: 'SubtitleMode')
-  final UserConfigurationSubtitleMode subtitleMode;
+  final UserConfigurationSubtitleMode? subtitleMode;
   @JsonKey(name: 'DisplayCollectionsView')
-  final bool displayCollectionsView;
+  final bool? displayCollectionsView;
   @JsonKey(name: 'EnableLocalPassword')
-  final bool enableLocalPassword;
+  final bool? enableLocalPassword;
   @JsonKey(name: 'OrderedViews')
-  final List<String> orderedViews;
+  final List<String>? orderedViews;
   @JsonKey(name: 'LatestItemsExcludes')
-  final List<String> latestItemsExcludes;
+  final List<String>? latestItemsExcludes;
   @JsonKey(name: 'MyMediaExcludes')
-  final List<String> myMediaExcludes;
+  final List<String>? myMediaExcludes;
   @JsonKey(name: 'HidePlayedInLatest')
-  final bool hidePlayedInLatest;
+  final bool? hidePlayedInLatest;
   @JsonKey(name: 'RememberAudioSelections')
-  final bool rememberAudioSelections;
+  final bool? rememberAudioSelections;
   @JsonKey(name: 'RememberSubtitleSelections')
-  final bool rememberSubtitleSelections;
+  final bool? rememberSubtitleSelections;
   @JsonKey(name: 'EnableNextEpisodeAutoPlay')
-  final bool enableNextEpisodeAutoPlay;
+  final bool? enableNextEpisodeAutoPlay;
 
   /// Gets or sets the id of the selected cast receiver.
   @JsonKey(name: 'CastReceiverId')

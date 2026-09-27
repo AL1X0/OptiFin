@@ -9,7 +9,9 @@ part of 'set_shuffle_mode_request_dto.dart';
 SetShuffleModeRequestDto _$SetShuffleModeRequestDtoFromJson(
   Map<String, dynamic> json,
 ) => SetShuffleModeRequestDto(
-  mode: SetShuffleModeRequestDtoMode.fromJson(json['Mode']),
+  mode: json['Mode'] == null
+      ? null
+      : SetShuffleModeRequestDtoMode.fromJson(json['Mode']),
 );
 
 Map<String, dynamic> _$SetShuffleModeRequestDtoToJson(

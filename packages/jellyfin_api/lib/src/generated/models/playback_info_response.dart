@@ -22,7 +22,7 @@ class PlaybackInfoResponse {
   
   /// Gets or sets the media sources.
   @JsonKey(name: 'MediaSources')
-  final List<MediaSourceInfo> mediaSources;
+  final List<MediaSourceInfo>? mediaSources;
 
   /// Gets or sets the play session identifier.
   @JsonKey(name: 'PlaySessionId')

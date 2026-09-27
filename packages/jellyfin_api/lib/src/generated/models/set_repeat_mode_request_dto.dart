@@ -19,7 +19,7 @@ class SetRepeatModeRequestDto {
   
   /// Gets or sets the repeat mode.
   @JsonKey(name: 'Mode')
-  final SetRepeatModeRequestDtoMode mode;
+  final SetRepeatModeRequestDtoMode? mode;
 
   Map<String, Object?> toJson() => _$SetRepeatModeRequestDtoToJson(this);
 }

@@ -27,19 +27,19 @@ class AccessSchedule {
 
   /// Gets the id of the associated user.
   @JsonKey(name: 'UserId')
-  final String userId;
+  final String? userId;
 
   /// Gets or sets the day of week.
   @JsonKey(name: 'DayOfWeek')
-  final AccessScheduleDayOfWeek dayOfWeek;
+  final AccessScheduleDayOfWeek? dayOfWeek;
 
   /// Gets or sets the start hour.
   @JsonKey(name: 'StartHour')
-  final double startHour;
+  final double? startHour;
 
   /// Gets or sets the end hour.
   @JsonKey(name: 'EndHour')
-  final double endHour;
+  final double? endHour;
 
   Map<String, Object?> toJson() => _$AccessScheduleToJson(this);
 }

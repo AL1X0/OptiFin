@@ -1,16 +1,4 @@
-/// Types d'images Jellyfin utilisés par l'app.
-enum JellyfinImageType { primary, backdrop, logo, thumb, banner, art }
-
-extension on JellyfinImageType {
-  String get apiName => switch (this) {
-        JellyfinImageType.primary => 'Primary',
-        JellyfinImageType.backdrop => 'Backdrop',
-        JellyfinImageType.logo => 'Logo',
-        JellyfinImageType.thumb => 'Thumb',
-        JellyfinImageType.banner => 'Banner',
-        JellyfinImageType.art => 'Art',
-      };
-}
+import '../media/media_item.dart';
 
 /// Construit les URL d'images redimensionnées côté serveur.
 ///
@@ -32,25 +20,30 @@ class JellyfinImageUrlBuilder {
     return widthBuckets.last;
   }
 
-  Uri item({
-    required String itemId,
-    required JellyfinImageType type,
-    required double logicalWidth,
-    required double devicePixelRatio,
-    String? tag,
-    int index = 0,
-    int quality = 90,
-  }) {
-    final path = type == JellyfinImageType.backdrop
-        ? 'Items/$itemId/Images/${type.apiName}/$index'
-        : 'Items/$itemId/Images/${type.apiName}';
+  static String _apiName(ImageKind kind) => switch (kind) {
+        ImageKind.primary => 'Primary',
+        ImageKind.backdrop => 'Backdrop',
+        ImageKind.logo => 'Logo',
+        ImageKind.thumb => 'Thumb',
+        ImageKind.banner => 'Banner',
+        ImageKind.art => 'Art',
+      };
+
+  /// URL d'une image référencée, à la largeur d'affichage.
+  Uri image(ImageRef ref, {required double logicalWidth, required double devicePixelRatio, int quality = 90}) {
+    final type = _apiName(ref.type);
+    final path = ref.type == ImageKind.backdrop ? 'Items/${ref.itemId}/Images/$type/${ref.index}' : 'Items/${ref.itemId}/Images/$type';
     return _build(path, {
       'maxWidth': '${bucketFor(logicalWidth, devicePixelRatio)}',
       'quality': '$quality',
       'format': 'Webp',
-      'tag': ?tag,
+      'tag': ref.tag,
     });
   }
+
+  /// Nullable-friendly : null si pas d'image.
+  Uri? maybe(ImageRef? ref, {required double logicalWidth, required double devicePixelRatio}) =>
+      ref == null ? null : image(ref, logicalWidth: logicalWidth, devicePixelRatio: devicePixelRatio);
 
   Uri userAvatar({required String userId, required double logicalWidth, required double devicePixelRatio, String? tag}) {
     return _build('Users/$userId/Images/Primary', {

@@ -171,11 +171,11 @@ class MediaStream {
 
   /// An enum representing video ranges.
   @JsonKey(name: 'VideoRange')
-  final MediaStreamVideoRange videoRange;
+  final MediaStreamVideoRange? videoRange;
 
   /// An enum representing types of video ranges.
   @JsonKey(name: 'VideoRangeType')
-  final MediaStreamVideoRangeType videoRangeType;
+  final MediaStreamVideoRangeType? videoRangeType;
 
   /// Gets the video dovi title.
   @JsonKey(name: 'VideoDoViTitle')
@@ -183,7 +183,7 @@ class MediaStream {
 
   /// An enum representing formats of spatial audio.
   @JsonKey(name: 'AudioSpatialFormat')
-  final MediaStreamAudioSpatialFormat audioSpatialFormat;
+  final MediaStreamAudioSpatialFormat? audioSpatialFormat;
   @JsonKey(name: 'LocalizedUndefined')
   final String? localizedUndefined;
   @JsonKey(name: 'LocalizedDefault')
@@ -205,7 +205,7 @@ class MediaStream {
 
   /// Gets or sets a value indicating whether this instance is interlaced.
   @JsonKey(name: 'IsInterlaced')
-  final bool isInterlaced;
+  final bool? isInterlaced;
   @JsonKey(name: 'IsAVC')
   final bool? isAvc;
 
@@ -239,19 +239,19 @@ class MediaStream {
 
   /// Gets or sets a value indicating whether this instance is default.
   @JsonKey(name: 'IsDefault')
-  final bool isDefault;
+  final bool? isDefault;
 
   /// Gets or sets a value indicating whether this instance is forced.
   @JsonKey(name: 'IsForced')
-  final bool isForced;
+  final bool? isForced;
 
   /// Gets or sets a value indicating whether this instance is for the hearing impaired.
   @JsonKey(name: 'IsHearingImpaired')
-  final bool isHearingImpaired;
+  final bool? isHearingImpaired;
 
   /// Gets or sets a value indicating whether this instance is original.
   @JsonKey(name: 'IsOriginal')
-  final bool isOriginal;
+  final bool? isOriginal;
 
   /// Gets or sets the height.
   @JsonKey(name: 'Height')
@@ -281,7 +281,7 @@ class MediaStream {
 
   /// Gets or sets the type.
   @JsonKey(name: 'Type')
-  final MediaStreamType type;
+  final MediaStreamType? type;
 
   /// Gets or sets the aspect ratio.
   @JsonKey(name: 'AspectRatio')
@@ -289,7 +289,7 @@ class MediaStream {
 
   /// Gets or sets the index.
   @JsonKey(name: 'Index')
-  final int index;
+  final int? index;
 
   /// Gets or sets the score.
   @JsonKey(name: 'Score')
@@ -297,7 +297,7 @@ class MediaStream {
 
   /// Gets or sets a value indicating whether this instance is external.
   @JsonKey(name: 'IsExternal')
-  final bool isExternal;
+  final bool? isExternal;
 
   /// Gets or sets the method.
   @JsonKey(name: 'DeliveryMethod')
@@ -311,11 +311,11 @@ class MediaStream {
   @JsonKey(name: 'IsExternalUrl')
   final bool? isExternalUrl;
   @JsonKey(name: 'IsTextSubtitleStream')
-  final bool isTextSubtitleStream;
+  final bool? isTextSubtitleStream;
 
   /// Gets or sets a value indicating whether [supports external stream].
   @JsonKey(name: 'SupportsExternalStream')
-  final bool supportsExternalStream;
+  final bool? supportsExternalStream;
 
   /// Gets or sets the filename.
   @JsonKey(name: 'Path')

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:optifin/core/design_system/design_system.dart';
@@ -86,9 +87,11 @@ void main() {
       expect(tester.getSize(find.byType(AspectRatio)), const Size(120, 180));
     });
 
-    testWidgets('Hero tag stable pour la transition vers la fiche', (tester) async {
+    testWidgets('Hero seulement avec un tag explicite (unicité par page)', (tester) async {
       await tester.pumpWidget(host(const PosterCard(width: 100, data: MediaCardData(id: 'abc', title: 'X'))));
-      expect(tester.widget<Hero>(find.byType(Hero)).tag, 'poster-abc');
+      expect(find.byType(Hero), findsNothing);
+      await tester.pumpWidget(host(const PosterCard(width: 100, heroTag: 'row1:abc', data: MediaCardData(id: 'abc', title: 'X'))));
+      expect(tester.widget<Hero>(find.byType(Hero)).tag, 'row1:abc');
     });
   });
 
@@ -120,6 +123,35 @@ void main() {
       )));
       expect(find.text('Reprendre'), findsOneWidget);
       expect(built, lessThan(30));
+    });
+  });
+
+  group('dominantAccent', () {
+    Uint8List image(List<Color> pixels) {
+      final data = Uint8List(pixels.length * 4);
+      for (final (i, c) in pixels.indexed) {
+        data[i * 4] = (c.r * 255).round();
+        data[i * 4 + 1] = (c.g * 255).round();
+        data[i * 4 + 2] = (c.b * 255).round();
+        data[i * 4 + 3] = 255;
+      }
+      return data;
+    }
+
+    test('teinte vive dominante malgré un fond sombre', () {
+      final pixels = [
+        ...List.filled(300, const Color(0xFF050505)), // noir majoritaire ignoré
+        ...List.filled(80, const Color(0xFFE05A10)), // orange vif
+        ...List.filled(20, const Color(0xFF2050C0)), // bleu minoritaire
+      ];
+      final accent = dominantAccent(image(pixels))!;
+      final hue = HSLColor.fromColor(accent).hue;
+      expect(hue, inInclusiveRange(10, 40), reason: 'orange attendu');
+    });
+
+    test('image monochrome → null', () {
+      expect(dominantAccent(image(List.filled(400, const Color(0xFF808080)))), isNull);
+      expect(dominantAccent(Uint8List(0)), isNull);
     });
   });
 

@@ -11,11 +11,13 @@ RecommendationDto _$RecommendationDtoFromJson(Map<String, dynamic> json) =>
       items: (json['Items'] as List<dynamic>?)
           ?.map((e) => BaseItemDto.fromJson(e as Map<String, dynamic>))
           .toList(),
-      recommendationType: RecommendationDtoRecommendationType.fromJson(
-        json['RecommendationType'],
-      ),
+      recommendationType: json['RecommendationType'] == null
+          ? null
+          : RecommendationDtoRecommendationType.fromJson(
+              json['RecommendationType'],
+            ),
       baselineItemName: json['BaselineItemName'] as String?,
-      categoryId: json['CategoryId'] as String,
+      categoryId: json['CategoryId'] as String?,
     );
 
 Map<String, dynamic> _$RecommendationDtoToJson(RecommendationDto instance) =>

@@ -43,7 +43,7 @@ class PlaybackProgressInfo {
   
   /// Gets or sets a value indicating whether this instance can seek.
   @JsonKey(name: 'CanSeek')
-  final bool canSeek;
+  final bool? canSeek;
 
   /// Gets or sets the item.
   @JsonKey(name: 'Item')
@@ -51,7 +51,7 @@ class PlaybackProgressInfo {
 
   /// Gets or sets the item identifier.
   @JsonKey(name: 'ItemId')
-  final String itemId;
+  final String? itemId;
 
   /// Gets or sets the session id.
   @JsonKey(name: 'SessionId')
@@ -71,11 +71,11 @@ class PlaybackProgressInfo {
 
   /// Gets or sets a value indicating whether this instance is paused.
   @JsonKey(name: 'IsPaused')
-  final bool isPaused;
+  final bool? isPaused;
 
   /// Gets or sets a value indicating whether this instance is muted.
   @JsonKey(name: 'IsMuted')
-  final bool isMuted;
+  final bool? isMuted;
 
   /// Gets or sets the position ticks.
   @JsonKey(name: 'PositionTicks')
@@ -93,7 +93,7 @@ class PlaybackProgressInfo {
 
   /// Gets or sets the play method.
   @JsonKey(name: 'PlayMethod')
-  final PlaybackProgressInfoPlayMethod playMethod;
+  final PlaybackProgressInfoPlayMethod? playMethod;
 
   /// Gets or sets the live stream identifier.
   @JsonKey(name: 'LiveStreamId')
@@ -105,11 +105,11 @@ class PlaybackProgressInfo {
 
   /// Gets or sets the repeat mode.
   @JsonKey(name: 'RepeatMode')
-  final PlaybackProgressInfoRepeatMode repeatMode;
+  final PlaybackProgressInfoRepeatMode? repeatMode;
 
   /// Gets or sets the playback order.
   @JsonKey(name: 'PlaybackOrder')
-  final PlaybackProgressInfoPlaybackOrder playbackOrder;
+  final PlaybackProgressInfoPlaybackOrder? playbackOrder;
   @JsonKey(name: 'NowPlayingQueue')
   final List<QueueItem>? nowPlayingQueue;
   @JsonKey(name: 'PlaylistItemId')

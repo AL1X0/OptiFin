@@ -11,8 +11,8 @@ TranscodingInfo _$TranscodingInfoFromJson(Map<String, dynamic> json) =>
       audioCodec: json['AudioCodec'] as String?,
       videoCodec: json['VideoCodec'] as String?,
       container: json['Container'] as String?,
-      isVideoDirect: json['IsVideoDirect'] as bool,
-      isAudioDirect: json['IsAudioDirect'] as bool,
+      isVideoDirect: json['IsVideoDirect'] as bool?,
+      isAudioDirect: json['IsAudioDirect'] as bool?,
       bitrate: (json['Bitrate'] as num?)?.toInt(),
       framerate: (json['Framerate'] as num?)?.toDouble(),
       completionPercentage: (json['CompletionPercentage'] as num?)?.toDouble(),
@@ -24,8 +24,8 @@ TranscodingInfo _$TranscodingInfoFromJson(Map<String, dynamic> json) =>
           : TranscodingInfoHardwareAccelerationType.fromJson(
               json['HardwareAccelerationType'],
             ),
-      transcodeReasons: (json['TranscodeReasons'] as List<dynamic>)
-          .map((e) => TranscodeReason.fromJson(e as String))
+      transcodeReasons: (json['TranscodeReasons'] as List<dynamic>?)
+          ?.map((e) => TranscodeReason.fromJson(e as String))
           .toList(),
     );
 

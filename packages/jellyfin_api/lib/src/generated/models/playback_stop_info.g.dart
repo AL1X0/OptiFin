@@ -11,13 +11,13 @@ PlaybackStopInfo _$PlaybackStopInfoFromJson(Map<String, dynamic> json) =>
       item: json['Item'] == null
           ? null
           : BaseItemDto.fromJson(json['Item'] as Map<String, dynamic>),
-      itemId: json['ItemId'] as String,
+      itemId: json['ItemId'] as String?,
       sessionId: json['SessionId'] as String?,
       mediaSourceId: json['MediaSourceId'] as String?,
       positionTicks: (json['PositionTicks'] as num?)?.toInt(),
       liveStreamId: json['LiveStreamId'] as String?,
       playSessionId: json['PlaySessionId'] as String?,
-      failed: json['Failed'] as bool,
+      failed: json['Failed'] as bool?,
       nextMediaType: json['NextMediaType'] as String?,
       playlistItemId: json['PlaylistItemId'] as String?,
       nowPlayingQueue: (json['NowPlayingQueue'] as List<dynamic>?)

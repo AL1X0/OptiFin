@@ -21,15 +21,19 @@ SessionInfoDto _$SessionInfoDtoFromJson(
           json['Capabilities'] as Map<String, dynamic>,
         ),
   remoteEndPoint: json['RemoteEndPoint'] as String?,
-  playableMediaTypes: (json['PlayableMediaTypes'] as List<dynamic>)
-      .map(MediaType.fromJson)
+  playableMediaTypes: (json['PlayableMediaTypes'] as List<dynamic>?)
+      ?.map(MediaType.fromJson)
       .toList(),
   id: json['Id'] as String?,
-  userId: json['UserId'] as String,
+  userId: json['UserId'] as String?,
   userName: json['UserName'] as String?,
   client: json['Client'] as String?,
-  lastActivityDate: DateTime.parse(json['LastActivityDate'] as String),
-  lastPlaybackCheckIn: DateTime.parse(json['LastPlaybackCheckIn'] as String),
+  lastActivityDate: json['LastActivityDate'] == null
+      ? null
+      : DateTime.parse(json['LastActivityDate'] as String),
+  lastPlaybackCheckIn: json['LastPlaybackCheckIn'] == null
+      ? null
+      : DateTime.parse(json['LastPlaybackCheckIn'] as String),
   lastPausedDate: json['LastPausedDate'] == null
       ? null
       : DateTime.parse(json['LastPausedDate'] as String),
@@ -48,18 +52,18 @@ SessionInfoDto _$SessionInfoDtoFromJson(
       : TranscodingInfo.fromJson(
           json['TranscodingInfo'] as Map<String, dynamic>,
         ),
-  isActive: json['IsActive'] as bool,
-  supportsMediaControl: json['SupportsMediaControl'] as bool,
-  supportsRemoteControl: json['SupportsRemoteControl'] as bool,
+  isActive: json['IsActive'] as bool?,
+  supportsMediaControl: json['SupportsMediaControl'] as bool?,
+  supportsRemoteControl: json['SupportsRemoteControl'] as bool?,
   nowPlayingQueue: (json['NowPlayingQueue'] as List<dynamic>?)
       ?.map((e) => QueueItem.fromJson(e as Map<String, dynamic>))
       .toList(),
-  hasCustomDeviceName: json['HasCustomDeviceName'] as bool,
+  hasCustomDeviceName: json['HasCustomDeviceName'] as bool?,
   playlistItemId: json['PlaylistItemId'] as String?,
   serverId: json['ServerId'] as String?,
   userPrimaryImageTag: json['UserPrimaryImageTag'] as String?,
-  supportedCommands: (json['SupportedCommands'] as List<dynamic>)
-      .map((e) => GeneralCommandType.fromJson(e as String))
+  supportedCommands: (json['SupportedCommands'] as List<dynamic>?)
+      ?.map((e) => GeneralCommandType.fromJson(e as String))
       .toList(),
 );
 
@@ -74,8 +78,8 @@ Map<String, dynamic> _$SessionInfoDtoToJson(SessionInfoDto instance) =>
       'UserId': instance.userId,
       'UserName': instance.userName,
       'Client': instance.client,
-      'LastActivityDate': instance.lastActivityDate.toIso8601String(),
-      'LastPlaybackCheckIn': instance.lastPlaybackCheckIn.toIso8601String(),
+      'LastActivityDate': instance.lastActivityDate?.toIso8601String(),
+      'LastPlaybackCheckIn': instance.lastPlaybackCheckIn?.toIso8601String(),
       'LastPausedDate': instance.lastPausedDate?.toIso8601String(),
       'DeviceName': instance.deviceName,
       'DeviceType': instance.deviceType,

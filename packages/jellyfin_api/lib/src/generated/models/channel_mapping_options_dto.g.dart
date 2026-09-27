@@ -9,11 +9,11 @@ part of 'channel_mapping_options_dto.dart';
 ChannelMappingOptionsDto _$ChannelMappingOptionsDtoFromJson(
   Map<String, dynamic> json,
 ) => ChannelMappingOptionsDto(
-  tunerChannels: (json['TunerChannels'] as List<dynamic>)
-      .map((e) => TunerChannelMapping.fromJson(e as Map<String, dynamic>))
+  tunerChannels: (json['TunerChannels'] as List<dynamic>?)
+      ?.map((e) => TunerChannelMapping.fromJson(e as Map<String, dynamic>))
       .toList(),
-  providerChannels: (json['ProviderChannels'] as List<dynamic>)
-      .map((e) => NameIdPair.fromJson(e as Map<String, dynamic>))
+  providerChannels: (json['ProviderChannels'] as List<dynamic>?)
+      ?.map((e) => NameIdPair.fromJson(e as Map<String, dynamic>))
       .toList(),
   mappings: (json['Mappings'] as List<dynamic>?)
       ?.map((e) => NameValuePair.fromJson(e as Map<String, dynamic>))

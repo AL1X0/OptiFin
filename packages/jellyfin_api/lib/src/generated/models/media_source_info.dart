@@ -70,7 +70,7 @@ class MediaSourceInfo {
   factory MediaSourceInfo.fromJson(Map<String, Object?> json) => _$MediaSourceInfoFromJson(json);
   
   @JsonKey(name: 'Protocol')
-  final MediaSourceInfoProtocol protocol;
+  final MediaSourceInfoProtocol? protocol;
   @JsonKey(name: 'Id')
   final String? id;
   @JsonKey(name: 'Path')
@@ -82,7 +82,7 @@ class MediaSourceInfo {
 
   /// The type of a media source.
   @JsonKey(name: 'Type')
-  final MediaSourceInfoType type;
+  final MediaSourceInfoType? type;
   @JsonKey(name: 'Container')
   final String? container;
   @JsonKey(name: 'Size')
@@ -93,43 +93,43 @@ class MediaSourceInfo {
   /// Gets or sets a value indicating whether the media is remote.
   /// Differentiate internet url vs local network.
   @JsonKey(name: 'IsRemote')
-  final bool isRemote;
+  final bool? isRemote;
   @JsonKey(name: 'ETag')
   final String? eTag;
   @JsonKey(name: 'RunTimeTicks')
   final int? runTimeTicks;
   @JsonKey(name: 'ReadAtNativeFramerate')
-  final bool readAtNativeFramerate;
+  final bool? readAtNativeFramerate;
   @JsonKey(name: 'IgnoreDts')
-  final bool ignoreDts;
+  final bool? ignoreDts;
   @JsonKey(name: 'IgnoreIndex')
-  final bool ignoreIndex;
+  final bool? ignoreIndex;
   @JsonKey(name: 'GenPtsInput')
-  final bool genPtsInput;
+  final bool? genPtsInput;
   @JsonKey(name: 'SupportsTranscoding')
-  final bool supportsTranscoding;
+  final bool? supportsTranscoding;
   @JsonKey(name: 'SupportsDirectStream')
-  final bool supportsDirectStream;
+  final bool? supportsDirectStream;
   @JsonKey(name: 'SupportsDirectPlay')
-  final bool supportsDirectPlay;
+  final bool? supportsDirectPlay;
   @JsonKey(name: 'IsInfiniteStream')
-  final bool isInfiniteStream;
+  final bool? isInfiniteStream;
   @JsonKey(name: 'UseMostCompatibleTranscodingProfile')
-  final bool useMostCompatibleTranscodingProfile;
+  final bool? useMostCompatibleTranscodingProfile;
   @JsonKey(name: 'RequiresOpening')
-  final bool requiresOpening;
+  final bool? requiresOpening;
   @JsonKey(name: 'OpenToken')
   final String? openToken;
   @JsonKey(name: 'RequiresClosing')
-  final bool requiresClosing;
+  final bool? requiresClosing;
   @JsonKey(name: 'LiveStreamId')
   final String? liveStreamId;
   @JsonKey(name: 'BufferMs')
   final int? bufferMs;
   @JsonKey(name: 'RequiresLooping')
-  final bool requiresLooping;
+  final bool? requiresLooping;
   @JsonKey(name: 'SupportsProbing')
-  final bool supportsProbing;
+  final bool? supportsProbing;
   @JsonKey(name: 'VideoType')
   final MediaSourceInfoVideoType? videoType;
   @JsonKey(name: 'IsoType')
@@ -156,7 +156,7 @@ class MediaSourceInfo {
   /// Media streaming protocol.
   /// Lowercase for backwards compatibility.
   @JsonKey(name: 'TranscodingSubProtocol')
-  final MediaSourceInfoTranscodingSubProtocol transcodingSubProtocol;
+  final MediaSourceInfoTranscodingSubProtocol? transcodingSubProtocol;
   @JsonKey(name: 'TranscodingContainer')
   final String? transcodingContainer;
   @JsonKey(name: 'AnalyzeDurationMs')
@@ -166,7 +166,7 @@ class MediaSourceInfo {
   @JsonKey(name: 'DefaultSubtitleStreamIndex')
   final int? defaultSubtitleStreamIndex;
   @JsonKey(name: 'HasSegments')
-  final bool hasSegments;
+  final bool? hasSegments;
 
   Map<String, Object?> toJson() => _$MediaSourceInfoToJson(this);
 }

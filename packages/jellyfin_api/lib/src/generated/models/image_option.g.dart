@@ -7,9 +7,9 @@ part of 'image_option.dart';
 // **************************************************************************
 
 ImageOption _$ImageOptionFromJson(Map<String, dynamic> json) => ImageOption(
-  type: ImageOptionType.fromJson(json['Type']),
-  limit: (json['Limit'] as num).toInt(),
-  minWidth: (json['MinWidth'] as num).toInt(),
+  type: json['Type'] == null ? null : ImageOptionType.fromJson(json['Type']),
+  limit: (json['Limit'] as num?)?.toInt(),
+  minWidth: (json['MinWidth'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$ImageOptionToJson(ImageOption instance) =>

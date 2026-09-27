@@ -11,7 +11,9 @@ BaseItemPerson _$BaseItemPersonFromJson(Map<String, dynamic> json) =>
       name: json['Name'] as String?,
       id: json['Id'] as String,
       role: json['Role'] as String?,
-      type: BaseItemPersonType.fromJson(json['Type']),
+      type: json['Type'] == null
+          ? null
+          : BaseItemPersonType.fromJson(json['Type']),
       primaryImageTag: json['PrimaryImageTag'] as String?,
       imageBlurHashes: json['ImageBlurHashes'] == null
           ? null

@@ -7,10 +7,10 @@ part of 'user_policy.dart';
 // **************************************************************************
 
 UserPolicy _$UserPolicyFromJson(Map<String, dynamic> json) => UserPolicy(
-  authenticationProviderId: json['AuthenticationProviderId'] as String,
-  passwordResetProviderId: json['PasswordResetProviderId'] as String,
   enableSharedDeviceControl: json['EnableSharedDeviceControl'] as bool?,
   isHidden: json['IsHidden'] as bool?,
+  passwordResetProviderId: json['PasswordResetProviderId'] as String?,
+  authenticationProviderId: json['AuthenticationProviderId'] as String?,
   remoteClientBitrateLimit: (json['RemoteClientBitrateLimit'] as num?)?.toInt(),
   isDisabled: json['IsDisabled'] as bool?,
   maxParentalRating: (json['MaxParentalRating'] as num?)?.toInt(),

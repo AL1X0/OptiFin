@@ -9,7 +9,9 @@ part of 'forgot_password_result.dart';
 ForgotPasswordResult _$ForgotPasswordResultFromJson(
   Map<String, dynamic> json,
 ) => ForgotPasswordResult(
-  action: ForgotPasswordResultAction.fromJson(json['Action']),
+  action: json['Action'] == null
+      ? null
+      : ForgotPasswordResultAction.fromJson(json['Action']),
   pinFile: json['PinFile'] as String?,
   pinExpirationDate: json['PinExpirationDate'] == null
       ? null

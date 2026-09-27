@@ -12,24 +12,24 @@ part 'library_storage_dto.g.dart';
 @JsonSerializable()
 class LibraryStorageDto {
   const LibraryStorageDto({
-    required this.id,
-    required this.name,
-    required this.folders,
+    this.id,
+    this.name,
+    this.folders,
   });
   
   factory LibraryStorageDto.fromJson(Map<String, Object?> json) => _$LibraryStorageDtoFromJson(json);
   
   /// Gets or sets the Library Id.
   @JsonKey(name: 'Id')
-  final String id;
+  final String? id;
 
   /// Gets or sets the name of the library.
   @JsonKey(name: 'Name')
-  final String name;
+  final String? name;
 
   /// Gets or sets the storage informations about the folders used in a library.
   @JsonKey(name: 'Folders')
-  final List<FolderStorageDto> folders;
+  final List<FolderStorageDto>? folders;
 
   Map<String, Object?> toJson() => _$LibraryStorageDtoToJson(this);
 }

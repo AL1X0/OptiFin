@@ -27,35 +27,35 @@ class SystemStorageDto {
   
   /// Gets or sets the Storage information of the program data folder.
   @JsonKey(name: 'ProgramDataFolder')
-  final FolderStorageDto programDataFolder;
+  final FolderStorageDto? programDataFolder;
 
   /// Gets or sets the Storage information of the web UI resources folder.
   @JsonKey(name: 'WebFolder')
-  final FolderStorageDto webFolder;
+  final FolderStorageDto? webFolder;
 
   /// Gets or sets the Storage information of the folder where images are cached.
   @JsonKey(name: 'ImageCacheFolder')
-  final FolderStorageDto imageCacheFolder;
+  final FolderStorageDto? imageCacheFolder;
 
   /// Gets or sets the Storage information of the cache folder.
   @JsonKey(name: 'CacheFolder')
-  final FolderStorageDto cacheFolder;
+  final FolderStorageDto? cacheFolder;
 
   /// Gets or sets the Storage information of the folder where logfiles are saved to.
   @JsonKey(name: 'LogFolder')
-  final FolderStorageDto logFolder;
+  final FolderStorageDto? logFolder;
 
   /// Gets or sets the Storage information of the folder where metadata is stored.
   @JsonKey(name: 'InternalMetadataFolder')
-  final FolderStorageDto internalMetadataFolder;
+  final FolderStorageDto? internalMetadataFolder;
 
   /// Gets or sets the Storage information of the transcoding cache.
   @JsonKey(name: 'TranscodingTempFolder')
-  final FolderStorageDto transcodingTempFolder;
+  final FolderStorageDto? transcodingTempFolder;
 
   /// Gets or sets the storage informations of all libraries.
   @JsonKey(name: 'Libraries')
-  final List<LibraryStorageDto> libraries;
+  final List<LibraryStorageDto>? libraries;
 
   Map<String, Object?> toJson() => _$SystemStorageDtoToJson(this);
 }

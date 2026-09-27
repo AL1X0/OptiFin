@@ -128,7 +128,7 @@ class GetProgramsDto {
 
   /// Gets or sets a value indicating whether retrieve total record count.
   @JsonKey(name: 'EnableTotalRecordCount')
-  final bool enableTotalRecordCount;
+  final bool? enableTotalRecordCount;
 
   /// Gets or sets the max number of images to return, per image type.
   @JsonKey(name: 'ImageTypeLimit')

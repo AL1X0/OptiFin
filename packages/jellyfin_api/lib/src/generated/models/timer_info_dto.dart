@@ -61,7 +61,7 @@ class TimerInfoDto {
 
   /// Gets or sets the channel id of the recording.
   @JsonKey(name: 'ChannelId')
-  final String channelId;
+  final String? channelId;
 
   /// Gets or sets the external channel identifier.
   @JsonKey(name: 'ExternalChannelId')
@@ -91,11 +91,11 @@ class TimerInfoDto {
 
   /// Gets or sets the start date of the recording, in UTC.
   @JsonKey(name: 'StartDate')
-  final DateTime startDate;
+  final DateTime? startDate;
 
   /// Gets or sets the end date of the recording, in UTC.
   @JsonKey(name: 'EndDate')
-  final DateTime endDate;
+  final DateTime? endDate;
 
   /// Gets or sets the name of the service.
   @JsonKey(name: 'ServiceName')
@@ -103,19 +103,19 @@ class TimerInfoDto {
 
   /// Gets or sets the priority.
   @JsonKey(name: 'Priority')
-  final int priority;
+  final int? priority;
 
   /// Gets or sets the pre padding seconds.
   @JsonKey(name: 'PrePaddingSeconds')
-  final int prePaddingSeconds;
+  final int? prePaddingSeconds;
 
   /// Gets or sets the post padding seconds.
   @JsonKey(name: 'PostPaddingSeconds')
-  final int postPaddingSeconds;
+  final int? postPaddingSeconds;
 
   /// Gets or sets a value indicating whether this instance is pre padding required.
   @JsonKey(name: 'IsPrePaddingRequired')
-  final bool isPrePaddingRequired;
+  final bool? isPrePaddingRequired;
 
   /// Gets or sets the Id of the Parent that has a backdrop if the item does not have one.
   @JsonKey(name: 'ParentBackdropItemId')
@@ -127,13 +127,13 @@ class TimerInfoDto {
 
   /// Gets or sets a value indicating whether this instance is post padding required.
   @JsonKey(name: 'IsPostPaddingRequired')
-  final bool isPostPaddingRequired;
+  final bool? isPostPaddingRequired;
   @JsonKey(name: 'KeepUntil')
-  final TimerInfoDtoKeepUntil keepUntil;
+  final TimerInfoDtoKeepUntil? keepUntil;
 
   /// Gets or sets the status.
   @JsonKey(name: 'Status')
-  final TimerInfoDtoStatus status;
+  final TimerInfoDtoStatus? status;
 
   /// Gets or sets the series timer identifier.
   @JsonKey(name: 'SeriesTimerId')

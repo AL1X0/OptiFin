@@ -7,13 +7,17 @@ part of 'group_info_dto.dart';
 // **************************************************************************
 
 GroupInfoDto _$GroupInfoDtoFromJson(Map<String, dynamic> json) => GroupInfoDto(
-  groupId: json['GroupId'] as String,
-  groupName: json['GroupName'] as String,
-  state: GroupInfoDtoState.fromJson(json['State']),
-  participants: (json['Participants'] as List<dynamic>)
-      .map((e) => e as String)
+  groupId: json['GroupId'] as String?,
+  groupName: json['GroupName'] as String?,
+  state: json['State'] == null
+      ? null
+      : GroupInfoDtoState.fromJson(json['State']),
+  participants: (json['Participants'] as List<dynamic>?)
+      ?.map((e) => e as String)
       .toList(),
-  lastUpdatedAt: DateTime.parse(json['LastUpdatedAt'] as String),
+  lastUpdatedAt: json['LastUpdatedAt'] == null
+      ? null
+      : DateTime.parse(json['LastUpdatedAt'] as String),
 );
 
 Map<String, dynamic> _$GroupInfoDtoToJson(GroupInfoDto instance) =>
@@ -22,5 +26,5 @@ Map<String, dynamic> _$GroupInfoDtoToJson(GroupInfoDto instance) =>
       'GroupName': instance.groupName,
       'State': instance.state,
       'Participants': instance.participants,
-      'LastUpdatedAt': instance.lastUpdatedAt.toIso8601String(),
+      'LastUpdatedAt': instance.lastUpdatedAt?.toIso8601String(),
     };

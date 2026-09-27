@@ -21,11 +21,11 @@ class LyricDto {
   
   /// Gets or sets Metadata for the lyrics.
   @JsonKey(name: 'Metadata')
-  final LyricMetadata metadata;
+  final LyricMetadata? metadata;
 
   /// Gets or sets a collection of individual lyric lines.
   @JsonKey(name: 'Lyrics')
-  final List<LyricLine> lyrics;
+  final List<LyricLine>? lyrics;
 
   Map<String, Object?> toJson() => _$LyricDtoToJson(this);
 }

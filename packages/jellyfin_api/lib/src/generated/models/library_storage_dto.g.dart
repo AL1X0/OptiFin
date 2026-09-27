@@ -8,10 +8,10 @@ part of 'library_storage_dto.dart';
 
 LibraryStorageDto _$LibraryStorageDtoFromJson(Map<String, dynamic> json) =>
     LibraryStorageDto(
-      id: json['Id'] as String,
-      name: json['Name'] as String,
-      folders: (json['Folders'] as List<dynamic>)
-          .map((e) => FolderStorageDto.fromJson(e as Map<String, dynamic>))
+      id: json['Id'] as String?,
+      name: json['Name'] as String?,
+      folders: (json['Folders'] as List<dynamic>?)
+          ?.map((e) => FolderStorageDto.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
 

@@ -27,7 +27,7 @@ class SubtitleProfile {
 
   /// Gets or sets the delivery method.
   @JsonKey(name: 'Method')
-  final SubtitleProfileMethod method;
+  final SubtitleProfileMethod? method;
 
   /// Gets or sets the DIDL mode.
   @JsonKey(name: 'DidlMode')

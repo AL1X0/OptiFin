@@ -4,6 +4,7 @@ import 'package:jellyfin_api/jellyfin_api.dart';
 import '../features/auth/data/account_store.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/domain/entities.dart';
+import 'media/media_repository.dart';
 import 'network/dio_factory.dart';
 import 'network/image_url.dart';
 import 'network/jellyfin_auth.dart';
@@ -97,4 +98,13 @@ final imageUrlBuilderProvider = Provider<JellyfinImageUrlBuilder>((ref) {
 final savedAccountsProvider = FutureProvider<List<StoredAccount>>((ref) {
   ref.watch(sessionControllerProvider); // se rafraîchit à chaque changement de session
   return ref.watch(accountStoreProvider).listAccounts();
+});
+
+final responseCacheProvider = Provider<ResponseCache>((ref) => ResponseCache(ref.watch(appDatabaseProvider)));
+
+/// Accès aux contenus pour la session courante (recréé à chaque bascule de compte).
+final mediaRepositoryProvider = Provider<MediaRepository>((ref) {
+  final session = ref.watch(sessionControllerProvider);
+  if (session == null) throw StateError('Aucune session active');
+  return MediaRepository(ref.watch(jellyfinClientProvider), session.account.userId);
 });

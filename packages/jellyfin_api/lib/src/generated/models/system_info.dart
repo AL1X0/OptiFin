@@ -100,9 +100,9 @@ class SystemInfo {
 
   /// Gets or sets a value indicating whether this instance can self restart.
   @JsonKey(name: 'CanSelfRestart')
-  final bool canSelfRestart;
+  final bool? canSelfRestart;
   @JsonKey(name: 'CanLaunchWebBrowser')
-  final bool canLaunchWebBrowser;
+  final bool? canLaunchWebBrowser;
 
   /// Gets or sets the program data path.
   @JsonKey(name: 'ProgramDataPath')
@@ -138,7 +138,7 @@ class SystemInfo {
 
   /// Gets or sets a value indicating whether this instance has update available.
   @JsonKey(name: 'HasUpdateAvailable')
-  final bool hasUpdateAvailable;
+  final bool? hasUpdateAvailable;
   @JsonKey(name: 'EncoderLocation')
   final String? encoderLocation;
   @JsonKey(name: 'SystemArchitecture')

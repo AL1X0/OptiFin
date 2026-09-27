@@ -10,19 +10,19 @@ part 'cast_receiver_application.g.dart';
 @JsonSerializable()
 class CastReceiverApplication {
   const CastReceiverApplication({
-    required this.id,
-    required this.name,
+    this.id,
+    this.name,
   });
   
   factory CastReceiverApplication.fromJson(Map<String, Object?> json) => _$CastReceiverApplicationFromJson(json);
   
   /// Gets or sets the cast receiver application id.
   @JsonKey(name: 'Id')
-  final String id;
+  final String? id;
 
   /// Gets or sets the cast receiver application name.
   @JsonKey(name: 'Name')
-  final String name;
+  final String? name;
 
   Map<String, Object?> toJson() => _$CastReceiverApplicationToJson(this);
 }

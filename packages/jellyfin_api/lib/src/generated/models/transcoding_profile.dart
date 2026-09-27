@@ -40,48 +40,48 @@ class TranscodingProfile {
   
   /// Gets or sets the container.
   @JsonKey(name: 'Container')
-  final String container;
+  final String? container;
 
   /// Gets or sets the DLNA profile type.
   @JsonKey(name: 'Type')
-  final TranscodingProfileType type;
+  final TranscodingProfileType? type;
 
   /// Gets or sets the video codec.
   @JsonKey(name: 'VideoCodec')
-  final String videoCodec;
+  final String? videoCodec;
 
   /// Gets or sets the audio codec.
   @JsonKey(name: 'AudioCodec')
-  final String audioCodec;
+  final String? audioCodec;
 
   /// Media streaming protocol.
   /// Lowercase for backwards compatibility.
   @JsonKey(name: 'Protocol')
-  final TranscodingProfileProtocol protocol;
+  final TranscodingProfileProtocol? protocol;
 
   /// Gets or sets a value indicating whether the content length should be estimated.
   @JsonKey(name: 'EstimateContentLength')
-  final bool estimateContentLength;
+  final bool? estimateContentLength;
 
   /// Gets or sets a value indicating whether M2TS mode is enabled.
   @JsonKey(name: 'EnableMpegtsM2TsMode')
-  final bool enableMpegtsM2TsMode;
+  final bool? enableMpegtsM2TsMode;
 
   /// Gets or sets the transcoding seek info mode.
   @JsonKey(name: 'TranscodeSeekInfo')
-  final TranscodingProfileTranscodeSeekInfo transcodeSeekInfo;
+  final TranscodingProfileTranscodeSeekInfo? transcodeSeekInfo;
 
   /// Gets or sets a value indicating whether timestamps should be copied.
   @JsonKey(name: 'CopyTimestamps')
-  final bool copyTimestamps;
+  final bool? copyTimestamps;
 
   /// Gets or sets the encoding context.
   @JsonKey(name: 'Context')
-  final TranscodingProfileContext context;
+  final TranscodingProfileContext? context;
 
   /// Gets or sets a value indicating whether subtitles are allowed in the manifest.
   @JsonKey(name: 'EnableSubtitlesInManifest')
-  final bool enableSubtitlesInManifest;
+  final bool? enableSubtitlesInManifest;
 
   /// Gets or sets the maximum audio channels.
   @JsonKey(name: 'MaxAudioChannels')
@@ -89,11 +89,11 @@ class TranscodingProfile {
 
   /// Gets or sets the minimum amount of segments.
   @JsonKey(name: 'MinSegments')
-  final int minSegments;
+  final int? minSegments;
 
   /// Gets or sets the segment length.
   @JsonKey(name: 'SegmentLength')
-  final int segmentLength;
+  final int? segmentLength;
 
   /// Gets or sets a value indicating whether breaking the video stream on non-keyframes is supported.
   @JsonKey(name: 'BreakOnNonKeyFrames')
@@ -101,11 +101,11 @@ class TranscodingProfile {
 
   /// Gets or sets the profile conditions.
   @JsonKey(name: 'Conditions')
-  final List<ProfileCondition> conditions;
+  final List<ProfileCondition>? conditions;
 
   /// Gets or sets a value indicating whether variable bitrate encoding is supported.
   @JsonKey(name: 'EnableAudioVbrEncoding')
-  final bool enableAudioVbrEncoding;
+  final bool? enableAudioVbrEncoding;
 
   Map<String, Object?> toJson() => _$TranscodingProfileToJson(this);
 }

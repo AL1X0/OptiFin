@@ -20,15 +20,15 @@ class ImageOption {
   
   /// Gets or sets the type.
   @JsonKey(name: 'Type')
-  final ImageOptionType type;
+  final ImageOptionType? type;
 
   /// Gets or sets the limit.
   @JsonKey(name: 'Limit')
-  final int limit;
+  final int? limit;
 
   /// Gets or sets the minimum width.
   @JsonKey(name: 'MinWidth')
-  final int minWidth;
+  final int? minWidth;
 
   Map<String, Object?> toJson() => _$ImageOptionToJson(this);
 }

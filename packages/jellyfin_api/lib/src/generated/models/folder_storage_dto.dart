@@ -10,7 +10,7 @@ part 'folder_storage_dto.g.dart';
 @JsonSerializable()
 class FolderStorageDto {
   const FolderStorageDto({
-    required this.path,
+    this.path,
     this.freeSpace,
     this.usedSpace,
     this.storageType,
@@ -21,7 +21,7 @@ class FolderStorageDto {
   
   /// Gets the path of the folder in question.
   @JsonKey(name: 'Path')
-  final String path;
+  final String? path;
 
   /// Gets the free space of the underlying storage device of the Jellyfin.Api.Models.SystemInfoDtos.FolderStorageDto.Path.
   @JsonKey(name: 'FreeSpace')

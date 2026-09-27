@@ -34,7 +34,7 @@ class PlaybackStopInfo {
 
   /// Gets or sets the item identifier.
   @JsonKey(name: 'ItemId')
-  final String itemId;
+  final String? itemId;
 
   /// Gets or sets the session id.
   @JsonKey(name: 'SessionId')
@@ -58,7 +58,7 @@ class PlaybackStopInfo {
 
   /// Gets or sets a value indicating whether this MediaBrowser.Model.Session.PlaybackStopInfo is failed.
   @JsonKey(name: 'Failed')
-  final bool failed;
+  final bool? failed;
   @JsonKey(name: 'NextMediaType')
   final String? nextMediaType;
   @JsonKey(name: 'PlaylistItemId')

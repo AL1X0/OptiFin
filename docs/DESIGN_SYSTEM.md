@@ -6,7 +6,8 @@ tout passe par les tokens ci-dessous (`OFColors`, `OFSpacing`, `OFRadius`, `OFMo
 ## 1. Couleurs (`OFColors`)
 
 Thème sombre par défaut, noirs OLED. L'accent est **dynamique** : extrait de l'artwork
-affiché (`AccentScope`), avec `accentFallback` quand aucune image n'est disponible.
+affiché (`accentFromUrl` → `AnimatedTheme` sur l'accueil et les fiches), avec `accentFallback`
+quand aucune image n'est disponible ou qu'elle est monochrome.
 
 | Token | Valeur | Usage |
 |---|---|---|
@@ -72,7 +73,9 @@ Toutes les durées passent par `OFMotion.of(context)` qui renvoie `Duration.zero
 
 | Composant | Description | Spécifications |
 |---|---|---|
-| `PosterCard` | Affiche 2:3 | Rayon `md`, placeholder BlurHash, titre optionnel dessous (`headline`/`caption`), barre de progression 3 px, pastille « vu », Hero tag `poster-<id>` |
+| `PosterCard` | Affiche 2:3 | Rayon `md`, placeholder BlurHash, titre optionnel dessous (`headline`/`caption`), barre de progression 3 px, pastille « vu », Hero tag optionnel, unique par rangée (`<rangée>:<id>`) |
+| `SquareCard` | Carré 1:1 | Albums, artistes |
+| `SkeletonBox` / `SkeletonRow` | Chargement | Blocs statiques `surface` (pas de shimmer : zéro coût GPU) |
 | `LandscapeCard` | Vignette 16:9 | Pour « Reprendre », épisodes ; progression en bas, overlay dégradé pour le titre |
 | `MediaRow` | Rangée horizontale | Titre `title2` + « Tout voir », `ListView.builder` virtualisé, `cacheExtent` 1 écran, padding = marge d'écran |
 | `OFButton` | Boutons | `primary` (fond texte primaire, texte noir, pill, h 48), `secondary` (verre), `icon` (cercle 44, zone tactile ≥ 44) ; scale 0,96 au press + haptique légère |

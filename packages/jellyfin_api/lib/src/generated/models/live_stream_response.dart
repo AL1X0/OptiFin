@@ -17,7 +17,7 @@ class LiveStreamResponse {
   factory LiveStreamResponse.fromJson(Map<String, Object?> json) => _$LiveStreamResponseFromJson(json);
   
   @JsonKey(name: 'MediaSource')
-  final MediaSourceInfo mediaSource;
+  final MediaSourceInfo? mediaSource;
 
   Map<String, Object?> toJson() => _$LiveStreamResponseToJson(this);
 }

@@ -9,10 +9,12 @@ part of 'media_segment_dto.dart';
 MediaSegmentDto _$MediaSegmentDtoFromJson(Map<String, dynamic> json) =>
     MediaSegmentDto(
       id: json['Id'] as String,
-      itemId: json['ItemId'] as String,
-      type: MediaSegmentDtoType.fromJson(json['Type']),
-      startTicks: (json['StartTicks'] as num).toInt(),
-      endTicks: (json['EndTicks'] as num).toInt(),
+      itemId: json['ItemId'] as String?,
+      type: json['Type'] == null
+          ? null
+          : MediaSegmentDtoType.fromJson(json['Type']),
+      startTicks: (json['StartTicks'] as num?)?.toInt(),
+      endTicks: (json['EndTicks'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$MediaSegmentDtoToJson(MediaSegmentDto instance) =>

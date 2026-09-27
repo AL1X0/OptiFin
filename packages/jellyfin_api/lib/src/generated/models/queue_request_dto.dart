@@ -20,11 +20,11 @@ class QueueRequestDto {
   
   /// Gets or sets the items to enqueue.
   @JsonKey(name: 'ItemIds')
-  final List<String> itemIds;
+  final List<String>? itemIds;
 
   /// Gets or sets the mode in which to add the new items.
   @JsonKey(name: 'Mode')
-  final QueueRequestDtoMode mode;
+  final QueueRequestDtoMode? mode;
 
   Map<String, Object?> toJson() => _$QueueRequestDtoToJson(this);
 }

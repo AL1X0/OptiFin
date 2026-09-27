@@ -25,7 +25,7 @@ class InstallationInfo {
   
   /// Gets or sets the Id.
   @JsonKey(name: 'Guid')
-  final String guid;
+  final String? guid;
 
   /// Gets or sets the name.
   @JsonKey(name: 'Name')

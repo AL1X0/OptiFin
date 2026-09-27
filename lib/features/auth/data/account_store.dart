@@ -101,6 +101,7 @@ class AccountStore {
     await _db.transaction(() async {
       final account = await (_db.select(_db.accounts)..where((t) => t.id.equals(accountId))).getSingleOrNull();
       await (_db.delete(_db.accounts)..where((t) => t.id.equals(accountId))).go();
+      await ResponseCache(_db).clearPrefix('$accountId/');
       await (_db.delete(_db.keyValues)..where((t) => t.key.equals(_activeKey) & t.value.equals(accountId))).go();
       if (account != null) {
         final remaining = await (_db.select(_db.accounts)..where((t) => t.serverId.equals(account.serverId))).get();

@@ -11,7 +11,7 @@ TimerInfoDto _$TimerInfoDtoFromJson(Map<String, dynamic> json) => TimerInfoDto(
   type: json['Type'] as String?,
   serverId: json['ServerId'] as String?,
   externalId: json['ExternalId'] as String?,
-  channelId: json['ChannelId'] as String,
+  channelId: json['ChannelId'] as String?,
   externalChannelId: json['ExternalChannelId'] as String?,
   channelName: json['ChannelName'] as String?,
   channelPrimaryImageTag: json['ChannelPrimaryImageTag'] as String?,
@@ -19,20 +19,28 @@ TimerInfoDto _$TimerInfoDtoFromJson(Map<String, dynamic> json) => TimerInfoDto(
   externalProgramId: json['ExternalProgramId'] as String?,
   name: json['Name'] as String?,
   overview: json['Overview'] as String?,
-  startDate: DateTime.parse(json['StartDate'] as String),
-  endDate: DateTime.parse(json['EndDate'] as String),
+  startDate: json['StartDate'] == null
+      ? null
+      : DateTime.parse(json['StartDate'] as String),
+  endDate: json['EndDate'] == null
+      ? null
+      : DateTime.parse(json['EndDate'] as String),
   serviceName: json['ServiceName'] as String?,
-  priority: (json['Priority'] as num).toInt(),
-  prePaddingSeconds: (json['PrePaddingSeconds'] as num).toInt(),
-  postPaddingSeconds: (json['PostPaddingSeconds'] as num).toInt(),
-  isPrePaddingRequired: json['IsPrePaddingRequired'] as bool,
+  priority: (json['Priority'] as num?)?.toInt(),
+  prePaddingSeconds: (json['PrePaddingSeconds'] as num?)?.toInt(),
+  postPaddingSeconds: (json['PostPaddingSeconds'] as num?)?.toInt(),
+  isPrePaddingRequired: json['IsPrePaddingRequired'] as bool?,
   parentBackdropItemId: json['ParentBackdropItemId'] as String?,
   parentBackdropImageTags: (json['ParentBackdropImageTags'] as List<dynamic>?)
       ?.map((e) => e as String)
       .toList(),
-  isPostPaddingRequired: json['IsPostPaddingRequired'] as bool,
-  keepUntil: TimerInfoDtoKeepUntil.fromJson(json['KeepUntil']),
-  status: TimerInfoDtoStatus.fromJson(json['Status']),
+  isPostPaddingRequired: json['IsPostPaddingRequired'] as bool?,
+  keepUntil: json['KeepUntil'] == null
+      ? null
+      : TimerInfoDtoKeepUntil.fromJson(json['KeepUntil']),
+  status: json['Status'] == null
+      ? null
+      : TimerInfoDtoStatus.fromJson(json['Status']),
   seriesTimerId: json['SeriesTimerId'] as String?,
   externalSeriesTimerId: json['ExternalSeriesTimerId'] as String?,
   runTimeTicks: (json['RunTimeTicks'] as num?)?.toInt(),
@@ -55,8 +63,8 @@ Map<String, dynamic> _$TimerInfoDtoToJson(TimerInfoDto instance) =>
       'ExternalProgramId': instance.externalProgramId,
       'Name': instance.name,
       'Overview': instance.overview,
-      'StartDate': instance.startDate.toIso8601String(),
-      'EndDate': instance.endDate.toIso8601String(),
+      'StartDate': instance.startDate?.toIso8601String(),
+      'EndDate': instance.endDate?.toIso8601String(),
       'ServiceName': instance.serviceName,
       'Priority': instance.priority,
       'PrePaddingSeconds': instance.prePaddingSeconds,

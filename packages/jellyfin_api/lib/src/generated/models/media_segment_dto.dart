@@ -27,19 +27,19 @@ class MediaSegmentDto {
 
   /// Gets or sets the id of the associated item.
   @JsonKey(name: 'ItemId')
-  final String itemId;
+  final String? itemId;
 
   /// Defines the types of content an individual Jellyfin.Database.Implementations.Entities.MediaSegment represents.
   @JsonKey(name: 'Type')
-  final MediaSegmentDtoType type;
+  final MediaSegmentDtoType? type;
 
   /// Gets or sets the start of the segment.
   @JsonKey(name: 'StartTicks')
-  final int startTicks;
+  final int? startTicks;
 
   /// Gets or sets the end of the segment.
   @JsonKey(name: 'EndTicks')
-  final int endTicks;
+  final int? endTicks;
 
   Map<String, Object?> toJson() => _$MediaSegmentDtoToJson(this);
 }

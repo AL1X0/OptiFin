@@ -49,39 +49,39 @@ class DisplayPreferencesDto {
 
   /// Gets or sets a value indicating whether [remember indexing].
   @JsonKey(name: 'RememberIndexing')
-  final bool rememberIndexing;
+  final bool? rememberIndexing;
 
   /// Gets or sets the height of the primary image.
   @JsonKey(name: 'PrimaryImageHeight')
-  final int primaryImageHeight;
+  final int? primaryImageHeight;
 
   /// Gets or sets the width of the primary image.
   @JsonKey(name: 'PrimaryImageWidth')
-  final int primaryImageWidth;
+  final int? primaryImageWidth;
 
   /// Gets or sets the custom prefs.
   @JsonKey(name: 'CustomPrefs')
-  final Map<String, String?> customPrefs;
+  final Map<String, String?>? customPrefs;
 
   /// An enum representing the axis that should be scrolled.
   @JsonKey(name: 'ScrollDirection')
-  final DisplayPreferencesDtoScrollDirection scrollDirection;
+  final DisplayPreferencesDtoScrollDirection? scrollDirection;
 
   /// Gets or sets a value indicating whether to show backdrops on this item.
   @JsonKey(name: 'ShowBackdrop')
-  final bool showBackdrop;
+  final bool? showBackdrop;
 
   /// Gets or sets a value indicating whether [remember sorting].
   @JsonKey(name: 'RememberSorting')
-  final bool rememberSorting;
+  final bool? rememberSorting;
 
   /// An enum representing the sorting order.
   @JsonKey(name: 'SortOrder')
-  final DisplayPreferencesDtoSortOrder sortOrder;
+  final DisplayPreferencesDtoSortOrder? sortOrder;
 
   /// Gets or sets a value indicating whether [show sidebar].
   @JsonKey(name: 'ShowSidebar')
-  final bool showSidebar;
+  final bool? showSidebar;
 
   /// Gets or sets the client.
   @JsonKey(name: 'Client')

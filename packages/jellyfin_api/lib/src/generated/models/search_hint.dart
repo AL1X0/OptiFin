@@ -48,7 +48,7 @@ class SearchHint {
   
   /// Gets or sets the item id.
   @JsonKey(name: 'ItemId')
-  final String itemId;
+  final String? itemId;
 
   /// Gets or sets the item id.
   @JsonKey(name: 'Id')
@@ -56,7 +56,7 @@ class SearchHint {
 
   /// Gets or sets the name.
   @JsonKey(name: 'Name')
-  final String name;
+  final String? name;
 
   /// Gets or sets the matched term.
   @JsonKey(name: 'MatchedTerm')
@@ -96,7 +96,7 @@ class SearchHint {
 
   /// The base item kind.
   @JsonKey(name: 'Type')
-  final SearchHintType type;
+  final SearchHintType? type;
 
   /// Gets or sets a value indicating whether this instance is folder.
   @JsonKey(name: 'IsFolder')
@@ -108,7 +108,7 @@ class SearchHint {
 
   /// Media types.
   @JsonKey(name: 'MediaType')
-  final SearchHintMediaType mediaType;
+  final SearchHintMediaType? mediaType;
 
   /// Gets or sets the start date.
   @JsonKey(name: 'StartDate')
@@ -140,7 +140,7 @@ class SearchHint {
 
   /// Gets or sets the artists.
   @JsonKey(name: 'Artists')
-  final List<String> artists;
+  final List<String>? artists;
 
   /// Gets or sets the song count.
   @JsonKey(name: 'SongCount')

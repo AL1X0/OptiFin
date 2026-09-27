@@ -31,52 +31,52 @@ class TrickplayOptions {
   
   /// Gets or sets a value indicating whether or not to use HW acceleration.
   @JsonKey(name: 'EnableHwAcceleration')
-  final bool enableHwAcceleration;
+  final bool? enableHwAcceleration;
 
   /// Gets or sets a value indicating whether or not to use HW accelerated MJPEG encoding.
   @JsonKey(name: 'EnableHwEncoding')
-  final bool enableHwEncoding;
+  final bool? enableHwEncoding;
 
   /// Gets or sets a value indicating whether to only extract key frames.
   /// Significantly faster, but is not compatible with all decoders and/or video files.
   @JsonKey(name: 'EnableKeyFrameOnlyExtraction')
-  final bool enableKeyFrameOnlyExtraction;
+  final bool? enableKeyFrameOnlyExtraction;
 
   /// Gets or sets the behavior used by trickplay provider on library scan/update.
   @JsonKey(name: 'ScanBehavior')
-  final TrickplayOptionsScanBehavior scanBehavior;
+  final TrickplayOptionsScanBehavior? scanBehavior;
 
   /// Gets or sets the process priority for the ffmpeg process.
   @JsonKey(name: 'ProcessPriority')
-  final TrickplayOptionsProcessPriority processPriority;
+  final TrickplayOptionsProcessPriority? processPriority;
 
   /// Gets or sets the interval, in ms, between each new trickplay image.
   @JsonKey(name: 'Interval')
-  final int interval;
+  final int? interval;
 
   /// Gets or sets the target width resolutions, in px, to generates preview images for.
   @JsonKey(name: 'WidthResolutions')
-  final List<int> widthResolutions;
+  final List<int>? widthResolutions;
 
   /// Gets or sets number of tile images to allow in X dimension.
   @JsonKey(name: 'TileWidth')
-  final int tileWidth;
+  final int? tileWidth;
 
   /// Gets or sets number of tile images to allow in Y dimension.
   @JsonKey(name: 'TileHeight')
-  final int tileHeight;
+  final int? tileHeight;
 
   /// Gets or sets the ffmpeg output quality level.
   @JsonKey(name: 'Qscale')
-  final int qscale;
+  final int? qscale;
 
   /// Gets or sets the jpeg quality to use for image tiles.
   @JsonKey(name: 'JpegQuality')
-  final int jpegQuality;
+  final int? jpegQuality;
 
   /// Gets or sets the number of threads to be used by ffmpeg.
   @JsonKey(name: 'ProcessThreads')
-  final int processThreads;
+  final int? processThreads;
 
   Map<String, Object?> toJson() => _$TrickplayOptionsToJson(this);
 }

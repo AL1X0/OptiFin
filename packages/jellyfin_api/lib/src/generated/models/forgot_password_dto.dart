@@ -10,14 +10,14 @@ part 'forgot_password_dto.g.dart';
 @JsonSerializable()
 class ForgotPasswordDto {
   const ForgotPasswordDto({
-    required this.enteredUsername,
+    this.enteredUsername,
   });
   
   factory ForgotPasswordDto.fromJson(Map<String, Object?> json) => _$ForgotPasswordDtoFromJson(json);
   
   /// Gets or sets the entered username to have its password reset.
   @JsonKey(name: 'EnteredUsername')
-  final String enteredUsername;
+  final String? enteredUsername;
 
   Map<String, Object?> toJson() => _$ForgotPasswordDtoToJson(this);
 }

@@ -19,7 +19,7 @@ class SetShuffleModeRequestDto {
   
   /// Gets or sets the shuffle mode.
   @JsonKey(name: 'Mode')
-  final SetShuffleModeRequestDtoMode mode;
+  final SetShuffleModeRequestDtoMode? mode;
 
   Map<String, Object?> toJson() => _$SetShuffleModeRequestDtoToJson(this);
 }

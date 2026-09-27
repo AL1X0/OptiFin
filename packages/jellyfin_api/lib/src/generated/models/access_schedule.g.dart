@@ -9,10 +9,12 @@ part of 'access_schedule.dart';
 AccessSchedule _$AccessScheduleFromJson(Map<String, dynamic> json) =>
     AccessSchedule(
       id: (json['Id'] as num).toInt(),
-      userId: json['UserId'] as String,
-      dayOfWeek: AccessScheduleDayOfWeek.fromJson(json['DayOfWeek']),
-      startHour: (json['StartHour'] as num).toDouble(),
-      endHour: (json['EndHour'] as num).toDouble(),
+      userId: json['UserId'] as String?,
+      dayOfWeek: json['DayOfWeek'] == null
+          ? null
+          : AccessScheduleDayOfWeek.fromJson(json['DayOfWeek']),
+      startHour: (json['StartHour'] as num?)?.toDouble(),
+      endHour: (json['EndHour'] as num?)?.toDouble(),
     );
 
 Map<String, dynamic> _$AccessScheduleToJson(AccessSchedule instance) =>

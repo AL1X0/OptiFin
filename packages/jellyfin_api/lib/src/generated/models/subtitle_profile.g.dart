@@ -9,7 +9,9 @@ part of 'subtitle_profile.dart';
 SubtitleProfile _$SubtitleProfileFromJson(Map<String, dynamic> json) =>
     SubtitleProfile(
       format: json['Format'] as String?,
-      method: SubtitleProfileMethod.fromJson(json['Method']),
+      method: json['Method'] == null
+          ? null
+          : SubtitleProfileMethod.fromJson(json['Method']),
       didlMode: json['DidlMode'] as String?,
       language: json['Language'] as String?,
       container: json['Container'] as String?,

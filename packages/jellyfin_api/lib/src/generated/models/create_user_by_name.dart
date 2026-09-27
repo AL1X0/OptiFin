@@ -10,7 +10,7 @@ part 'create_user_by_name.g.dart';
 @JsonSerializable()
 class CreateUserByName {
   const CreateUserByName({
-    required this.name,
+    this.name,
     this.password,
   });
   
@@ -18,7 +18,7 @@ class CreateUserByName {
   
   /// Gets or sets the username.
   @JsonKey(name: 'Name')
-  final String name;
+  final String? name;
 
   /// Gets or sets the password.
   @JsonKey(name: 'Password')

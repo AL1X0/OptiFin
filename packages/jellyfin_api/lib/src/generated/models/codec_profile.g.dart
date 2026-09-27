@@ -7,12 +7,12 @@ part of 'codec_profile.dart';
 // **************************************************************************
 
 CodecProfile _$CodecProfileFromJson(Map<String, dynamic> json) => CodecProfile(
-  type: CodecProfileType.fromJson(json['Type']),
-  conditions: (json['Conditions'] as List<dynamic>)
-      .map((e) => ProfileCondition.fromJson(e as Map<String, dynamic>))
+  type: json['Type'] == null ? null : CodecProfileType.fromJson(json['Type']),
+  conditions: (json['Conditions'] as List<dynamic>?)
+      ?.map((e) => ProfileCondition.fromJson(e as Map<String, dynamic>))
       .toList(),
-  applyConditions: (json['ApplyConditions'] as List<dynamic>)
-      .map((e) => ProfileCondition.fromJson(e as Map<String, dynamic>))
+  applyConditions: (json['ApplyConditions'] as List<dynamic>?)
+      ?.map((e) => ProfileCondition.fromJson(e as Map<String, dynamic>))
       .toList(),
   codec: json['Codec'] as String?,
   container: json['Container'] as String?,

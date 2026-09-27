@@ -378,7 +378,7 @@ class BaseItemDto {
 
   /// The base item kind.
   @JsonKey(name: 'Type')
-  final BaseItemDtoType type;
+  final BaseItemDtoType? type;
 
   /// Gets or sets the people.
   @JsonKey(name: 'People')
@@ -587,7 +587,7 @@ class BaseItemDto {
 
   /// Media types.
   @JsonKey(name: 'MediaType')
-  final BaseItemDtoMediaType mediaType;
+  final BaseItemDtoMediaType? mediaType;
 
   /// Gets or sets the end date.
   @JsonKey(name: 'EndDate')

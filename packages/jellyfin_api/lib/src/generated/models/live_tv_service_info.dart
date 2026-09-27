@@ -34,7 +34,7 @@ class LiveTvServiceInfo {
 
   /// Gets or sets the status.
   @JsonKey(name: 'Status')
-  final LiveTvServiceInfoStatus status;
+  final LiveTvServiceInfoStatus? status;
 
   /// Gets or sets the status message.
   @JsonKey(name: 'StatusMessage')
@@ -46,11 +46,11 @@ class LiveTvServiceInfo {
 
   /// Gets or sets a value indicating whether this instance has update available.
   @JsonKey(name: 'HasUpdateAvailable')
-  final bool hasUpdateAvailable;
+  final bool? hasUpdateAvailable;
 
   /// Gets or sets a value indicating whether this instance is visible.
   @JsonKey(name: 'IsVisible')
-  final bool isVisible;
+  final bool? isVisible;
   @JsonKey(name: 'Tuners')
   final List<String>? tuners;
 

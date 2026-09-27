@@ -26,8 +26,8 @@ OpenLiveStreamDto _$OpenLiveStreamDtoFromJson(Map<String, dynamic> json) =>
           : DeviceProfile.fromJson(
               json['DeviceProfile'] as Map<String, dynamic>,
             ),
-      directPlayProtocols: (json['DirectPlayProtocols'] as List<dynamic>)
-          .map((e) => MediaProtocol.fromJson(e as String))
+      directPlayProtocols: (json['DirectPlayProtocols'] as List<dynamic>?)
+          ?.map((e) => MediaProtocol.fromJson(e as String))
           .toList(),
     );
 

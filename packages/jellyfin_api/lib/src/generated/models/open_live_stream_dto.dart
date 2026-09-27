@@ -85,7 +85,7 @@ class OpenLiveStreamDto {
 
   /// Gets or sets the device play protocols.
   @JsonKey(name: 'DirectPlayProtocols')
-  final List<MediaProtocol> directPlayProtocols;
+  final List<MediaProtocol>? directPlayProtocols;
 
   Map<String, Object?> toJson() => _$OpenLiveStreamDtoToJson(this);
 }

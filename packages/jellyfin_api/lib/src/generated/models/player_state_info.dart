@@ -35,15 +35,15 @@ class PlayerStateInfo {
 
   /// Gets or sets a value indicating whether this instance can seek.
   @JsonKey(name: 'CanSeek')
-  final bool canSeek;
+  final bool? canSeek;
 
   /// Gets or sets a value indicating whether this instance is paused.
   @JsonKey(name: 'IsPaused')
-  final bool isPaused;
+  final bool? isPaused;
 
   /// Gets or sets a value indicating whether this instance is muted.
   @JsonKey(name: 'IsMuted')
-  final bool isMuted;
+  final bool? isMuted;
 
   /// Gets or sets the volume level.
   @JsonKey(name: 'VolumeLevel')
@@ -67,11 +67,11 @@ class PlayerStateInfo {
 
   /// Gets or sets the repeat mode.
   @JsonKey(name: 'RepeatMode')
-  final PlayerStateInfoRepeatMode repeatMode;
+  final PlayerStateInfoRepeatMode? repeatMode;
 
   /// Gets or sets the playback order.
   @JsonKey(name: 'PlaybackOrder')
-  final PlayerStateInfoPlaybackOrder playbackOrder;
+  final PlayerStateInfoPlaybackOrder? playbackOrder;
 
   /// Gets or sets the now playing live stream identifier.
   @JsonKey(name: 'LiveStreamId')

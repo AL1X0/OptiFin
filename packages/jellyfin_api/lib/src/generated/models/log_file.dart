@@ -9,10 +9,10 @@ part 'log_file.g.dart';
 @JsonSerializable()
 class LogFile {
   const LogFile({
-    required this.name,
     this.dateCreated,
     this.dateModified,
     this.size,
+    this.name,
   });
   
   factory LogFile.fromJson(Map<String, Object?> json) => _$LogFileFromJson(json);
@@ -31,7 +31,7 @@ class LogFile {
 
   /// Gets or sets the name.
   @JsonKey(name: 'Name')
-  final String name;
+  final String? name;
 
   Map<String, Object?> toJson() => _$LogFileToJson(this);
 }

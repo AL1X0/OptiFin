@@ -9,41 +9,45 @@ part of 'media_source_info.dart';
 MediaSourceInfo _$MediaSourceInfoFromJson(
   Map<String, dynamic> json,
 ) => MediaSourceInfo(
-  genPtsInput: json['GenPtsInput'] as bool,
+  genPtsInput: json['GenPtsInput'] as bool?,
   id: json['Id'] as String?,
   path: json['Path'] as String?,
   encoderPath: json['EncoderPath'] as String?,
   encoderProtocol: json['EncoderProtocol'] == null
       ? null
       : MediaSourceInfoEncoderProtocol.fromJson(json['EncoderProtocol']),
-  type: MediaSourceInfoType.fromJson(json['Type']),
+  type: json['Type'] == null
+      ? null
+      : MediaSourceInfoType.fromJson(json['Type']),
   container: json['Container'] as String?,
   size: (json['Size'] as num?)?.toInt(),
   name: json['Name'] as String?,
-  isRemote: json['IsRemote'] as bool,
+  isRemote: json['IsRemote'] as bool?,
   eTag: json['ETag'] as String?,
   runTimeTicks: (json['RunTimeTicks'] as num?)?.toInt(),
-  readAtNativeFramerate: json['ReadAtNativeFramerate'] as bool,
-  ignoreDts: json['IgnoreDts'] as bool,
-  ignoreIndex: json['IgnoreIndex'] as bool,
-  protocol: MediaSourceInfoProtocol.fromJson(json['Protocol']),
-  supportsTranscoding: json['SupportsTranscoding'] as bool,
-  supportsDirectStream: json['SupportsDirectStream'] as bool,
-  supportsDirectPlay: json['SupportsDirectPlay'] as bool,
-  isInfiniteStream: json['IsInfiniteStream'] as bool,
+  readAtNativeFramerate: json['ReadAtNativeFramerate'] as bool?,
+  ignoreDts: json['IgnoreDts'] as bool?,
+  ignoreIndex: json['IgnoreIndex'] as bool?,
+  protocol: json['Protocol'] == null
+      ? null
+      : MediaSourceInfoProtocol.fromJson(json['Protocol']),
+  supportsTranscoding: json['SupportsTranscoding'] as bool?,
+  supportsDirectStream: json['SupportsDirectStream'] as bool?,
+  supportsDirectPlay: json['SupportsDirectPlay'] as bool?,
+  isInfiniteStream: json['IsInfiniteStream'] as bool?,
   defaultSubtitleStreamIndex: (json['DefaultSubtitleStreamIndex'] as num?)
       ?.toInt(),
-  requiresOpening: json['RequiresOpening'] as bool,
+  requiresOpening: json['RequiresOpening'] as bool?,
   openToken: json['OpenToken'] as String?,
-  requiresClosing: json['RequiresClosing'] as bool,
+  requiresClosing: json['RequiresClosing'] as bool?,
   liveStreamId: json['LiveStreamId'] as String?,
   bufferMs: (json['BufferMs'] as num?)?.toInt(),
-  requiresLooping: json['RequiresLooping'] as bool,
-  supportsProbing: json['SupportsProbing'] as bool,
+  requiresLooping: json['RequiresLooping'] as bool?,
+  supportsProbing: json['SupportsProbing'] as bool?,
   videoType: json['VideoType'] == null
       ? null
       : MediaSourceInfoVideoType.fromJson(json['VideoType']),
-  hasSegments: json['HasSegments'] as bool,
+  hasSegments: json['HasSegments'] as bool?,
   video3DFormat: json['Video3DFormat'] == null
       ? null
       : MediaSourceInfoVideo3DFormat.fromJson(json['Video3DFormat']),
@@ -65,9 +69,11 @@ MediaSourceInfo _$MediaSourceInfoFromJson(
   requiredHttpHeaders: (json['RequiredHttpHeaders'] as Map<String, dynamic>?)
       ?.map((k, e) => MapEntry(k, e as String?)),
   transcodingUrl: json['TranscodingUrl'] as String?,
-  transcodingSubProtocol: MediaSourceInfoTranscodingSubProtocol.fromJson(
-    json['TranscodingSubProtocol'],
-  ),
+  transcodingSubProtocol: json['TranscodingSubProtocol'] == null
+      ? null
+      : MediaSourceInfoTranscodingSubProtocol.fromJson(
+          json['TranscodingSubProtocol'],
+        ),
   transcodingContainer: json['TranscodingContainer'] as String?,
   analyzeDurationMs: (json['AnalyzeDurationMs'] as num?)?.toInt(),
   defaultAudioStreamIndex: (json['DefaultAudioStreamIndex'] as num?)?.toInt(),

@@ -8,8 +8,8 @@ part of 'message_command.dart';
 
 MessageCommand _$MessageCommandFromJson(Map<String, dynamic> json) =>
     MessageCommand(
-      text: json['Text'] as String,
       header: json['Header'] as String?,
+      text: json['Text'] as String?,
       timeoutMs: (json['TimeoutMs'] as num?)?.toInt(),
     );
 

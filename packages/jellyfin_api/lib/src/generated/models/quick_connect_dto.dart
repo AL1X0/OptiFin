@@ -10,14 +10,14 @@ part 'quick_connect_dto.g.dart';
 @JsonSerializable()
 class QuickConnectDto {
   const QuickConnectDto({
-    required this.secret,
+    this.secret,
   });
   
   factory QuickConnectDto.fromJson(Map<String, Object?> json) => _$QuickConnectDtoFromJson(json);
   
   /// Gets or sets the quick connect secret.
   @JsonKey(name: 'Secret')
-  final String secret;
+  final String? secret;
 
   Map<String, Object?> toJson() => _$QuickConnectDtoToJson(this);
 }

@@ -37,7 +37,7 @@ class BaseItemPerson {
 
   /// The person kind.
   @JsonKey(name: 'Type')
-  final BaseItemPersonType type;
+  final BaseItemPersonType? type;
 
   /// Gets or sets the primary image tag.
   @JsonKey(name: 'PrimaryImageTag')

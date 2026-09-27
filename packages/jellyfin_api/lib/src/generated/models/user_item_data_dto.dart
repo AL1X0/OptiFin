@@ -10,7 +10,6 @@ part 'user_item_data_dto.g.dart';
 @JsonSerializable()
 class UserItemDataDto {
   const UserItemDataDto({
-    required this.key,
     this.rating,
     this.playedPercentage,
     this.unplayedItemCount,
@@ -20,6 +19,7 @@ class UserItemDataDto {
     this.likes,
     this.lastPlayedDate,
     this.played,
+    this.key,
     this.itemId,
   });
   
@@ -63,7 +63,7 @@ class UserItemDataDto {
 
   /// Gets or sets the key.
   @JsonKey(name: 'Key')
-  final String key;
+  final String? key;
 
   /// Gets or sets the item identifier.
   @JsonKey(name: 'ItemId')

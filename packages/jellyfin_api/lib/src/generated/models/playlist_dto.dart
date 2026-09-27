@@ -12,9 +12,9 @@ part 'playlist_dto.g.dart';
 @JsonSerializable()
 class PlaylistDto {
   const PlaylistDto({
-    required this.shares,
-    required this.itemIds,
     this.openAccess,
+    this.shares,
+    this.itemIds,
   });
   
   factory PlaylistDto.fromJson(Map<String, Object?> json) => _$PlaylistDtoFromJson(json);
@@ -25,11 +25,11 @@ class PlaylistDto {
 
   /// Gets or sets the share permissions.
   @JsonKey(name: 'Shares')
-  final List<PlaylistUserPermissions> shares;
+  final List<PlaylistUserPermissions>? shares;
 
   /// Gets or sets the item ids.
   @JsonKey(name: 'ItemIds')
-  final List<String> itemIds;
+  final List<String>? itemIds;
 
   Map<String, Object?> toJson() => _$PlaylistDtoToJson(this);
 }

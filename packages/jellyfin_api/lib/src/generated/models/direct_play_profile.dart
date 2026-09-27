@@ -22,7 +22,7 @@ class DirectPlayProfile {
   
   /// Gets or sets the container.
   @JsonKey(name: 'Container')
-  final String container;
+  final String? container;
 
   /// Gets or sets the audio codec.
   @JsonKey(name: 'AudioCodec')
@@ -34,7 +34,7 @@ class DirectPlayProfile {
 
   /// Gets or sets the Dlna profile type.
   @JsonKey(name: 'Type')
-  final DirectPlayProfileType type;
+  final DirectPlayProfileType? type;
 
   Map<String, Object?> toJson() => _$DirectPlayProfileToJson(this);
 }

@@ -30,9 +30,12 @@ class MediaCardData {
 
 /// Carte affiche 2:3.
 class PosterCard extends StatelessWidget {
-  const PosterCard({super.key, required this.data, required this.width, this.onTap, this.showTitle = true});
+  const PosterCard({super.key, required this.data, required this.width, this.onTap, this.showTitle = true, this.heroTag});
 
   final MediaCardData data;
+
+  /// Tag Hero unique dans la page (null = pas de transition partagée).
+  final String? heroTag;
   final double width;
   final VoidCallback? onTap;
   final bool showTitle;
@@ -44,7 +47,7 @@ class PosterCard extends StatelessWidget {
       data: data,
       width: width,
       aspectRatio: 2 / 3,
-      heroTag: 'poster-${data.id}',
+      heroTag: heroTag,
       decodeWidth: (width * dpr).ceil(),
       showTitle: showTitle,
       onTap: onTap,
@@ -54,9 +57,12 @@ class PosterCard extends StatelessWidget {
 
 /// Carte paysage 16:9 (Reprendre, épisodes).
 class LandscapeCard extends StatelessWidget {
-  const LandscapeCard({super.key, required this.data, required this.width, this.onTap, this.showTitle = true});
+  const LandscapeCard({super.key, required this.data, required this.width, this.onTap, this.showTitle = true, this.heroTag});
 
   final MediaCardData data;
+
+  /// Tag Hero unique dans la page (null = pas de transition partagée).
+  final String? heroTag;
   final double width;
   final VoidCallback? onTap;
   final bool showTitle;
@@ -68,10 +74,57 @@ class LandscapeCard extends StatelessWidget {
       data: data,
       width: width,
       aspectRatio: 16 / 9,
-      heroTag: 'thumb-${data.id}',
+      heroTag: heroTag,
       decodeWidth: (width * dpr).ceil(),
       showTitle: showTitle,
       onTap: onTap,
+    );
+  }
+}
+
+/// Carte carrée (albums, artistes).
+class SquareCard extends StatelessWidget {
+  const SquareCard({super.key, required this.data, required this.width, this.onTap, this.showTitle = true, this.heroTag});
+
+  final MediaCardData data;
+
+  /// Tag Hero unique dans la page (null = pas de transition partagée).
+  final String? heroTag;
+  final double width;
+  final VoidCallback? onTap;
+  final bool showTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return _CardFrame(
+      data: data,
+      width: width,
+      aspectRatio: 1,
+      heroTag: heroTag,
+      decodeWidth: (width * dpr).ceil(),
+      showTitle: showTitle,
+      onTap: onTap,
+    );
+  }
+}
+
+/// Bloc gris statique pendant le chargement (pas d'animation shimmer : zéro coût GPU).
+class SkeletonBox extends StatelessWidget {
+  const SkeletonBox({super.key, this.width, this.height, this.aspectRatio, this.radius = OFRadius.mdAll});
+
+  final double? width;
+  final double? height;
+  final double? aspectRatio;
+  final BorderRadius radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final box = DecoratedBox(decoration: BoxDecoration(color: OFColors.surface, borderRadius: radius));
+    return SizedBox(
+      width: width,
+      height: height,
+      child: aspectRatio == null ? box : AspectRatio(aspectRatio: aspectRatio!, child: box),
     );
   }
 }
@@ -90,7 +143,7 @@ class _CardFrame extends StatefulWidget {
   final MediaCardData data;
   final double width;
   final double aspectRatio;
-  final String heroTag;
+  final String? heroTag;
   final int decodeWidth;
   final bool showTitle;
   final VoidCallback? onTap;
@@ -108,6 +161,13 @@ class _CardFrameState extends State<_CardFrame> {
     final motion = OFMotion.of(context);
     final progress = data.progress;
 
+    final image = OFImage(
+      url: data.imageUrl,
+      blurHash: data.blurHash,
+      decodeWidth: widget.decodeWidth,
+      fallback: _TitleFallback(title: data.title),
+    );
+
     final artwork = ClipRRect(
       borderRadius: OFRadius.mdAll,
       child: AspectRatio(
@@ -115,15 +175,7 @@ class _CardFrameState extends State<_CardFrame> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Hero(
-              tag: widget.heroTag,
-              child: OFImage(
-                url: data.imageUrl,
-                blurHash: data.blurHash,
-                decodeWidth: widget.decodeWidth,
-                fallback: _TitleFallback(title: data.title),
-              ),
-            ),
+            if (widget.heroTag != null) Hero(tag: widget.heroTag!, child: image) else image,
             if (data.played)
               const Positioned(top: OFSpacing.sm, right: OFSpacing.sm, child: _PlayedDot()),
             if (progress != null && progress > 0 && progress < 1)

@@ -7,9 +7,11 @@ part of 'lyric_dto.dart';
 // **************************************************************************
 
 LyricDto _$LyricDtoFromJson(Map<String, dynamic> json) => LyricDto(
-  metadata: LyricMetadata.fromJson(json['Metadata'] as Map<String, dynamic>),
-  lyrics: (json['Lyrics'] as List<dynamic>)
-      .map((e) => LyricLine.fromJson(e as Map<String, dynamic>))
+  metadata: json['Metadata'] == null
+      ? null
+      : LyricMetadata.fromJson(json['Metadata'] as Map<String, dynamic>),
+  lyrics: (json['Lyrics'] as List<dynamic>?)
+      ?.map((e) => LyricLine.fromJson(e as Map<String, dynamic>))
       .toList(),
 );
 

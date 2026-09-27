@@ -27,19 +27,19 @@ class ClientCapabilitiesDto {
   
   /// Gets or sets the list of playable media types.
   @JsonKey(name: 'PlayableMediaTypes')
-  final List<MediaType> playableMediaTypes;
+  final List<MediaType>? playableMediaTypes;
 
   /// Gets or sets the list of supported commands.
   @JsonKey(name: 'SupportedCommands')
-  final List<GeneralCommandType> supportedCommands;
+  final List<GeneralCommandType>? supportedCommands;
 
   /// Gets or sets a value indicating whether session supports media control.
   @JsonKey(name: 'SupportsMediaControl')
-  final bool supportsMediaControl;
+  final bool? supportsMediaControl;
 
   /// Gets or sets a value indicating whether session supports a persistent identifier.
   @JsonKey(name: 'SupportsPersistentIdentifier')
-  final bool supportsPersistentIdentifier;
+  final bool? supportsPersistentIdentifier;
 
   /// Gets or sets the device profile.
   @JsonKey(name: 'DeviceProfile')

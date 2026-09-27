@@ -25,15 +25,15 @@ class CodecProfile {
   
   /// Gets or sets the MediaBrowser.Model.Dlna.CodecType which this container must meet.
   @JsonKey(name: 'Type')
-  final CodecProfileType type;
+  final CodecProfileType? type;
 
   /// Gets or sets the list of MediaBrowser.Model.Dlna.ProfileCondition which this profile must meet.
   @JsonKey(name: 'Conditions')
-  final List<ProfileCondition> conditions;
+  final List<ProfileCondition>? conditions;
 
   /// Gets or sets the list of MediaBrowser.Model.Dlna.ProfileCondition to apply if this profile is met.
   @JsonKey(name: 'ApplyConditions')
-  final List<ProfileCondition> applyConditions;
+  final List<ProfileCondition>? applyConditions;
 
   /// Gets or sets the codec(s) that this profile applies to.
   @JsonKey(name: 'Codec')

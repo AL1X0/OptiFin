@@ -9,9 +9,9 @@ part of 'player_state_info.dart';
 PlayerStateInfo _$PlayerStateInfoFromJson(Map<String, dynamic> json) =>
     PlayerStateInfo(
       positionTicks: (json['PositionTicks'] as num?)?.toInt(),
-      canSeek: json['CanSeek'] as bool,
-      isPaused: json['IsPaused'] as bool,
-      isMuted: json['IsMuted'] as bool,
+      canSeek: json['CanSeek'] as bool?,
+      isPaused: json['IsPaused'] as bool?,
+      isMuted: json['IsMuted'] as bool?,
       volumeLevel: (json['VolumeLevel'] as num?)?.toInt(),
       audioStreamIndex: (json['AudioStreamIndex'] as num?)?.toInt(),
       subtitleStreamIndex: (json['SubtitleStreamIndex'] as num?)?.toInt(),
@@ -19,10 +19,12 @@ PlayerStateInfo _$PlayerStateInfoFromJson(Map<String, dynamic> json) =>
       playMethod: json['PlayMethod'] == null
           ? null
           : PlayerStateInfoPlayMethod.fromJson(json['PlayMethod']),
-      repeatMode: PlayerStateInfoRepeatMode.fromJson(json['RepeatMode']),
-      playbackOrder: PlayerStateInfoPlaybackOrder.fromJson(
-        json['PlaybackOrder'],
-      ),
+      repeatMode: json['RepeatMode'] == null
+          ? null
+          : PlayerStateInfoRepeatMode.fromJson(json['RepeatMode']),
+      playbackOrder: json['PlaybackOrder'] == null
+          ? null
+          : PlayerStateInfoPlaybackOrder.fromJson(json['PlaybackOrder']),
       liveStreamId: json['LiveStreamId'] as String?,
     );
 

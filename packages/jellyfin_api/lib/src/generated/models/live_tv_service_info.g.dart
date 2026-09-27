@@ -10,11 +10,13 @@ LiveTvServiceInfo _$LiveTvServiceInfoFromJson(Map<String, dynamic> json) =>
     LiveTvServiceInfo(
       name: json['Name'] as String?,
       homePageUrl: json['HomePageUrl'] as String?,
-      status: LiveTvServiceInfoStatus.fromJson(json['Status']),
+      status: json['Status'] == null
+          ? null
+          : LiveTvServiceInfoStatus.fromJson(json['Status']),
       statusMessage: json['StatusMessage'] as String?,
       version: json['Version'] as String?,
-      hasUpdateAvailable: json['HasUpdateAvailable'] as bool,
-      isVisible: json['IsVisible'] as bool,
+      hasUpdateAvailable: json['HasUpdateAvailable'] as bool?,
+      isVisible: json['IsVisible'] as bool?,
       tuners: (json['Tuners'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
