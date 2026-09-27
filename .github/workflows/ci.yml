@@ -55,8 +55,9 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      # Numéro de build = numéro d'exécution CI : chaque version est vue comme une mise à jour.
-      - run: flutter build apk --release --split-per-abi --build-number=${{ github.run_number }}
+      # Version 1.0.<n° d'exécution CI> : chaque build est vue comme une mise à jour
+      # (SideStore ne compare que la version affichée, pas le numéro de build).
+      - run: flutter build apk --release --split-per-abi --build-name="$(./.github/scripts/build_name.sh)" --build-number=${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: optifin-android
@@ -73,12 +74,15 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
+      - run: flutter build ios --release --no-codesign --build-name="$(./.github/scripts/build_name.sh)" --build-number=${{ github.run_number }}
       - name: Vérifier le bundle ID de l'app construite
         run: |
           id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" build/ios/iphoneos/Runner.app/Info.plist)
           echo "Bundle ID : $id"
           test "$id" = "$BUNDLE_ID"
+          v=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" build/ios/iphoneos/Runner.app/Info.plist)
+          echo "Version : $v"
+          test "$v" = "$(./.github/scripts/build_name.sh)"
       # IPA non signée : à signer avec son propre compte (Sideloadly, AltStore…)
       # ou remplacer par une étape de signature quand les secrets Apple seront fournis.
       - name: Empaqueter l'IPA
@@ -112,7 +116,8 @@ jobs:
       - name: Préparer l'IPA et la source
         run: |
           mv dist/OptiFin-unsigned.ipa dist/OptiFin.ipa
-          VERSION=$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')
+          # Doit être identique à la version inscrite dans l'IPA (SideStore le vérifie).
+          VERSION=$(./.github/scripts/build_name.sh)
           BUILD=${{ github.run_number }}
           TAG="build-${BUILD}"
           NOTES=$(git log -1 --pretty=%s)
@@ -123,7 +128,7 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('dist/source.json','utf8'))" && cat dist/source.json
       - name: Créer la Release
         run: |
-          gh release create "$TAG" dist/OptiFin.ipa dist/source.json             --title "OptiFin $VERSION (build ${{ github.run_number }})"             --notes "$(git log -1 --pretty=%B)"             --latest
+          gh release create "$TAG" dist/OptiFin.ipa dist/source.json             --title "OptiFin $VERSION"             --notes "$(git log -1 --pretty=%B)"             --latest
       - name: Ne garder que les 10 dernières builds
         run: |
           gh release list --limit 100 --json tagName --jq '.[].tagName' | grep '^build-' | sort -t- -k2 -n -r | tail -n +11 |             xargs -r -I{} gh release delete {} --yes --cleanup-tag
