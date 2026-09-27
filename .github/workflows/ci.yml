@@ -12,6 +12,9 @@ concurrency:
 
 env:
   FLUTTER_VERSION: 3.47.5
+  # Identifiant fixe : l'IPA/APK de chaque version remplace la précédente et
+  # peut être re-signée indéfiniment avec le même profil. NE PAS MODIFIER.
+  BUNDLE_ID: app.optifin.optifin
 
 jobs:
   test:
@@ -25,6 +28,11 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - name: Bundle ID inchangé
+        run: |
+          grep -q "PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;" ios/Runner.xcodeproj/project.pbxproj
+          ! grep "PRODUCT_BUNDLE_IDENTIFIER = " ios/Runner.xcodeproj/project.pbxproj | grep -v "= $BUNDLE_ID;" | grep -v "= $BUNDLE_ID.RunnerTests;"
+          grep -q "applicationId = \"$BUNDLE_ID\"" android/app/build.gradle.kts
       - name: Code généré à jour
         run: |
           dart run build_runner build -d
@@ -47,7 +55,8 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - run: flutter build apk --release --split-per-abi
+      # Numéro de build = numéro d'exécution CI : chaque version est vue comme une mise à jour.
+      - run: flutter build apk --release --split-per-abi --build-number=${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: optifin-android
@@ -64,7 +73,12 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - run: flutter build ios --release --no-codesign
+      - run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
+      - name: Vérifier le bundle ID de l'app construite
+        run: |
+          id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" build/ios/iphoneos/Runner.app/Info.plist)
+          echo "Bundle ID : $id"
+          test "$id" = "$BUNDLE_ID"
       # IPA non signée : à signer avec son propre compte (Sideloadly, AltStore…)
       # ou remplacer par une étape de signature quand les secrets Apple seront fournis.
       - name: Empaqueter l'IPA

@@ -51,3 +51,6 @@ app.*.map.json
 packages/jellyfin_api/openapi/jellyfin-openapi.prepared.json
 packages/**/.dart_tool/
 packages/**/build/
+
+# Config MCP locale (outils de design)
+.mcp.json

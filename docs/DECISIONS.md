@@ -48,3 +48,12 @@
    courant (état de chaque onglet conservé). Rail latéral à partir de 840 px.
 10. **Bouton Lecture** présent mais informe que le lecteur arrive en phase 3.
     `PlaybackInfo` préchargé à l'ouverture de la fiche : phase 3 (dépend du moteur).
+
+## Distribution
+
+- **Bundle ID figé : `app.optifin.optifin`** (iOS et Android). L'IPA non signée de chaque
+  version peut être re-signée indéfiniment avec le même profil et s'installe par-dessus la
+  précédente. La CI échoue si l'identifiant change (projet Xcode, Gradle, et Info.plist de
+  l'app construite).
+- **Numéro de build = numéro d'exécution CI** (`--build-number`), croissant à chaque push :
+  chaque version est reconnue comme une mise à jour.
