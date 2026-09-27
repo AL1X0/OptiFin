@@ -14,6 +14,11 @@ import '../../../core/providers.dart';
 const _parallax = 0.15;
 const _overscan = 1 + 2 * _parallax;
 
+/// Au-delà, décoder plus large n'apporte rien à l'œil et coûte des images saccadées.
+const _maxDecodeWidth = 2400;
+
+int _decodeWidth(double logicalWidth, double dpr) => (logicalWidth * _overscan * dpr).ceil().clamp(1, _maxDecodeWidth);
+
 /// Hauteur du carrousel selon l'écran : immersif sur téléphone, borné sur tablette.
 double featuredHeight(Size size) {
   final portrait = size.height > size.width;
@@ -39,6 +44,9 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
   Timer? _timer;
   int _index = 0;
 
+  /// Largeur réelle d'une page (≠ largeur d'écran quand un rail latéral est affiché).
+  double _pageWidth = 0;
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +57,13 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _restartTimer();
+  }
+
+  /// Travail « lourd » (accent → animation du thème de tout l'accueil, décodage
+  /// des voisines) fait une fois la page posée, jamais pendant le glissement :
+  /// c'était la cause de l'à-coup en fin de swipe.
+  void _onSettled() {
+    _updateAccent();
     _precacheAround(_index);
   }
 
@@ -57,16 +72,17 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
   void _precacheAround(int index) {
     final n = widget.items.length;
     if (n == 0) return;
-    final size = MediaQuery.sizeOf(context);
+    final width = _pageWidth;
+    if (width <= 0) return;
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final images = ref.read(imageUrlBuilderProvider);
     for (final i in {index, (index + 1) % n, (index - 1 + n) % n}) {
       final item = widget.items[i];
-      final backdrop = images.maybe(item.backdrop, logicalWidth: size.width * _overscan, devicePixelRatio: dpr);
+      final backdrop = images.maybe(item.backdrop, logicalWidth: width * _overscan, devicePixelRatio: dpr);
       if (backdrop != null) {
-        precacheImage(OFImage.provider(backdrop, decodeWidth: (size.width * _overscan * dpr).ceil()), context, onError: (_, _) {});
+        precacheImage(OFImage.provider(backdrop, decodeWidth: _decodeWidth(width, dpr)), context, onError: (_, _) {});
       }
-      final logoWidth = size.width * 0.62;
+      final logoWidth = width * 0.62;
       final logo = images.maybe(item.logo, logicalWidth: logoWidth, devicePixelRatio: dpr);
       if (logo != null) precacheImage(OFImage.provider(logo), context, onError: (_, _) {});
     }
@@ -99,67 +115,83 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final height = featuredHeight(size);
+    final height = featuredHeight(MediaQuery.sizeOf(context));
     return SizedBox(
       height: height,
-      child: Stack(
-        children: [
-          NotificationListener<ScrollNotification>(
-            onNotification: (n) {
-              if (n is ScrollStartNotification && n.dragDetails != null) _timer?.cancel();
-              if (n is ScrollEndNotification) _restartTimer();
-              return false;
-            },
-            child: PageView.builder(
-              controller: _controller,
-              itemCount: widget.items.length,
-              onPageChanged: (i) {
-                setState(() => _index = i);
-                _updateAccent();
-                _precacheAround(i);
-              },
-              itemBuilder: (context, i) => _FeaturedPage(
-                item: widget.items[i],
-                index: i,
-                controller: _controller,
-                height: height,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          if (width != _pageWidth) {
+            final first = _pageWidth == 0;
+            _pageWidth = width;
+            if (first) WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? _precacheAround(_index) : null);
+          }
+          return Stack(
+            children: [
+              NotificationListener<ScrollNotification>(
+                onNotification: (n) {
+                  if (n is ScrollStartNotification && n.dragDetails != null) _timer?.cancel();
+                  if (n is ScrollEndNotification) {
+                    _restartTimer();
+                    _onSettled();
+                  }
+                  return false;
+                },
+                child: RepaintBoundary(
+                  child: PageView.builder(
+                    controller: _controller,
+                    itemCount: widget.items.length,
+                    onPageChanged: (i) => setState(() => _index = i),
+                    itemBuilder: (context, i) => _FeaturedPage(
+                      item: widget.items[i],
+                      index: i,
+                      controller: _controller,
+                      width: width,
+                      height: height,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-          if (widget.items.length > 1)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: OFSpacing.md,
-              child: ExcludeSemantics(child: _Dots(count: widget.items.length, index: _index)),
-            ),
-        ],
+              if (widget.items.length > 1)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: OFSpacing.md,
+                  child: ExcludeSemantics(
+                    child: _Dots(count: widget.items.length, index: _index),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
 class _FeaturedPage extends ConsumerWidget {
-  const _FeaturedPage({required this.item, required this.index, required this.controller, required this.height});
+  const _FeaturedPage({
+    required this.item,
+    required this.index,
+    required this.controller,
+    required this.width,
+    required this.height,
+  });
 
   final MediaItem item;
   final int index;
   final PageController controller;
+  final double width;
   final double height;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final size = MediaQuery.sizeOf(context);
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final images = ref.watch(imageUrlBuilderProvider);
-    final gutter = OFSpacing.screenGutter(size.width);
+    final gutter = OFSpacing.screenGutter(width);
     final backdrop = item.backdrop;
     final logo = item.logo;
-    final meta = [
-      ...item.genres.take(2).map((g) => g.name),
-      ?MediaFormat.years(item),
-    ].join(' · ');
+    final meta = [...item.genres.take(2).map((g) => g.name), ?MediaFormat.years(item)].join(' · ');
 
     return Semantics(
       container: true,
@@ -173,16 +205,16 @@ class _FeaturedPage extends ConsumerWidget {
               animation: controller,
               builder: (context, child) {
                 final page = controller.hasClients && controller.position.haveDimensions ? controller.page ?? 0 : 0.0;
-                final shift = (page - index).clamp(-1.0, 1.0) * size.width * _parallax;
+                final shift = (page - index).clamp(-1.0, 1.0) * width * _parallax;
                 return Transform.translate(offset: Offset(shift, 0), child: child);
               },
               child: OverflowBox(
-                maxWidth: size.width * _overscan,
-                minWidth: size.width * _overscan,
+                maxWidth: width * _overscan,
+                minWidth: width * _overscan,
                 child: OFImage(
-                  url: images.maybe(backdrop, logicalWidth: size.width * _overscan, devicePixelRatio: dpr),
+                  url: images.maybe(backdrop, logicalWidth: width * _overscan, devicePixelRatio: dpr),
                   blurHash: backdrop?.blurHash,
-                  decodeWidth: (size.width * _overscan * dpr).ceil(),
+                  decodeWidth: _decodeWidth(width, dpr),
                 ),
               ),
             ),
@@ -213,9 +245,9 @@ class _FeaturedPage extends ConsumerWidget {
               children: [
                 if (logo != null)
                   ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: size.width * 0.62, maxHeight: height * 0.2),
+                    constraints: BoxConstraints(maxWidth: width * 0.62, maxHeight: height * 0.2),
                     child: OFImage(
-                      url: images.image(logo, logicalWidth: size.width * 0.62, devicePixelRatio: dpr),
+                      url: images.image(logo, logicalWidth: width * 0.62, devicePixelRatio: dpr),
                       fit: BoxFit.contain,
                       transparentPlaceholder: true,
                       fallback: _Title(item.name),
@@ -235,8 +267,7 @@ class _FeaturedPage extends ConsumerWidget {
                       label: 'Lecture',
                       icon: Icons.play_arrow_rounded,
                       // Film : lecture directe. Série : la fiche choisit l'épisode à suivre.
-                      onPressed: () =>
-                          item.kind.isPlayableVideo ? context.play(item.id) : context.openItem(item),
+                      onPressed: () => item.kind.isPlayableVideo ? context.play(item.id) : context.openItem(item),
                     ),
                     const SizedBox(width: OFSpacing.md),
                     OFButton.secondary(
@@ -262,12 +293,12 @@ class _Title extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-        text,
-        textAlign: TextAlign.center,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: OFTypography.display,
-      );
+    text,
+    textAlign: TextAlign.center,
+    maxLines: 2,
+    overflow: TextOverflow.ellipsis,
+    style: OFTypography.display,
+  );
 }
 
 class _Dots extends StatelessWidget {
