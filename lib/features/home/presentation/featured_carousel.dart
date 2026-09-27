@@ -9,6 +9,11 @@ import '../../../core/media/formatters.dart';
 import '../../../core/media/media_item.dart';
 import '../../../core/providers.dart';
 
+/// Le backdrop est plus large que la page pour que la parallaxe (décalage max
+/// ±[_parallax] de la largeur) ne découvre jamais le fond noir sur les bords.
+const _parallax = 0.15;
+const _overscan = 1 + 2 * _parallax;
+
 /// Hauteur du carrousel selon l'écran : immersif sur téléphone, borné sur tablette.
 double featuredHeight(Size size) {
   final portrait = size.height > size.width;
@@ -44,6 +49,27 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _restartTimer();
+    _precacheAround(_index);
+  }
+
+  /// Précharge backdrop + logo de la page courante et des voisines (même clé de
+  /// cache que l'affichage) : au swipe ou au défilement auto, l'image est déjà décodée.
+  void _precacheAround(int index) {
+    final n = widget.items.length;
+    if (n == 0) return;
+    final size = MediaQuery.sizeOf(context);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final images = ref.read(imageUrlBuilderProvider);
+    for (final i in {index, (index + 1) % n, (index - 1 + n) % n}) {
+      final item = widget.items[i];
+      final backdrop = images.maybe(item.backdrop, logicalWidth: size.width * _overscan, devicePixelRatio: dpr);
+      if (backdrop != null) {
+        precacheImage(OFImage.provider(backdrop, decodeWidth: (size.width * _overscan * dpr).ceil()), context, onError: (_, _) {});
+      }
+      final logoWidth = size.width * 0.62;
+      final logo = images.maybe(item.logo, logicalWidth: logoWidth, devicePixelRatio: dpr);
+      if (logo != null) precacheImage(OFImage.provider(logo), context, onError: (_, _) {});
+    }
   }
 
   @override
@@ -91,6 +117,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
               onPageChanged: (i) {
                 setState(() => _index = i);
                 _updateAccent();
+                _precacheAround(i);
               },
               itemBuilder: (context, i) => _FeaturedPage(
                 item: widget.items[i],
@@ -146,12 +173,17 @@ class _FeaturedPage extends ConsumerWidget {
               animation: controller,
               builder: (context, child) {
                 final page = controller.hasClients && controller.position.haveDimensions ? controller.page ?? 0 : 0.0;
-                return Transform.translate(offset: Offset((page - index) * size.width * 0.3, 0), child: child);
+                final shift = (page - index).clamp(-1.0, 1.0) * size.width * _parallax;
+                return Transform.translate(offset: Offset(shift, 0), child: child);
               },
-              child: OFImage(
-                url: images.maybe(backdrop, logicalWidth: size.width, devicePixelRatio: dpr),
-                blurHash: backdrop?.blurHash,
-                decodeWidth: (size.width * dpr).ceil(),
+              child: OverflowBox(
+                maxWidth: size.width * _overscan,
+                minWidth: size.width * _overscan,
+                child: OFImage(
+                  url: images.maybe(backdrop, logicalWidth: size.width * _overscan, devicePixelRatio: dpr),
+                  blurHash: backdrop?.blurHash,
+                  decodeWidth: (size.width * _overscan * dpr).ceil(),
+                ),
               ),
             ),
           ),
@@ -185,6 +217,7 @@ class _FeaturedPage extends ConsumerWidget {
                     child: OFImage(
                       url: images.image(logo, logicalWidth: size.width * 0.62, devicePixelRatio: dpr),
                       fit: BoxFit.contain,
+                      transparentPlaceholder: true,
                       fallback: _Title(item.name),
                     ),
                   )

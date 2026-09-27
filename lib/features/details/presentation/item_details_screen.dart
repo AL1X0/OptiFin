@@ -184,6 +184,7 @@ class _Header extends ConsumerWidget {
               child: OFImage(
                 url: images.image(item.logo!, logicalWidth: wide ? 380 : size.width * 0.7, devicePixelRatio: dpr),
                 fit: BoxFit.contain,
+                transparentPlaceholder: true,
                 fallback: _TitleText(item.name, wide: wide),
               ),
             ),

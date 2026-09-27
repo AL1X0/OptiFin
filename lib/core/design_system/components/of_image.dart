@@ -4,10 +4,15 @@ import 'package:flutter_blurhash/flutter_blurhash.dart';
 
 import '../tokens.dart';
 
-/// Image réseau OptiFin : placeholder BlurHash, fondu court, décodage à la taille affichée.
+/// Image réseau OptiFin, sans flash au chargement.
 ///
-/// `url` doit déjà être dimensionnée côté serveur (voir `JellyfinImageUrlBuilder`).
-/// `memCacheWidth` limite en plus la taille décodée en mémoire.
+/// Le fond (BlurHash, ou couleur neutre) est peint **sous** l'image et y reste :
+/// l'image arrive en fondu par-dessus, on ne voit donc jamais le noir entre
+/// le placeholder et l'image (ce qui arrivait quand le placeholder disparaissait
+/// instantanément pendant que l'image n'était encore qu'à moitié opaque).
+///
+/// `url` doit déjà être dimensionnée côté serveur (voir `JellyfinImageUrlBuilder`) ;
+/// `decodeWidth` limite en plus la taille décodée en mémoire.
 class OFImage extends StatelessWidget {
   const OFImage({
     super.key,
@@ -16,6 +21,7 @@ class OFImage extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.decodeWidth,
     this.fallback,
+    this.transparentPlaceholder = false,
   });
 
   final Uri? url;
@@ -25,26 +31,45 @@ class OFImage extends StatelessWidget {
   /// Largeur physique à décoder (px). Si null, taille native de l'image.
   final int? decodeWidth;
 
-  /// Widget affiché quand il n'y a pas d'image ou en cas d'erreur.
+  /// Widget affiché quand il n'y a pas d'image ou en cas d'erreur (jamais pendant le chargement).
   final Widget? fallback;
+
+  /// Rien sous l'image pendant le chargement (logos posés sur un backdrop).
+  final bool transparentPlaceholder;
+
+  /// Provider exact utilisé par [OFImage] : à passer à `precacheImage` pour
+  /// préparer une image avant son affichage (même clé de cache mémoire).
+  static ImageProvider provider(Uri url, {int? decodeWidth}) =>
+      ResizeImage.resizeIfNeeded(decodeWidth, null, CachedNetworkImageProvider(url.toString()));
+
+  Widget _base() {
+    if (transparentPlaceholder) return const SizedBox.shrink();
+    if (blurHash != null) {
+      return BlurHash(hash: blurHash!, imageFit: fit, color: OFColors.surface, duration: Duration.zero);
+    }
+    return const ColoredBox(color: OFColors.surface);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final placeholder = blurHash != null
-        ? BlurHash(hash: blurHash!, imageFit: fit, color: OFColors.surface)
-        : const ColoredBox(color: OFColors.surface);
+    if (url == null) return fallback ?? _base();
 
-    if (url == null) return fallback ?? placeholder;
-
-    final motion = OFMotion.of(context);
-    return CachedNetworkImage(
-      imageUrl: url.toString(),
-      fit: fit,
-      memCacheWidth: decodeWidth,
-      fadeInDuration: motion.enabled ? const Duration(milliseconds: 150) : Duration.zero,
-      fadeOutDuration: Duration.zero,
-      placeholder: (_, _) => placeholder,
-      errorWidget: (_, _, _) => fallback ?? placeholder,
+    final fade = OFMotion.of(context).enabled ? const Duration(milliseconds: 200) : Duration.zero;
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        Positioned.fill(child: _base()),
+        CachedNetworkImage(
+          imageUrl: url.toString(),
+          fit: fit,
+          memCacheWidth: decodeWidth,
+          fadeInDuration: fade,
+          fadeOutDuration: Duration.zero,
+          // Le placeholder est le fond peint dessous : rien à afficher ici.
+          placeholder: (_, _) => const SizedBox.shrink(),
+          errorWidget: (_, _, _) => fallback ?? const SizedBox.shrink(),
+        ),
+      ],
     );
   }
 }
