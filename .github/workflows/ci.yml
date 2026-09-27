@@ -118,8 +118,9 @@ jobs:
           NOTES=$(git log -1 --pretty=%s)
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
-          .github/scripts/sidestore_source.sh dist/OptiFin.ipa "$VERSION" "$BUILD" "$TAG" "$NOTES" > dist/source.json
-          jq . dist/source.json
+          node .github/scripts/sidestore_source.mjs dist/OptiFin.ipa "$VERSION" "$BUILD" "$TAG" "$NOTES" > dist/source.json
+          # Échoue si le JSON est invalide (SideStore le refuserait).
+          node -e "JSON.parse(require('fs').readFileSync('dist/source.json','utf8'))" && cat dist/source.json
       - name: Créer la Release
         run: |
           gh release create "$TAG" dist/OptiFin.ipa dist/source.json             --title "OptiFin $VERSION (build ${{ github.run_number }})"             --notes "$(git log -1 --pretty=%B)"             --latest
