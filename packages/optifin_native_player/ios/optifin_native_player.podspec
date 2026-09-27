@@ -5,16 +5,17 @@
 Pod::Spec.new do |s|
   s.name             = 'optifin_native_player'
   s.version          = '0.0.1'
-  s.summary          = 'A new Flutter plugin project.'
+  s.summary          = "Lecteur natif AVPlayer d’OptiFin"
   s.description      = <<-DESC
-A new Flutter plugin project.
+Lecteur AVPlayer (AVPlayerLayer en PlatformView) pour OptiFin.
                        DESC
   s.homepage         = 'http://example.com'
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Your Company' => 'email@example.com' }
   s.source           = { :path => '.' }
-  s.source_files = 'optifin_native_player/Sources/optifin_native_player/**/*'
+  s.source_files = 'optifin_native_player/Sources/optifin_native_player/**/*.swift'
   s.dependency 'Flutter'
+  s.frameworks = 'AVFoundation', 'CoreMedia', 'VideoToolbox'
   s.platform = :ios, '15.0'
 
   # Flutter.framework does not contain a i386 slice.

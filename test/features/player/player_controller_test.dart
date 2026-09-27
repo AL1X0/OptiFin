@@ -7,7 +7,9 @@ import 'package:optifin/core/network/jellyfin_auth.dart';
 import 'package:optifin/core/network/retry_policy.dart';
 import 'package:optifin/core/providers.dart';
 import 'package:optifin/features/auth/domain/entities.dart';
+import 'package:optifin/features/player/data/device_profiles.dart';
 import 'package:optifin/features/player/data/playback_repository.dart';
+import 'package:optifin/features/player/domain/device_capabilities.dart';
 import 'package:optifin/features/player/domain/playback_engine.dart';
 import 'package:optifin/features/player/domain/playback_plan.dart';
 import 'package:optifin/features/player/presentation/player_controller.dart';
@@ -31,21 +33,32 @@ void main() {
   ProviderContainer build({PlayMethod method = PlayMethod.directPlay, int? defaultSubtitle}) {
     engine = FakeEngine();
     playback = FakePlaybackRepository(
-      ({int? audioIndex, int? subtitleIndex}) =>
-          plan(method: method, audioIndex: audioIndex ?? 1, subtitleIndex: subtitleIndex ?? defaultSubtitle),
+      ({int? audioIndex, int? subtitleIndex, PlaybackRequestOptions? options}) => plan(
+        method: method,
+        audioIndex: audioIndex ?? 1,
+        subtitleIndex: subtitleIndex == null || subtitleIndex < 0 ? defaultSubtitle : subtitleIndex,
+      ),
     );
-    return ProviderContainer(retry: networkRetry, overrides: [
-      initialSessionProvider.overrideWithValue(ActiveSession(
-        server: JellyfinServer(id: 's', name: 'S', baseUrl: Uri.parse('http://s/jf'), version: '10.10.7'),
-        account: const Account(serverId: 's', userId: 'u', userName: 'Léa'),
-        token: 'secret',
-      )),
-      clientIdentityProvider.overrideWithValue(const ClientIdentity(clientName: 'OptiFin', deviceName: 'T', deviceId: 'd', version: '1')),
-      playbackRepositoryProvider.overrideWithValue(playback),
-      mediaRepositoryProvider.overrideWithValue(FakeMediaRepository(movie)),
-      playbackEngineFactoryProvider.overrideWithValue(() async => engine),
-      maxBitrateResolverProvider.overrideWithValue(() async => 40000000),
-    ]);
+    return ProviderContainer(
+      retry: networkRetry,
+      overrides: [
+        initialSessionProvider.overrideWithValue(
+          ActiveSession(
+            server: JellyfinServer(id: 's', name: 'S', baseUrl: Uri.parse('http://s/jf'), version: '10.10.7'),
+            account: const Account(serverId: 's', userId: 'u', userName: 'Léa'),
+            token: 'secret',
+          ),
+        ),
+        clientIdentityProvider.overrideWithValue(
+          const ClientIdentity(clientName: 'OptiFin', deviceName: 'T', deviceId: 'd', version: '1'),
+        ),
+        playbackRepositoryProvider.overrideWithValue(playback),
+        mediaRepositoryProvider.overrideWithValue(FakeMediaRepository(movie)),
+        playbackEngineFactoryProvider.overrideWithValue((_) async => engine),
+        deviceCapabilitiesProvider.overrideWith((ref) async => DeviceCapabilities.fallback(DevicePlatform.other)),
+        maxBitrateResolverProvider.overrideWithValue(() async => 40000000),
+      ],
+    );
   }
 
   Future<PlayerController> start(ProviderContainer c, {Duration? at}) async {
@@ -108,7 +121,7 @@ void main() {
     final c = await start(container);
     engine.emit(engine.snapshot.copyWith(position: const Duration(minutes: 42)));
     await c.selectAudio(audioEn);
-    expect(playback.prepareCalls.last, (2, null));
+    expect(playback.prepareCalls.last, (2, -1));
     expect(engine.opened, hasLength(2));
     expect(engine.opened.last.start, const Duration(minutes: 42));
     expect(engine.opened.last.audioOrdinal, isNull, reason: 'le serveur ne muxe que la piste choisie');
@@ -142,10 +155,15 @@ void main() {
 
   testWidgets('écran : titre, play/pause pilote le moteur, feuille des pistes', (tester) async {
     container = build();
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp(theme: OFTheme.dark(), home: const PlayerScreen(args: PlayerArgs('m'))),
-    ));
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: OFTheme.dark(),
+          home: const PlayerScreen(args: PlayerArgs('m')),
+        ),
+      ),
+    );
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 20));
     }

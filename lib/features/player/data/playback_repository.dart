@@ -4,6 +4,7 @@ import '../../../core/network/api_failure.dart';
 import '../domain/playback_plan.dart';
 import '../domain/playback_reporter.dart';
 import 'device_profiles.dart';
+import 'source_profile_mapper.dart';
 
 /// Lecture refusée par le serveur (droits, aucun flux compatible, limite de débit).
 class PlaybackDeniedFailure extends ApiFailure {
@@ -28,16 +29,18 @@ class PlaybackRepository implements PlaybackReportSink {
   final String userId;
   final Uri baseUrl;
 
-  /// Demande au serveur comment lire [itemId] avec le profil donné.
+  /// Demande au serveur comment lire [itemId] avec les [options] d'une décision
+  /// de l'EngineSelector (profil mpv par défaut : accepte tout en lecture directe).
   Future<PlaybackPlan> prepare({
     required String itemId,
     Duration start = Duration.zero,
     int? audioIndex,
     int? subtitleIndex,
     String? mediaSourceId,
-    Map<String, Object?>? deviceProfile,
+    PlaybackRequestOptions? options,
     int maxStreamingBitrate = defaultMaxStreamingBitrate,
   }) async {
+    final o = options ?? PlaybackRequestOptions.mpv(maxStreamingBitrate);
     final PlaybackInfoResponse response;
     try {
       response = await _api.mediaInfo.getPostedPlaybackInfo(
@@ -49,11 +52,11 @@ class PlaybackRepository implements PlaybackReportSink {
           'AudioStreamIndex': ?audioIndex,
           'SubtitleStreamIndex': ?subtitleIndex,
           'MediaSourceId': ?mediaSourceId,
-          'DeviceProfile': deviceProfile ?? mpvDeviceProfile(maxStreamingBitrate: maxStreamingBitrate),
-          'EnableDirectPlay': true,
-          'EnableDirectStream': true,
+          'DeviceProfile': o.deviceProfile,
+          'EnableDirectPlay': o.enableDirectPlay,
+          'EnableDirectStream': o.enableDirectStream,
           'EnableTranscoding': true,
-          'AllowVideoStreamCopy': true,
+          'AllowVideoStreamCopy': o.allowVideoStreamCopy,
           'AllowAudioStreamCopy': true,
           'AutoOpenLiveStream': true,
         }),
@@ -133,6 +136,7 @@ class PlaybackRepository implements PlaybackReportSink {
       videoCodec: streams.where((s) => s.type == MediaStreamType.video).firstOrNull?.codec,
       startPosition: start,
       runtime: source.runTimeTicks == null ? null : Duration(microseconds: source.runTimeTicks! ~/ 10),
+      source: sourceProfileFrom(source),
     );
   }
 

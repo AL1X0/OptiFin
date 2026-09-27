@@ -1,8 +1,8 @@
+/// Lecteurs natifs d'OptiFin : AVPlayer (iOS) et Media3/ExoPlayer (Android).
+///
+/// API volontairement minimale et indépendante de l'app : l'adaptation au
+/// contrat `PlaybackEngine` se fait côté app (`NativeEngine`).
+library;
 
-import 'optifin_native_player_platform_interface.dart';
-
-class OptifinNativePlayer {
-  Future<String?> getPlatformVersion() {
-    return OptifinNativePlayerPlatform.instance.getPlatformVersion();
-  }
-}
+export 'src/native_player.dart';
+export 'src/native_player_view.dart';

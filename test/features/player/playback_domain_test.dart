@@ -13,16 +13,25 @@ import 'package:optifin/features/player/domain/playback_reporter.dart';
 import '../../helpers/fake_http.dart';
 import 'fakes.dart';
 
-Map<String, Object?> stream(int index, String type, {String? codec, String? lang, String? title, bool external = false, bool text = true, String? url}) => {
-      'Index': index,
-      'Type': type,
-      'Codec': ?codec,
-      'Language': ?lang,
-      'DisplayTitle': ?title,
-      'IsExternal': external,
-      'IsTextSubtitleStream': text,
-      'DeliveryUrl': ?url,
-    };
+Map<String, Object?> stream(
+  int index,
+  String type, {
+  String? codec,
+  String? lang,
+  String? title,
+  bool external = false,
+  bool text = true,
+  String? url,
+}) => {
+  'Index': index,
+  'Type': type,
+  'Codec': ?codec,
+  'Language': ?lang,
+  'DisplayTitle': ?title,
+  'IsExternal': external,
+  'IsTextSubtitleStream': text,
+  'DeliveryUrl': ?url,
+};
 
 PlaybackInfoResponse response({
   bool directPlay = true,
@@ -32,34 +41,39 @@ PlaybackInfoResponse response({
   int? defaultSub,
   String? errorCode,
   bool noSources = false,
-}) =>
-    PlaybackInfoResponse.fromJson({
-      'PlaySessionId': 'ps1',
-      'ErrorCode': ?errorCode,
-      'MediaSources': noSources
-          ? <Object?>[]
-          : [
-              {
-                'Id': 'src1',
-                'ETag': 'etag',
-                'Container': 'mkv',
-                'Bitrate': 60000000,
-                'RunTimeTicks': 72000000000,
-                'SupportsDirectPlay': directPlay,
-                'SupportsDirectStream': directStream,
-                'TranscodingUrl': ?transcodingUrl,
-                'DefaultAudioStreamIndex': ?defaultAudio,
-                'DefaultSubtitleStreamIndex': ?defaultSub,
-                'MediaStreams': [
-                  stream(0, 'Video', codec: 'hevc'),
-                  stream(2, 'Audio', codec: 'truehd', lang: 'eng', title: 'English TrueHD 7.1'),
-                  stream(1, 'Audio', codec: 'eac3', lang: 'fre'),
-                  stream(3, 'Subtitle', codec: 'PGSSUB', lang: 'fre', text: false),
-                  stream(4, 'Subtitle', codec: 'srt', external: true, url: '/Videos/x/src1/Subtitles/4/0/Stream.srt?api_key=k'),
-                ],
-              },
+}) => PlaybackInfoResponse.fromJson({
+  'PlaySessionId': 'ps1',
+  'ErrorCode': ?errorCode,
+  'MediaSources': noSources
+      ? <Object?>[]
+      : [
+          {
+            'Id': 'src1',
+            'ETag': 'etag',
+            'Container': 'mkv',
+            'Bitrate': 60000000,
+            'RunTimeTicks': 72000000000,
+            'SupportsDirectPlay': directPlay,
+            'SupportsDirectStream': directStream,
+            'TranscodingUrl': ?transcodingUrl,
+            'DefaultAudioStreamIndex': ?defaultAudio,
+            'DefaultSubtitleStreamIndex': ?defaultSub,
+            'MediaStreams': [
+              stream(0, 'Video', codec: 'hevc'),
+              stream(2, 'Audio', codec: 'truehd', lang: 'eng', title: 'English TrueHD 7.1'),
+              stream(1, 'Audio', codec: 'eac3', lang: 'fre'),
+              stream(3, 'Subtitle', codec: 'PGSSUB', lang: 'fre', text: false),
+              stream(
+                4,
+                'Subtitle',
+                codec: 'srt',
+                external: true,
+                url: '/Videos/x/src1/Subtitles/4/0/Stream.srt?api_key=k',
+              ),
             ],
-    });
+          },
+        ],
+});
 
 void main() {
   final base = Uri.parse('https://media.example.fr/jellyfin');
@@ -69,7 +83,12 @@ void main() {
       final p = PlaybackRepository.planFromResponse(response(), itemId: 'x', baseUrl: base);
       expect(p.method, PlayMethod.directPlay);
       expect(p.streamUrl.path, '/jellyfin/Videos/x/stream');
-      expect(p.streamUrl.queryParameters, {'static': 'true', 'mediaSourceId': 'src1', 'playSessionId': 'ps1', 'tag': 'etag'});
+      expect(p.streamUrl.queryParameters, {
+        'static': 'true',
+        'mediaSourceId': 'src1',
+        'playSessionId': 'ps1',
+        'tag': 'etag',
+      });
       expect(p.streamUrl.queryParameters.keys, isNot(contains('api_key')), reason: 'token passé en en-tête');
       expect(p.audioTracks.map((t) => t.index), [1, 2]);
       expect(p.audioTracks.first.label, 'FRE · EAC3', reason: 'libellé de repli sans DisplayTitle');
@@ -84,7 +103,10 @@ void main() {
 
     test('Transcodage : URL serveur résolue avec sa query', () {
       final p = PlaybackRepository.planFromResponse(
-        response(directPlay: false, transcodingUrl: '/videos/x/master.m3u8?MediaSourceId=src1&ApiKey=abc&VideoCodec=h264'),
+        response(
+          directPlay: false,
+          transcodingUrl: '/videos/x/master.m3u8?MediaSourceId=src1&ApiKey=abc&VideoCodec=h264',
+        ),
         itemId: 'x',
         baseUrl: base,
       );
@@ -104,16 +126,32 @@ void main() {
     });
 
     test('sous-titre par défaut -1 ou inconnu → aucun ; demande explicite prioritaire', () {
-      expect(PlaybackRepository.planFromResponse(response(defaultSub: -1), itemId: 'x', baseUrl: base).subtitleIndex, isNull);
-      expect(PlaybackRepository.planFromResponse(response(defaultSub: 99), itemId: 'x', baseUrl: base).subtitleIndex, isNull);
+      expect(
+        PlaybackRepository.planFromResponse(response(defaultSub: -1), itemId: 'x', baseUrl: base).subtitleIndex,
+        isNull,
+      );
+      expect(
+        PlaybackRepository.planFromResponse(response(defaultSub: 99), itemId: 'x', baseUrl: base).subtitleIndex,
+        isNull,
+      );
       expect(PlaybackRepository.planFromResponse(response(defaultSub: 3), itemId: 'x', baseUrl: base).subtitleIndex, 3);
-      final p = PlaybackRepository.planFromResponse(response(), itemId: 'x', baseUrl: base, requestedAudio: 2, requestedSubtitle: 4);
+      final p = PlaybackRepository.planFromResponse(
+        response(),
+        itemId: 'x',
+        baseUrl: base,
+        requestedAudio: 2,
+        requestedSubtitle: 4,
+      );
       expect((p.audioIndex, p.subtitleIndex), (2, 4));
     });
 
     test('refus serveur → PlaybackDeniedFailure avec message clair', () {
       expect(
-        () => PlaybackRepository.planFromResponse(response(errorCode: 'NotAllowed'), itemId: 'x', baseUrl: base),
+        () => PlaybackRepository.planFromResponse(
+          response(errorCode: 'NotAllowed'),
+          itemId: 'x',
+          baseUrl: base,
+        ),
         throwsA(isA<PlaybackDeniedFailure>().having((f) => f.userMessage, 'message', contains('pas autorisée'))),
       );
       expect(
@@ -180,18 +218,24 @@ void main() {
       dio.httpClientAdapter = adapter;
       final repo = PlaybackRepository(JellyfinClient(dio), userId: 'u', baseUrl: Uri.parse('http://s'));
       final p = await repo.prepare(itemId: 'x');
-      const report = PlaybackReport(itemId: 'x', mediaSourceId: 'src1', playSessionId: null, method: PlayMethod.directPlay, position: Duration(seconds: 5));
+      const report = PlaybackReport(
+        itemId: 'x',
+        mediaSourceId: 'src1',
+        playSessionId: null,
+        method: PlayMethod.directPlay,
+        position: Duration(seconds: 5),
+      );
       await repo.start(report);
       await repo.progress(report);
       await repo.stopped(report);
       expect(p.method, PlayMethod.directPlay);
 
       List<String> nullPaths(Object? node, String path) => switch (node) {
-            null => [path],
-            Map<String, dynamic>() => [for (final e in node.entries) ...nullPaths(e.value, '$path.${e.key}')],
-            List<dynamic>() => [for (final (i, v) in node.indexed) ...nullPaths(v, '$path[$i]')],
-            _ => const [],
-          };
+        null => [path],
+        Map<String, dynamic>() => [for (final e in node.entries) ...nullPaths(e.value, '$path.${e.key}')],
+        List<dynamic>() => [for (final (i, v) in node.indexed) ...nullPaths(v, '$path[$i]')],
+        _ => const [],
+      };
       for (final r in adapter.requests) {
         final body = jsonDecode(jsonEncode(r.data));
         expect(nullPaths(body, r.path), isEmpty, reason: 'corps de ${r.path}');
@@ -212,7 +256,11 @@ void main() {
 
   group('PlaybackReporter', () {
     late FakePlaybackRepository sink;
-    setUp(() => sink = FakePlaybackRepository(plan));
+    setUp(
+      () => sink = FakePlaybackRepository(
+        ({int? audioIndex, int? subtitleIndex, PlaybackRequestOptions? options}) => plan(),
+      ),
+    );
 
     test('start, progress périodique, pause immédiate, seek, stop final', () {
       fakeAsync((async) {
@@ -227,13 +275,7 @@ void main() {
         async.flushMicrotasks();
         r.stop();
         async.elapse(const Duration(seconds: 30)); // plus aucun tick après stop
-        expect(sink.reports, [
-          'start@30',
-          'progress@35',
-          'progress@42 paused',
-          'progress@100 paused',
-          'stopped@100',
-        ]);
+        expect(sink.reports, ['start@30', 'progress@35', 'progress@42 paused', 'progress@100 paused', 'stopped@100']);
       });
     });
 

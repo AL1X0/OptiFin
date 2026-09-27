@@ -3,18 +3,34 @@ import 'playback_plan.dart';
 
 /// Codes de langue équivalents (ISO 639-2 B/T, 639-1) ramenés à une forme unique.
 const _aliases = <String, String>{
-  'fr': 'fre', 'fra': 'fre', 'fre': 'fre',
-  'en': 'eng', 'eng': 'eng',
-  'es': 'spa', 'spa': 'spa',
-  'de': 'ger', 'deu': 'ger', 'ger': 'ger',
-  'it': 'ita', 'ita': 'ita',
-  'pt': 'por', 'por': 'por',
-  'ja': 'jpn', 'jpn': 'jpn',
-  'ko': 'kor', 'kor': 'kor',
-  'zh': 'chi', 'zho': 'chi', 'chi': 'chi',
-  'ru': 'rus', 'rus': 'rus',
-  'ar': 'ara', 'ara': 'ara',
-  'nl': 'dut', 'nld': 'dut', 'dut': 'dut',
+  'fr': 'fre',
+  'fra': 'fre',
+  'fre': 'fre',
+  'en': 'eng',
+  'eng': 'eng',
+  'es': 'spa',
+  'spa': 'spa',
+  'de': 'ger',
+  'deu': 'ger',
+  'ger': 'ger',
+  'it': 'ita',
+  'ita': 'ita',
+  'pt': 'por',
+  'por': 'por',
+  'ja': 'jpn',
+  'jpn': 'jpn',
+  'ko': 'kor',
+  'kor': 'kor',
+  'zh': 'chi',
+  'zho': 'chi',
+  'chi': 'chi',
+  'ru': 'rus',
+  'rus': 'rus',
+  'ar': 'ara',
+  'ara': 'ara',
+  'nl': 'dut',
+  'nld': 'dut',
+  'dut': 'dut',
 };
 
 String? normalizeLanguage(String? code) {
@@ -46,8 +62,8 @@ String? normalizeLanguage(String? code) {
   final int? subtitle = switch (settings.subtitleMode) {
     SubtitleMode.server => plan.subtitleIndex,
     SubtitleMode.none => null,
-    SubtitleMode.always => (inLang(subs.where((t) => !t.isForced)).firstOrNull ?? inLang(subs).firstOrNull)?.index ??
-        plan.subtitleIndex,
+    SubtitleMode.always =>
+      (inLang(subs.where((t) => !t.isForced)).firstOrNull ?? inLang(subs).firstOrNull)?.index ?? plan.subtitleIndex,
     SubtitleMode.forcedOnly => inLang(subs.where((t) => t.isForced)).firstOrNull?.index,
   };
   return (audio, subtitle);

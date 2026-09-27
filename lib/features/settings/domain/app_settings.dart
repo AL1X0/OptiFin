@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../player/domain/engine_selector.dart';
 import '../../player/domain/playback_engine.dart';
 
 /// Comportement des sous-titres au démarrage d'une lecture.
@@ -51,6 +52,8 @@ class AppSettings {
     this.subtitleMode = SubtitleMode.server,
     this.subtitleScale = 1,
     this.subtitleBackground = SubtitleBackground.none,
+    this.enginePreference = EnginePreference.auto,
+    this.imageSubtitles = ImageSubtitlePolicy.auto,
   });
 
   final bool debugMode;
@@ -64,6 +67,12 @@ class AppSettings {
   final double subtitleScale;
   final SubtitleBackground subtitleBackground;
 
+  /// Moteur de lecture : automatique (EngineSelector), natif ou mpv.
+  final EnginePreference enginePreference;
+
+  /// Sous-titres image sur une vidéo destinée au lecteur natif : mpv ou incrustation.
+  final ImageSubtitlePolicy imageSubtitles;
+
   SubtitleStyle get subtitleStyle => SubtitleStyle(scale: subtitleScale, background: subtitleBackground);
 
   AppSettings copyWith({
@@ -75,29 +84,34 @@ class AppSettings {
     SubtitleMode? subtitleMode,
     double? subtitleScale,
     SubtitleBackground? subtitleBackground,
-  }) =>
-      AppSettings(
-        debugMode: debugMode ?? this.debugMode,
-        maxBitrateWifi: maxBitrateWifi ?? this.maxBitrateWifi,
-        maxBitrateCellular: maxBitrateCellular ?? this.maxBitrateCellular,
-        audioLanguage: audioLanguage != null ? audioLanguage() : this.audioLanguage,
-        subtitleLanguage: subtitleLanguage != null ? subtitleLanguage() : this.subtitleLanguage,
-        subtitleMode: subtitleMode ?? this.subtitleMode,
-        subtitleScale: subtitleScale ?? this.subtitleScale,
-        subtitleBackground: subtitleBackground ?? this.subtitleBackground,
-      );
+    EnginePreference? enginePreference,
+    ImageSubtitlePolicy? imageSubtitles,
+  }) => AppSettings(
+    debugMode: debugMode ?? this.debugMode,
+    maxBitrateWifi: maxBitrateWifi ?? this.maxBitrateWifi,
+    maxBitrateCellular: maxBitrateCellular ?? this.maxBitrateCellular,
+    audioLanguage: audioLanguage != null ? audioLanguage() : this.audioLanguage,
+    subtitleLanguage: subtitleLanguage != null ? subtitleLanguage() : this.subtitleLanguage,
+    subtitleMode: subtitleMode ?? this.subtitleMode,
+    subtitleScale: subtitleScale ?? this.subtitleScale,
+    subtitleBackground: subtitleBackground ?? this.subtitleBackground,
+    enginePreference: enginePreference ?? this.enginePreference,
+    imageSubtitles: imageSubtitles ?? this.imageSubtitles,
+  );
 
   Map<String, Object?> toJson() => {
-        'v': 1,
-        'debugMode': debugMode,
-        'maxBitrateWifi': maxBitrateWifi,
-        'maxBitrateCellular': maxBitrateCellular,
-        'audioLanguage': audioLanguage,
-        'subtitleLanguage': subtitleLanguage,
-        'subtitleMode': subtitleMode.name,
-        'subtitleScale': subtitleScale,
-        'subtitleBackground': subtitleBackground.name,
-      };
+    'v': 1,
+    'debugMode': debugMode,
+    'maxBitrateWifi': maxBitrateWifi,
+    'maxBitrateCellular': maxBitrateCellular,
+    'audioLanguage': audioLanguage,
+    'subtitleLanguage': subtitleLanguage,
+    'subtitleMode': subtitleMode.name,
+    'subtitleScale': subtitleScale,
+    'subtitleBackground': subtitleBackground.name,
+    'enginePreference': enginePreference.name,
+    'imageSubtitles': imageSubtitles.name,
+  };
 
   /// Lecture tolérante : une clé absente ou invalide reprend sa valeur par défaut
   /// (réglages écrits par une version antérieure de l'app).
@@ -116,7 +130,12 @@ class AppSettings {
         subtitleMode: SubtitleMode.values.where((m) => m.name == j['subtitleMode']).firstOrNull ?? d.subtitleMode,
         subtitleScale: (j['subtitleScale'] is num) ? (j['subtitleScale'] as num).toDouble() : d.subtitleScale,
         subtitleBackground:
-            SubtitleBackground.values.where((b) => b.name == j['subtitleBackground']).firstOrNull ?? d.subtitleBackground,
+            SubtitleBackground.values.where((b) => b.name == j['subtitleBackground']).firstOrNull ??
+            d.subtitleBackground,
+        enginePreference:
+            EnginePreference.values.where((e) => e.name == j['enginePreference']).firstOrNull ?? d.enginePreference,
+        imageSubtitles:
+            ImageSubtitlePolicy.values.where((e) => e.name == j['imageSubtitles']).firstOrNull ?? d.imageSubtitles,
       );
     } catch (_) {
       return d;

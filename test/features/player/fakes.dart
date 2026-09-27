@@ -5,17 +5,31 @@ import 'package:flutter/widgets.dart';
 import 'package:jellyfin_api/jellyfin_api.dart' hide PlayMethod;
 import 'package:optifin/core/media/media_item.dart';
 import 'package:optifin/core/media/media_repository.dart';
+import 'package:optifin/features/player/data/device_profiles.dart';
 import 'package:optifin/features/player/data/playback_repository.dart';
 import 'package:optifin/features/player/domain/playback_engine.dart';
 import 'package:optifin/features/player/domain/playback_plan.dart';
 import 'package:optifin/features/player/domain/playback_reporter.dart';
 
 /// Moteur factice : enregistre les commandes, émet des états à la demande.
+///
+/// [failOnOpen] : simule un échec au démarrage (erreur avant la première image).
+/// [readyOnOpen] false : aucune image (délai de démarrage dépassé).
 class FakeEngine implements PlaybackEngine {
-  FakeEngine({this.capabilities = const EngineCapabilities(subtitleStyling: true)});
+  FakeEngine({
+    this.capabilities = const EngineCapabilities(subtitleStyling: true),
+    this.name = 'fake',
+    this.failOnOpen = false,
+    this.readyOnOpen = true,
+  });
 
   @override
   final EngineCapabilities capabilities;
+
+  @override
+  final String name;
+  final bool failOnOpen;
+  final bool readyOnOpen;
 
   final opened = <EngineMedia>[];
   final commands = <String>[];
@@ -32,9 +46,6 @@ class FakeEngine implements PlaybackEngine {
   void fire(PlaybackEvent e) => _events.add(e);
 
   @override
-  String get name => 'fake';
-
-  @override
   PlayerSnapshot get snapshot => _snapshot;
 
   @override
@@ -46,7 +57,20 @@ class FakeEngine implements PlaybackEngine {
   @override
   Future<void> open(EngineMedia media) async {
     opened.add(media);
-    emit(PlayerSnapshot(status: PlaybackStatus.ready, playing: true, position: media.start, duration: const Duration(hours: 2)));
+    if (failOnOpen) {
+      emit(const PlayerSnapshot(status: PlaybackStatus.error, error: 'format refusé'));
+      fire(const PlaybackFailed('format refusé', duringStartup: true));
+      return;
+    }
+    if (!readyOnOpen) return emit(PlayerSnapshot(status: PlaybackStatus.loading, position: media.start));
+    emit(
+      PlayerSnapshot(
+        status: PlaybackStatus.ready,
+        playing: true,
+        position: media.start,
+        duration: const Duration(hours: 2),
+      ),
+    );
   }
 
   @override
@@ -103,8 +127,9 @@ class FakeEngine implements PlaybackEngine {
 class FakePlaybackRepository extends PlaybackRepository {
   FakePlaybackRepository(this.planFor) : super(JellyfinClient(Dio()), userId: 'u', baseUrl: Uri.parse('http://s/jf'));
 
-  final PlaybackPlan Function({int? audioIndex, int? subtitleIndex}) planFor;
+  final PlaybackPlan Function({int? audioIndex, int? subtitleIndex, PlaybackRequestOptions? options}) planFor;
   final prepareCalls = <(int?, int?)>[];
+  final prepareOptions = <PlaybackRequestOptions?>[];
   final reports = <String>[];
   Object? prepareError;
 
@@ -115,12 +140,13 @@ class FakePlaybackRepository extends PlaybackRepository {
     int? audioIndex,
     int? subtitleIndex,
     String? mediaSourceId,
-    Map<String, Object?>? deviceProfile,
+    PlaybackRequestOptions? options,
     int maxStreamingBitrate = 0,
   }) async {
     prepareCalls.add((audioIndex, subtitleIndex));
+    prepareOptions.add(options);
     if (prepareError != null) throw prepareError!;
-    return planFor(audioIndex: audioIndex, subtitleIndex: subtitleIndex);
+    return planFor(audioIndex: audioIndex, subtitleIndex: subtitleIndex, options: options);
   }
 
   @override
@@ -146,7 +172,13 @@ class FakeMediaRepository extends MediaRepository {
 const audioFr = MediaTrack(index: 1, type: TrackType.audio, label: 'Français 5.1', language: 'fre', codec: 'eac3');
 const audioEn = MediaTrack(index: 2, type: TrackType.audio, label: 'English 7.1', language: 'eng', codec: 'truehd');
 const subFr = MediaTrack(index: 3, type: TrackType.subtitle, label: 'Français (ASS)', codec: 'ass');
-const subPgs = MediaTrack(index: 4, type: TrackType.subtitle, label: 'English (PGS)', codec: 'pgssub', isTextBased: false);
+const subPgs = MediaTrack(
+  index: 4,
+  type: TrackType.subtitle,
+  label: 'English (PGS)',
+  codec: 'pgssub',
+  isTextBased: false,
+);
 const subExt = MediaTrack(
   index: 5,
   type: TrackType.subtitle,
@@ -157,13 +189,13 @@ const subExt = MediaTrack(
 );
 
 PlaybackPlan plan({PlayMethod method = PlayMethod.directPlay, int? audioIndex = 1, int? subtitleIndex}) => PlaybackPlan(
-      itemId: 'm',
-      mediaSourceId: 'src',
-      playSessionId: 'ps',
-      method: method,
-      streamUrl: Uri.parse('http://s/jf/Videos/m/stream?static=true'),
-      audioTracks: const [audioFr, audioEn],
-      subtitleTracks: const [subFr, subPgs, subExt],
-      audioIndex: audioIndex,
-      subtitleIndex: subtitleIndex,
-    );
+  itemId: 'm',
+  mediaSourceId: 'src',
+  playSessionId: 'ps',
+  method: method,
+  streamUrl: Uri.parse('http://s/jf/Videos/m/stream?static=true'),
+  audioTracks: const [audioFr, audioEn],
+  subtitleTracks: const [subFr, subPgs, subExt],
+  audioIndex: audioIndex,
+  subtitleIndex: subtitleIndex,
+);

@@ -63,6 +63,7 @@ class EngineCapabilities {
     this.audioDelay = false,
     this.playbackSpeed = true,
     this.embeddedTrackSwitching = true,
+    this.embeddedSubtitles = true,
   });
 
   final bool pictureInPicture;
@@ -83,6 +84,10 @@ class EngineCapabilities {
 
   /// Changement de piste sans recharger le flux (lecture directe uniquement).
   final bool embeddedTrackSwitching;
+
+  /// Rendu des sous-titres intégrés au fichier. Sinon (lecteurs natifs), le texte
+  /// est demandé au serveur en WebVTT et dessiné par OptiFin.
+  final bool embeddedSubtitles;
 }
 
 enum PlaybackStatus { idle, loading, ready, ended, error }
@@ -98,6 +103,7 @@ class PlayerSnapshot {
     this.rate = 1,
     this.videoSize,
     this.error,
+    this.droppedFrames,
   });
 
   final PlaybackStatus status;
@@ -110,6 +116,9 @@ class PlayerSnapshot {
   final Size? videoSize;
   final String? error;
 
+  /// Images perdues depuis l'ouverture (overlay de debug), si le moteur le mesure.
+  final int? droppedFrames;
+
   PlayerSnapshot copyWith({
     PlaybackStatus? status,
     bool? playing,
@@ -120,6 +129,7 @@ class PlayerSnapshot {
     double? rate,
     Size? videoSize,
     String? error,
+    int? droppedFrames,
   }) => PlayerSnapshot(
     status: status ?? this.status,
     playing: playing ?? this.playing,
@@ -130,6 +140,7 @@ class PlayerSnapshot {
     rate: rate ?? this.rate,
     videoSize: videoSize ?? this.videoSize,
     error: error ?? this.error,
+    droppedFrames: droppedFrames ?? this.droppedFrames,
   );
 }
 

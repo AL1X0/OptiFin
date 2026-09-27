@@ -8,7 +8,9 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/providers.dart';
 import '../../auth/presentation/account_switcher.dart';
 import '../../home/presentation/home_providers.dart';
+import '../../player/domain/engine_selector.dart';
 import '../../player/domain/playback_engine.dart';
+import '../../player/presentation/playback_providers.dart';
 import '../domain/app_settings.dart';
 import 'settings_providers.dart';
 
@@ -22,6 +24,7 @@ class SettingsScreen extends ConsumerWidget {
     final session = ref.watch(sessionControllerProvider);
     final controller = ref.read(settingsProvider.notifier);
     final identity = ref.watch(clientIdentityProvider);
+    final device = ref.watch(deviceCapabilitiesProvider).value;
 
     Future<void> pick<T>({
       required String title,
@@ -43,7 +46,9 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 shape: const RoundedRectangleBorder(borderRadius: OFRadius.mdAll),
                 title: Text(e.value, style: OFTypography.body),
-                trailing: e.key == current ? Icon(Icons.check_rounded, color: Theme.of(context).colorScheme.primary) : null,
+                trailing: e.key == current
+                    ? Icon(Icons.check_rounded, color: Theme.of(context).colorScheme.primary)
+                    : null,
                 onTap: () => Navigator.of(context).pop(e.key),
               ),
           ],
@@ -92,6 +97,42 @@ class SettingsScreen extends ConsumerWidget {
               onSelected: (v) => controller.update((s) => s.copyWith(maxBitrateCellular: v)),
             ),
           ),
+          _Tile(
+            icon: Icons.memory_rounded,
+            title: 'Moteur de lecture',
+            value: switch (settings.enginePreference) {
+              EnginePreference.auto => 'Automatique (recommandé)',
+              EnginePreference.native => 'Natif (AVPlayer / Media3)',
+              EnginePreference.mpv => 'mpv',
+            },
+            onTap: () => pick<EnginePreference>(
+              title: 'Moteur de lecture',
+              options: const {
+                EnginePreference.auto: 'Automatique : le meilleur moteur pour chaque fichier',
+                EnginePreference.native: 'Natif : HDR, Dolby Vision, économie de batterie',
+                EnginePreference.mpv: 'mpv : lit tout, sous-titres ASS fidèles',
+              },
+              current: settings.enginePreference,
+              onSelected: (v) => controller.update((s) => s.copyWith(enginePreference: v)),
+            ),
+          ),
+          _Tile(
+            icon: Icons.closed_caption_outlined,
+            title: 'Sous-titres image (PGS) sur du HDR',
+            value: switch (settings.imageSubtitles) {
+              ImageSubtitlePolicy.auto => 'Rendus par mpv',
+              ImageSubtitlePolicy.burnIn => 'Incrustés par le serveur',
+            },
+            onTap: () => pick<ImageSubtitlePolicy>(
+              title: 'Sous-titres image sur une vidéo HDR / Dolby Vision',
+              options: const {
+                ImageSubtitlePolicy.auto: 'Rendus par mpv (aucune charge serveur)',
+                ImageSubtitlePolicy.burnIn: 'Incrustés par le serveur (garde le lecteur natif)',
+              },
+              current: settings.imageSubtitles,
+              onSelected: (v) => controller.update((s) => s.copyWith(imageSubtitles: v)),
+            ),
+          ),
           const _Section('Langues'),
           _Tile(
             icon: Icons.record_voice_over_outlined,
@@ -133,7 +174,9 @@ class SettingsScreen extends ConsumerWidget {
             value: _scaleLabel(settings.subtitleScale),
             onTap: () => pick<double>(
               title: 'Taille des sous-titres',
-              options: {for (final v in const [0.8, 1.0, 1.25, 1.5]) v: _scaleLabel(v)},
+              options: {
+                for (final v in const [0.8, 1.0, 1.25, 1.5]) v: _scaleLabel(v),
+              },
               current: settings.subtitleScale,
               onSelected: (v) => controller.update((s) => s.copyWith(subtitleScale: v)),
             ),
@@ -187,12 +230,15 @@ class SettingsScreen extends ConsumerWidget {
             value: 'Afficher, copier, effacer',
             onTap: () => context.push(Routes.logs),
           ),
+          if (device != null)
+            _Tile(icon: Icons.developer_board_rounded, title: 'Capacités de l’appareil', value: device.summary),
           const _Section('À propos'),
           _Tile(icon: Icons.info_outline_rounded, title: 'OptiFin', value: 'Version ${identity.version}'),
           _Tile(
             icon: Icons.description_outlined,
             title: 'Licences',
-            onTap: () => showLicensePage(context: context, applicationName: 'OptiFin', applicationVersion: identity.version),
+            onTap: () =>
+                showLicensePage(context: context, applicationName: 'OptiFin', applicationVersion: identity.version),
           ),
         ],
       ),
@@ -200,17 +246,17 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   static String _scaleLabel(double v) => switch (v) {
-        0.8 => 'Petite',
-        1.0 => 'Normale',
-        1.25 => 'Grande',
-        _ => 'Très grande',
-      };
+    0.8 => 'Petite',
+    1.0 => 'Normale',
+    1.25 => 'Grande',
+    _ => 'Très grande',
+  };
 
   static String _backgroundLabel(SubtitleBackground b) => switch (b) {
-        SubtitleBackground.none => 'Contour',
-        SubtitleBackground.shadow => 'Ombre',
-        SubtitleBackground.box => 'Bandeau',
-      };
+    SubtitleBackground.none => 'Contour',
+    SubtitleBackground.shadow => 'Ombre',
+    SubtitleBackground.box => 'Bandeau',
+  };
 }
 
 class _Section extends StatelessWidget {
@@ -220,9 +266,12 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(OFSpacing.xl, OFSpacing.xl, OFSpacing.xl, OFSpacing.sm),
-        child: Text(title.toUpperCase(), style: OFTypography.caption.copyWith(color: OFColors.textTertiary, letterSpacing: 1.2)),
-      );
+    padding: const EdgeInsets.fromLTRB(OFSpacing.xl, OFSpacing.xl, OFSpacing.xl, OFSpacing.sm),
+    child: Text(
+      title.toUpperCase(),
+      style: OFTypography.caption.copyWith(color: OFColors.textTertiary, letterSpacing: 1.2),
+    ),
+  );
 }
 
 class _Tile extends StatelessWidget {
@@ -235,11 +284,10 @@ class _Tile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListTile(
-        leading: Icon(icon, color: OFColors.textSecondary),
-        title: Text(title, style: OFTypography.body),
-        subtitle: value == null ? null : Text(value!, style: OFTypography.caption.copyWith(color: OFColors.textTertiary)),
-        trailing: onTap == null ? null : const Icon(Icons.chevron_right_rounded, color: OFColors.textTertiary),
-        onTap: onTap,
-      );
+    leading: Icon(icon, color: OFColors.textSecondary),
+    title: Text(title, style: OFTypography.body),
+    subtitle: value == null ? null : Text(value!, style: OFTypography.caption.copyWith(color: OFColors.textTertiary)),
+    trailing: onTap == null ? null : const Icon(Icons.chevron_right_rounded, color: OFColors.textTertiary),
+    onTap: onTap,
+  );
 }
-

@@ -39,30 +39,12 @@ android {
         getByName("main") {
             java.srcDirs("src/main/kotlin")
         }
-        getByName("test") {
-            java.srcDirs("src/test/kotlin")
-        }
     }
 
     defaultConfig {
         minSdk = 24
     }
 
-    testOptions {
-        unitTests {
-            isIncludeAndroidResources = true
-            all {
-                it.useJUnitPlatform()
-
-                it.outputs.upToDateWhen { false }
-
-                it.testLogging {
-                    events("passed", "skipped", "failed", "standardOut", "standardError")
-                    showStandardStreams = true
-                }
-            }
-        }
-    }
 }
 
 kotlin {
@@ -71,7 +53,11 @@ kotlin {
     }
 }
 
+val media3 = "1.8.0"
+
 dependencies {
-    testImplementation("org.jetbrains.kotlin:kotlin-test")
-    testImplementation("org.mockito:mockito-core:5.0.0")
+    implementation("androidx.media3:media3-exoplayer:$media3")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3")
+    implementation("androidx.media3:media3-ui:$media3")
+    implementation("androidx.annotation:annotation-experimental:1.4.1")
 }

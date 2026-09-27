@@ -103,3 +103,43 @@
    premier plan blanc à alpha = luminance), écran de démarrage noir.
 5. **Source SideStore** : Release GitHub par build (`build-N`, 10 dernières conservées) avec
    l'IPA et `source.json` ; URL stable `releases/latest/download/source.json`.
+
+## Phase 4 — Moteurs natifs et EngineSelector (2026-09-28)
+
+1. **Plugin `optifin_native_player`** : AVPlayer + `AVPlayerLayer` en `UiKitView` (iOS),
+   Media3/ExoPlayer + `PlayerView` (SurfaceView) en composition hybride (Android). API Dart
+   minimale (MethodChannel par lecteur, EventChannel d'états toutes les 250 ms). Les gestes
+   restent à Flutter. Pas d'extension FFmpeg Media3 (non publiée sur Maven) : DTS / TrueHD sans
+   décodeur → mpv, ou conversion audio par le serveur quand la vidéo impose le natif.
+2. **Détection des capacités** au premier besoin (fiche ou lecture) : décodeurs matériels
+   (VideoToolbox / MediaCodec), HEVC 10 bits, AV1, modes HDR de l'écran, profils Dolby Vision,
+   codecs audio. Android : HDR seulement si l'écran l'affiche (Media3 ne convertit pas en SDR) ;
+   iOS : HDR10/HLG dès que le HEVC 10 bits est décodé (AVPlayer convertit), DV si
+   `AVPlayer.availableHDRModes` le permet.
+3. **Préparation en deux temps** : `PlaybackInfo` d'analyse avec le profil mpv (qui accepte tout
+   en lecture directe) pour la description complète de la source, puis `EngineSelector`, puis
+   `PlaybackInfo` définitif avec le profil du moteur choisi. Si c'est mpv en lecture directe,
+   l'analyse sert de plan (aucune requête de plus). Le tout dès l'ouverture de la fiche.
+4. **Règles de l'EngineSelector** (en-tête de `engine_selector.dart`, `docs/TEST_MATRIX.md`) :
+   débit → transcodage ; préférence explicite ; HDR/DV → natif (remux serveur HLS fMP4 si
+   conteneur ou audio incompatibles, plutôt que mpv ; exceptions : sous-titres image, ou ASS sur
+   du HDR10 → mpv) ; SDR → natif seulement si tout passe tel quel, sinon mpv ; transcodage en
+   dernier recours. DV profil 5 sans décodeur DV : transcodage (mpv donnerait des couleurs fausses).
+5. **Sous-titres des moteurs natifs** : servis par Jellyfin en WebVTT (profil natif : un seul
+   format externe, conversion serveur) et dessinés par OptiFin au-dessus de la vidéo, avec le
+   même style que mpv et un décalage réglable. Horloge extrapolée à chaque image : précision à
+   la frame malgré des positions reçues toutes les 250 ms. Sous-titres image : mpv (par défaut)
+   ou incrustation serveur (Paramètres).
+6. **Bascule automatique** : échec avant la première image (erreur moteur, exception à
+   l'ouverture, 25 s sans image) → repli suivant de la chaîne (autre moteur, puis transcodage),
+   message discret « Bascule vers… ». Le détail de chaque tentative est conservé pour l'écran
+   d'erreur (mode debug).
+7. **Changement de piste** : l'EngineSelector est relancé ; même moteur et même livraison en
+   lecture directe → changement local ; sinon nouveau plan et, si besoin, changement de moteur à
+   la position courante (ex. choisir des PGS sur le lecteur natif → mpv).
+8. **Réglages** : moteur global (Auto / Natif / mpv) dans les Paramètres, et pour une lecture
+   dans la feuille « Audio et sous-titres ». Overlay de debug : décision, raison, mode serveur,
+   source, images perdues (mpv : `frame-drop-count`, AVPlayer : access log, Media3 : analytics).
+9. **Non vérifiable ici** (Windows, sans Xcode ni SDK Android) : compilation Swift et Kotlin par
+   la CI ; comportement réel (HDR, DV) à valider sur appareil (section « Résultats sur appareil »
+   de la matrice).

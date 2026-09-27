@@ -34,16 +34,18 @@ class MpvEngine implements PlaybackEngine {
         _emit(_snapshot.copyWith(status: PlaybackStatus.ended, playing: false));
         _events.add(const PlaybackCompleted());
       }),
-      _player.stream.log.listen((log) => AppLog.instance.add(
-            switch (log.level) {
-              'fatal' || 'error' => LogLevel.error,
-              'warn' => LogLevel.warning,
-              'info' => LogLevel.info,
-              _ => LogLevel.debug,
-            },
-            'mpv',
-            '[${log.prefix}] ${log.text.trim()}',
-          )),
+      _player.stream.log.listen(
+        (log) => AppLog.instance.add(
+          switch (log.level) {
+            'fatal' || 'error' => LogLevel.error,
+            'warn' => LogLevel.warning,
+            'info' => LogLevel.info,
+            _ => LogLevel.debug,
+          },
+          'mpv',
+          '[${log.prefix}] ${log.text.trim()}',
+        ),
+      ),
       _player.stream.error.listen((message) {
         AppLog.w('mpv', 'Erreur : $message');
         // mpv signale aussi des erreurs non fatales (piste illisible…) une fois la lecture lancée.
@@ -52,6 +54,22 @@ class MpvEngine implements PlaybackEngine {
         _events.add(PlaybackFailed(message, duringStartup: true));
       }),
     ]);
+    // Images perdues (overlay de debug) : lues toutes les 2 s, seulement pendant la lecture.
+    _dropTimer = Timer.periodic(const Duration(seconds: 2), (_) => _pollDroppedFrames());
+  }
+
+  Timer? _dropTimer;
+
+  Future<void> _pollDroppedFrames() async {
+    final native = _native;
+    if (native == null || !_snapshot.playing) return;
+    try {
+      final vo = int.tryParse(await native.getProperty('frame-drop-count')) ?? 0;
+      final decoder = int.tryParse(await native.getProperty('decoder-frame-drop-count')) ?? 0;
+      if (!_snapshots.isClosed) _emit(_snapshot.copyWith(droppedFrames: vo + decoder));
+    } catch (_) {
+      // Propriété indisponible : on n'affiche rien.
+    }
   }
 
   static bool _initialized = false;
@@ -261,6 +279,7 @@ class MpvEngine implements PlaybackEngine {
 
   @override
   Future<void> dispose() async {
+    _dropTimer?.cancel();
     for (final s in _subscriptions) {
       await s.cancel();
     }

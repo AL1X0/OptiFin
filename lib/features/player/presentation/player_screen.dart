@@ -100,8 +100,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 debugByDefault: ref.watch(settingsProvider).debugMode,
               ),
               PlayerPhase.closed => const SizedBox.shrink(),
-              _ => _Preparing(title: state.item?.name, onClose: _requestClose),
+              _ => _Preparing(title: state.item?.name, notice: state.notice, onClose: _requestClose),
             },
+            // Bascule automatique de moteur : information discrète, sans interrompre.
+            if (state.notice != null && state.phase == PlayerPhase.playing)
+              Positioned(
+                top: MediaQuery.paddingOf(context).top + OFSpacing.lg,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(child: Center(child: _NoticePill(state.notice!))),
+              ),
           ],
         ),
       ),
@@ -109,10 +117,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 }
 
+class _NoticePill extends StatelessWidget {
+  const _NoticePill(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: const BoxDecoration(
+      color: Color(0xB3000000),
+      borderRadius: BorderRadius.all(Radius.circular(OFRadius.pill)),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg, vertical: OFSpacing.sm),
+      child: Text(text, style: OFTypography.callout.copyWith(color: OFColors.textSecondary)),
+    ),
+  );
+}
+
 class _Preparing extends StatelessWidget {
-  const _Preparing({required this.title, required this.onClose});
+  const _Preparing({required this.title, this.notice, required this.onClose});
 
   final String? title;
+  final String? notice;
   final VoidCallback onClose;
 
   @override
@@ -127,6 +154,10 @@ class _Preparing extends StatelessWidget {
               if (title != null) ...[
                 const SizedBox(height: OFSpacing.lg),
                 Text(title!, style: OFTypography.headline.copyWith(color: OFColors.textSecondary)),
+              ],
+              if (notice != null) ...[
+                const SizedBox(height: OFSpacing.sm),
+                Text(notice!, style: OFTypography.callout.copyWith(color: OFColors.textTertiary)),
               ],
             ],
           ),
@@ -172,7 +203,8 @@ class _ErrorView extends StatelessWidget {
             Wrap(
               spacing: OFSpacing.md,
               children: [
-                if (onLogs != null) OFButton.secondary(label: 'Journaux', icon: Icons.receipt_long_outlined, onPressed: onLogs),
+                if (onLogs != null)
+                  OFButton.secondary(label: 'Journaux', icon: Icons.receipt_long_outlined, onPressed: onLogs),
                 OFButton.secondary(label: 'Fermer', onPressed: onClose),
               ],
             ),

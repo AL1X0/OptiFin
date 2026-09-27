@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design_system/design_system.dart';
+import '../domain/engine_selector.dart';
 import '../domain/playback_engine.dart';
 import '../domain/playback_plan.dart';
 import 'player_controller.dart';
@@ -78,6 +79,25 @@ class TracksSheet extends ConsumerWidget {
     final options = ListView(
       shrinkWrap: true,
       children: [
+        const _Header('Moteur de lecture'),
+        _Chips<EnginePreference>(
+          values: EnginePreference.values,
+          selected: state.preference ?? EnginePreference.auto,
+          label: (v) => switch (v) {
+            EnginePreference.auto => 'Auto',
+            EnginePreference.native => 'Natif',
+            EnginePreference.mpv => 'mpv',
+          },
+          onSelected: controller.setEnginePreference,
+        ),
+        if (state.decision != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(OFSpacing.lg, OFSpacing.sm, OFSpacing.lg, 0),
+            child: Text(
+              '${engine.name} · ${plan.method.label}',
+              style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
+            ),
+          ),
         if (caps.playbackSpeed) ...[
           const _Header('Vitesse'),
           StreamBuilder<PlayerSnapshot>(
@@ -207,8 +227,10 @@ class DebugOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final plan = ui.plan;
     final size = snapshot.videoSize;
+    final decision = ui.decision;
     final lines = <(String, String)>[
       ('Moteur', engine.name),
+      if (decision != null) ...[('Décision', decision.label), ('Raison', decision.reason)],
       if (plan != null) ...[
         ('Mode', plan.method.label),
         ('Conteneur', plan.container ?? '?'),
@@ -219,8 +241,11 @@ class DebugOverlay extends StatelessWidget {
       ],
       if (size != null) ('Image', '${size.width.toInt()}×${size.height.toInt()}'),
       ('Tampon', '${(snapshot.buffered - snapshot.position).inSeconds.clamp(0, 9999)} s'),
+      if (snapshot.droppedFrames != null) ('Images perdues', '${snapshot.droppedFrames}'),
+      if (plan?.source?.video != null) ('Source', plan!.source!.video!.summary),
     ];
     return Container(
+      constraints: const BoxConstraints(maxWidth: 420),
       margin: const EdgeInsets.only(top: OFSpacing.md),
       padding: const EdgeInsets.all(OFSpacing.md),
       decoration: const BoxDecoration(color: Color(0xB3000000), borderRadius: OFRadius.mdAll),

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jellyfin_api/jellyfin_api.dart';
 
@@ -26,9 +27,8 @@ final accountStoreProvider = Provider<AccountStore>(
 /// Client non lié à la session courante (sonde de serveur, login).
 final jellyfinClientFactoryProvider = Provider<JellyfinClientFactory>((ref) {
   final identity = ref.watch(clientIdentityProvider);
-  return (Uri baseUrl, {String? token}) => JellyfinClient(
-        createJellyfinDio(baseUrl: baseUrl, identity: identity, tokenProvider: () => token),
-      );
+  return (Uri baseUrl, {String? token}) =>
+      JellyfinClient(createJellyfinDio(baseUrl: baseUrl, identity: identity, tokenProvider: () => token));
 });
 
 final authRepositoryProvider = Provider<AuthRepository>(
@@ -75,8 +75,8 @@ class SessionController extends Notifier<ActiveSession?> {
   }
 }
 
-/// Client authentifié pour la session courante.
-final jellyfinClientProvider = Provider<JellyfinClient>((ref) {
+/// Dio authentifié pour la session courante (en-tête Authorization, journaux).
+final jellyfinDioProvider = Provider<Dio>((ref) {
   final session = ref.watch(sessionControllerProvider);
   if (session == null) throw StateError('Aucune session active');
   final dio = createJellyfinDio(
@@ -86,8 +86,11 @@ final jellyfinClientProvider = Provider<JellyfinClient>((ref) {
     onUnauthorized: () => ref.read(sessionControllerProvider.notifier).handleUnauthorized(),
   );
   ref.onDispose(dio.close);
-  return JellyfinClient(dio);
+  return dio;
 });
+
+/// Client authentifié pour la session courante.
+final jellyfinClientProvider = Provider<JellyfinClient>((ref) => JellyfinClient(ref.watch(jellyfinDioProvider)));
 
 final imageUrlBuilderProvider = Provider<JellyfinImageUrlBuilder>((ref) {
   final session = ref.watch(sessionControllerProvider);

@@ -3,6 +3,8 @@
 /// Construit à partir de la réponse `PlaybackInfo` ; pur et testé.
 library;
 
+import 'source_profile.dart';
+
 enum PlayMethod {
   directPlay('DirectPlay', 'Lecture directe'),
   directStream('DirectStream', 'Remux (Direct Stream)'),
@@ -68,6 +70,7 @@ class PlaybackPlan {
     this.videoCodec,
     this.startPosition = Duration.zero,
     this.runtime,
+    this.source,
   });
 
   final String itemId;
@@ -88,6 +91,9 @@ class PlaybackPlan {
   final String? videoCodec;
   final Duration startPosition;
   final Duration? runtime;
+
+  /// Description technique complète de la source (EngineSelector).
+  final SourceProfile? source;
 
   /// En lecture directe, le moteur a toutes les pistes : changement instantané.
   /// Sinon le serveur n'envoie que la piste choisie : il faut recharger le flux.
@@ -111,6 +117,7 @@ class PlaybackPlan {
     videoCodec: videoCodec,
     startPosition: startPosition,
     runtime: runtime,
+    source: source,
   );
 }
 
