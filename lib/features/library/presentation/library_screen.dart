@@ -36,7 +36,7 @@ class LibraryScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(libraryContextProvider(source)),
         ),
       ),
-      _ => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      _ => const Scaffold(body: Center(child: OFLoader())),
     };
   }
 }
@@ -139,7 +139,7 @@ class _LibraryBrowserState extends ConsumerState<_LibraryBrowser> {
               onRetry: _pager.retry,
             );
           } else if (total == null) {
-            body = const Center(key: ValueKey('chargement'), child: CircularProgressIndicator());
+            body = const Center(key: ValueKey('chargement'), child: OFLoader());
           } else if (total == 0) {
             body = StatusMessage(
               key: const ValueKey('vide'),

@@ -120,7 +120,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     text: error is ApiFailure ? error.userMessage : 'La recherche a échoué.',
                     onRetry: () => ref.invalidate(searchResultsProvider),
                   ),
-                  _ => const Center(key: ValueKey('chargement'), child: CircularProgressIndicator()),
+                  _ => const Center(key: ValueKey('chargement'), child: OFLoader()),
                 },
               ),
             ),

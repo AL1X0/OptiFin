@@ -53,7 +53,7 @@ class ItemDetailsScreen extends ConsumerWidget {
           key: ValueKey('chargement'),
           body: Stack(
             children: [
-              Center(child: CircularProgressIndicator()),
+              Center(child: OFLoader()),
               _BackButton(),
             ],
           ),

@@ -13,6 +13,7 @@ import '../../../core/media/formatters.dart';
 import '../../../core/media/media_item.dart';
 import '../../../app/router.dart';
 import '../../settings/presentation/settings_providers.dart';
+import '../domain/engine_selector.dart';
 import '../domain/playback_engine.dart';
 import '../domain/playback_extras.dart';
 import 'player_controller.dart';
@@ -99,42 +100,46 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (engine != null && state.phase == PlayerPhase.playing) Center(child: engine.buildView(fit: _fit)),
-            switch (state.phase) {
-              PlayerPhase.error => _ErrorView(
-                message: state.error ?? 'Erreur de lecture.',
-                // Mode debug : détail technique + accès direct aux journaux.
-                detail: ref.watch(settingsProvider).debugMode ? state.technicalError : null,
-                onLogs: ref.watch(settingsProvider).debugMode ? () => context.push(Routes.logs) : null,
-                onClose: _requestClose,
-              ),
-              // Picture-in-Picture Android : seule la vidéo est visible dans la fenêtre réduite.
-              PlayerPhase.playing when state.pictureInPicture => const SizedBox.shrink(),
-              PlayerPhase.playing when engine != null => PlayerControls(
-                state: state,
-                engine: engine,
-                controller: controller,
-                fit: _fit,
-                onCycleFit: _cycleFit,
-                onClose: _requestClose,
-                autoPlayNext: ref.watch(settingsProvider).autoPlayNext,
-                debugByDefault: ref.watch(settingsProvider).debugMode,
-              ),
-              PlayerPhase.closed => const SizedBox.shrink(),
-              _ => _Preparing(title: state.item?.name, notice: state.notice, onClose: _requestClose),
-            },
-            // Bascule automatique de moteur : information discrète, sans interrompre.
-            if (state.notice != null && state.phase == PlayerPhase.playing)
-              Positioned(
-                top: MediaQuery.paddingOf(context).top + OFSpacing.lg,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(child: Center(child: _NoticePill(state.notice!))),
-              ),
-          ],
+        // Vue native (AVPlayer, Media3) sous les commandes : verre teinté sans flou.
+        body: GlassBlur(
+          enabled: state.decision?.engine != EngineKind.native,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (engine != null && state.phase == PlayerPhase.playing) Center(child: engine.buildView(fit: _fit)),
+              switch (state.phase) {
+                PlayerPhase.error => _ErrorView(
+                  message: state.error ?? 'Erreur de lecture.',
+                  // Mode debug : détail technique + accès direct aux journaux.
+                  detail: ref.watch(settingsProvider).debugMode ? state.technicalError : null,
+                  onLogs: ref.watch(settingsProvider).debugMode ? () => context.push(Routes.logs) : null,
+                  onClose: _requestClose,
+                ),
+                // Picture-in-Picture Android : seule la vidéo est visible dans la fenêtre réduite.
+                PlayerPhase.playing when state.pictureInPicture => const SizedBox.shrink(),
+                PlayerPhase.playing when engine != null => PlayerControls(
+                  state: state,
+                  engine: engine,
+                  controller: controller,
+                  fit: _fit,
+                  onCycleFit: _cycleFit,
+                  onClose: _requestClose,
+                  autoPlayNext: ref.watch(settingsProvider).autoPlayNext,
+                  debugByDefault: ref.watch(settingsProvider).debugMode,
+                ),
+                PlayerPhase.closed => const SizedBox.shrink(),
+                _ => _Preparing(title: state.item?.name, notice: state.notice, onClose: _requestClose),
+              },
+              // Bascule automatique de moteur : information discrète, sans interrompre.
+              if (state.notice != null && state.phase == PlayerPhase.playing)
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + OFSpacing.lg,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(child: Center(child: _NoticePill(state.notice!))),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -169,7 +174,7 @@ class _Preparing extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox.square(dimension: 36, child: CircularProgressIndicator(strokeWidth: 2.5)),
+              OFLoader.glass(size: 72),
               if (title != null) ...[
                 const SizedBox(height: OFSpacing.lg),
                 Text(title!, style: OFTypography.headline.copyWith(color: OFColors.textSecondary)),
@@ -525,12 +530,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                     ),
                   ),
                 ),
-              if (showSpinner && !_visible)
-                const IgnorePointer(
-                  child: Center(
-                    child: SizedBox.square(dimension: 36, child: CircularProgressIndicator(strokeWidth: 2.5)),
-                  ),
-                ),
+              if (showSpinner && !_visible) IgnorePointer(child: Center(child: OFLoader.glass())),
               IgnorePointer(
                 key: const ValueKey('controles'),
                 ignoring: !_visible || _locked,
@@ -887,13 +887,8 @@ class _ControlsLayer extends StatelessWidget {
                       label: snapshot.playing ? 'Pause' : 'Lecture',
                       size: m.play,
                       iconSize: m.play * 0.52,
-                      onPressed: showSpinner ? null : onPlayPause,
-                      child: showSpinner
-                          ? SizedBox.square(
-                              dimension: m.play * 0.4,
-                              child: const CircularProgressIndicator(strokeWidth: 2.5, color: OFColors.textPrimary),
-                            )
-                          : null,
+                      onPressed: onPlayPause,
+                      child: showSpinner ? OFLoader(size: m.play * 0.42) : null,
                     ),
                     SizedBox(width: m.gap),
                     OFGlassButton(

@@ -275,7 +275,7 @@ class _QuickConnectSheetState extends ConsumerState<_QuickConnectSheet> {
               style: OFTypography.callout.copyWith(color: OFColors.danger),
             )
           else if (ticket == null)
-            const SizedBox(height: 56, child: Center(child: CircularProgressIndicator()))
+            const SizedBox(height: 56, child: Center(child: OFLoader()))
           else ...[
             Semantics(
               label: 'Code ${ticket.code.split('').join(' ')}',

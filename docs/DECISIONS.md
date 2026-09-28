@@ -239,3 +239,8 @@ redessinent (ValueNotifier) au lieu du carrousel entier.
    chapitre, moteur) referme le menu ; les réglages fins le gardent ouvert. Le menu ne recouvre jamais la
    barre de progression. Boutons centraux, barre de progression, « Passer l'intro », « Épisode suivant »,
    indicateurs et verrou passent aussi en verre ; tout grandit un peu sur tablette.
+4. **Pas de flou au-dessus d'une vue native** : sur iPhone, un flou d'arrière-plan posé sur la vue AVPlayer
+   effaçait le contenu des boutons (lecture, barre de progression). `GlassBlur` coupe le flou des verres
+   quand le moteur natif lit ; le voile, plus dense, garde l'effet verre. Le flou reste avec mpv (texture).
+5. **`OFLoader`** : nouvel indicateur de chargement (arc en dégradé qui tourne et respire), sur pastille de
+   verre dans le lecteur (préparation, mise en mémoire tampon, bouton lecture) et partout dans l'app.

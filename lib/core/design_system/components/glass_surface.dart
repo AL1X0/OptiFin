@@ -77,33 +77,54 @@ class LiquidGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tint = this.tint;
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: BackdropFilter.grouped(
-        filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-        child: CustomPaint(
-          foregroundPainter: _RimPainter(borderRadius),
-          child: DecoratedBox(
-            // Voile sombre sous le reflet : lisibilité sur une image claire.
-            decoration: BoxDecoration(color: Color.fromRGBO(0, 0, 0, shade)),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: tint == null
-                      ? const [Color(0x33FFFFFF), Color(0x0FFFFFFF), Color(0x1AFFFFFF)]
-                      : [tint.withValues(alpha: 0.55), tint.withValues(alpha: 0.32), tint.withValues(alpha: 0.42)],
-                  stops: const [0, 0.55, 1],
-                ),
-              ),
-              child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
+    final blur = GlassBlur.enabledOf(context);
+    final surface = CustomPaint(
+      foregroundPainter: _RimPainter(borderRadius),
+      child: DecoratedBox(
+        // Voile sombre sous le reflet : lisibilité sur une image claire. Sans flou,
+        // il est plus dense pour compenser.
+        decoration: BoxDecoration(color: Color.fromRGBO(0, 0, 0, blur ? shade : (shade + 0.22).clamp(0, 0.85))),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: tint == null
+                  ? const [Color(0x33FFFFFF), Color(0x0FFFFFFF), Color(0x1AFFFFFF)]
+                  : [tint.withValues(alpha: 0.55), tint.withValues(alpha: 0.32), tint.withValues(alpha: 0.42)],
+              stops: const [0, 0.55, 1],
             ),
           ),
+          child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
         ),
       ),
     );
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: blur
+          ? BackdropFilter.grouped(
+              filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+              child: surface,
+            )
+          : surface,
+    );
   }
+}
+
+/// Active ou coupe le flou des [LiquidGlass] descendants.
+///
+/// À couper au-dessus d'une vue native (AVPlayer sur iOS, Media3 sur Android) : iOS
+/// y rend mal un flou d'arrière-plan (contenu des boutons effacé), Android l'ignore.
+class GlassBlur extends InheritedWidget {
+  const GlassBlur({super.key, required this.enabled, required super.child});
+
+  final bool enabled;
+
+  static bool enabledOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<GlassBlur>()?.enabled ?? true;
+
+  @override
+  bool updateShouldNotify(GlassBlur old) => old.enabled != enabled;
 }
 
 class _RimPainter extends CustomPainter {

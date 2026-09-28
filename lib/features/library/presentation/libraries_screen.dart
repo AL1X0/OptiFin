@@ -84,7 +84,7 @@ class LibrariesScreen extends ConsumerWidget {
                 onRetry: () => ref.invalidate(userViewsProvider),
               ),
             ),
-            _ => const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
+            _ => const SliverFillRemaining(child: Center(child: OFLoader())),
           },
         ],
       ),

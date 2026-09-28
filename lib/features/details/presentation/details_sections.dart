@@ -45,12 +45,18 @@ class _SeasonsSectionState extends ConsumerState<SeasonsSection> {
   @override
   Widget build(BuildContext context) {
     final seasons = ref.watch(seasonsProvider(widget.series.id)).value;
-    if (seasons == null) return const Padding(padding: EdgeInsets.all(OFSpacing.xxl), child: Center(child: CircularProgressIndicator()));
+    if (seasons == null) {
+      return const Padding(
+        padding: EdgeInsets.all(OFSpacing.xxl),
+        child: Center(child: OFLoader()),
+      );
+    }
     if (seasons.isEmpty) return const SizedBox.shrink();
 
     // Saison par défaut : demandée, sinon celle de l'épisode « à suivre », sinon la première non vue.
     final nextUp = ref.watch(nextUpForSeriesProvider(widget.series.id)).value;
-    final selectedId = _selected ??
+    final selectedId =
+        _selected ??
         widget.initialSeasonId ??
         nextUp?.seasonId ??
         seasons.firstWhere((s) => !s.user.played, orElse: () => seasons.first).id;
@@ -80,7 +86,9 @@ class _SeasonsSectionState extends ConsumerState<SeasonsSection> {
                     HapticFeedback.selectionClick();
                     setState(() => _selected = s.id);
                   },
-                  labelStyle: OFTypography.callout.copyWith(color: selected ? OFColors.background : OFColors.textPrimary),
+                  labelStyle: OFTypography.callout.copyWith(
+                    color: selected ? OFColors.background : OFColors.textPrimary,
+                  ),
                   selectedColor: accent,
                   backgroundColor: OFColors.surfaceRaised,
                   side: BorderSide.none,
@@ -109,23 +117,26 @@ class _EpisodeList extends ConsumerWidget {
     final gutter = OFSpacing.screenGutter(MediaQuery.sizeOf(context).width);
     return switch (episodes) {
       AsyncData(:final value) => AnimatedSwitcher(
-          duration: OFMotion.of(context).standard,
-          child: Column(
-            key: ValueKey(seasonId),
-            children: [
-              for (final e in value)
-                Padding(
-                  padding: EdgeInsets.fromLTRB(gutter, 0, gutter, OFSpacing.lg),
-                  child: EpisodeTile(episode: e, highlighted: e.id == highlightId),
-                ),
-            ],
-          ),
+        duration: OFMotion.of(context).standard,
+        child: Column(
+          key: ValueKey(seasonId),
+          children: [
+            for (final e in value)
+              Padding(
+                padding: EdgeInsets.fromLTRB(gutter, 0, gutter, OFSpacing.lg),
+                child: EpisodeTile(episode: e, highlighted: e.id == highlightId),
+              ),
+          ],
         ),
+      ),
       AsyncError() => StatusMessage(
-          text: 'Impossible de charger les épisodes.',
-          onRetry: () => ref.invalidate(episodesProvider((seriesId, seasonId))),
-        ),
-      _ => const Padding(padding: EdgeInsets.all(OFSpacing.xl), child: Center(child: CircularProgressIndicator())),
+        text: 'Impossible de charger les épisodes.',
+        onRetry: () => ref.invalidate(episodesProvider((seriesId, seasonId))),
+      ),
+      _ => const Padding(
+        padding: EdgeInsets.all(OFSpacing.xl),
+        child: Center(child: OFLoader()),
+      ),
     };
   }
 }
@@ -357,18 +368,18 @@ class TechnicalSection extends StatelessWidget {
     final audios = item.streams.where((s) => !s.isVideo).toList();
 
     String videoLine(StreamSummary v) => [
-          v.codec.toUpperCase(),
-          ?resolutionLabel(v.width, v.height),
-          if (v.width != null && v.height != null) '${v.width}×${v.height}',
-          if (v.bitDepth != null) '${v.bitDepth} bits',
-          switch (v.videoRange) {
-            VideoRange.dolbyVision => 'Dolby Vision',
-            VideoRange.hdr10Plus => 'HDR10+',
-            VideoRange.hdr10 => 'HDR10',
-            VideoRange.hlg => 'HLG',
-            VideoRange.sdr => 'SDR',
-          },
-        ].join(' · ');
+      v.codec.toUpperCase(),
+      ?resolutionLabel(v.width, v.height),
+      if (v.width != null && v.height != null) '${v.width}×${v.height}',
+      if (v.bitDepth != null) '${v.bitDepth} bits',
+      switch (v.videoRange) {
+        VideoRange.dolbyVision => 'Dolby Vision',
+        VideoRange.hdr10Plus => 'HDR10+',
+        VideoRange.hdr10 => 'HDR10',
+        VideoRange.hlg => 'HLG',
+        VideoRange.sdr => 'SDR',
+      },
+    ].join(' · ');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -381,7 +392,10 @@ class TechnicalSection extends StatelessWidget {
             children: [
               if (video != null) _TechRow(label: 'Vidéo', value: videoLine(video)),
               for (final (i, a) in audios.take(6).indexed)
-                _TechRow(label: i == 0 ? 'Audio' : '', value: a.title ?? [a.codec.toUpperCase(), ?a.language].join(' · ')),
+                _TechRow(
+                  label: i == 0 ? 'Audio' : '',
+                  value: a.title ?? [a.codec.toUpperCase(), ?a.language].join(' · '),
+                ),
               if (audios.length > 6) _TechRow(label: '', value: '+ ${audios.length - 6} autres pistes'),
             ],
           ),
@@ -399,13 +413,18 @@ class _TechRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: OFSpacing.xs),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: 72, child: Text(label, style: OFTypography.callout.copyWith(color: OFColors.textTertiary))),
-            Expanded(child: Text(value, style: OFTypography.callout.copyWith(color: OFColors.textSecondary))),
-          ],
+    padding: const EdgeInsets.only(bottom: OFSpacing.xs),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 72,
+          child: Text(label, style: OFTypography.callout.copyWith(color: OFColors.textTertiary)),
         ),
-      );
+        Expanded(
+          child: Text(value, style: OFTypography.callout.copyWith(color: OFColors.textSecondary)),
+        ),
+      ],
+    ),
+  );
 }
