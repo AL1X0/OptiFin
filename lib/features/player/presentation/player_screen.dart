@@ -101,48 +101,68 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       child: Scaffold(
         backgroundColor: Colors.black,
         // Vue native (AVPlayer, Media3) sous les commandes : verre teinté sans flou.
-        body: GlassBlur(
-          enabled: state.decision?.engine != EngineKind.native,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (engine != null && state.phase == PlayerPhase.playing) Center(child: engine.buildView(fit: _fit)),
-              switch (state.phase) {
-                PlayerPhase.error => _ErrorView(
-                  message: state.error ?? 'Erreur de lecture.',
-                  // Mode debug : détail technique + accès direct aux journaux.
-                  detail: ref.watch(settingsProvider).debugMode ? state.technicalError : null,
-                  onLogs: ref.watch(settingsProvider).debugMode ? () => context.push(Routes.logs) : null,
-                  onClose: _requestClose,
-                ),
-                // Picture-in-Picture Android : seule la vidéo est visible dans la fenêtre réduite.
-                PlayerPhase.playing when state.pictureInPicture => const SizedBox.shrink(),
-                PlayerPhase.playing when engine != null => PlayerControls(
-                  state: state,
-                  engine: engine,
-                  controller: controller,
-                  fit: _fit,
-                  onCycleFit: _cycleFit,
-                  onClose: _requestClose,
-                  autoPlayNext: ref.watch(settingsProvider).autoPlayNext,
-                  debugByDefault: ref.watch(settingsProvider).debugMode,
-                ),
-                PlayerPhase.closed => const SizedBox.shrink(),
-                _ => _Preparing(title: state.item?.name, notice: state.notice, onClose: _requestClose),
-              },
-              // Bascule automatique de moteur : information discrète, sans interrompre.
-              if (state.notice != null && state.phase == PlayerPhase.playing)
-                Positioned(
-                  top: MediaQuery.paddingOf(context).top + OFSpacing.lg,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(child: Center(child: _NoticePill(state.notice!))),
-                ),
-            ],
+        body: _withNativeGlass(
+          engine,
+          GlassBlur(
+            enabled: state.decision?.engine != EngineKind.native,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (engine != null && state.phase == PlayerPhase.playing)
+                  Center(
+                    child: KeyedSubtree(
+                      key: _videoKey,
+                      child: engine.buildView(fit: _fit),
+                    ),
+                  ),
+                switch (state.phase) {
+                  PlayerPhase.error => _ErrorView(
+                    message: state.error ?? 'Erreur de lecture.',
+                    // Mode debug : détail technique + accès direct aux journaux.
+                    detail: ref.watch(settingsProvider).debugMode ? state.technicalError : null,
+                    onLogs: ref.watch(settingsProvider).debugMode ? () => context.push(Routes.logs) : null,
+                    onClose: _requestClose,
+                  ),
+                  // Picture-in-Picture Android : seule la vidéo est visible dans la fenêtre réduite.
+                  PlayerPhase.playing when state.pictureInPicture => const SizedBox.shrink(),
+                  PlayerPhase.playing when engine != null => PlayerControls(
+                    state: state,
+                    engine: engine,
+                    controller: controller,
+                    fit: _fit,
+                    onCycleFit: _cycleFit,
+                    onClose: _requestClose,
+                    autoPlayNext: ref.watch(settingsProvider).autoPlayNext,
+                    debugByDefault: ref.watch(settingsProvider).debugMode,
+                  ),
+                  PlayerPhase.closed => const SizedBox.shrink(),
+                  _ => _Preparing(title: state.item?.name, notice: state.notice, onClose: _requestClose),
+                },
+                // Bascule automatique de moteur : information discrète, sans interrompre.
+                if (state.notice != null && state.phase == PlayerPhase.playing)
+                  Positioned(
+                    top: MediaQuery.paddingOf(context).top + OFSpacing.lg,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(child: Center(child: _NoticePill(state.notice!))),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  final _videoKey = GlobalKey();
+
+  /// iOS + AVPlayer : le verre des commandes est dessiné par la vue vidéo native
+  /// (Liquid Glass), Flutter n'y peint que les icônes et le liseré.
+  Widget _withNativeGlass(PlaybackEngine? engine, Widget child) {
+    if (engine is! NativeGlassHost) return child;
+    final host = engine as NativeGlassHost;
+    if (!host.nativeGlass) return child;
+    return NativeGlassScope(key: ObjectKey(engine), anchorKey: _videoKey, onChanged: host.setGlass, child: child);
   }
 }
 

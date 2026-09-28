@@ -205,6 +205,9 @@ final class NativePlayer: NSObject, FlutterStreamHandler, AVPictureInPictureCont
       default: gravity = .resizeAspect
       }
       result(nil)
+    case "setGlass":
+      view?.glass.update(args["items"] as? [[String: Any]] ?? [])
+      result(nil)
     case "startPip":
       pipController?.startPictureInPicture()
       result(pipController != nil)

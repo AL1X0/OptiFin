@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/widgets.dart';
 
 import '../tokens.dart';
+import 'native_glass.dart';
 
 /// Verre dépoli borné (barres, sheets). Ne jamais l'étendre à une zone qui défile
 /// en plein écran : le flou est recalculé à chaque frame.
@@ -53,13 +54,13 @@ class LiquidGlass extends StatelessWidget {
     required this.child,
     this.borderRadius = const BorderRadius.all(Radius.circular(OFRadius.pill)),
     this.padding,
-    this.sigma = 18,
+    this.sigma = 24,
     this.tint,
     this.shade = 0.28,
   });
 
   /// Cercle (boutons ronds).
-  const LiquidGlass.circle({super.key, required this.child, this.sigma = 18, this.tint, this.shade = 0.28})
+  const LiquidGlass.circle({super.key, required this.child, this.sigma = 24, this.tint, this.shade = 0.28})
     : borderRadius = const BorderRadius.all(Radius.circular(OFRadius.pill)),
       padding = null;
 
@@ -78,13 +79,27 @@ class LiquidGlass extends StatelessWidget {
   Widget build(BuildContext context) {
     final tint = this.tint;
     final blur = GlassBlur.enabledOf(context);
+    // Verre natif (iOS, au-dessus d'AVPlayer) : la vue vidéo dessine le matériau ;
+    // ici, seulement un liseré discret et le contenu.
+    final native = NativeGlassScope.maybeOf(context);
+    if (native != null) {
+      return NativeGlassSlot(
+        scope: native,
+        borderRadius: borderRadius,
+        child: CustomPaint(
+          foregroundPainter: _RimPainter(borderRadius, strength: 0.5),
+          child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
+        ),
+      );
+    }
     final surface = CustomPaint(
       foregroundPainter: _RimPainter(borderRadius),
       child: DecoratedBox(
         // Voile sombre sous le reflet : lisibilité sur une image claire. Sans flou,
         // il est plus dense pour compenser.
         decoration: BoxDecoration(
-          color: Color.fromRGBO(0, 0, 0, blur ? shade : (shade + 0.22).clamp(0, 0.85)),
+          // Flouté : verre clair comme celui d'Apple (voile léger) ; sans flou : plus dense.
+          color: Color.fromRGBO(0, 0, 0, blur ? shade * 0.5 : (shade + 0.22).clamp(0, 0.85)),
           borderRadius: borderRadius,
         ),
         child: DecoratedBox(
@@ -94,7 +109,7 @@ class LiquidGlass extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: tint == null
-                  ? const [Color(0x33FFFFFF), Color(0x0FFFFFFF), Color(0x1AFFFFFF)]
+                  ? const [Color(0x38FFFFFF), Color(0x14FFFFFF), Color(0x24FFFFFF)]
                   : [tint.withValues(alpha: 0.55), tint.withValues(alpha: 0.32), tint.withValues(alpha: 0.42)],
               stops: const [0, 0.55, 1],
             ),
@@ -110,7 +125,11 @@ class LiquidGlass extends StatelessWidget {
     return ClipRRect(
       borderRadius: borderRadius,
       child: BackdropFilter.grouped(
-        filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+        // Flou + saturation relevée : les couleurs de l'image « vivent » dans le verre.
+        filter: ImageFilter.compose(
+          outer: _saturate,
+          inner: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+        ),
         child: surface,
       ),
     );
@@ -133,29 +152,33 @@ class GlassBlur extends InheritedWidget {
   bool updateShouldNotify(GlassBlur old) => old.enabled != enabled;
 }
 
+/// Liseré spéculaire façon Liquid Glass : lumière forte en haut à gauche, reflet plus
+/// doux en bas à droite, presque rien sur les flancs.
 class _RimPainter extends CustomPainter {
-  const _RimPainter(this.radius);
+  const _RimPainter(this.radius, {this.strength = 1});
 
   final BorderRadius radius;
+  final double strength;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final rrect = radius.toRRect(rect).deflate(0.5);
+    final rrect = radius.toRRect(rect).deflate(0.6);
+    Color white(double a) => Color.fromRGBO(255, 255, 255, a * strength);
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..shader = const LinearGradient(
+      ..strokeWidth = 1.2
+      ..shader = LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0x73FFFFFF), Color(0x14FFFFFF), Color(0x0AFFFFFF), Color(0x40FFFFFF)],
-        stops: [0, 0.35, 0.65, 1],
+        colors: [white(0.75), white(0.12), white(0.06), white(0.5)],
+        stops: const [0, 0.3, 0.7, 1],
       ).createShader(rect);
     canvas.drawRRect(rrect, paint);
   }
 
   @override
-  bool shouldRepaint(_RimPainter old) => old.radius != radius;
+  bool shouldRepaint(_RimPainter old) => old.radius != radius || old.strength != strength;
 }
 
 /// Coins arrondis d'une image ou d'une vignette : `ClipRRect` en temps normal, simple
@@ -170,3 +193,11 @@ class RoundedClip extends StatelessWidget {
   Widget build(BuildContext context) =>
       GlassBlur.enabledOf(context) ? ClipRRect(borderRadius: borderRadius, child: child) : ClipRect(child: child);
 }
+
+/// Saturation × 1,6 (matrice de luminance Rec. 709).
+const _saturate = ColorFilter.matrix(<double>[
+  1.4724, -0.4291, -0.0433, 0, 0, //
+  -0.1276, 1.1709, -0.0433, 0, 0, //
+  -0.1276, -0.4291, 1.5567, 0, 0, //
+  0, 0, 0, 1, 0, //
+]);

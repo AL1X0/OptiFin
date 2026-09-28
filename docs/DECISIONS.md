@@ -249,3 +249,11 @@ redessinent (ValueNotifier) au lieu du carrousel entier.
    #193363, #192245) : plus de bouton lecture, de barre ni de menu sur la vidéo. Sans flou, `LiquidGlass`
    ne découpe plus rien (les coins sont peints par les décorations) ; `RoundedClip` remplace `ClipRRect` pour
    les images du lecteur (rectangle simple au-dessus d'une vue native).
+7. **Liquid Glass natif sur iOS (comme Infuse)** : avec AVPlayer, le matériau du verre est dessiné par la vue
+   vidéo native elle-même (`GlassOverlayView` : `UIGlassEffect` sur iOS 26, `systemUltraThinMaterialDark`
+   avant), qui réfracte directement l'image. Côté Flutter, `NativeGlassScope` mesure à chaque image la
+   position (zoom au toucher et glissements compris), l'arrondi et la visibilité (opacités des ancêtres) de
+   chaque `LiquidGlass` et envoie la liste à la vue native quand elle change ; Flutter ne peint plus que les
+   icônes et un liseré. Aucune découpe ni flou Flutter au-dessus de la vidéo. Le verre Flutter (mpv, reste de
+   l'app) est éclairci : voile léger, flou plus fort avec saturation relevée, liseré spéculaire plus vif.
+   Android (Media3, SurfaceView non floutable) garde le verre teinté.

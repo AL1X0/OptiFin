@@ -3,6 +3,7 @@ export 'components/glass_surface.dart';
 export 'components/loader.dart';
 export 'components/media_row.dart';
 export 'components/metadata_line.dart';
+export 'components/native_glass.dart';
 export 'components/misc.dart';
 export 'components/motion.dart';
 export 'components/of_button.dart';

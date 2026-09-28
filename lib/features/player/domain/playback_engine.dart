@@ -222,3 +222,13 @@ class SubtitleStyle {
 }
 
 enum SubtitleBackground { none, shadow, box }
+
+/// Moteur dont la vue vidéo sait dessiner elle-même le verre des commandes
+/// (iOS : Liquid Glass natif dans la vue AVPlayer, voir `NativeGlassScope`).
+abstract interface class NativeGlassHost {
+  /// false : pas de verre natif sur cette plateforme (Android).
+  bool get nativeGlass;
+
+  /// Formes de verre à dessiner (`{id, x, y, w, h, r, visible}`, repère de la vue vidéo).
+  void setGlass(List<Map<String, Object>> items);
+}

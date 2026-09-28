@@ -105,6 +105,10 @@ class NativePlayer {
   /// Cadrage : `contain`, `cover` (zoom) ou `fill` (étirer).
   Future<void> setFit(String fit) => _call('setFit', {'fit': fit});
 
+  /// iOS : verre natif sous les commandes Flutter. `items` : `{id, x, y, w, h, r, visible}`
+  /// en points, dans le repère de la vue vidéo ; liste vide = aucun verre.
+  Future<void> setGlass(List<Map<String, Object>> items) => _call('setGlass', {'items': items});
+
   /// iOS : Picture-in-Picture de ce lecteur (AVPictureInPictureController). false si indisponible.
   Future<bool> startPictureInPicture() async {
     if (_disposed) return false;

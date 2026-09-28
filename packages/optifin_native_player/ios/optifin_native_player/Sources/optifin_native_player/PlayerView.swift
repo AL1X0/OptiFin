@@ -10,6 +10,9 @@ final class PlayerLayerView: UIView {
 
   var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
 
+  /// Verre des commandes, au-dessus de l'image.
+  let glass = GlassOverlayView()
+
   var player: AVPlayer? {
     get { playerLayer.player }
     set { playerLayer.player = newValue }
@@ -24,6 +27,9 @@ final class PlayerLayerView: UIView {
     super.init(frame: frame)
     backgroundColor = .black
     isUserInteractionEnabled = false
+    glass.frame = bounds
+    glass.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    addSubview(glass)
   }
 
   required init?(coder: NSCoder) {

@@ -18,7 +18,7 @@ typedef SubtitleLoader = Future<String> Function(Uri url);
 ///
 /// Les sous-titres texte sont servis par Jellyfin en WebVTT et dessinés par
 /// [SubtitleOverlay] : même style que mpv, décalage réglable, sur les deux plateformes.
-class NativeEngine implements PlaybackEngine {
+class NativeEngine implements PlaybackEngine, NativeGlassHost {
   NativeEngine._(this._player, this._device, this._loadSubtitle) {
     _subscription = _player.events.listen(_onEvent);
   }
@@ -199,6 +199,14 @@ class NativeEngine implements PlaybackEngine {
 
   @override
   Future<void> setAudioDelay(Duration delay) async {}
+
+  @override
+  bool get nativeGlass => _device.platform == DevicePlatform.ios;
+
+  @override
+  void setGlass(List<Map<String, Object>> items) {
+    if (nativeGlass) unawaited(_player.setGlass(items).catchError((Object _) {}));
+  }
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) {
