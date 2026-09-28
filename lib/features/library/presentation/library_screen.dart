@@ -348,7 +348,8 @@ class _ListRow extends ConsumerWidget {
     }
     final images = ref.watch(imageUrlBuilderProvider);
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final meta = MediaFormat.metadataLine(item).join(' · ');
+    final parts = MediaFormat.metadataLine(item);
+    final meta = parts.join(' · ');
     return Semantics(
       button: true,
       label: [item.name, meta].where((s) => s.isNotEmpty).join(', '),
@@ -382,7 +383,12 @@ class _ListRow extends ConsumerWidget {
                   children: [
                     Text(item.name, style: OFTypography.headline, maxLines: 1, overflow: TextOverflow.ellipsis),
                     if (meta.isNotEmpty)
-                      Text(meta, style: OFTypography.caption.copyWith(color: OFColors.textSecondary), maxLines: 1),
+                      MetadataLine(
+                        parts,
+                        separator: ' · ',
+                        style: OFTypography.caption.copyWith(color: OFColors.textSecondary),
+                        maxLines: 1,
+                      ),
                   ],
                 ),
               ),

@@ -198,3 +198,19 @@ L'ancienne adresse reste valide.
    fondus enchaînés squelette → contenu (`FadeThroughSwitcher`), onglets en fondu, barre
    d'onglets animée, favori/vu avec rebond, cartes de bibliothèque en diagonale, bouton
    « Passer » et carte « Épisode suivant » glissant depuis la droite.
+
+## Vidéo de démo et médias du README (2026-09-28)
+
+1. **L'app réelle filmée sans appareil** (`demo/`) : `flutter test demo/capture_test.dart` lance
+   `OptiFinApp` en rendu iOS, branchée sur un serveur Jellyfin simulé en mémoire (`DemoJellyfinAdapter` :
+   les vrais repositories, mappers et l'EngineSelector tournent), et filme chaque scène image par image
+   (30 i/s) avec des gestes simulés (doigt visible). Seul le moteur vidéo est remplacé (illustration
+   animée à la place d'un flux).
+2. **Bibliothèque fictive** : titres, résumés et personnes inventés ; affiches, backdrops, logos et
+   portraits **générés par code** (`demo_artwork.dart`) — aucune œuvre ni image externe.
+   Hook d'app : `OFImageSource.override` remplace le réseau par ces images (sans effet en production).
+3. **Montage** (`demo/stage_test.dart`) : téléphone, textes animés, rotation vers le lecteur, logo, en
+   1920×1080 ; **musique synthétisée** (`demo/music.mjs`, nappe en la mineur, clics calés sur les taps).
+4. `bash demo/make_demo.sh` régénère la vidéo (`docs/media/optifin-demo.mp4`), les GIF et les captures
+   du README. Au passage : note affichée avec une icône étoile (le caractère « ★ » dépend des polices),
+   styles de texte hérités dans la barre d'onglets, flux PiP Android plus écouté sur iOS.

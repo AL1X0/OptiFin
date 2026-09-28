@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/widgets.dart';
 
+import 'image_source.dart';
 import 'tokens.dart';
 
 /// Extrait une couleur d'accent d'une image RGBA (pixels bruts, petite taille).
@@ -52,7 +52,7 @@ Future<Color?> accentFromUrl(Uri url) async {
   final key = url.toString();
   if (_accentCache.containsKey(key)) return _accentCache[key];
 
-  final provider = ResizeImage(CachedNetworkImageProvider(key), width: 24, policy: ResizeImagePolicy.fit);
+  final provider = ResizeImage(OFImageSource.resolve(key), width: 24, policy: ResizeImagePolicy.fit);
   final completer = Completer<ui.Image?>();
   final stream = provider.resolve(ImageConfiguration.empty);
   late final ImageStreamListener listener;

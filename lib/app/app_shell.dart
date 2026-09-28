@@ -275,7 +275,8 @@ class _TabItem extends StatelessWidget {
         const SizedBox(height: 2),
         AnimatedDefaultTextStyle(
           duration: motion.standard,
-          style: OFTypography.caption.copyWith(fontSize: 11, color: color),
+          // Fusion avec le style hérité : garde la police du thème (système sur iOS).
+          style: DefaultTextStyle.of(context).style.merge(OFTypography.caption.copyWith(fontSize: 11, color: color)),
           child: Text(tab.label),
         ),
       ],

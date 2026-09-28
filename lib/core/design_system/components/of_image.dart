@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blurhash/flutter_blurhash.dart';
 
+import '../image_source.dart';
 import '../tokens.dart';
 
 /// Image réseau OptiFin, sans flash au chargement.
@@ -39,8 +40,10 @@ class OFImage extends StatelessWidget {
 
   /// Provider exact utilisé par [OFImage] : à passer à `precacheImage` pour
   /// préparer une image avant son affichage (même clé de cache mémoire).
-  static ImageProvider provider(Uri url, {int? decodeWidth}) =>
-      ResizeImage.resizeIfNeeded(decodeWidth, null, CachedNetworkImageProvider(url.toString()));
+  static ImageProvider provider(Uri url, {int? decodeWidth}) => OFImageSource.isOverridden
+      // Source locale (démo) : images déjà à la bonne taille, une seule clé de cache par image.
+      ? OFImageSource.resolve(url.toString())
+      : ResizeImage.resizeIfNeeded(decodeWidth, null, OFImageSource.resolve(url.toString()));
 
   Widget _base() {
     if (transparentPlaceholder) return const SizedBox.shrink();
@@ -59,16 +62,23 @@ class OFImage extends StatelessWidget {
       fit: StackFit.passthrough,
       children: [
         Positioned.fill(child: _base()),
-        CachedNetworkImage(
-          imageUrl: url.toString(),
-          fit: fit,
-          memCacheWidth: decodeWidth,
-          fadeInDuration: fade,
-          fadeOutDuration: Duration.zero,
-          // Le placeholder est le fond peint dessous : rien à afficher ici.
-          placeholder: (_, _) => const SizedBox.shrink(),
-          errorWidget: (_, _, _) => fallback ?? const SizedBox.shrink(),
-        ),
+        if (OFImageSource.isOverridden)
+          Image(
+            image: provider(url!, decodeWidth: decodeWidth),
+            fit: fit,
+            gaplessPlayback: true,
+          )
+        else
+          CachedNetworkImage(
+            imageUrl: url.toString(),
+            fit: fit,
+            memCacheWidth: decodeWidth,
+            fadeInDuration: fade,
+            fadeOutDuration: Duration.zero,
+            // Le placeholder est le fond peint dessous : rien à afficher ici.
+            placeholder: (_, _) => const SizedBox.shrink(),
+            errorWidget: (_, _, _) => fallback ?? const SizedBox.shrink(),
+          ),
       ],
     );
   }

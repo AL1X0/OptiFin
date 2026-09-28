@@ -54,3 +54,6 @@ packages/**/build/
 
 # Config MCP locale (outils de design)
 .mcp.json
+
+# Sorties locales du générateur de vidéo (/brag) ; la vidéo publiée est dans docs/media.
+brag-output/

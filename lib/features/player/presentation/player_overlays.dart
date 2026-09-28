@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -228,7 +227,7 @@ class TrickplayPreview extends ConsumerWidget {
             child: Transform.translate(
               offset: Offset(-tile.column * width, -tile.row * height),
               child: Image(
-                image: CachedNetworkImageProvider(url.toString(), headers: ref.watch(playbackHeadersProvider)),
+                image: OFImageSource.resolve(url.toString(), headers: ref.watch(playbackHeadersProvider)),
                 width: sheetWidth,
                 height: sheetHeight,
                 fit: BoxFit.fill,

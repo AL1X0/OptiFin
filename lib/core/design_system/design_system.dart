@@ -1,6 +1,7 @@
 export 'components/cards.dart';
 export 'components/glass_surface.dart';
 export 'components/media_row.dart';
+export 'components/metadata_line.dart';
 export 'components/misc.dart';
 export 'components/motion.dart';
 export 'components/of_button.dart';
@@ -8,3 +9,4 @@ export 'components/of_image.dart';
 export 'theme.dart';
 export 'tokens.dart';
 export 'accent.dart';
+export 'image_source.dart';

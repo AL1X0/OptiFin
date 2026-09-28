@@ -236,8 +236,8 @@ class _Header extends ConsumerWidget {
           ),
         if (meta.isNotEmpty) ...[
           const SizedBox(height: OFSpacing.md),
-          Text(
-            meta.join('  ·  '),
+          MetadataLine(
+            meta,
             style: OFTypography.callout.copyWith(color: OFColors.textSecondary),
             textAlign: wide ? TextAlign.start : TextAlign.center,
           ),

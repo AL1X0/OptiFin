@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Point d'entrée du plugin : détection des capacités, création de lecteurs.
@@ -22,10 +23,13 @@ abstract final class NativePlayers {
   static Stream<bool>? _pipChanges;
 
   /// Android : entrée / sortie du PiP de l'activité (quel que soit le moteur).
-  static Stream<bool> get pictureInPictureChanges => _pipChanges ??= _pipEvents
-      .receiveBroadcastStream()
-      .map((e) => e is Map && e['active'] == true)
-      .handleError((Object _) {});
+  /// Ailleurs (iOS : PiP porté par chaque lecteur), flux vide : aucun canal à écouter.
+  static Stream<bool> get pictureInPictureChanges => defaultTargetPlatform != TargetPlatform.android
+      ? const Stream<bool>.empty()
+      : _pipChanges ??= _pipEvents
+            .receiveBroadcastStream()
+            .map((e) => e is Map && e['active'] == true)
+            .handleError((Object _) {});
 
   /// Android : passe l'activité en PiP au format de la vidéo. false si impossible.
   static Future<bool> enterPictureInPicture({int width = 16, int height = 9}) async {
