@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 /// Design tokens OptiFin. Voir docs/DESIGN_SYSTEM.md — aucune valeur en dur dans les écrans.
@@ -44,6 +46,13 @@ abstract final class OFSpacing {
   static const double xxl = 32;
   static const double xxxl = 48;
 
+  /// Marge latérale d'un écran : [screenGutter] plus la zone de sécurité latérale
+  /// (encoche ou Dynamic Island en paysage), pour que rien ne passe dessous.
+  static double gutterOf(BuildContext context) {
+    final padding = MediaQuery.paddingOf(context);
+    return screenGutter(MediaQuery.sizeOf(context).width) + math.max(padding.left, padding.right);
+  }
+
   /// Marge latérale d'écran selon la largeur disponible.
   static double screenGutter(double width) {
     if (width >= 1200) return 48;
@@ -75,10 +84,10 @@ enum OFBreakpoint {
   }
 
   double get posterWidth => switch (this) {
-        compact => 112,
-        medium => 136,
-        expanded => 160,
-      };
+    compact => 112,
+    medium => 136,
+    expanded => 160,
+  };
 }
 
 /// Durées et courbes. Toujours passer par [OFMotion.of] pour respecter
@@ -96,8 +105,7 @@ class OFMotion {
   static const Curve standardCurve = Cubic(0.2, 0, 0, 1);
   static const Curve emphasizedCurve = Cubic(0.05, 0.7, 0.1, 1);
 
-  static OFMotion of(BuildContext context) =>
-      OFMotion._(!(MediaQuery.maybeDisableAnimationsOf(context) ?? false));
+  static OFMotion of(BuildContext context) => OFMotion._(!(MediaQuery.maybeDisableAnimationsOf(context) ?? false));
 
   bool get enabled => _enabled;
   Duration get fast => _enabled ? _fast : Duration.zero;

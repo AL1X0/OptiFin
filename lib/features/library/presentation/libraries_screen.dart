@@ -20,7 +20,7 @@ class LibrariesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final views = ref.watch(userViewsProvider);
     final size = MediaQuery.sizeOf(context);
-    final gutter = OFSpacing.screenGutter(size.width);
+    final gutter = OFSpacing.gutterOf(context);
     final columns = size.width >= 1024 ? 4 : (size.width >= 600 ? 3 : 2);
     final cardWidth = (size.width - gutter * 2 - OFSpacing.md * (columns - 1)) / columns;
     final images = ref.watch(imageUrlBuilderProvider);

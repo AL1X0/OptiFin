@@ -44,8 +44,8 @@ class JellyfinImageUrlBuilder {
   }
 
   /// Nullable-friendly : null si pas d'image.
-  Uri? maybe(ImageRef? ref, {required double logicalWidth, required double devicePixelRatio}) =>
-      ref == null ? null : image(ref, logicalWidth: logicalWidth, devicePixelRatio: devicePixelRatio);
+  Uri? maybe(ImageRef? ref, {required double logicalWidth, required double devicePixelRatio, int quality = 90}) =>
+      ref == null ? null : image(ref, logicalWidth: logicalWidth, devicePixelRatio: devicePixelRatio, quality: quality);
 
   Uri userAvatar({
     required String userId,

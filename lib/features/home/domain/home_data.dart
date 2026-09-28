@@ -1,3 +1,5 @@
+import 'package:jellyfin_api/jellyfin_api.dart';
+
 import '../../../core/media/media_item.dart';
 import '../../../core/media/media_mapper.dart';
 import '../data/home_repository.dart';
@@ -17,12 +19,22 @@ class HomeSection {
 }
 
 class HomeData {
-  const HomeData({required this.featured, required this.sections, required this.libraries, required this.fromCache});
+  const HomeData({
+    required this.featured,
+    required this.sections,
+    required this.libraries,
+    required this.fromCache,
+    this.upcoming = const [],
+  });
 
   final List<MediaItem> featured;
   final List<HomeSection> sections;
   final List<MediaItem> libraries;
   final bool fromCache;
+
+  /// Sélection du carrousel de la prochaine ouverture : ses images sont téléchargées
+  /// d'avance pour s'afficher instantanément.
+  final List<MediaItem> upcoming;
 
   bool get isEmpty => featured.isEmpty && sections.isEmpty;
 }
@@ -32,7 +44,7 @@ class HomeData {
 /// Ordre : Reprendre → À suivre → Ajouts récents (par bibliothèque, dans l'ordre
 /// du serveur) → Favoris. Les rangées vides sont omises. « À suivre » exclut les
 /// épisodes déjà présents dans « Reprendre ».
-HomeData buildHome(HomeSnapshot s, {required bool fromCache}) {
+HomeData buildHome(HomeSnapshot s, {required bool fromCache, List<BaseItemDto> upcoming = const []}) {
   final libraries = [for (final v in s.views) MediaMapper.fromDto(v)];
   final resume = [for (final i in s.resume) MediaMapper.fromDto(i)];
   final resumeIds = {for (final i in resume) i.id};
@@ -69,12 +81,16 @@ HomeData buildHome(HomeSnapshot s, {required bool fromCache}) {
     ],
     sections: sections,
     libraries: libraries,
+    upcoming: [
+      for (final i in upcoming)
+        if (MediaMapper.fromDto(i) case final item when item.backdrops.isNotEmpty) item,
+    ],
     fromCache: fromCache,
   );
 }
 
 CardStyle styleForLibrary(LibraryType? type) => switch (type) {
-      LibraryType.music => CardStyle.square,
-      LibraryType.homevideos || LibraryType.musicvideos || LibraryType.photos => CardStyle.landscape,
-      _ => CardStyle.poster,
-    };
+  LibraryType.music => CardStyle.square,
+  LibraryType.homevideos || LibraryType.musicvideos || LibraryType.photos => CardStyle.landscape,
+  _ => CardStyle.poster,
+};

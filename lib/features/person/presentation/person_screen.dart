@@ -42,7 +42,7 @@ class PersonScreen extends ConsumerWidget {
     final person = ref.watch(personProvider(personId));
     final films = ref.watch(filmographyProvider(personId));
     final size = MediaQuery.sizeOf(context);
-    final gutter = OFSpacing.screenGutter(size.width);
+    final gutter = OFSpacing.gutterOf(context);
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final images = ref.watch(imageUrlBuilderProvider);
     final target = cardWidthFor(CardStyle.poster, size.width);

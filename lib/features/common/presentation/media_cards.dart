@@ -67,11 +67,18 @@ class MediaCard extends ConsumerWidget {
       played: item.user.played && item.kind != MediaKind.series && item.kind != MediaKind.season,
     );
     final tap = onTap ?? () => context.openItem(item, heroTag: heroTag);
-    return switch (style) {
+    final card = switch (style) {
       CardStyle.poster => PosterCard(data: data, width: width, onTap: tap, heroTag: heroTag),
       CardStyle.square => SquareCard(data: data, width: width, onTap: tap, heroTag: heroTag),
       CardStyle.landscape => LandscapeCard(data: data, width: width, onTap: tap, heroTag: heroTag),
     };
+    // Barre de progression à la couleur de ce film (même accent que sa fiche).
+    final progress = item.user.progress;
+    if (progress == null || progress <= 0 || progress >= 1) return card;
+    return FilmAccent(
+      url: images.maybe(item.backdrop ?? item.primary, logicalWidth: 24, devicePixelRatio: 1),
+      child: card,
+    );
   }
 
   static String _title(MediaItem i, CardStyle style) =>
@@ -132,7 +139,7 @@ class SkeletonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final screen = MediaQuery.sizeOf(context).width;
     final width = cardWidthFor(style, screen);
-    final gutter = OFSpacing.screenGutter(screen);
+    final gutter = OFSpacing.gutterOf(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: gutter),
       child: Column(

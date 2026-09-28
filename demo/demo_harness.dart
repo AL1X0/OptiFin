@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:optifin/app/app.dart';
+import 'package:optifin_native_player/optifin_native_player.dart' show NativeGlassView;
 import 'package:optifin/core/design_system/design_system.dart';
 import 'package:optifin/core/network/dio_factory.dart';
 import 'package:optifin/core/network/jellyfin_auth.dart';
@@ -75,6 +76,7 @@ class DemoHarness {
 
   Future<void> setUp() async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    NativeGlassView.enabled = false; // pas de vue native dans un rendu de test
     await tester.runAsync(() async {
       await loadDemoFonts();
       await assets.generate();

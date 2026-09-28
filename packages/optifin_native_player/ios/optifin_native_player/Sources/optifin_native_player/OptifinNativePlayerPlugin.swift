@@ -18,6 +18,7 @@ public class OptifinNativePlayerPlugin: NSObject, FlutterPlugin {
     registrar.addMethodCallDelegate(instance, channel: channel)
     registrar.register(PlayerViewFactory(plugin: instance), withId: "optifin_native_player/view")
     registrar.register(AirPlayViewFactory(), withId: "optifin_native_player/airplay")
+    registrar.register(GlassViewFactory(), withId: "optifin_native_player/glass")
   }
 
   func player(_ id: Int) -> NativePlayer? { players[id] }

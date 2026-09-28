@@ -109,7 +109,7 @@ class _DetailsState extends ConsumerState<_Details> {
     final item = widget.item;
     final size = MediaQuery.sizeOf(context);
     final headerHeight = detailsHeaderHeight(size);
-    final gutter = OFSpacing.screenGutter(size.width);
+    final gutter = OFSpacing.gutterOf(context);
     final wide = size.width >= 700;
 
     return AnimatedTheme(
@@ -191,7 +191,7 @@ class _Header extends ConsumerWidget {
     final size = MediaQuery.sizeOf(context);
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final images = ref.watch(imageUrlBuilderProvider);
-    final gutter = OFSpacing.screenGutter(size.width);
+    final gutter = OFSpacing.gutterOf(context);
     final backdropRef = item.kind == MediaKind.episode
         ? (item.primary ?? item.backdrop)
         : (item.backdrop ?? item.primary);
@@ -695,7 +695,7 @@ class _BackButton extends StatelessWidget {
     if (!context.canPop()) return const SizedBox.shrink();
     return Positioned(
       top: MediaQuery.paddingOf(context).top + OFSpacing.xs,
-      left: OFSpacing.md,
+      left: OFSpacing.md + MediaQuery.paddingOf(context).left,
       child: OFIconButton(icon: Icons.arrow_back_ios_new_rounded, tooltip: 'Retour', onPressed: () => context.pop()),
     );
   }

@@ -60,7 +60,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final results = ref.watch(searchResultsProvider);
-    final gutter = OFSpacing.screenGutter(MediaQuery.sizeOf(context).width);
+    final gutter = OFSpacing.gutterOf(context);
     final accent = Theme.of(context).colorScheme.primary;
 
     return Scaffold(

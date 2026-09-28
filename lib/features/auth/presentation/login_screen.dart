@@ -81,7 +81,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final users = ref.watch(publicUsersProvider(server)).value ?? const [];
     final quickConnect = ref.watch(quickConnectEnabledProvider(server)).value ?? false;
-    final gutter = OFSpacing.screenGutter(MediaQuery.sizeOf(context).width);
+    final gutter = OFSpacing.gutterOf(context);
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final images = JellyfinImageUrlBuilder(server.baseUrl);
 

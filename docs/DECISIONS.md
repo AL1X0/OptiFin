@@ -261,3 +261,17 @@ redessinent (ValueNotifier) au lieu du carrousel entier.
    autour. La piste est elle-même un verre sans contour (natif sur iOS), remplie de blanc à mesure de la
    lecture (tampon en blanc léger), 8 pt d'épaisseur, 13 pt pendant le glissé ; toucher = sauter au point.
    Temps écoulé et restant sous la barre.
+
+## Encoche, barre flottante, couleur par film, carrousel plus rapide (2026-09-28)
+
+1. **Lecteur** : lecture/pause et ±10 s sans verre (icônes seules avec ombre douce, comme Infuse).
+2. **Encoche / Dynamic Island** : `OFSpacing.gutterOf(context)` ajoute la zone de sécurité latérale à la marge
+   d'écran ; tous les écrans l'utilisent (en paysage, titres, rangées et grilles ne passent plus dessous).
+3. **Barre d'onglets flottante partout** (téléphone portrait/paysage, tablette, Android) : icône au-dessus du
+   libellé sur téléphone, côte à côte sur tablette. **Sur iOS, vrai verre natif** : `NativeGlassView`
+   (vue UIKit `UIGlassEffect`/matériau flouté) sous les icônes Flutter.
+4. **Couleur propre à chaque film** : l'accueil n'est plus teinté par le titre du carrousel. Les points du
+   carrousel prennent la couleur du titre affiché ; la barre de progression de chaque carte, celle de son
+   illustration (`FilmAccent`, même accent que la fiche).
+5. **Carrousel plus rapide** : illustrations en WebP qualité 75 ; les images de la sélection de la prochaine
+   ouverture sont téléchargées sur le disque pendant l'utilisation (au lancement suivant, affichage immédiat).

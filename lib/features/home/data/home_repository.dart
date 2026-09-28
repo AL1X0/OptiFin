@@ -90,7 +90,7 @@ class HomeRepository {
       final shown = cached == null || cached.featured.isEmpty
           ? fresh
           : fresh.withFeatured(_stillUnwatched(cached, fresh));
-      yield buildHome(shown, fromCache: false);
+      yield buildHome(shown, fromCache: false, upcoming: identical(shown, fresh) ? const [] : fresh.featured);
       unawaited(_cache.write(_key, jsonEncode(fresh.toJson())));
     } catch (e) {
       if (cached == null) rethrow;

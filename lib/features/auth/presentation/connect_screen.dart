@@ -66,8 +66,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final gutter = OFSpacing.screenGutter(width);
+    final gutter = OFSpacing.gutterOf(context);
     final accounts = ref.watch(savedAccountsProvider).value ?? const [];
     final discovered = ref.watch(discoveredServersProvider);
     final canPop = context.canPop();

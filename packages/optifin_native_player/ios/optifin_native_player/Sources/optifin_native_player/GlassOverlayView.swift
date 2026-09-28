@@ -1,3 +1,4 @@
+import Flutter
 import UIKit
 
 /// Verre natif posé sur la vidéo, exactement sous les commandes Flutter qui en décrivent
@@ -20,7 +21,7 @@ final class GlassOverlayView: UIView {
     fatalError("init(coder:) non utilisé")
   }
 
-  private static func material() -> UIVisualEffect {
+  static func material() -> UIVisualEffect {
     #if compiler(>=6.2)
     if #available(iOS 26.0, *) {
       return UIGlassEffect(style: .regular)
@@ -76,5 +77,45 @@ final class GlassOverlayView: UIView {
       shown[id] = nil
     }
     CATransaction.commit()
+  }
+}
+
+/// Fond en verre natif pour une forme Flutter (barre d'onglets) : Liquid Glass sur
+/// iOS 26, matériau flouté avant. Arrondi en pilule par défaut, ou `radius` fixe.
+final class GlassBackgroundView: UIView {
+  private let effectView = UIVisualEffectView(effect: GlassOverlayView.material())
+  private let radius: CGFloat?
+
+  init(frame: CGRect, radius: CGFloat?) {
+    self.radius = radius
+    super.init(frame: frame)
+    backgroundColor = .clear
+    isUserInteractionEnabled = false
+    effectView.frame = bounds
+    effectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    effectView.clipsToBounds = true
+    effectView.layer.cornerCurve = .continuous
+    addSubview(effectView)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) non utilisé")
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    effectView.layer.cornerRadius = radius ?? min(bounds.width, bounds.height) / 2
+  }
+}
+
+final class GlassViewFactory: NSObject, FlutterPlatformViewFactory {
+  func create(withFrame frame: CGRect, viewIdentifier viewId: Int64, arguments args: Any?) -> FlutterPlatformView {
+    let params = args as? [String: Any]
+    let radius = (params?["radius"] as? NSNumber).map { CGFloat($0.doubleValue) }
+    return SimplePlatformView(GlassBackgroundView(frame: frame, radius: radius))
+  }
+
+  func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
+    FlutterStandardMessageCodec.sharedInstance()
   }
 }

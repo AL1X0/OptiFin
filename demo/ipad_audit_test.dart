@@ -74,4 +74,23 @@ void main() {
     await h.screenshot('phone_player_audio');
     await h.tearDown();
   }, timeout: const Timeout(Duration(minutes: 20)));
+
+  testWidgets('iPhone paysage (encoche)', (tester) async {
+    final h = DemoHarness(tester);
+    await h.setUp();
+    h.goLandscape();
+    await h.idle(const Duration(milliseconds: 1500));
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+    await h.idle(const Duration(milliseconds: 800));
+    await h.screenshot('phone_land_home');
+    unawaited(h.router.push<void>('/home/item/horizon'));
+    await h.idle(const Duration(milliseconds: 1500));
+    await h.screenshot('phone_land_details');
+    await tester.tap(find.text('Bibliothèques').first);
+    await h.idle(const Duration(milliseconds: 800));
+    await tester.tap(find.text('Films').first);
+    await h.idle(const Duration(milliseconds: 1500));
+    await h.screenshot('phone_land_library');
+    await h.tearDown();
+  }, timeout: const Timeout(Duration(minutes: 20)));
 }

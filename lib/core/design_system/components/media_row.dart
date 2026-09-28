@@ -27,7 +27,7 @@ class MediaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gutter = OFSpacing.screenGutter(MediaQuery.sizeOf(context).width);
+    final gutter = OFSpacing.gutterOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,

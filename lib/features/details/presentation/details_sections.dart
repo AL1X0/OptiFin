@@ -20,7 +20,7 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gutter = OFSpacing.screenGutter(MediaQuery.sizeOf(context).width);
+    final gutter = OFSpacing.gutterOf(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(gutter, OFSpacing.xxl, gutter, OFSpacing.md),
       child: Semantics(header: true, child: Text(title, style: OFTypography.title2)),
@@ -60,7 +60,7 @@ class _SeasonsSectionState extends ConsumerState<SeasonsSection> {
         widget.initialSeasonId ??
         nextUp?.seasonId ??
         seasons.firstWhere((s) => !s.user.played, orElse: () => seasons.first).id;
-    final gutter = OFSpacing.screenGutter(MediaQuery.sizeOf(context).width);
+    final gutter = OFSpacing.gutterOf(context);
     final accent = Theme.of(context).colorScheme.primary;
 
     return Column(
@@ -114,7 +114,7 @@ class _EpisodeList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final episodes = ref.watch(episodesProvider((seriesId, seasonId)));
-    final gutter = OFSpacing.screenGutter(MediaQuery.sizeOf(context).width);
+    final gutter = OFSpacing.gutterOf(context);
     return switch (episodes) {
       AsyncData(:final value) => AnimatedSwitcher(
         duration: OFMotion.of(context).standard,
@@ -279,7 +279,7 @@ class CastSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cast = people.where((p) => p.kind == PersonKind.actor || p.kind == PersonKind.guestStar).take(30).toList();
     if (cast.isEmpty) return const SizedBox.shrink();
-    final gutter = OFSpacing.screenGutter(MediaQuery.sizeOf(context).width);
+    final gutter = OFSpacing.gutterOf(context);
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final images = ref.watch(imageUrlBuilderProvider);
     const size = 84.0;
@@ -363,7 +363,7 @@ class TechnicalSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gutter = OFSpacing.screenGutter(MediaQuery.sizeOf(context).width);
+    final gutter = OFSpacing.gutterOf(context);
     final video = item.streams.where((s) => s.isVideo).firstOrNull;
     final audios = item.streams.where((s) => !s.isVideo).toList();
 

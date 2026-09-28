@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/navigation.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/media/formatters.dart';
 import '../../../core/media/media_item.dart';
+import '../../../core/network/image_url.dart';
 import '../../../core/providers.dart';
 import '../../player/presentation/playback_providers.dart';
 
@@ -14,6 +16,11 @@ import '../../player/presentation/playback_providers.dart';
 const _maxDecodeWidth = 2400;
 
 int _decodeWidth(double logicalWidth, double dpr) => (logicalWidth * dpr).ceil().clamp(1, _maxDecodeWidth);
+
+/// Illustration plein écran du carrousel : WebP qualité 75, visuellement identique à
+/// cette taille et nettement plus léger (chargement plus rapide).
+Uri? _backdropUrl(JellyfinImageUrlBuilder images, MediaItem item, double width, double dpr) =>
+    images.maybe(item.backdrop, logicalWidth: width, devicePixelRatio: dpr, quality: 75);
 
 /// Largeur du logo : centré et large sur téléphone, plus sobre (à gauche) sur tablette.
 double _logoWidth(double pageWidth, Size screen) =>
@@ -28,12 +35,15 @@ double featuredHeight(Size size) {
 /// Grand carrousel « à la une » : backdrop plein cadre + logo + actions.
 ///
 /// Swipe entre les titres, défilement auto toutes les 8 s (désactivé
-/// avec « Réduire les animations » et pendant une interaction), accent dynamique.
+/// avec « Réduire les animations » et pendant une interaction). Les points prennent la
+/// couleur du titre affiché, sans teinter le reste de l'accueil.
 class FeaturedCarousel extends ConsumerStatefulWidget {
-  const FeaturedCarousel({super.key, required this.items, required this.onAccent});
+  const FeaturedCarousel({super.key, required this.items, this.upcoming = const []});
 
   final List<MediaItem> items;
-  final ValueChanged<Color?> onAccent;
+
+  /// Sélection de la prochaine ouverture : images téléchargées d'avance sur le disque.
+  final List<MediaItem> upcoming;
 
   @override
   ConsumerState<FeaturedCarousel> createState() => _FeaturedCarouselState();
@@ -45,6 +55,9 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
 
   /// Page courante : seuls les points s'y abonnent (pas de reconstruction du carrousel au swipe).
   final _page = ValueNotifier<int>(0);
+
+  /// Accent du titre affiché (points du carrousel uniquement).
+  final _accent = ValueNotifier<Color?>(null);
 
   int get _index => _page.value;
 
@@ -63,7 +76,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
     _restartTimer();
   }
 
-  /// Travail « lourd » (accent → animation du thème de tout l'accueil, décodage
+  /// Travail « lourd » (accent des points, décodage
   /// des voisines) fait une fois la page posée, jamais pendant le glissement :
   /// c'était la cause de l'à-coup en fin de swipe.
   void _onSettled() {
@@ -72,8 +85,42 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
     _prefetchPlayback();
   }
 
-  /// « Lecture » lance directement le film : son plan de lecture (PlaybackInfo, choix du
-  /// moteur) est préparé dès que la page est affichée, comme sur une fiche.
+  @override
+  void didUpdateWidget(FeaturedCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // La sélection suivante arrive avec la réponse réseau, après le cache.
+    if (_pageWidth > 0 && oldWidget.upcoming != widget.upcoming) _warmUpcoming();
+  }
+
+  bool _warmed = false;
+
+  /// Télécharge (disque seulement, sans décoder) les illustrations et logos du carrousel
+  /// de la prochaine ouverture, quelques secondes après l'affichage : elles seront
+  /// alors servies depuis le cache, instantanément.
+  void _warmUpcoming() {
+    if (_warmed || widget.upcoming.isEmpty || OFImageSource.isOverridden) return;
+    _warmed = true;
+    final width = _pageWidth;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final screen = MediaQuery.sizeOf(context);
+    final images = ref.read(imageUrlBuilderProvider);
+    Future<void>.delayed(const Duration(seconds: 3), () async {
+      for (final item in widget.upcoming) {
+        if (!mounted) return;
+        for (final url in [
+          _backdropUrl(images, item, width, dpr),
+          images.maybe(item.logo, logicalWidth: _logoWidth(width, screen), devicePixelRatio: dpr),
+        ]) {
+          if (url == null) continue;
+          try {
+            await DefaultCacheManager().downloadFile(url.toString());
+          } catch (_) {}
+        }
+      }
+    });
+  }
+
+  /// « Lecture » lance directement le film : son plan de lecture (PlaybackInfo, choix du  /// moteur) est préparé dès que la page est affichée, comme sur une fiche.
   void _prefetchPlayback() {
     if (widget.items.isEmpty) return;
     final item = widget.items[_index];
@@ -91,7 +138,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
     final images = ref.read(imageUrlBuilderProvider);
     for (final i in {index, (index + 1) % n, (index - 1 + n) % n}) {
       final item = widget.items[i];
-      final backdrop = images.maybe(item.backdrop, logicalWidth: width, devicePixelRatio: dpr);
+      final backdrop = _backdropUrl(images, item, width, dpr);
       if (backdrop != null) {
         precacheImage(OFImage.provider(backdrop, decodeWidth: _decodeWidth(width, dpr)), context, onError: (_, _) {});
       }
@@ -106,6 +153,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
     _timer?.cancel();
     _controller.dispose();
     _page.dispose();
+    _accent.dispose();
     super.dispose();
   }
 
@@ -124,7 +172,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
     final item = widget.items[_index];
     final url = ref.read(imageUrlBuilderProvider).maybe(item.backdrop, logicalWidth: 24, devicePixelRatio: 1);
     final accent = url == null ? null : await accentFromUrl(url);
-    if (mounted && widget.items[_index].id == item.id) widget.onAccent(accent);
+    if (mounted && widget.items[_index].id == item.id) _accent.value = accent;
   }
 
   @override
@@ -144,6 +192,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
                 if (!mounted) return;
                 _precacheAround(_index);
                 _prefetchPlayback();
+                _warmUpcoming();
               });
             }
           }
@@ -169,13 +218,17 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
               ),
               if (widget.items.length > 1)
                 Positioned(
-                  left: tablet ? OFSpacing.screenGutter(width) - 3 : 0,
+                  left: tablet ? OFSpacing.gutterOf(context) - 3 : 0,
                   right: 0,
                   bottom: tablet ? OFSpacing.xl : OFSpacing.md,
                   child: ExcludeSemantics(
                     child: ValueListenableBuilder<int>(
                       valueListenable: _page,
-                      builder: (_, index, _) => _Dots(count: widget.items.length, index: index, start: tablet),
+                      builder: (_, index, _) => ValueListenableBuilder<Color?>(
+                        valueListenable: _accent,
+                        builder: (_, accent, _) =>
+                            _Dots(count: widget.items.length, index: index, start: tablet, color: accent),
+                      ),
                     ),
                   ),
                 ),
@@ -198,7 +251,7 @@ class _FeaturedPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final images = ref.watch(imageUrlBuilderProvider);
-    final gutter = OFSpacing.screenGutter(width);
+    final gutter = OFSpacing.gutterOf(context);
     final backdrop = item.backdrop;
     final logo = item.logo;
     final meta = [...item.genres.take(2).map((g) => g.name), ?MediaFormat.years(item)].join(' · ');
@@ -216,7 +269,7 @@ class _FeaturedPage extends ConsumerWidget {
           // Illustration solidaire de sa page (pas de parallaxe : au relâcher du doigt, l'image
           // donnait l'impression de « revenir en arrière » en rattrapant la page).
           OFImage(
-            url: images.maybe(backdrop, logicalWidth: width, devicePixelRatio: dpr),
+            url: _backdropUrl(images, item, width, dpr),
             blurHash: backdrop?.blurHash,
             decodeWidth: _decodeWidth(width, dpr),
           ),
@@ -313,7 +366,10 @@ class _Title extends StatelessWidget {
 }
 
 class _Dots extends StatelessWidget {
-  const _Dots({required this.count, required this.index, this.start = false});
+  const _Dots({required this.count, required this.index, this.start = false, this.color});
+
+  /// Accent du titre affiché ; null = accent de l'app.
+  final Color? color;
 
   final int count;
   final int index;
@@ -322,7 +378,7 @@ class _Dots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final motion = OFMotion.of(context);
-    final accent = Theme.of(context).colorScheme.primary;
+    final accent = color ?? Theme.of(context).colorScheme.primary;
     return Row(
       mainAxisAlignment: start ? MainAxisAlignment.start : MainAxisAlignment.center,
       children: [

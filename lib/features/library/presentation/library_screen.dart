@@ -88,7 +88,7 @@ class _LibraryBrowserState extends ConsumerState<_LibraryBrowser> {
 
   _Geometry _geometry(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final gutter = OFSpacing.screenGutter(width);
+    final gutter = OFSpacing.gutterOf(context);
     // Place pour l'index alphabétique à droite.
     final avail = width - gutter * 2 - (_query.supportsAlphaIndex ? 12 : 0);
     if (_listMode) return _Geometry(columns: 1, cardWidth: avail, rowExtent: 104, gutter: gutter);
@@ -277,7 +277,7 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
-    final gutter = OFSpacing.screenGutter(MediaQuery.sizeOf(context).width);
+    final gutter = OFSpacing.gutterOf(context);
     return GlassSurface(
       borderRadius: BorderRadius.zero,
       child: ColoredBox(

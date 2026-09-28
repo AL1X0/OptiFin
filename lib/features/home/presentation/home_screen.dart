@@ -20,13 +20,11 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  Color? _accent;
-
   @override
   Widget build(BuildContext context) {
     final home = ref.watch(homeProvider);
     final data = home.value;
-    final gutter = OFSpacing.screenGutter(MediaQuery.sizeOf(context).width);
+    final gutter = OFSpacing.gutterOf(context);
     final bottomInset = MediaQuery.paddingOf(context).bottom + 80; // barre d'onglets
 
     Widget content;
@@ -59,12 +57,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             slivers: [
               if (data.featured.isNotEmpty)
                 SliverToBoxAdapter(
-                  child: FeaturedCarousel(
-                    items: data.featured,
-                    onAccent: (c) {
-                      if (c != _accent) setState(() => _accent = c);
-                    },
-                  ),
+                  child: FeaturedCarousel(items: data.featured, upcoming: data.upcoming),
                 )
               else
                 SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).top + 72)),
@@ -97,21 +90,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
 
-    return AnimatedTheme(
-      data: OFTheme.dark(accent: _accent ?? OFColors.accentFallback),
-      duration: OFMotion.of(context).standard,
-      child: Scaffold(
-        body: Stack(
-          children: [
-            // Squelette → contenu : fondu enchaîné plutôt qu'un remplacement sec.
-            Positioned.fill(child: FadeThroughSwitcher(child: content)),
-            Positioned(
-              top: MediaQuery.paddingOf(context).top + OFSpacing.sm,
-              right: gutter,
-              child: const AccountButton(),
-            ),
-          ],
-        ),
+    // Thème neutre : chaque film garde sa couleur pour lui (points du carrousel,
+    // barres de progression), sans teinter tout l'accueil.
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Squelette → contenu : fondu enchaîné plutôt qu'un remplacement sec.
+          Positioned.fill(child: FadeThroughSwitcher(child: content)),
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + OFSpacing.sm,
+            right: gutter,
+            child: const AccountButton(),
+          ),
+        ],
       ),
     );
   }

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import 'image_source.dart';
 import 'tokens.dart';
@@ -41,7 +41,9 @@ Color? dominantAccent(Uint8List rgba) {
   // Moins de ~3 % de pixels colorés : image neutre.
   if (best < 0 || weight[best] <= 0 || weight[best] < pixelCount * 0.03 * 0.3) return null;
   final w = weight[best];
-  return OFColors.normalizeAccent(Color.fromARGB(255, (r[best] / w).round(), (g[best] / w).round(), (b[best] / w).round()));
+  return OFColors.normalizeAccent(
+    Color.fromARGB(255, (r[best] / w).round(), (g[best] / w).round(), (b[best] / w).round()),
+  );
 }
 
 final _accentCache = <String, Color?>{};
@@ -77,5 +79,64 @@ Future<Color?> accentFromUrl(Uri url) async {
     return accent;
   } finally {
     image.dispose();
+  }
+}
+
+/// Couleur propre à un film : le sous-arbre prend l'accent tiré de son illustration
+/// (barre de progression d'une carte, par exemple), sans toucher au reste de l'écran.
+/// L'accent par défaut reste en place tant que l'image n'est pas analysée.
+class FilmAccent extends StatefulWidget {
+  const FilmAccent({super.key, required this.url, required this.child});
+
+  /// Illustration à analyser (petite taille suffisante) ; null = accent par défaut.
+  final Uri? url;
+  final Widget child;
+
+  @override
+  State<FilmAccent> createState() => _FilmAccentState();
+}
+
+class _FilmAccentState extends State<FilmAccent> {
+  Color? _accent;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  @override
+  void didUpdateWidget(FilmAccent old) {
+    super.didUpdateWidget(old);
+    if (old.url != widget.url) _resolve();
+  }
+
+  void _resolve() {
+    final url = widget.url;
+    if (url == null) return;
+    final key = url.toString();
+    if (_accentCache.containsKey(key)) {
+      _accent = _accentCache[key];
+      return;
+    }
+    unawaited(
+      accentFromUrl(url).then((c) {
+        if (mounted && widget.url == url && c != _accent) setState(() => _accent = c);
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _accent;
+    if (accent == null) return widget.child;
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        colorScheme: theme.colorScheme.copyWith(primary: accent),
+        progressIndicatorTheme: theme.progressIndicatorTheme.copyWith(color: accent),
+      ),
+      child: widget.child,
+    );
   }
 }

@@ -893,28 +893,28 @@ class _ControlsLayer extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    OFGlassButton(
+                    _PlainButton(
                       icon: Icons.replay_10_rounded,
                       label: 'Reculer de 10 secondes',
                       size: m.skip,
-                      iconSize: m.skip * 0.48,
+                      iconSize: m.skip * 0.62,
                       onPressed: () => onSkip(const Duration(seconds: -10)),
                     ),
                     SizedBox(width: m.gap),
-                    OFGlassButton(
+                    _PlainButton(
                       icon: snapshot.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
                       label: snapshot.playing ? 'Pause' : 'Lecture',
                       size: m.play,
-                      iconSize: m.play * 0.52,
+                      iconSize: m.play * 0.72,
                       onPressed: onPlayPause,
                       child: showSpinner ? OFLoader(size: m.play * 0.42) : null,
                     ),
                     SizedBox(width: m.gap),
-                    OFGlassButton(
+                    _PlainButton(
                       icon: Icons.forward_10_rounded,
                       label: 'Avancer de 10 secondes',
                       size: m.skip,
-                      iconSize: m.skip * 0.48,
+                      iconSize: m.skip * 0.62,
                       onPressed: () => onSkip(const Duration(seconds: 10)),
                     ),
                   ],
@@ -1212,6 +1212,84 @@ class _ScrubberState extends State<Scrubber> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Bouton central du lecteur (lecture/pause, ±10 s) : icône seule, sans verre, avec
+/// une ombre douce pour rester lisible sur une image claire (comme Infuse).
+class _PlainButton extends StatefulWidget {
+  const _PlainButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    required this.size,
+    required this.iconSize,
+    this.child,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final double size;
+  final double iconSize;
+
+  /// Contenu à la place de l'icône (indicateur de chargement).
+  final Widget? child;
+
+  @override
+  State<_PlainButton> createState() => _PlainButtonState();
+}
+
+class _PlainButtonState extends State<_PlainButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool v) {
+    if (v != _pressed) setState(() => _pressed = v);
+  }
+
+  static const _shadow = [Shadow(color: Color(0x73000000), blurRadius: 16)];
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = OFMotion.of(context);
+    return Semantics(
+      button: true,
+      label: widget.label,
+      excludeSemantics: true,
+      onTap: widget.onPressed,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _setPressed(true),
+        onTapCancel: () => _setPressed(false),
+        onTapUp: (_) => _setPressed(false),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          widget.onPressed();
+        },
+        child: AnimatedScale(
+          scale: _pressed ? 0.86 : 1,
+          duration: motion.fast,
+          curve: OFMotion.fastCurve,
+          child: SizedBox.square(
+            dimension: widget.size,
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: motion.fast,
+                child:
+                    widget.child ??
+                    Icon(
+                      widget.icon,
+                      key: ValueKey(widget.icon),
+                      size: widget.iconSize,
+                      color: OFColors.textPrimary,
+                      shadows: _shadow,
+                    ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:optifin_native_player/optifin_native_player.dart' show NativeGlassView;
+
 import '../core/design_system/design_system.dart';
 
 class _Tab {
@@ -20,8 +22,8 @@ const _tabs = [
   _Tab('Recherche', Icons.search_rounded, Icons.search_rounded),
 ];
 
-/// Coquille de navigation : barre d'onglets en verre pleine largeur (téléphone) ou
-/// pilule flottante (tablette). Le contenu défile sous la barre (extendBody).
+/// Coquille de navigation : barre d'onglets flottante en pilule de verre, centrée en bas,
+/// sur tous les appareils (sur iOS, vrai verre natif). Le contenu défile dessous (extendBody).
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.shell});
 
@@ -35,61 +37,16 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Tablette (portrait comme paysage) : barre flottante ; téléphone : barre pleine largeur.
-    final tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
     return Scaffold(
       extendBody: true,
       body: shell,
-      bottomNavigationBar: tablet
-          ? _FloatingTabBar(current: shell.currentIndex, onSelect: _select)
-          : _GlassTabBar(current: shell.currentIndex, onSelect: _select),
+      bottomNavigationBar: _FloatingTabBar(current: shell.currentIndex, onSelect: _select),
     );
   }
 }
 
-class _GlassTabBar extends StatelessWidget {
-  const _GlassTabBar({required this.current, required this.onSelect});
-
-  final int current;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.paddingOf(context).bottom;
-    final accent = Theme.of(context).colorScheme.primary;
-    return GlassSurface(
-      borderRadius: BorderRadius.zero,
-      child: ColoredBox(
-        color: const Color(0x99000000),
-        child: Padding(
-          padding: EdgeInsets.only(bottom: bottom > 0 ? bottom - OFSpacing.xs : OFSpacing.sm, top: OFSpacing.sm),
-          child: Row(
-            children: [
-              for (final (i, tab) in _tabs.indexed)
-                Expanded(
-                  child: Semantics(
-                    selected: i == current,
-                    button: true,
-                    label: tab.label,
-                    excludeSemantics: true,
-                    onTap: () => onSelect(i),
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => onSelect(i),
-                      child: _TabItem(tab: tab, selected: i == current, accent: accent),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Tablette : barre d'onglets flottante en verre, centrée en bas (icône + libellé
-/// côte à côte). Le contenu garde toute la largeur de l'écran.
+/// Pilule flottante : icône au-dessus du libellé sur téléphone (portrait comme paysage),
+/// côte à côte sur tablette. L'onglet actif est posé sur une pastille claire.
 class _FloatingTabBar extends StatelessWidget {
   const _FloatingTabBar({required this.current, required this.onSelect});
 
@@ -101,64 +58,102 @@ class _FloatingTabBar extends StatelessWidget {
     final bottom = MediaQuery.paddingOf(context).bottom;
     final accent = Theme.of(context).colorScheme.primary;
     final motion = OFMotion.of(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottom > 0 ? bottom : OFSpacing.lg, top: OFSpacing.sm),
-      child: Center(
-        heightFactor: 1,
-        child: LiquidGlass(
-          shade: 0.45,
-          sigma: 24,
-          padding: const EdgeInsets.all(5),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final (i, tab) in _tabs.indexed)
-                Semantics(
-                  selected: i == current,
-                  button: true,
-                  label: tab.label,
-                  excludeSemantics: true,
-                  onTap: () => onSelect(i),
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => onSelect(i),
-                    child: AnimatedContainer(
-                      duration: motion.standard,
-                      curve: OFMotion.standardCurve,
-                      height: 46,
-                      padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg + 2),
-                      decoration: BoxDecoration(
-                        color: i == current ? const Color(0x24FFFFFF) : const Color(0x00FFFFFF),
-                        borderRadius: const BorderRadius.all(Radius.circular(OFRadius.pill)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AnimatedStateIcon(
-                            icon: i == current ? tab.selectedIcon : tab.icon,
-                            color: i == current ? accent : OFColors.textSecondary,
-                          ),
-                          const SizedBox(width: OFSpacing.sm),
-                          AnimatedDefaultTextStyle(
-                            duration: motion.standard,
-                            style: DefaultTextStyle.of(context).style.merge(
-                              OFTypography.callout.copyWith(
-                                color: i == current ? OFColors.textPrimary : OFColors.textSecondary,
-                                fontWeight: i == current ? FontWeight.w600 : FontWeight.w500,
-                              ),
-                            ),
-                            child: Text(tab.label),
-                          ),
-                        ],
-                      ),
-                    ),
+    final tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+    final nativeGlass = NativeGlassView.supported;
+
+    final row = Padding(
+      padding: const EdgeInsets.all(5),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (i, tab) in _tabs.indexed)
+            Semantics(
+              selected: i == current,
+              button: true,
+              label: tab.label,
+              excludeSemantics: true,
+              onTap: () => onSelect(i),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onSelect(i),
+                child: AnimatedContainer(
+                  duration: motion.standard,
+                  curve: OFMotion.standardCurve,
+                  height: tablet ? 46 : 54,
+                  constraints: BoxConstraints(minWidth: tablet ? 0 : 88),
+                  padding: EdgeInsets.symmetric(horizontal: tablet ? OFSpacing.lg + 2 : OFSpacing.md),
+                  decoration: BoxDecoration(
+                    color: i == current ? const Color(0x24FFFFFF) : const Color(0x00FFFFFF),
+                    borderRadius: const BorderRadius.all(Radius.circular(OFRadius.pill)),
                   ),
+                  child: _TabContent(tab: tab, selected: i == current, accent: accent, stacked: !tablet),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom > 0 ? bottom - OFSpacing.xs : OFSpacing.md, top: OFSpacing.sm),
+      child: Center(
+        heightFactor: 1,
+        child: nativeGlass
+            // iOS : vrai Liquid Glass natif sous les icônes (vue UIKit), liseré compris.
+            ? Stack(
+                children: [
+                  const Positioned.fill(child: NativeGlassView()),
+                  row,
+                ],
+              )
+            : LiquidGlass(shade: 0.45, child: row),
+      ),
+    );
+  }
+}
+
+class _TabContent extends StatelessWidget {
+  const _TabContent({required this.tab, required this.selected, required this.accent, required this.stacked});
+
+  final _Tab tab;
+  final bool selected;
+  final Color accent;
+
+  /// Icône au-dessus du libellé (téléphone) plutôt qu'à côté (tablette).
+  final bool stacked;
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = OFMotion.of(context);
+    final icon = AnimatedStateIcon(
+      icon: selected ? tab.selectedIcon : tab.icon,
+      color: selected ? accent : OFColors.textSecondary,
+      size: stacked ? 23 : 24,
+    );
+    final label = AnimatedDefaultTextStyle(
+      duration: motion.standard,
+      style: DefaultTextStyle.of(context).style.merge(
+        (stacked ? OFTypography.caption.copyWith(fontSize: 10.5) : OFTypography.callout).copyWith(
+          color: selected ? OFColors.textPrimary : OFColors.textSecondary,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+        ),
+      ),
+      child: Text(tab.label, maxLines: 1),
+    );
+    return stacked
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [icon, const SizedBox(height: 2), label],
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              icon,
+              const SizedBox(width: OFSpacing.sm),
+              label,
+            ],
+          );
   }
 }
 
@@ -219,43 +214,6 @@ class _FadingBranchesState extends State<FadingBranches> {
               ),
             ),
           ),
-      ],
-    );
-  }
-}
-
-/// Onglet de la barre du bas : l'onglet actif grossit légèrement, couleur et icône en fondu.
-class _TabItem extends StatelessWidget {
-  const _TabItem({required this.tab, required this.selected, required this.accent});
-
-  final _Tab tab;
-  final bool selected;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final motion = OFMotion.of(context);
-    final color = selected ? accent : OFColors.textSecondary;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedScale(
-          scale: selected ? 1.12 : 1,
-          duration: motion.standard,
-          curve: Curves.easeOutBack,
-          child: TweenAnimationBuilder<Color?>(
-            tween: ColorTween(end: color),
-            duration: motion.standard,
-            builder: (context, c, _) => AnimatedStateIcon(icon: selected ? tab.selectedIcon : tab.icon, color: c),
-          ),
-        ),
-        const SizedBox(height: 2),
-        AnimatedDefaultTextStyle(
-          duration: motion.standard,
-          // Fusion avec le style hérité : garde la police du thème (système sur iOS).
-          style: DefaultTextStyle.of(context).style.merge(OFTypography.caption.copyWith(fontSize: 11, color: color)),
-          child: Text(tab.label),
-        ),
       ],
     );
   }
