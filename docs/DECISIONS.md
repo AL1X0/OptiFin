@@ -143,3 +143,13 @@
 9. **Non vérifiable ici** (Windows, sans Xcode ni SDK Android) : compilation Swift et Kotlin par
    la CI ; comportement réel (HDR, DV) à valider sur appareil (section « Résultats sur appareil »
    de la matrice).
+
+## Source SideStore fiabilisée (2026-09-28)
+
+SideStore a signalé une source « JSON invalide » alors que le fichier était correct : l'adresse
+`releases/latest/download/source.json` passe par deux redirections vers un lien signé qui expire,
+et renvoie brièvement « Not Found » pendant la publication d'une build. Désormais :
+- la source est aussi publiée sur la branche `sidestore` et servie telle quelle par
+  `https://raw.githubusercontent.com/AL1X0/OptiFin/sidestore/source.json` (sans redirection) ;
+- la Release est créée en brouillon puis publiée une fois l'IPA et la source envoyées.
+L'ancienne adresse reste valide.

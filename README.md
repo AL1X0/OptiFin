@@ -27,7 +27,7 @@ dart run tool/prepare_spec.dart && dart run swagger_parser && dart run build_run
 Ajoutez cette source dans SideStore (onglet Sources › +) :
 
 ```
-https://github.com/AL1X0/OptiFin/releases/latest/download/source.json
+https://raw.githubusercontent.com/AL1X0/OptiFin/sidestore/source.json
 ```
 
 Chaque push sur `main` publie une nouvelle build (Release GitHub `build-N`) : SideStore la
