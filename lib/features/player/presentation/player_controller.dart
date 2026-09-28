@@ -688,23 +688,30 @@ class PlayerController extends Notifier<PlayerUiState> {
     for (final s in _subscriptionsForever) {
       unawaited(s.cancel());
     }
-    await _reporter.stop();
-    for (final s in _subscriptions) {
-      await s.cancel();
-    }
-    _subscriptions.clear();
+    // Le travail de fond (rapport au serveur, libération du moteur) se poursuit après la
+    // fermeture de l'écran : le contrôleur reste en vie jusqu'à la fin.
+    final link = _disposing ? null : ref.keepAlive();
     final e = _engine;
     _engine = null;
-    if (!_disposing) {
-      // L'écran cesse d'afficher la vidéo (phase closed) avant la libération du
-      // moteur : la surface ne doit jamais pointer vers un lecteur détruit.
-      state = state.copyWith(phase: PlayerPhase.closed);
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+    // Le son s'arrête au toucher de la croix, sans attendre la suite.
+    if (e != null) unawaited(e.pause().catchError((Object _) {}));
+    for (final s in _subscriptions) {
+      unawaited(s.cancel());
     }
+    _subscriptions.clear();
+    // L'écran se ferme tout de suite (phase closed) : ni le rapport « stop » (aller-retour
+    // réseau, plus long si le serveur transcode) ni la libération du lecteur ne le retardent.
+    if (!_disposing) state = state.copyWith(phase: PlayerPhase.closed);
+    final report = _reporter.stop();
+    // La surface vidéo est retirée de l'écran avant la destruction du lecteur.
+    if (!_disposing) await Future<void>.delayed(const Duration(milliseconds: 50));
+    await e?.dispose();
+    await report;
     if (!_disposing) {
+      // Après le rapport : l'accueil et la fiche affichent la nouvelle progression.
       ref.invalidate(homeProvider);
       ref.invalidate(itemProvider(args.itemId));
     }
-    await e?.dispose();
+    link?.close();
   }
 }

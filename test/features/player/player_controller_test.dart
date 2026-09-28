@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -172,6 +174,34 @@ void main() {
     engine.fire(const PlaybackCompleted());
     await Future<void>.delayed(const Duration(milliseconds: 100));
     expect(c.state.phase, PlayerPhase.closed);
+    expect(playback.reports.last, startsWith('stopped@'));
+    expect(engine.disposed, isTrue);
+  });
+
+  test('fermeture instantanée : l'
+      'écran n'
+      'attend ni le serveur ni la libération du moteur', () async {
+    container = build();
+    final c = await start(container);
+    playback.stopDelay = const Duration(milliseconds: 500);
+    unawaited(c.close());
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      c.state.phase,
+      PlayerPhase.closed,
+      reason:
+          'l'
+          'écran se ferme au toucher de la croix',
+    );
+    expect(
+      engine.commands.last,
+      'pause',
+      reason:
+          'le son s'
+          'arrête immédiatement',
+    );
+    expect(playback.reports.last, isNot(startsWith('stopped')), reason: 'rapport encore en cours');
+    await Future<void>.delayed(const Duration(milliseconds: 700));
     expect(playback.reports.last, startsWith('stopped@'));
     expect(engine.disposed, isTrue);
   });

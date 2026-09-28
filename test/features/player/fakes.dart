@@ -165,7 +165,13 @@ class FakePlaybackRepository extends PlaybackRepository {
       reports.add('progress@${report.position.inSeconds}${report.isPaused ? ' paused' : ''}');
 
   @override
-  Future<void> stopped(PlaybackReport report) async => reports.add('stopped@${report.position.inSeconds}');
+  Future<void> stopped(PlaybackReport report) async {
+    await Future<void>.delayed(stopDelay);
+    reports.add('stopped@${report.position.inSeconds}');
+  }
+
+  /// Serveur lent à accuser la fin de lecture (transcodage à arrêter…).
+  Duration stopDelay = Duration.zero;
 }
 
 /// Compléments de lecture factices (chapitres, segments, épisode suivant).

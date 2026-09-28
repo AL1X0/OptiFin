@@ -349,7 +349,11 @@ final class NativePlayer: NSObject, FlutterStreamHandler, AVPictureInPictureCont
     channel.setMethodCallHandler(nil)
     eventChannel.setStreamHandler(nil)
     sink = nil
-    try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    // Désactiver la session audio peut bloquer plusieurs centaines de ms : hors du thread principal,
+    // pour que la fermeture du lecteur reste instantanée.
+    DispatchQueue.global(qos: .utility).async {
+      try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
     onDispose()
   }
 }
