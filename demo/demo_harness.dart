@@ -264,8 +264,10 @@ class DemoHarness {
 
   /// Toucher visible : le doigt apparaît, appuie, se relève.
   Future<void> tap(Finder finder) async {
+    await tester.pump();
     final target = finder.hitTestable().first;
     await tester.ensureVisible(target);
+    await tester.pump();
     final at = tester.getCenter(target);
     await tapAt(at);
   }
@@ -273,6 +275,7 @@ class DemoHarness {
   Future<void> tapAt(Offset at) async {
     _taps.add(_frame);
     _saveTaps();
+    await tester.pump(); // mise en page à jour avant le test de toucher
     final g = await tester.startGesture(at);
     for (var i = 0; i < 3; i++) {
       await frame();

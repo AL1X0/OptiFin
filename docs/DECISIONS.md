@@ -299,3 +299,11 @@ redessinent (ValueNotifier) au lieu du carrousel entier.
    serveur puis son repli appelait le serveur (« Serveur injoignable »). La fiche s'ouvre hors connexion avec la
    fiche enregistrée. Au démarrage (et avant une lecture), l'état des transferts terminés app fermée est rattrapé
    depuis la base du downloader.
+
+## Nouvelle vidéo et captures App Store (2026-09-28)
+
+Vidéo refaite avec l'app actuelle (barre flottante, lecteur en verre, menu Réglages, téléchargements) dans un
+montage épuré : fond noir, téléphone qui « respire », une phrase par plan, logo en ouverture et en fin. Bande-son
+synthétisée plus sobre (nappe qui s'ouvre, piano électrique FM, impacts sur le logo, réverbération FDN), −15 LUFS.
+Cinq captures au format App Store iPhone 6,9 pouces (1320 × 2868) dans `docs/appstore/`. README réduit à l'essentiel ;
+les GIF et la galerie de captures sont supprimés.
