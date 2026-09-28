@@ -87,7 +87,7 @@ class _UpNextCardState extends ConsumerState<UpNextCard> with SingleTickerProvid
         shade: 0.55,
         child: Padding(
           padding: const EdgeInsets.all(OFSpacing.sm),
-          child: ClipRRect(
+          child: RoundedClip(
             borderRadius: const BorderRadius.all(Radius.circular(16)),
             child: SizedBox(
               width: width,
@@ -215,11 +215,11 @@ class TrickplayPreview extends ConsumerWidget {
           width: width,
           height: height,
           decoration: BoxDecoration(
+            // Découpe rectangulaire (pas d'arrondi) : sûre au-dessus d'une vue native iOS.
             color: OFColors.surfaceRaised,
-            borderRadius: OFRadius.mdAll,
             border: Border.all(color: OFColors.textPrimary.withValues(alpha: 0.8), width: 1.5),
           ),
-          clipBehavior: Clip.antiAlias,
+          clipBehavior: Clip.hardEdge,
           child: OverflowBox(
             alignment: Alignment.topLeft,
             minWidth: sheetWidth,
@@ -303,14 +303,12 @@ class LevelIndicator extends StatelessWidget {
         const SizedBox(width: OFSpacing.md),
         SizedBox(
           width: 120,
-          child: ClipRRect(
+          child: LinearProgressIndicator(
+            value: value.clamp(0, 1),
+            minHeight: 4,
             borderRadius: const BorderRadius.all(Radius.circular(2)),
-            child: LinearProgressIndicator(
-              value: value.clamp(0, 1),
-              minHeight: 4,
-              backgroundColor: const Color(0x33FFFFFF),
-              color: OFColors.textPrimary,
-            ),
+            backgroundColor: const Color(0x33FFFFFF),
+            color: OFColors.textPrimary,
           ),
         ),
       ],

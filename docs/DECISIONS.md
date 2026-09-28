@@ -244,3 +244,8 @@ redessinent (ValueNotifier) au lieu du carrousel entier.
    quand le moteur natif lit ; le voile, plus dense, garde l'effet verre. Le flou reste avec mpv (texture).
 5. **`OFLoader`** : nouvel indicateur de chargement (arc en dégradé qui tourne et respire), sur pastille de
    verre dans le lecteur (préparation, mise en mémoire tampon, bouton lecture) et partout dans l'app.
+6. **Aucune découpe arrondie au-dessus d'AVPlayer** : Flutter 3.47 sur iOS efface tout le contenu Flutter qui
+   chevauche une vue native dès qu'un `ClipRRect` s'y superpose (régression connue, flutter/flutter#191771,
+   #193363, #192245) : plus de bouton lecture, de barre ni de menu sur la vidéo. Sans flou, `LiquidGlass`
+   ne découpe plus rien (les coins sont peints par les décorations) ; `RoundedClip` remplace `ClipRRect` pour
+   les images du lecteur (rectangle simple au-dessus d'une vue native).

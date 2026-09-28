@@ -83,9 +83,13 @@ class LiquidGlass extends StatelessWidget {
       child: DecoratedBox(
         // Voile sombre sous le reflet : lisibilité sur une image claire. Sans flou,
         // il est plus dense pour compenser.
-        decoration: BoxDecoration(color: Color.fromRGBO(0, 0, 0, blur ? shade : (shade + 0.22).clamp(0, 0.85))),
+        decoration: BoxDecoration(
+          color: Color.fromRGBO(0, 0, 0, blur ? shade : (shade + 0.22).clamp(0, 0.85)),
+          borderRadius: borderRadius,
+        ),
         child: DecoratedBox(
           decoration: BoxDecoration(
+            borderRadius: borderRadius,
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -99,14 +103,16 @@ class LiquidGlass extends StatelessWidget {
         ),
       ),
     );
+    // Sans flou : aucune couche de découpe. Sur iOS (Flutter 3.47), un ClipRRect posé
+    // au-dessus d'une vue native efface tout ce qui la chevauche (flutter/flutter#191771,
+    // #193363). Les coins arrondis sont alors simplement peints par les décorations.
+    if (!blur) return surface;
     return ClipRRect(
       borderRadius: borderRadius,
-      child: blur
-          ? BackdropFilter.grouped(
-              filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-              child: surface,
-            )
-          : surface,
+      child: BackdropFilter.grouped(
+        filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+        child: surface,
+      ),
     );
   }
 }
@@ -150,4 +156,17 @@ class _RimPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RimPainter old) => old.radius != radius;
+}
+
+/// Coins arrondis d'une image ou d'une vignette : `ClipRRect` en temps normal, simple
+/// découpe rectangulaire au-dessus d'une vue native (voir [LiquidGlass]).
+class RoundedClip extends StatelessWidget {
+  const RoundedClip({super.key, required this.borderRadius, required this.child});
+
+  final BorderRadius borderRadius;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      GlassBlur.enabledOf(context) ? ClipRRect(borderRadius: borderRadius, child: child) : ClipRect(child: child);
 }

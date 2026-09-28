@@ -568,7 +568,7 @@ class _ChapterRow extends ConsumerWidget {
           padding: const EdgeInsets.all(OFSpacing.sm),
           child: Row(
             children: [
-              ClipRRect(
+              RoundedClip(
                 borderRadius: OFRadius.smAll,
                 child: SizedBox(
                   width: _thumb,
