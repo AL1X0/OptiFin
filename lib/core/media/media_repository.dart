@@ -111,8 +111,9 @@ class MediaRepository {
         ),
       );
 
-  /// Carrousel : ajouts récents non vus, avec backdrop et synopsis.
-  Future<List<BaseItemDto>> featuredRaw({int limit = 8}) => _guard(() async {
+  /// Carrousel : recommandations au hasard parmi tous les films et séries non vus
+  /// de toutes les bibliothèques (avec backdrop et synopsis pour un bel affichage).
+  Future<List<BaseItemDto>> featuredRaw({int limit = 12}) => _guard(() async {
         final r = await _api.library.getItems(
           userId: userId,
           recursive: true,
@@ -120,8 +121,7 @@ class MediaRepository {
           imageTypes: const [ImageType.backdrop],
           filters: const [ItemFilter.isUnplayed],
           hasOverview: true,
-          sortBy: const [ItemSortBy.dateCreated],
-          sortOrder: const [SortOrder.descending],
+          sortBy: const [ItemSortBy.random],
           limit: limit,
           fields: ItemFieldSets.featured,
           enableImageTypes: const [ImageType.backdrop, ImageType.logo, ImageType.primary],

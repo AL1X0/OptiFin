@@ -158,6 +158,49 @@ void main() {
       await expectLater(build({}).watch().toList(), throwsA(isA<ApiFailure>()));
     });
 
+    Map<String, Object?> withBackdrop(String id) => dtoJson(id: id, extra: {'BackdropImageTags': ['t']});
+
+    test('carrousel : tirage au sort parmi les non vus de toutes les bibliothèques', () async {
+      final dio = createJellyfinDio(
+        baseUrl: Uri.parse('http://s'),
+        identity: const ClientIdentity(clientName: 'c', deviceName: 'd', deviceId: 'i', version: '1'),
+        tokenProvider: () => 't',
+      );
+      final adapter = FakeHttpAdapter(okRoutes);
+      dio.httpClientAdapter = adapter;
+      await HomeRepository(MediaRepository(JellyfinClient(dio), 'u'), cache, 'acc').fetch();
+      final featured = adapter.requests.firstWhere(
+        (r) => r.path == '/Items' && (r.queryParameters['imageTypes']?.toString().contains('Backdrop') ?? false),
+      );
+      expect(featured.queryParameters['sortBy'].toString(), contains('Random'));
+      expect(featured.queryParameters['filters'].toString(), contains('IsUnplayed'));
+      expect(featured.queryParameters['recursive'], true);
+      expect(featured.queryParameters.containsKey('parentId'), isFalse, reason: 'toutes les bibliothèques');
+    });
+
+    test('carrousel : les titres déjà commencés (Reprendre) sont exclus', () async {
+      final routes = Map<String, Object>.of(okRoutes)
+        ..['GET http://s/Items'] = FakeResponse(200, queryResult([withBackdrop('r1'), withBackdrop('a')]));
+      final home = await build(routes).fetch();
+      expect(home.featured.map((i) => i.id), ['a']);
+    });
+
+    test('carrousel : sélection stable pendant l’ouverture, nouvelle sélection à la suivante', () async {
+      Map<String, Object> draw(List<String> ids) => Map<String, Object>.of(okRoutes)
+        ..['GET http://s/Items'] = FakeResponse(200, queryResult([for (final id in ids) withBackdrop(id)]));
+      await build(draw(['a', 'b'])).watch().toList();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      // 2e ouverture : le serveur tire c, d mais l'écran garde a, b (pas de changement sous les yeux).
+      final second = await build(draw(['c', 'd'])).watch().toList();
+      expect(second.last.featured.map((i) => i.id), ['a', 'b']);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      // 3e ouverture : la sélection tirée précédemment (c, d) est affichée d'emblée.
+      final third = await build(draw(['e'])).watch().toList();
+      expect(third.first.featured.map((i) => i.id), ['c', 'd']);
+    });
+
     test('une bibliothèque en échec n’empêche pas l’accueil', () async {
       final routes = Map<String, Object>.of(okRoutes)..['GET http://s/Items/Latest'] = const FakeResponse(500, {});
       final emitted = await build(routes).watch().toList();

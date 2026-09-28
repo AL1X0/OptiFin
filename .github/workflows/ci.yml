@@ -101,7 +101,7 @@ jobs:
   # (l'ancienne adresse releases/latest/download/source.json reste valide)
   release:
     name: Publication SideStore
-    needs: ios
+    needs: [ios, android]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -114,9 +114,19 @@ jobs:
         with:
           name: optifin-ios-unsigned
           path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: optifin-android
+          path: dist/apk
       - name: Préparer l'IPA et la source
         run: |
           mv dist/OptiFin-unsigned.ipa dist/OptiFin.ipa
+          # APK : une par architecture ; arm64 (tous les téléphones récents) mise en avant.
+          for f in dist/apk/*.apk; do
+            abi=$(basename "$f" | sed -E 's/app-(.*)-release\.apk/\1/')
+            mv "$f" "dist/OptiFin-android-${abi}.apk"
+          done
+          ls -la dist
           # Doit être identique à la version inscrite dans l'IPA (SideStore le vérifie).
           VERSION=$(./.github/scripts/build_name.sh)
           BUILD=${{ github.run_number }}
@@ -131,7 +141,7 @@ jobs:
       # entièrement envoyées (sinon l'URL renverrait brièvement « Not Found »).
       - name: Créer la Release
         run: |
-          gh release create "$TAG" dist/OptiFin.ipa dist/source.json --draft --target "$GITHUB_SHA"             --title "OptiFin $VERSION" --notes "$(git log -1 --pretty=%B)"
+          gh release create "$TAG" dist/OptiFin.ipa dist/OptiFin-android-*.apk dist/source.json --draft --target "$GITHUB_SHA"             --title "OptiFin $VERSION" --notes "$(git log -1 --pretty=%B)"
           gh release edit "$TAG" --draft=false --latest
       # Source servie directement (sans redirection ni lien signé qui expire) :
       #   https://raw.githubusercontent.com/AL1X0/OptiFin/sidestore/source.json

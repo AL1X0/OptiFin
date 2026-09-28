@@ -27,29 +27,34 @@ class HomeSnapshot {
   final Map<String, List<BaseItemDto>> latest;
   final List<BaseItemDto> favorites;
 
+  HomeSnapshot withFeatured(List<BaseItemDto> items) =>
+      HomeSnapshot(views: views, featured: items, resume: resume, nextUp: nextUp, latest: latest, favorites: favorites);
+
   Map<String, Object?> toJson() => {
-        'v': 1,
-        'views': [for (final i in views) i.toJson()],
-        'featured': [for (final i in featured) i.toJson()],
-        'resume': [for (final i in resume) i.toJson()],
-        'nextUp': [for (final i in nextUp) i.toJson()],
-        'latest': {for (final e in latest.entries) e.key: [for (final i in e.value) i.toJson()]},
-        'favorites': [for (final i in favorites) i.toJson()],
-      };
+    'v': 1,
+    'views': [for (final i in views) i.toJson()],
+    'featured': [for (final i in featured) i.toJson()],
+    'resume': [for (final i in resume) i.toJson()],
+    'nextUp': [for (final i in nextUp) i.toJson()],
+    'latest': {
+      for (final e in latest.entries) e.key: [for (final i in e.value) i.toJson()],
+    },
+    'favorites': [for (final i in favorites) i.toJson()],
+  };
 
   static HomeSnapshot? tryParse(String raw) {
     try {
       final json = jsonDecode(raw) as Map<String, Object?>;
       if (json['v'] != 1) return null;
-      List<BaseItemDto> list(Object? o) => [for (final e in (o as List<Object?>? ?? const [])) BaseItemDto.fromJson(e! as Map<String, Object?>)];
+      List<BaseItemDto> list(Object? o) => [
+        for (final e in (o as List<Object?>? ?? const [])) BaseItemDto.fromJson(e! as Map<String, Object?>),
+      ];
       return HomeSnapshot(
         views: list(json['views']),
         featured: list(json['featured']),
         resume: list(json['resume']),
         nextUp: list(json['nextUp']),
-        latest: {
-          for (final e in (json['latest'] as Map<String, Object?>? ?? const {}).entries) e.key: list(e.value),
-        },
+        latest: {for (final e in (json['latest'] as Map<String, Object?>? ?? const {}).entries) e.key: list(e.value)},
         favorites: list(json['favorites']),
       );
     } catch (_) {
@@ -71,6 +76,10 @@ class HomeRepository {
   ///
   /// Si le réseau échoue alors qu'un cache a été affiché, l'erreur est avalée
   /// (l'utilisateur garde un accueil utilisable hors ligne).
+  ///
+  /// Carrousel aléatoire : la sélection affichée depuis le cache est conservée pour
+  /// cette ouverture (pas de changement sous les yeux de l'utilisateur) ; la nouvelle
+  /// sélection tirée au sort est enregistrée et apparaîtra à la prochaine ouverture.
   Stream<HomeData> watch() async* {
     final cachedRaw = await _cache.read(_key);
     final cached = cachedRaw == null ? null : HomeSnapshot.tryParse(cachedRaw);
@@ -78,11 +87,21 @@ class HomeRepository {
 
     try {
       final fresh = await fetch();
-      yield buildHome(fresh, fromCache: false);
+      final shown = cached == null || cached.featured.isEmpty
+          ? fresh
+          : fresh.withFeatured(_stillUnwatched(cached, fresh));
+      yield buildHome(shown, fromCache: false);
       unawaited(_cache.write(_key, jsonEncode(fresh.toJson())));
     } catch (e) {
       if (cached == null) rethrow;
     }
+  }
+
+  /// Sélection du cache, sans les titres commencés entre-temps (ils sont dans « Reprendre »).
+  static List<BaseItemDto> _stillUnwatched(HomeSnapshot cached, HomeSnapshot fresh) {
+    final started = {for (final i in fresh.resume) i.id, for (final i in fresh.nextUp) i.seriesId};
+    final kept = cached.featured.where((i) => !started.contains(i.id)).toList();
+    return kept.isEmpty ? fresh.featured : kept;
   }
 
   Future<HomeSnapshot> fetch() async {
@@ -98,9 +117,11 @@ class HomeRepository {
       Future.wait([for (final v in latestViews) _media.latestRaw(v.id).catchError((_) => const <BaseItemDto>[])]),
     ).wait;
 
+    // Déjà commencés : ils ont leur place dans « Reprendre » / « À suivre », pas en vitrine.
+    final started = {for (final i in resume) i.id, for (final i in nextUp) i.seriesId};
     return HomeSnapshot(
       views: views,
-      featured: featured,
+      featured: featured.where((i) => !started.contains(i.id)).take(8).toList(),
       resume: resume,
       nextUp: nextUp,
       latest: {for (final (i, v) in latestViews.indexed) v.id: latestLists[i]},
