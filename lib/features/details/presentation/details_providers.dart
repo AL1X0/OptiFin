@@ -1,14 +1,23 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/media/media_item.dart';
+import '../../../core/media/media_mapper.dart';
 import '../../../core/media/media_repository.dart';
 import '../../../core/network/api_failure.dart';
 import '../../../core/providers.dart';
+import '../../downloads/presentation/downloads_providers.dart';
 import '../../home/presentation/home_providers.dart';
 
-final itemProvider = FutureProvider.autoDispose.family<MediaItem, String>(
-  (ref, id) => ref.watch(mediaRepositoryProvider).item(id),
-);
+final itemProvider = FutureProvider.autoDispose.family<MediaItem, String>((ref, id) async {
+  try {
+    return await ref.watch(mediaRepositoryProvider).item(id);
+  } catch (e) {
+    // Hors connexion : la fiche enregistrée avec le téléchargement.
+    final local = await ref.read(downloadsRepositoryProvider).local(id).catchError((Object _) => null);
+    if (local == null) rethrow;
+    return MediaMapper.fromDto(local.item);
+  }
+});
 
 final seasonsProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>(
   (ref, seriesId) => ref.watch(mediaRepositoryProvider).seasons(seriesId),

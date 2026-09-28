@@ -470,6 +470,9 @@ class _DemoTransfers implements FileTransfers {
 
   @override
   Future<void> cancel(String taskId) async {}
+
+  @override
+  Future<TransferStatus?> statusOf(String taskId) async => null;
 }
 
 extension DemoDownloads on DemoHarness {

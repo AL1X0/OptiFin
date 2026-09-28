@@ -51,6 +51,11 @@ class FakeTransfers implements FileTransfers {
 
   @override
   Future<void> cancel(String taskId) async => canceled.add(taskId);
+
+  final statuses = <String, TransferStatus>{};
+
+  @override
+  Future<TransferStatus?> statusOf(String taskId) async => statuses[taskId];
 }
 
 Map<String, Object?> _dto(String id, {String type = 'Movie', String? series, int? season, int? episode}) => {
@@ -197,6 +202,14 @@ void main() {
       expect(local, isNotNull);
       expect(local!.item.id, 'm');
       expect(local.playbackInfo.mediaSources?.single.id, 'src1');
+    });
+
+    test('terminé pendant que l’app était fermée : état rattrapé, lecture locale possible', () async {
+      await insert('m', status: 'running');
+      File('${dir.path}/downloads/m.mkv').createSync(recursive: true);
+      transfers.statuses['m'] = TransferStatus.complete;
+      expect(await repo.local('m'), isNotNull);
+      expect((await repo.watch().first).single.status, DownloadStatus.complete);
     });
 
     test('suppression : transferts annulés, fichiers et fiche effacés', () async {

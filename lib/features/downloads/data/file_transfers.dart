@@ -38,6 +38,9 @@ abstract interface class FileTransfers {
   Future<void> pause(String taskId);
   Future<void> resume(String taskId);
   Future<void> cancel(String taskId);
+
+  /// Dernier état connu d'un transfert (y compris terminé pendant que l'app était fermée).
+  Future<TransferStatus?> statusOf(String taskId);
 }
 
 /// Implémentation `background_downloader` : URLSession d'arrière-plan sur iOS,
@@ -131,4 +134,9 @@ class BackgroundTransfers implements FileTransfers {
 
   @override
   Future<void> cancel(String taskId) => _downloader.cancelTaskWithId(taskId);
+  @override
+  Future<TransferStatus?> statusOf(String taskId) async {
+    final record = await _downloader.database.recordForId(taskId);
+    return record == null ? null : _map(record.status);
+  }
 }

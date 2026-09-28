@@ -294,3 +294,8 @@ redessinent (ValueNotifier) au lieu du carrousel entier.
 5. **Interface** : bouton rond sur les fiches (anneau de progression, coche, actions pause/reprise/annulation/
    suppression), « Télécharger la saison » et un bouton par épisode ; onglet **Téléchargements** (4e onglet) : films
    et séries regroupés (épisodes ordonnés), progression, espace occupé, glisser pour supprimer, tout supprimer.
+6. **Correctif hors connexion** : le lecteur ignore un plan préchargé plus tôt (flux du serveur, gardé 2 min par
+   la fiche ou le carrousel) dès qu'un fichier téléchargé existe ; avant, en mode avion, il tentait le flux du
+   serveur puis son repli appelait le serveur (« Serveur injoignable »). La fiche s'ouvre hors connexion avec la
+   fiche enregistrée. Au démarrage (et avant une lecture), l'état des transferts terminés app fermée est rattrapé
+   depuis la base du downloader.

@@ -41,6 +41,7 @@ class DownloadsRepository {
        // ignore: prefer_initializing_formals
        _transfers = transfers {
     _subscription = _transfers.updates.listen(_onUpdate);
+    unawaited(_reconcileAll());
   }
 
   final AppDatabase _db;
@@ -104,7 +105,8 @@ class DownloadsRepository {
     final row = await (_db.select(
       _db.downloads,
     )..where((t) => t.itemId.equals(itemId) & t.accountId.equals(accountId))).getSingleOrNull();
-    if (row == null || DownloadStatus.parse(row.status) != DownloadStatus.complete) return null;
+    if (row == null) return null;
+    if (DownloadStatus.parse(row.status) != DownloadStatus.complete && !await _reconcile(row)) return null;
     final file = File('${await _transfers.rootPath()}/${row.filePath}');
     if (!file.existsSync()) return null;
     try {
@@ -250,6 +252,50 @@ class DownloadsRepository {
   }
 
   // ------------------------------------------------------------------ Suivi des transferts
+
+  /// Au démarrage : transferts terminés (ou en échec) pendant que l'app était fermée,
+  /// dont l'état n'a pas pu être enregistré sur le moment.
+  Future<void> _reconcileAll() async {
+    try {
+      final rows =
+          await (_db.select(_db.downloads)..where(
+                (t) =>
+                    t.accountId.equals(accountId) &
+                    t.status.isNotIn([DownloadStatus.complete.name, DownloadStatus.failed.name]),
+              ))
+              .get();
+      for (final r in rows) {
+        await _reconcile(r);
+      }
+    } catch (e) {
+      AppLog.w('downloads', 'Rapprochement des téléchargements impossible : $e');
+    }
+  }
+
+  /// Aligne une ligne sur l'état réel du transfert ; true si elle est désormais complète.
+  Future<bool> _reconcile(DownloadRow row) async {
+    TransferStatus? status;
+    try {
+      status = await _transfers.statusOf(row.itemId);
+    } catch (_) {}
+    final file = File('${await _transfers.rootPath()}/${row.filePath}');
+    final complete =
+        status == TransferStatus.complete || (status == null && row.progress >= 0.999 && file.existsSync());
+    final next = complete
+        ? DownloadStatus.complete
+        : switch (status) {
+            TransferStatus.failed => DownloadStatus.failed,
+            TransferStatus.paused => DownloadStatus.paused,
+            _ => null,
+          };
+    if (next != null && next.name != row.status) {
+      AppLog.i('downloads', 'État rattrapé pour ${row.itemId} : ${next.name}');
+      await (_db.update(_db.downloads)..where((t) => t.itemId.equals(row.itemId))).write(
+        DownloadsCompanion(status: Value(next.name), progress: complete ? const Value(1) : const Value.absent()),
+      );
+    }
+    return complete && file.existsSync();
+  }
 
   Future<void> _onUpdate(TransferUpdate u) async {
     final id = u.taskId;

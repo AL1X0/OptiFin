@@ -220,6 +220,9 @@ class PlayerController extends Notifier<PlayerUiState> {
     try {
       final media = ref.read(mediaRepositoryProvider);
       final itemFuture = media.item(args.itemId).catchError((Object e) => _offlineItem(e));
+      // Fichier téléchargé : on ignore un plan préchargé plus tôt (flux du serveur) pour lire
+      // le fichier local — indispensable hors connexion.
+      if (await _hasLocalFile()) ref.invalidate(playbackPrefetchProvider(args.itemId));
       // Plan et décision préchargés par la fiche si disponibles, sinon calculés maintenant.
       final preparedFuture = ref.read(playbackPrefetchProvider(args.itemId).future);
       // Future.wait relance l'erreur d'origine (ApiFailure et son message précis).
@@ -280,6 +283,14 @@ class PlayerController extends Notifier<PlayerUiState> {
       _reporter.started(plan, position: start);
     } else {
       _reporter.planChanged(plan);
+    }
+  }
+
+  Future<bool> _hasLocalFile() async {
+    try {
+      return await ref.read(downloadsRepositoryProvider).local(args.itemId) != null;
+    } catch (_) {
+      return false;
     }
   }
 
