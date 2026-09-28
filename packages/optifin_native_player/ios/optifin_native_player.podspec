@@ -15,7 +15,7 @@ Lecteur AVPlayer (AVPlayerLayer en PlatformView) pour OptiFin.
   s.source           = { :path => '.' }
   s.source_files = 'optifin_native_player/Sources/optifin_native_player/**/*.swift'
   s.dependency 'Flutter'
-  s.frameworks = 'AVFoundation', 'CoreMedia', 'VideoToolbox'
+  s.frameworks = 'AVFoundation', 'AVKit', 'CoreMedia', 'VideoToolbox'
   s.platform = :ios, '15.0'
 
   # Flutter.framework does not contain a i386 slice.

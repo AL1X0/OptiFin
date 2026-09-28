@@ -1,4 +1,5 @@
 import AVFoundation
+import AVKit
 import CoreMedia
 import UIKit
 import VideoToolbox
@@ -36,6 +37,8 @@ enum CapabilitiesProbe {
       "audioCodecs": ["aac", "mp3", "ac3", "eac3", "alac", "flac"],
       "containers": ["mp4", "m4v", "mov"],
       "maxWidth": hevc ? 3840 : 1920,
+      "pictureInPicture": AVPictureInPictureController.isPictureInPictureSupported(),
+      "airPlay": true,
     ]
   }
 

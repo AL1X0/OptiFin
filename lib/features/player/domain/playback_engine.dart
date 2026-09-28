@@ -42,6 +42,9 @@ abstract interface class PlaybackEngine {
   Future<void> setSubtitleDelay(Duration delay);
   Future<void> setAudioDelay(Duration delay);
 
+  /// Passe en Picture-in-Picture (si [EngineCapabilities.pictureInPicture]). false si refusé.
+  Future<bool> enterPictureInPicture();
+
   /// Surface vidéo. [fit] : contain (défaut) / cover (zoom) / fill (étirer).
   Widget buildView({BoxFit fit = BoxFit.contain});
 

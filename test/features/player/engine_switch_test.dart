@@ -62,6 +62,7 @@ PlaybackPlan sourcedPlan({int? audioIndex = 1, int? subtitleIndex, PlaybackReque
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late FakePlaybackRepository playback;
   late ProviderContainer container;
   late List<FakeEngine> engines;
@@ -89,6 +90,7 @@ void main() {
           const ClientIdentity(clientName: 'OptiFin', deviceName: 'T', deviceId: 'd', version: '1'),
         ),
         playbackRepositoryProvider.overrideWithValue(playback),
+        playbackExtrasRepositoryProvider.overrideWithValue(FakeExtrasRepository()),
         mediaRepositoryProvider.overrideWithValue(FakeMediaRepository(movie)),
         deviceCapabilitiesProvider.overrideWith((ref) async => iphone15Pro.caps),
         maxBitrateResolverProvider.overrideWithValue(() async => 120000000),

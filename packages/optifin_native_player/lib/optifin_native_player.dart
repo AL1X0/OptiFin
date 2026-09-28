@@ -4,5 +4,6 @@
 /// contrat `PlaybackEngine` se fait côté app (`NativeEngine`).
 library;
 
+export 'src/airplay_button.dart';
 export 'src/native_player.dart';
 export 'src/native_player_view.dart';

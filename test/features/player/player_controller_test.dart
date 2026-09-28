@@ -11,12 +11,25 @@ import 'package:optifin/features/player/data/device_profiles.dart';
 import 'package:optifin/features/player/data/playback_repository.dart';
 import 'package:optifin/features/player/domain/device_capabilities.dart';
 import 'package:optifin/features/player/domain/playback_engine.dart';
+import 'package:optifin/features/player/domain/playback_extras.dart';
 import 'package:optifin/features/player/domain/playback_plan.dart';
 import 'package:optifin/features/player/presentation/player_controller.dart';
 import 'package:optifin/features/player/presentation/player_screen.dart';
+import 'package:optifin/features/settings/domain/app_settings.dart';
 import 'package:optifin/features/settings/presentation/settings_providers.dart';
 
 import 'fakes.dart';
+
+const downloadedSub = MediaTrack(
+  index: 9,
+  type: TrackType.subtitle,
+  label: 'Français (OpenSubtitles)',
+  codec: 'srt',
+  isExternal: true,
+  deliveryUrl: '/Videos/m/src/Subtitles/9/0/Stream.srt',
+);
+
+const nextEpisode = MediaItem(id: 'e2', name: 'La suite', kind: MediaKind.episode);
 
 const movie = MediaItem(
   id: 'm',
@@ -28,17 +41,25 @@ const movie = MediaItem(
 void main() {
   late FakeEngine engine;
   late FakePlaybackRepository playback;
+  late FakeExtrasRepository extras;
   late ProviderContainer container;
 
-  ProviderContainer build({PlayMethod method = PlayMethod.directPlay, int? defaultSubtitle}) {
+  ProviderContainer build({
+    PlayMethod method = PlayMethod.directPlay,
+    int? defaultSubtitle,
+    AppSettings settings = const AppSettings(),
+  }) {
     engine = FakeEngine();
-    playback = FakePlaybackRepository(
-      ({int? audioIndex, int? subtitleIndex, PlaybackRequestOptions? options}) => plan(
+    extras = FakeExtrasRepository();
+    playback = FakePlaybackRepository(({int? audioIndex, int? subtitleIndex, PlaybackRequestOptions? options}) {
+      final p = plan(
         method: method,
         audioIndex: audioIndex ?? 1,
         subtitleIndex: subtitleIndex == null || subtitleIndex < 0 ? defaultSubtitle : subtitleIndex,
-      ),
-    );
+      );
+      // Après un téléchargement, le serveur expose le nouveau sous-titre externe.
+      return extras.downloads.isEmpty ? p : p.withSubtitleTracks([...p.subtitleTracks, downloadedSub]);
+    });
     return ProviderContainer(
       retry: networkRetry,
       overrides: [
@@ -53,10 +74,12 @@ void main() {
           const ClientIdentity(clientName: 'OptiFin', deviceName: 'T', deviceId: 'd', version: '1'),
         ),
         playbackRepositoryProvider.overrideWithValue(playback),
+        playbackExtrasRepositoryProvider.overrideWithValue(extras),
         mediaRepositoryProvider.overrideWithValue(FakeMediaRepository(movie)),
         playbackEngineFactoryProvider.overrideWithValue((_) async => engine),
         deviceCapabilitiesProvider.overrideWith((ref) async => DeviceCapabilities.fallback(DevicePlatform.other)),
         maxBitrateResolverProvider.overrideWithValue(() async => 40000000),
+        initialSettingsProvider.overrideWithValue(settings),
       ],
     );
   }
@@ -180,6 +203,156 @@ void main() {
     expect(find.text('Externe SRT'), findsOneWidget);
 
     // Démonte l'écran puis le conteneur : aucune minuterie ne doit survivre (cache 2 min, masquage).
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(minutes: 3));
+    container.dispose();
+    await tester.pump(const Duration(minutes: 3));
+  });
+
+  group('Phase 5 : segments, épisode suivant, décalages, sous-titres', () {
+    const intro = MediaSegment(type: SegmentType.intro, start: Duration(minutes: 1), end: Duration(minutes: 2));
+    const outro = MediaSegment(
+      type: SegmentType.outro,
+      start: Duration(hours: 1, minutes: 55),
+      end: Duration(hours: 2),
+    );
+
+    Future<void> settle() async {
+      for (var i = 0; i < 10; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    test('segment en cours → bouton « Passer », puis saut à la fin du segment', () async {
+      container = build();
+      extras.extras = const PlaybackExtras(segments: [intro]);
+      final c = await start(container, at: Duration.zero);
+      engine.emit(engine.snapshot.copyWith(position: const Duration(seconds: 70)));
+      await settle();
+      expect(c.state.segment, intro);
+      await c.skipSegment();
+      expect(engine.commands.last, 'seek:120');
+      expect(c.state.segment, isNull);
+    });
+
+    test('saut automatique (réglage) : une seule fois par segment', () async {
+      container = build(settings: const AppSettings(autoSkipSegments: true));
+      extras.extras = const PlaybackExtras(segments: [intro]);
+      await start(container, at: Duration.zero);
+      engine.emit(engine.snapshot.copyWith(position: const Duration(seconds: 61)));
+      await settle();
+      expect(engine.commands.where((c) => c == 'seek:120'), hasLength(1));
+      // Retour volontaire dans l'intro : pas de nouveau saut.
+      engine.emit(engine.snapshot.copyWith(position: const Duration(seconds: 65)));
+      await settle();
+      expect(engine.commands.where((c) => c == 'seek:120'), hasLength(1));
+    });
+
+    test('générique → carte épisode suivant ; « Lire » enchaîne (fin de session propre)', () async {
+      container = build();
+      extras.extras = const PlaybackExtras(segments: [outro], nextEpisode: nextEpisode);
+      final c = await start(container, at: Duration.zero);
+      engine.emit(engine.snapshot.copyWith(position: const Duration(hours: 1, minutes: 56)));
+      await settle();
+      expect(c.state.upNext, isTrue);
+      expect(c.state.segment, isNull, reason: 'le générique est géré par la carte, pas par « Passer »');
+      await c.playNext();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(c.state.nextItemId, 'e2');
+      expect(c.state.phase, PlayerPhase.closed);
+      expect(playback.reports.last, startsWith('stopped@'));
+    });
+
+    test('carte fermée : pas d’enchaînement automatique en fin de lecture', () async {
+      container = build();
+      extras.extras = const PlaybackExtras(nextEpisode: nextEpisode);
+      final c = await start(container, at: Duration.zero);
+      engine.emit(engine.snapshot.copyWith(position: const Duration(hours: 1, minutes: 59, seconds: 40)));
+      await settle();
+      expect(c.state.upNext, isTrue);
+      c.dismissUpNext();
+      engine.fire(const PlaybackCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(c.state.phase, PlayerPhase.closed);
+      expect(c.state.nextItemId, isNull);
+    });
+
+    test('fin de l’épisode sans intervention → épisode suivant', () async {
+      container = build();
+      extras.extras = const PlaybackExtras(nextEpisode: nextEpisode);
+      final c = await start(container, at: Duration.zero);
+      engine.fire(const PlaybackCompleted());
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(c.state.nextItemId, 'e2');
+    });
+
+    test('décalages audio et sous-titres transmis au moteur', () async {
+      container = build();
+      final c = await start(container);
+      await c.setSubtitleDelay(const Duration(milliseconds: 300));
+      await c.setAudioDelay(const Duration(milliseconds: -200));
+      expect(engine.commands, containsAll(['subdelay:300', 'audiodelay:-200']));
+      expect(c.state.subtitleDelay, const Duration(milliseconds: 300));
+    });
+
+    test('sous-titre téléchargé depuis le serveur : ajouté et affiché sans recharger', () async {
+      container = build();
+      final c = await start(container);
+      await c.downloadSubtitle(const RemoteSubtitle(id: 'os-42', name: 'Français'));
+      expect(extras.downloads, ['os-42']);
+      expect(c.state.plan!.subtitleTracks.map((t) => t.index), contains(9));
+      expect(c.state.plan!.subtitleIndex, 9);
+      expect(engine.commands.last, 'extsub:http://s/jf/Videos/m/src/Subtitles/9/0/Stream.srt');
+      expect(engine.opened, hasLength(1));
+    });
+  });
+
+  testWidgets('écran : « Passer l’intro », verrouillage, carte épisode suivant', (tester) async {
+    container = build();
+    extras.extras = const PlaybackExtras(
+      segments: [MediaSegment(type: SegmentType.intro, start: Duration(minutes: 9), end: Duration(minutes: 11))],
+      nextEpisode: nextEpisode,
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: OFTheme.dark(),
+          home: const PlayerScreen(args: PlayerArgs('m')),
+        ),
+      ),
+    );
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    // Reprise à 10 min : dans l'intro.
+    engine.emit(engine.snapshot.copyWith(position: const Duration(minutes: 10)));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Passer l’intro'), findsOneWidget);
+    await tester.tap(find.text('Passer l’intro'));
+    await tester.pump();
+    expect(engine.commands, contains('seek:660'));
+
+    // Verrou : les contrôles disparaissent, seul « Déverrouiller » peut revenir.
+    await tester.tap(find.bySemanticsLabel('Verrouiller l’écran'));
+    await tester.pump(const Duration(milliseconds: 400));
+    // Contrôles encore présents (fondu) mais plus touchables.
+    expect(find.bySemanticsLabel('Pause').hitTestable(), findsNothing);
+    expect(find.text('Déverrouiller'), findsOneWidget);
+    await tester.tap(find.text('Déverrouiller'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.bySemanticsLabel('Pause').hitTestable(), findsOneWidget);
+
+    // Générique (30 s avant la fin) : carte épisode suivant.
+    engine.emit(engine.snapshot.copyWith(position: const Duration(hours: 1, minutes: 59, seconds: 45)));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('ÉPISODE SUIVANT'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Continuer le générique'));
+    await tester.pump();
+    expect(find.text('ÉPISODE SUIVANT'), findsNothing);
+
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(minutes: 3));
     container.dispose();

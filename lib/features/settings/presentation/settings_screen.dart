@@ -167,6 +167,27 @@ class SettingsScreen extends ConsumerWidget {
               onSelected: (v) => controller.update((s) => s.copyWith(subtitleLanguage: () => v.isEmpty ? null : v)),
             ),
           ),
+          const _Section('Séries'),
+          SwitchListTile(
+            secondary: const Icon(Icons.fast_forward_outlined, color: OFColors.textSecondary),
+            title: const Text('Passer les intros automatiquement', style: OFTypography.body),
+            subtitle: Text(
+              'Intros, récapitulatifs et aperçus détectés par le serveur (sinon, un bouton « Passer »).',
+              style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
+            ),
+            value: settings.autoSkipSegments,
+            onChanged: (v) => controller.update((s) => s.copyWith(autoSkipSegments: v)),
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.skip_next_outlined, color: OFColors.textSecondary),
+            title: const Text('Épisode suivant automatique', style: OFTypography.body),
+            subtitle: Text(
+              'Enchaîne après un compte à rebours de 10 s pendant le générique.',
+              style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
+            ),
+            value: settings.autoPlayNext,
+            onChanged: (v) => controller.update((s) => s.copyWith(autoPlayNext: v)),
+          ),
           const _Section('Apparence des sous-titres'),
           _Tile(
             icon: Icons.format_size_rounded,

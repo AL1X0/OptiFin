@@ -1,4 +1,5 @@
 import AVFoundation
+import AVKit
 import Flutter
 import UIKit
 
@@ -7,7 +8,7 @@ import UIKit
 final class PlayerLayerView: UIView {
   override class var layerClass: AnyClass { AVPlayerLayer.self }
 
-  private var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+  var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
 
   var player: AVPlayer? {
     get { playerLayer.player }
@@ -59,4 +60,30 @@ final class PlayerViewFactory: NSObject, FlutterPlatformViewFactory {
   func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
     FlutterStandardMessageCodec.sharedInstance()
   }
+}
+
+/// Bouton AirPlay système (choix de l'Apple TV / du récepteur).
+final class AirPlayViewFactory: NSObject, FlutterPlatformViewFactory {
+  func create(withFrame frame: CGRect, viewIdentifier viewId: Int64, arguments args: Any?) -> FlutterPlatformView {
+    let picker = AVRoutePickerView(frame: frame)
+    picker.tintColor = .white
+    picker.activeTintColor = .systemBlue
+    picker.prioritizesVideoDevices = true
+    picker.backgroundColor = .clear
+    return SimplePlatformView(picker)
+  }
+
+  func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
+    FlutterStandardMessageCodec.sharedInstance()
+  }
+}
+
+final class SimplePlatformView: NSObject, FlutterPlatformView {
+  private let content: UIView
+
+  init(_ view: UIView) {
+    content = view
+  }
+
+  func view() -> UIView { content }
 }

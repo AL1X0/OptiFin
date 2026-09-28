@@ -10,6 +10,7 @@ import '../../../core/providers.dart';
 import '../../settings/presentation/settings_providers.dart';
 import '../data/engines/mpv_engine.dart';
 import '../data/engines/native_engine.dart';
+import '../data/playback_extras_repository.dart';
 import '../data/playback_preparer.dart';
 import '../data/playback_repository.dart';
 import '../domain/device_capabilities.dart';
@@ -24,6 +25,12 @@ final playbackRepositoryProvider = Provider<PlaybackRepository>((ref) {
     userId: session.account.userId,
     baseUrl: session.server.baseUrl,
   );
+});
+
+final playbackExtrasRepositoryProvider = Provider<PlaybackExtrasRepository>((ref) {
+  final session = ref.watch(sessionControllerProvider);
+  if (session == null) throw StateError('Aucune session active');
+  return PlaybackExtrasRepository(ref.watch(jellyfinClientProvider), userId: session.account.userId);
 });
 
 /// Capacités du lecteur natif, mesurées une fois par lancement (quelques ms)

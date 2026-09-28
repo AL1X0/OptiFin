@@ -23,6 +23,8 @@ class DeviceCapabilities {
     this.audioCodecs = const {'aac', 'mp3'},
     this.containers = const {'mp4', 'm4v', 'mov'},
     this.maxWidth = 1920,
+    this.pictureInPicture = false,
+    this.airPlay = false,
   });
 
   final DevicePlatform platform;
@@ -53,6 +55,12 @@ class DeviceCapabilities {
 
   /// Largeur max décodable en matériel (3840 pour la 4K).
   final int maxWidth;
+
+  /// Picture-in-Picture disponible (iOS : lecteur natif ; Android : toute l'activité).
+  final bool pictureInPicture;
+
+  /// AirPlay (iOS, lecteur natif).
+  final bool airPlay;
 
   bool get supportsDolbyVision => dolbyVisionProfiles.isNotEmpty;
 
@@ -121,6 +129,8 @@ class DeviceCapabilities {
             }
           : base.containers,
       maxWidth: json['maxWidth'] is int ? json['maxWidth']! as int : base.maxWidth,
+      pictureInPicture: json['pictureInPicture'] == true,
+      airPlay: json['airPlay'] == true,
     );
   }
 
@@ -136,6 +146,8 @@ class DeviceCapabilities {
     'audioCodecs': audioCodecs.toList(),
     'containers': containers.toList(),
     'maxWidth': maxWidth,
+    'pictureInPicture': pictureInPicture,
+    'airPlay': airPlay,
   };
 
   String toJsonString() => jsonEncode(toJson());

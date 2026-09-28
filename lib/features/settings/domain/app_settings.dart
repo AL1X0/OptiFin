@@ -54,6 +54,8 @@ class AppSettings {
     this.subtitleBackground = SubtitleBackground.none,
     this.enginePreference = EnginePreference.auto,
     this.imageSubtitles = ImageSubtitlePolicy.auto,
+    this.autoSkipSegments = false,
+    this.autoPlayNext = true,
   });
 
   final bool debugMode;
@@ -73,6 +75,12 @@ class AppSettings {
   /// Sous-titres image sur une vidéo destinée au lecteur natif : mpv ou incrustation.
   final ImageSubtitlePolicy imageSubtitles;
 
+  /// Passe automatiquement intros, récapitulatifs et aperçus (segments Jellyfin).
+  final bool autoSkipSegments;
+
+  /// Enchaîne l'épisode suivant après un compte à rebours.
+  final bool autoPlayNext;
+
   SubtitleStyle get subtitleStyle => SubtitleStyle(scale: subtitleScale, background: subtitleBackground);
 
   AppSettings copyWith({
@@ -86,6 +94,8 @@ class AppSettings {
     SubtitleBackground? subtitleBackground,
     EnginePreference? enginePreference,
     ImageSubtitlePolicy? imageSubtitles,
+    bool? autoSkipSegments,
+    bool? autoPlayNext,
   }) => AppSettings(
     debugMode: debugMode ?? this.debugMode,
     maxBitrateWifi: maxBitrateWifi ?? this.maxBitrateWifi,
@@ -97,6 +107,8 @@ class AppSettings {
     subtitleBackground: subtitleBackground ?? this.subtitleBackground,
     enginePreference: enginePreference ?? this.enginePreference,
     imageSubtitles: imageSubtitles ?? this.imageSubtitles,
+    autoSkipSegments: autoSkipSegments ?? this.autoSkipSegments,
+    autoPlayNext: autoPlayNext ?? this.autoPlayNext,
   );
 
   Map<String, Object?> toJson() => {
@@ -111,6 +123,8 @@ class AppSettings {
     'subtitleBackground': subtitleBackground.name,
     'enginePreference': enginePreference.name,
     'imageSubtitles': imageSubtitles.name,
+    'autoSkipSegments': autoSkipSegments,
+    'autoPlayNext': autoPlayNext,
   };
 
   /// Lecture tolérante : une clé absente ou invalide reprend sa valeur par défaut
@@ -136,6 +150,8 @@ class AppSettings {
             EnginePreference.values.where((e) => e.name == j['enginePreference']).firstOrNull ?? d.enginePreference,
         imageSubtitles:
             ImageSubtitlePolicy.values.where((e) => e.name == j['imageSubtitles']).firstOrNull ?? d.imageSubtitles,
+        autoSkipSegments: pick<bool>('autoSkipSegments') ?? d.autoSkipSegments,
+        autoPlayNext: pick<bool>('autoPlayNext') ?? d.autoPlayNext,
       );
     } catch (_) {
       return d;

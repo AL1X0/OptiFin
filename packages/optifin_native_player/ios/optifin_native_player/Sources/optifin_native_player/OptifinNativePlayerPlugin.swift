@@ -17,6 +17,7 @@ public class OptifinNativePlayerPlugin: NSObject, FlutterPlugin {
     let channel = FlutterMethodChannel(name: "optifin_native_player", binaryMessenger: registrar.messenger())
     registrar.addMethodCallDelegate(instance, channel: channel)
     registrar.register(PlayerViewFactory(plugin: instance), withId: "optifin_native_player/view")
+    registrar.register(AirPlayViewFactory(), withId: "optifin_native_player/airplay")
   }
 
   func player(_ id: Int) -> NativePlayer? { players[id] }
@@ -25,6 +26,9 @@ public class OptifinNativePlayerPlugin: NSObject, FlutterPlugin {
     switch call.method {
     case "capabilities":
       result(CapabilitiesProbe.probe())
+    // PiP Android uniquement (activité entière) ; sur iOS, le PiP est porté par chaque lecteur.
+    case "enterPip", "setAutoPip":
+      result(false)
     case "create":
       let id = nextId
       nextId += 1

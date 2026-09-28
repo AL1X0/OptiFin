@@ -10,10 +10,13 @@ import 'player_controller.dart';
 
 /// Feuille « Audio et sous-titres » : pistes, vitesse, taille des sous-titres.
 class TracksSheet extends ConsumerWidget {
-  const TracksSheet({super.key, required this.controller, required this.engine});
+  const TracksSheet({super.key, required this.controller, required this.engine, this.onSearchSubtitles});
 
   final PlayerController controller;
   final PlaybackEngine engine;
+
+  /// Ouvre la recherche de sous-titres sur le serveur.
+  final VoidCallback? onSearchSubtitles;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -73,6 +76,15 @@ class TracksSheet extends ConsumerWidget {
             selected: t.index == plan.subtitleIndex,
             onTap: () => controller.selectSubtitle(t),
           ),
+        if (onSearchSubtitles != null)
+          ListTile(
+            dense: true,
+            visualDensity: VisualDensity.compact,
+            shape: const RoundedRectangleBorder(borderRadius: OFRadius.mdAll),
+            leading: const Icon(Icons.search_rounded, color: OFColors.textSecondary),
+            title: const Text('Rechercher en ligne…', style: OFTypography.callout),
+            onTap: onSearchSubtitles,
+          ),
       ],
     );
 
@@ -109,6 +121,22 @@ class TracksSheet extends ConsumerWidget {
               label: (v) => '${v.toString().replaceAll('.', ',')}×',
               onSelected: controller.setRate,
             ),
+          ),
+        ],
+        if (caps.subtitleDelay) ...[
+          const _Header('Décalage des sous-titres'),
+          _DelayStepper(
+            value: state.subtitleDelay,
+            onChanged: controller.setSubtitleDelay,
+            hint: 'Positif : les sous-titres apparaissent plus tard.',
+          ),
+        ],
+        if (caps.audioDelay) ...[
+          const _Header('Décalage audio'),
+          _DelayStepper(
+            value: state.audioDelay,
+            onChanged: controller.setAudioDelay,
+            hint: 'Positif : le son est retardé.',
           ),
         ],
         if (caps.subtitleStyling) ...[
@@ -269,6 +297,65 @@ class DebugOverlay extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Réglage fin d'un décalage par pas de 100 ms (appui long : 1 s), remise à zéro au centre.
+class _DelayStepper extends StatelessWidget {
+  const _DelayStepper({required this.value, required this.onChanged, required this.hint});
+
+  final Duration value;
+  final ValueChanged<Duration> onChanged;
+  final String hint;
+
+  static const _step = Duration(milliseconds: 100);
+  static const _bigStep = Duration(seconds: 1);
+
+  @override
+  Widget build(BuildContext context) {
+    final ms = value.inMilliseconds;
+    final label = '${ms > 0 ? '+' : ''}${(ms / 1000).toStringAsFixed(1).replaceAll('.', ',')} s';
+    Widget step(IconData icon, String tooltip, Duration delta) => GestureDetector(
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        onChanged(value + (delta.isNegative ? -_bigStep : _bigStep));
+      },
+      child: IconButton(
+        tooltip: tooltip,
+        icon: Icon(icon),
+        onPressed: () {
+          HapticFeedback.selectionClick();
+          onChanged(value + delta);
+        },
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: OFSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              step(Icons.remove_rounded, 'Moins 0,1 s', -_step),
+              Expanded(
+                child: TextButton(
+                  onPressed: ms == 0 ? null : () => onChanged(Duration.zero),
+                  child: Text(
+                    label,
+                    style: OFTypography.headline.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                  ),
+                ),
+              ),
+              step(Icons.add_rounded, 'Plus 0,1 s', _step),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: OFSpacing.sm),
+            child: Text(hint, style: OFTypography.caption.copyWith(color: OFColors.textTertiary)),
+          ),
+        ],
       ),
     );
   }

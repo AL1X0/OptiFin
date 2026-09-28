@@ -1,4 +1,5 @@
 import AVFoundation
+import AVKit
 import Flutter
 
 /// Un lecteur AVPlayer piloté depuis Dart.
@@ -7,7 +8,9 @@ import Flutter
 /// `optifin_native_player/events_<id>` : `state` (position, durée, tampon,
 /// lecture, taille vidéo, images perdues), `error`, `completed`.
 /// Les sous-titres sont dessinés par OptiFin : aucune piste « legible » n'est sélectionnée.
-final class NativePlayer: NSObject, FlutterStreamHandler {
+/// Picture-in-Picture : automatique quand l'app passe en arrière-plan pendant la lecture,
+/// ou sur demande (`startPip`) ; événement `pip` à chaque changement.
+final class NativePlayer: NSObject, FlutterStreamHandler, AVPictureInPictureControllerDelegate {
   let id: Int
   let player = AVPlayer()
 
@@ -26,6 +29,7 @@ final class NativePlayer: NSObject, FlutterStreamHandler {
   private var disposed = false
   private var desiredRate: Float = 1
   private var startTime: CMTime = .zero
+  private var pipController: AVPictureInPictureController?
 
   var gravity: AVLayerVideoGravity = .resizeAspect {
     didSet { view?.gravity = gravity }
@@ -35,7 +39,40 @@ final class NativePlayer: NSObject, FlutterStreamHandler {
     didSet {
       view?.player = player
       view?.gravity = gravity
+      setUpPictureInPicture()
     }
+  }
+
+  private func setUpPictureInPicture() {
+    guard let layer = view?.playerLayer, AVPictureInPictureController.isPictureInPictureSupported() else { return }
+    let pip = AVPictureInPictureController(playerLayer: layer)
+    pip?.delegate = self
+    if #available(iOS 14.2, *) {
+      pip?.canStartPictureInPictureAutomaticallyFromInline = true
+    }
+    pipController = pip
+  }
+
+  func pictureInPictureControllerDidStartPictureInPicture(_ controller: AVPictureInPictureController) {
+    send(["event": "pip", "active": true])
+  }
+
+  func pictureInPictureControllerDidStopPictureInPicture(_ controller: AVPictureInPictureController) {
+    send(["event": "pip", "active": false])
+  }
+
+  func pictureInPictureController(
+    _ controller: AVPictureInPictureController,
+    failedToStartPictureInPictureWithError error: Error
+  ) {
+    send(["event": "pip", "active": false, "error": error.localizedDescription])
+  }
+
+  func pictureInPictureController(
+    _ controller: AVPictureInPictureController,
+    restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+  ) {
+    completionHandler(true)
   }
 
   init(id: Int, messenger: FlutterBinaryMessenger, onDispose: @escaping () -> Void) {
@@ -53,6 +90,9 @@ final class NativePlayer: NSObject, FlutterStreamHandler {
 
     player.automaticallyWaitsToMinimizeStalling = true
     player.appliesMediaSelectionCriteriaAutomatically = false
+    // AirPlay : la vidéo part sur l'Apple TV, l'iPhone devient la télécommande.
+    player.allowsExternalPlayback = true
+    player.usesExternalPlaybackWhileExternalScreenIsActive = true
     playerObservations.append(player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, _ in
       self?.emitState()
     })
@@ -162,6 +202,12 @@ final class NativePlayer: NSObject, FlutterStreamHandler {
       case "fill": gravity = .resize
       default: gravity = .resizeAspect
       }
+      result(nil)
+    case "startPip":
+      pipController?.startPictureInPicture()
+      result(pipController != nil)
+    case "stopPip":
+      pipController?.stopPictureInPicture()
       result(nil)
     case "dispose":
       dispose()
@@ -287,6 +333,8 @@ final class NativePlayer: NSObject, FlutterStreamHandler {
     guard !disposed else { return }
     disposed = true
     player.pause()
+    pipController?.stopPictureInPicture()
+    pipController = nil
     if let timeObserver { player.removeTimeObserver(timeObserver) }
     timeObserver = nil
     playerObservations.forEach { $0.invalidate() }

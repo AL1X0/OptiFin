@@ -153,3 +153,31 @@ et renvoie brièvement « Not Found » pendant la publication d'une build. Déso
   `https://raw.githubusercontent.com/AL1X0/OptiFin/sidestore/source.json` (sans redirection) ;
 - la Release est créée en brouillon puis publiée une fois l'IPA et la source envoyées.
 L'ancienne adresse reste valide.
+
+## Phase 5 — Lecteur avancé (2026-09-28)
+
+1. **Compléments de lecture** (`PlaybackExtrasRepository`), chargés en parallèle du démarrage,
+   chacun facultatif (serveur ancien, plugin absent → simplement masqué) : chapitres, manifeste
+   trickplay (résolution la plus proche de 320 px), segments média (10.10+), épisode suivant.
+2. **Trickplay** : planches JPEG recadrées côté Flutter (une planche = 100 vignettes en cache),
+   authentifiées par en-tête. Sans trickplay : heure et chapitre visés. Repères de chapitres
+   sur la barre, feuille « Chapitres » avec vignettes.
+3. **Segments** : bouton « Passer l'intro / le récap / l'aperçu » visible même contrôles
+   masqués ; saut automatique en option (une seule fois par segment, un retour volontaire
+   n'est pas contrarié). Le générique est géré par l'épisode suivant quand il y en a un.
+4. **Épisode suivant** : carte au début du générique (sinon 30 s avant la fin, jamais avant la
+   moitié), compte à rebours de 10 s si « Épisode suivant automatique ». Le plan de l'épisode
+   suivant est préparé pendant le générique ; l'enchaînement termine proprement la session
+   (rapport stop) et remplace l'écran du lecteur.
+5. **Gestes** : glissé vertical gauche = luminosité (de l'app, rétablie en quittant),
+   droite = volume système sans le HUD ; verrouillage de l'écran ; cadrage
+   contenu → zoom → étiré ; décalages audio (mpv) et sous-titres (tous moteurs) par 0,1 s.
+6. **Sous-titres en ligne** : recherche via les fournisseurs du serveur (OpenSubtitles…),
+   correspondances exactes d'abord ; téléchargement puis affichage sans interrompre la lecture.
+7. **Picture-in-Picture** : iOS via `AVPictureInPictureController` sur la couche du lecteur natif
+   (automatique en quittant l'app, mode arrière-plan audio) ; Android sur l'activité entière,
+   quel que soit le moteur (auto-entrée Android 12+, `onUserLeaveHint` avant), contrôles
+   Flutter masqués pendant le PiP. mpv sur iOS : pas de PiP (pas d'AVPlayerLayer).
+8. **AirPlay** : bouton système `AVRoutePickerView` avec le lecteur natif, lecture externe activée.
+9. **Chromecast reporté** à la phase 8 (contrôle à distance) : il exige le SDK Google Cast sur les
+   deux plateformes et un récepteur ; il sera traité avec les autres « écrans distants ».

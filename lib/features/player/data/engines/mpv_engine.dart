@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:optifin_native_player/optifin_native_player.dart' show NativePlayers;
 
 import '../../../../core/logging/app_log.dart';
 import '../../domain/playback_engine.dart';
@@ -148,7 +149,9 @@ class MpvEngine implements PlaybackEngine {
   String get name => 'mpv';
 
   @override
-  EngineCapabilities get capabilities => const EngineCapabilities(
+  EngineCapabilities get capabilities => EngineCapabilities(
+    // Android : PiP de l'activité entière, indépendant du moteur. iOS : réservé à AVPlayer.
+    pictureInPicture: Platform.isAndroid,
     hdr: true, // tone-mapping / passthrough selon l'appareil
     assRendering: true,
     bitmapSubtitles: true,
@@ -259,6 +262,12 @@ class MpvEngine implements PlaybackEngine {
         await _set('sub-border-style', 'opaque-box');
         await _set('sub-back-color', '#99000000');
     }
+  }
+
+  @override
+  Future<bool> enterPictureInPicture() async {
+    if (!Platform.isAndroid) return false;
+    return NativePlayers.enterPictureInPicture(width: _player.state.width ?? 16, height: _player.state.height ?? 9);
   }
 
   @override

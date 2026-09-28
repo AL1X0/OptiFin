@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:optifin_native_player/optifin_native_player.dart' show NativePlayers;
 
 import '../../../core/logging/app_log.dart';
 import '../../../core/media/media_item.dart';
@@ -13,6 +14,7 @@ import '../data/playback_preparer.dart';
 import '../data/playback_repository.dart';
 import '../domain/engine_selector.dart';
 import '../domain/playback_engine.dart';
+import '../domain/playback_extras.dart';
 import '../domain/playback_plan.dart';
 import '../domain/playback_reporter.dart';
 import 'playback_providers.dart';
@@ -35,6 +37,13 @@ class PlayerUiState {
     this.reloading = false,
     this.notice,
     this.technicalError,
+    this.extras = PlaybackExtras.empty,
+    this.segment,
+    this.upNext = false,
+    this.nextItemId,
+    this.subtitleDelay = Duration.zero,
+    this.audioDelay = Duration.zero,
+    this.pictureInPicture = false,
   });
 
   final PlayerPhase phase;
@@ -60,6 +69,24 @@ class PlayerUiState {
   /// Détail technique de l'erreur (affiché en mode debug).
   final String? technicalError;
 
+  /// Chapitres, trickplay, segments, épisode suivant (chargés après le démarrage).
+  final PlaybackExtras extras;
+
+  /// Segment (intro, récap…) en cours que l'on peut passer.
+  final MediaSegment? segment;
+
+  /// Carte « Épisode suivant » affichée (générique en cours).
+  final bool upNext;
+
+  /// Élément à lire à la fermeture (enchaînement d'épisodes) : l'écran remplace
+  /// le lecteur par celui de cet élément au lieu de revenir en arrière.
+  final String? nextItemId;
+  final Duration subtitleDelay;
+  final Duration audioDelay;
+
+  /// Android : l'activité est en Picture-in-Picture (contrôles masqués).
+  final bool pictureInPicture;
+
   PlayerUiState copyWith({
     PlayerPhase? phase,
     MediaItem? item,
@@ -73,6 +100,13 @@ class PlayerUiState {
     bool? reloading,
     String? Function()? notice,
     String? technicalError,
+    PlaybackExtras? extras,
+    MediaSegment? Function()? segment,
+    bool? upNext,
+    String? nextItemId,
+    Duration? subtitleDelay,
+    Duration? audioDelay,
+    bool? pictureInPicture,
   }) => PlayerUiState(
     phase: phase ?? this.phase,
     item: item ?? this.item,
@@ -86,6 +120,13 @@ class PlayerUiState {
     reloading: reloading ?? this.reloading,
     notice: notice != null ? notice() : this.notice,
     technicalError: technicalError ?? this.technicalError,
+    extras: extras ?? this.extras,
+    segment: segment != null ? segment() : this.segment,
+    upNext: upNext ?? this.upNext,
+    nextItemId: nextItemId ?? this.nextItemId,
+    subtitleDelay: subtitleDelay ?? this.subtitleDelay,
+    audioDelay: audioDelay ?? this.audioDelay,
+    pictureInPicture: pictureInPicture ?? this.pictureInPicture,
   );
 }
 
@@ -125,6 +166,9 @@ class PlayerController extends Notifier<PlayerUiState> {
   // Créé dans build() : ref n'est plus utilisable pendant la destruction du provider.
   late PlaybackReporter _reporter;
   final _subscriptions = <StreamSubscription<Object?>>[];
+
+  /// Abonnements indépendants du moteur (PiP Android), annulés à la fermeture.
+  final _subscriptionsForever = <StreamSubscription<Object?>>[];
   bool _closed = false;
   bool _disposing = false;
   bool _reported = false;
@@ -143,6 +187,12 @@ class PlayerController extends Notifier<PlayerUiState> {
   Duration _startPosition = Duration.zero;
   final _failures = <String>[];
 
+  /// Segments déjà passés automatiquement (une seule fois chacun, même après un retour en arrière).
+  final _autoSkipped = <MediaSegment>{};
+
+  /// L'utilisateur a fermé la carte « Épisode suivant » : elle ne revient pas.
+  bool _upNextDismissed = false;
+
   @override
   PlayerUiState build() {
     _reporter = PlaybackReporter(ref.read(playbackRepositoryProvider));
@@ -152,6 +202,11 @@ class PlayerController extends Notifier<PlayerUiState> {
       unawaited(close());
     });
     Future.microtask(_start);
+    _subscriptionsForever.add(
+      NativePlayers.pictureInPictureChanges.listen((active) {
+        if (!_closed) state = state.copyWith(pictureInPicture: active);
+      }),
+    );
     return PlayerUiState(subtitleStyle: settings.subtitleStyle);
   }
 
@@ -171,6 +226,7 @@ class PlayerController extends Notifier<PlayerUiState> {
       final prepared = results[1] as PreparedPlayback;
       if (_closed) return;
       state = state.copyWith(item: item);
+      unawaited(_loadExtras(item, prepared.plan.mediaSourceId));
       await _launch(prepared, start: args.start ?? item.resumePosition);
     } catch (e, stack) {
       _fail(e, stack);
@@ -200,6 +256,8 @@ class PlayerController extends Notifier<PlayerUiState> {
       _engine = engine;
       _engineKind = kind;
       await engine.setSubtitleStyle(state.subtitleStyle);
+      if (state.subtitleDelay != Duration.zero) await engine.setSubtitleDelay(state.subtitleDelay);
+      if (state.audioDelay != Duration.zero) await engine.setAudioDelay(state.audioDelay);
       _subscriptions.addAll([engine.snapshots.listen(_onSnapshot), engine.events.listen(_onEvent)]);
     }
     state = state.copyWith(engine: engine, phase: PlayerPhase.playing);
@@ -223,13 +281,130 @@ class PlayerController extends Notifier<PlayerUiState> {
     }
   }
 
+  Future<void> _loadExtras(MediaItem item, String mediaSourceId) async {
+    final extras = await ref.read(playbackExtrasRepositoryProvider).load(item, mediaSourceId: mediaSourceId);
+    if (_closed) return;
+    AppLog.i(
+      'extras',
+      '${extras.chapters.length} chapitres, trickplay ${extras.trickplay == null ? 'absent' : '${extras.trickplay!.width} px'}, '
+          '${extras.segments.length} segments${extras.nextEpisode == null ? '' : ', suivant : « ${extras.nextEpisode!.name} »'}',
+    );
+    state = state.copyWith(extras: extras);
+  }
+
+  /// Segments et épisode suivant, à chaque instantané du moteur.
+  void _trackPosition(PlayerSnapshot s) {
+    if (_starting || s.status != PlaybackStatus.ready) return;
+    final extras = state.extras;
+    final segment = extras.skippableAt(s.position);
+    if (segment != state.segment) state = state.copyWith(segment: () => segment);
+    if (segment != null && ref.read(settingsProvider).autoSkipSegments && _autoSkipped.add(segment)) {
+      AppLog.i('player', 'Segment passé automatiquement : ${segment.type.name}');
+      unawaited(seek(segment.end));
+    }
+    final upNextAt = extras.upNextAt(s.duration);
+    final showUpNext = upNextAt != null && s.position >= upNextAt && !_upNextDismissed;
+    if (showUpNext != state.upNext) {
+      state = state.copyWith(upNext: showUpNext);
+      // Plan et moteur de l'épisode suivant préparés pendant le générique.
+      if (showUpNext) ref.read(playbackPrefetchProvider(extras.nextEpisode!.id));
+    }
+  }
+
+  Future<void> skipSegment() async {
+    final segment = state.segment;
+    if (segment != null) await seek(segment.end);
+  }
+
+  void dismissUpNext() {
+    _upNextDismissed = true;
+    state = state.copyWith(upNext: false);
+  }
+
+  /// Enchaîne l'épisode suivant : fin de session propre, puis l'écran remplace le lecteur.
+  Future<void> playNext() async {
+    final next = state.extras.nextEpisode;
+    if (next == null || _closed) return;
+    AppLog.i('player', 'Épisode suivant : « ${next.name} »');
+    state = state.copyWith(nextItemId: next.id);
+    await close();
+  }
+
+  /// Recherche de sous-titres via les fournisseurs du serveur (langue ISO 639-2).
+  Future<List<RemoteSubtitle>> searchSubtitles(String language) =>
+      ref.read(playbackExtrasRepositoryProvider).searchSubtitles(args.itemId, language);
+
+  /// Télécharge un sous-titre sur le serveur puis l'affiche, sans interrompre la lecture.
+  Future<void> downloadSubtitle(RemoteSubtitle subtitle) async {
+    final prepared = _prepared;
+    final plan = state.plan;
+    if (prepared == null || plan == null) return;
+    await ref.read(playbackExtrasRepositoryProvider).downloadSubtitle(args.itemId, subtitle.id);
+    final known = {for (final t in plan.subtitleTracks) t.index};
+    final preparer = await _getPreparer();
+    MediaTrack? added;
+    PlaybackPlan? refreshed;
+    // Le serveur enregistre le fichier puis rafraîchit l'élément : on laisse une seconde chance.
+    for (var attempt = 0; attempt < 3 && added == null; attempt++) {
+      if (attempt > 0) await Future<void>.delayed(const Duration(seconds: 2));
+      final next = await preparer.planFor(
+        args.itemId,
+        prepared.selection,
+        prepared.attempt,
+        audioIndex: plan.audioIndex,
+        subtitleIndex: plan.subtitleIndex,
+        start: engine?.snapshot.position ?? Duration.zero,
+        mediaSourceId: plan.mediaSourceId,
+      );
+      refreshed = next.plan;
+      added = refreshed.subtitleTracks.where((t) => !known.contains(t.index)).firstOrNull;
+    }
+    if (_closed || refreshed == null) return;
+    if (added == null) throw const UnexpectedFailure('Le serveur n’a pas encore ajouté ce sous-titre. Réessayez.');
+    AppLog.i('player', 'Sous-titre téléchargé : ${added.label} (index ${added.index})');
+    final updated = state.plan!.withSubtitleTracks(refreshed.subtitleTracks);
+    _prepared = PreparedPlayback(
+      plan: updated,
+      selection: prepared.selection,
+      attempt: prepared.attempt,
+      audioIndex: prepared.audioIndex,
+      subtitleIndex: prepared.subtitleIndex,
+    );
+    state = state.copyWith(plan: updated);
+    await selectSubtitle(added);
+  }
+
+  Future<bool> enterPictureInPicture() async => await engine?.enterPictureInPicture() ?? false;
+
+  Future<void> setSubtitleDelay(Duration delay) async {
+    state = state.copyWith(subtitleDelay: delay);
+    await engine?.setSubtitleDelay(delay);
+  }
+
+  Future<void> setAudioDelay(Duration delay) async {
+    state = state.copyWith(audioDelay: delay);
+    await engine?.setAudioDelay(delay);
+  }
+
   void _onSnapshot(PlayerSnapshot s) {
     if (_starting && s.status == PlaybackStatus.ready) {
       _starting = false;
       _startupTimer?.cancel();
+      // Android : quitter l'app pendant la lecture la réduit en Picture-in-Picture.
+      if (_engine?.capabilities.pictureInPicture ?? false) {
+        final size = s.videoSize;
+        unawaited(
+          NativePlayers.setAutoPictureInPicture(
+            true,
+            width: size?.width.round() ?? 16,
+            height: size?.height.round() ?? 9,
+          ),
+        );
+      }
       if (state.notice != null) state = state.copyWith(notice: () => null);
     }
     _reporter.update(position: s.position, paused: !s.playing);
+    _trackPosition(s);
   }
 
   /// Échec avant la première image : repli suivant de la chaîne, sinon erreur.
@@ -302,8 +477,8 @@ class PlayerController extends Notifier<PlayerUiState> {
   void _onEvent(PlaybackEvent event) {
     switch (event) {
       case PlaybackCompleted():
-        // Phase 5 : épisode suivant avec compte à rebours.
-        unawaited(close());
+        final autoNext = ref.read(settingsProvider).autoPlayNext && !_upNextDismissed;
+        unawaited(state.extras.nextEpisode != null && autoNext ? playNext() : close());
       case PlaybackFailed(:final message):
         if (_starting) {
           unawaited(_onStartupFailure(message));
@@ -509,6 +684,10 @@ class PlayerController extends Notifier<PlayerUiState> {
     if (_closed) return;
     _closed = true;
     _startupTimer?.cancel();
+    unawaited(NativePlayers.setAutoPictureInPicture(false));
+    for (final s in _subscriptionsForever) {
+      unawaited(s.cancel());
+    }
     await _reporter.stop();
     for (final s in _subscriptions) {
       await s.cancel();

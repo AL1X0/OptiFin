@@ -6,7 +6,9 @@ import 'package:jellyfin_api/jellyfin_api.dart' hide PlayMethod;
 import 'package:optifin/core/media/media_item.dart';
 import 'package:optifin/core/media/media_repository.dart';
 import 'package:optifin/features/player/data/device_profiles.dart';
+import 'package:optifin/features/player/data/playback_extras_repository.dart';
 import 'package:optifin/features/player/data/playback_repository.dart';
+import 'package:optifin/features/player/domain/playback_extras.dart';
 import 'package:optifin/features/player/domain/playback_engine.dart';
 import 'package:optifin/features/player/domain/playback_plan.dart';
 import 'package:optifin/features/player/domain/playback_reporter.dart';
@@ -107,10 +109,16 @@ class FakeEngine implements PlaybackEngine {
   Future<void> setSubtitleStyle(SubtitleStyle style) async => commands.add('style:${style.scale}');
 
   @override
-  Future<void> setSubtitleDelay(Duration delay) async {}
+  Future<bool> enterPictureInPicture() async {
+    commands.add('pip');
+    return capabilities.pictureInPicture;
+  }
 
   @override
-  Future<void> setAudioDelay(Duration delay) async {}
+  Future<void> setSubtitleDelay(Duration delay) async => commands.add('subdelay:${delay.inMilliseconds}');
+
+  @override
+  Future<void> setAudioDelay(Duration delay) async => commands.add('audiodelay:${delay.inMilliseconds}');
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) => const SizedBox.expand(key: ValueKey('video'));
@@ -158,6 +166,28 @@ class FakePlaybackRepository extends PlaybackRepository {
 
   @override
   Future<void> stopped(PlaybackReport report) async => reports.add('stopped@${report.position.inSeconds}');
+}
+
+/// Compléments de lecture factices (chapitres, segments, épisode suivant).
+class FakeExtrasRepository extends PlaybackExtrasRepository {
+  FakeExtrasRepository([this.extras = PlaybackExtras.empty]) : super(JellyfinClient(Dio()), userId: 'u');
+
+  PlaybackExtras extras;
+  final searches = <String>[];
+  final downloads = <String>[];
+  List<RemoteSubtitle> results = const [];
+
+  @override
+  Future<PlaybackExtras> load(MediaItem item, {String? mediaSourceId}) async => extras;
+
+  @override
+  Future<List<RemoteSubtitle>> searchSubtitles(String itemId, String language) async {
+    searches.add(language);
+    return results;
+  }
+
+  @override
+  Future<void> downloadSubtitle(String itemId, String subtitleId) async => downloads.add(subtitleId);
 }
 
 class FakeMediaRepository extends MediaRepository {

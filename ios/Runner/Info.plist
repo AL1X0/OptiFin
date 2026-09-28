@@ -76,6 +76,11 @@
 			<key>NSAllowsLocalNetworking</key>
 			<true/>
 		</dict>
+		<!-- Lecture vidéo en Picture-in-Picture et audio écran verrouillé. -->
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>audio</string>
+		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
 	</dict>

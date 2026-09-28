@@ -102,6 +102,25 @@ class PlaybackPlan {
   MediaTrack? get currentAudio => audioTracks.where((t) => t.index == audioIndex).firstOrNull;
   MediaTrack? get currentSubtitle => subtitleTracks.where((t) => t.index == subtitleIndex).firstOrNull;
 
+  /// Même flux, liste de sous-titres mise à jour (sous-titre téléchargé pendant la lecture).
+  PlaybackPlan withSubtitleTracks(List<MediaTrack> tracks) => PlaybackPlan(
+    itemId: itemId,
+    mediaSourceId: mediaSourceId,
+    playSessionId: playSessionId,
+    method: method,
+    streamUrl: streamUrl,
+    audioTracks: audioTracks,
+    subtitleTracks: tracks,
+    audioIndex: audioIndex,
+    subtitleIndex: subtitleIndex,
+    container: container,
+    bitrate: bitrate,
+    videoCodec: videoCodec,
+    startPosition: startPosition,
+    runtime: runtime,
+    source: source,
+  );
+
   PlaybackPlan withTracks({int? audioIndex, int? Function()? subtitleIndex}) => PlaybackPlan(
     itemId: itemId,
     mediaSourceId: mediaSourceId,

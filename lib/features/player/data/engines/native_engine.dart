@@ -52,6 +52,8 @@ class NativeEngine implements PlaybackEngine {
 
   @override
   EngineCapabilities get capabilities => EngineCapabilities(
+    pictureInPicture: _device.pictureInPicture,
+    airPlay: _device.airPlay,
     hdr: true,
     dolbyVision: _device.supportsDolbyVision,
     externalSubtitles: true,
@@ -179,6 +181,14 @@ class NativeEngine implements PlaybackEngine {
     if (ext == 'vtt' || ext == 'srt') return url;
     segments[segments.length - 1] = 'Stream.vtt';
     return url.replace(pathSegments: segments);
+  }
+
+  @override
+  Future<bool> enterPictureInPicture() async {
+    if (!_device.pictureInPicture) return false;
+    if (_device.platform == DevicePlatform.ios) return _player.startPictureInPicture();
+    final size = _snapshot.videoSize;
+    return NativePlayers.enterPictureInPicture(width: size?.width.round() ?? 16, height: size?.height.round() ?? 9);
   }
 
   @override
