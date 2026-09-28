@@ -46,22 +46,25 @@ class LibrariesScreen extends ConsumerWidget {
             ),
           ),
           switch (views) {
-            AsyncData(:final value) when value.isEmpty =>
-              const SliverFillRemaining(child: StatusMessage(text: 'Aucune bibliothèque.')),
+            AsyncData(:final value) when value.isEmpty => const SliverFillRemaining(
+              child: StatusMessage(text: 'Aucune bibliothèque.'),
+            ),
             AsyncData(:final value) => SliverPadding(
-                padding: EdgeInsets.fromLTRB(gutter, 0, gutter, MediaQuery.paddingOf(context).bottom + 96),
-                sliver: SliverGrid.builder(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    mainAxisSpacing: OFSpacing.lg,
-                    crossAxisSpacing: OFSpacing.md,
-                    childAspectRatio: cardWidth / (cardWidth * 9 / 16 + 28),
-                  ),
-                  itemCount: value.length,
-                  itemBuilder: (context, i) {
-                    final v = value[i];
-                    final image = v.primary ?? v.landscape;
-                    return LandscapeCard(
+              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, MediaQuery.paddingOf(context).bottom + 96),
+              sliver: SliverGrid.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
+                  mainAxisSpacing: OFSpacing.lg,
+                  crossAxisSpacing: OFSpacing.md,
+                  childAspectRatio: cardWidth / (cardWidth * 9 / 16 + 28),
+                ),
+                itemCount: value.length,
+                itemBuilder: (context, i) {
+                  final v = value[i];
+                  final image = v.primary ?? v.landscape;
+                  return FadeSlideIn(
+                    delay: staggerDelay(i ~/ columns + i % columns),
+                    child: LandscapeCard(
                       width: cardWidth,
                       data: MediaCardData(
                         id: v.id,
@@ -70,16 +73,17 @@ class LibrariesScreen extends ConsumerWidget {
                         blurHash: image?.blurHash,
                       ),
                       onTap: () => context.openLibrary(v.id),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
+            ),
             AsyncError(:final error) => SliverFillRemaining(
-                child: StatusMessage(
-                  text: error is ApiFailure ? error.userMessage : 'Impossible de charger les bibliothèques.',
-                  onRetry: () => ref.invalidate(userViewsProvider),
-                ),
+              child: StatusMessage(
+                text: error is ApiFailure ? error.userMessage : 'Impossible de charger les bibliothèques.',
+                onRetry: () => ref.invalidate(userViewsProvider),
               ),
+            ),
             _ => const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
           },
         ],
@@ -92,6 +96,9 @@ class _SettingsButton extends StatelessWidget {
   const _SettingsButton();
 
   @override
-  Widget build(BuildContext context) =>
-      OFIconButton(icon: Icons.settings_outlined, tooltip: 'Paramètres', onPressed: () => context.push(Routes.settings));
+  Widget build(BuildContext context) => OFIconButton(
+    icon: Icons.settings_outlined,
+    tooltip: 'Paramètres',
+    onPressed: () => context.push(Routes.settings),
+  );
 }

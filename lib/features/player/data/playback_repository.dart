@@ -140,6 +140,32 @@ class PlaybackRepository implements PlaybackReportSink {
     );
   }
 
+  /// Même source lue telle quelle (flux statique) : ce que mpv lit sans aide du serveur.
+  PlaybackPlan asDirectPlay(PlaybackPlan p) {
+    if (p.method == PlayMethod.directPlay) return p;
+    return PlaybackPlan(
+      itemId: p.itemId,
+      mediaSourceId: p.mediaSourceId,
+      playSessionId: p.playSessionId,
+      method: PlayMethod.directPlay,
+      streamUrl: resolve(baseUrl, 'Videos/${p.itemId}/stream', {
+        'static': 'true',
+        'mediaSourceId': p.mediaSourceId,
+        'playSessionId': ?p.playSessionId,
+      }),
+      audioTracks: p.audioTracks,
+      subtitleTracks: p.subtitleTracks,
+      audioIndex: p.audioIndex,
+      subtitleIndex: p.subtitleIndex,
+      container: p.container,
+      bitrate: p.bitrate,
+      videoCodec: p.videoCodec,
+      startPosition: p.startPosition,
+      runtime: p.runtime,
+      source: p.source,
+    );
+  }
+
   static MediaTrack _track(MediaStream s, TrackType type) {
     final language = s.language;
     final codec = s.codec?.toLowerCase();

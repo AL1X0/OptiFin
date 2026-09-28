@@ -54,6 +54,12 @@ class PlaybackPreparer {
   EngineSelection select(PlaybackPlan probe, {int? audioIndex, int? subtitleIndex, EnginePreference? preference}) {
     final source = probe.source;
     if (source == null) {
+      // Sans description, on suit le serveur : s'il transcode, mpv lit son flux transcodé.
+      if (probe.method != PlayMethod.directPlay) {
+        return const EngineSelection(
+          EngineDecision(EngineKind.mpv, Delivery.transcode, reason: 'Source non décrite : flux du serveur, mpv'),
+        );
+      }
       return const EngineSelection(
         EngineDecision(EngineKind.mpv, Delivery.directPlay, reason: 'Source non décrite par le serveur : mpv'),
         fallbacks: [EngineDecision(EngineKind.mpv, Delivery.transcode, reason: 'Repli : transcodage serveur')],
@@ -84,7 +90,19 @@ class PlaybackPreparer {
     int? subtitleIndex,
     EnginePreference? preference,
   }) async {
-    final analysis = probe ?? await repository.prepare(itemId: itemId, start: start, maxStreamingBitrate: maxBitrate);
+    // Analyse avec le profil natif quand il existe : si le natif est retenu (cas le plus
+    // courant), la réponse sert directement de plan — une seule requête avant la première image.
+    final analysisEngine = device.nativeAvailable ? EngineKind.native : EngineKind.mpv;
+    final analysis =
+        probe ??
+        await repository.prepare(
+          itemId: itemId,
+          start: start,
+          maxStreamingBitrate: maxBitrate,
+          options: analysisEngine == EngineKind.native
+              ? PlaybackRequestOptions(deviceProfile: nativeDeviceProfile(device, maxStreamingBitrate: maxBitrate))
+              : null,
+        );
     final (audio, subtitle) = explicitTracks ? (audioIndex, subtitleIndex) : preferredTracks(analysis, settings);
     final selection = select(analysis, audioIndex: audio, subtitleIndex: subtitle, preference: preference);
     for (final line in selection.trace) {
@@ -99,6 +117,7 @@ class PlaybackPreparer {
       subtitleIndex: subtitle,
       start: start,
       mediaSourceId: analysis.mediaSourceId,
+      probeEngine: probe == null ? analysisEngine : null,
     );
   }
 
@@ -112,25 +131,23 @@ class PlaybackPreparer {
     int? subtitleIndex,
     Duration start = Duration.zero,
     String? mediaSourceId,
+    EngineKind? probeEngine,
   }) async {
     final decision = selection.chain[attempt];
-    final reuseProbe =
-        probe != null &&
-        decision.engine == EngineKind.mpv &&
-        decision.delivery == Delivery.directPlay &&
-        probe.method == PlayMethod.directPlay;
-    final plan = reuseProbe
-        ? probe.withTracks(audioIndex: audioIndex, subtitleIndex: () => subtitleIndex)
-        : await repository.prepare(
-            itemId: itemId,
-            start: start,
-            mediaSourceId: mediaSourceId,
-            audioIndex: audioIndex,
-            // -1 explicite : sans cela le serveur pourrait incruster un sous-titre par défaut.
-            subtitleIndex: subtitleIndex ?? -1,
-            options: PlaybackRequestOptions.forDecision(decision, device, maxBitrate),
-            maxStreamingBitrate: maxBitrate,
-          );
+    final reused = probe == null ? null : _reuse(probe, decision, probeEngine, audioIndex, subtitleIndex);
+    if (reused != null) AppLog.d('player', 'Plan d’analyse réutilisé pour ${decision.label} (aucune requête de plus)');
+    final plan =
+        reused ??
+        await repository.prepare(
+          itemId: itemId,
+          start: start,
+          mediaSourceId: mediaSourceId,
+          audioIndex: audioIndex,
+          // -1 explicite : sans cela le serveur pourrait incruster un sous-titre par défaut.
+          subtitleIndex: subtitleIndex ?? -1,
+          options: PlaybackRequestOptions.forDecision(decision, device, maxBitrate),
+          maxStreamingBitrate: maxBitrate,
+        );
     return PreparedPlayback(
       plan: plan,
       selection: selection,
@@ -138,5 +155,30 @@ class PlaybackPreparer {
       audioIndex: audioIndex ?? plan.audioIndex,
       subtitleIndex: subtitleIndex,
     );
+  }
+
+  /// La réponse d'analyse suffit-elle pour cette décision ?
+  /// - mpv en lecture directe : toujours (le flux statique se lit tel quel, quel que soit le profil) ;
+  /// - natif : si l'analyse a été faite avec le profil natif, que le serveur a choisi le même
+  ///   mode (direct / remux) et que les pistes voulues sont celles du flux (un remux ne contient
+  ///   que la piste audio choisie ; une incrustation impose une nouvelle demande).
+  PlaybackPlan? _reuse(
+    PlaybackPlan probe,
+    EngineDecision decision,
+    EngineKind? probeEngine,
+    int? audioIndex,
+    int? subtitleIndex,
+  ) {
+    PlaybackPlan withTracks(PlaybackPlan p) => p.withTracks(audioIndex: audioIndex, subtitleIndex: () => subtitleIndex);
+    if (decision.engine == EngineKind.mpv) {
+      return decision.delivery == Delivery.directPlay ? withTracks(repository.asDirectPlay(probe)) : null;
+    }
+    if (probeEngine != EngineKind.native || decision.subtitles == SubtitleRoute.burnIn) return null;
+    final sameMethod = switch (decision.delivery) {
+      Delivery.directPlay => probe.method == PlayMethod.directPlay,
+      Delivery.remux => probe.method == PlayMethod.directStream && (audioIndex ?? probe.audioIndex) == probe.audioIndex,
+      Delivery.transcode => false,
+    };
+    return sameMethod ? withTracks(probe) : null;
   }
 }

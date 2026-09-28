@@ -33,56 +33,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (data == null && home.hasError) {
       final error = home.error;
       content = StatusMessage(
+        key: const ValueKey('erreur'),
         icon: Icons.cloud_off_rounded,
         text: error is ApiFailure ? error.userMessage : 'Impossible de charger l’accueil.',
         onRetry: () => ref.invalidate(homeProvider),
       );
     } else if (data == null) {
-      content = const _HomeSkeleton();
+      content = const _HomeSkeleton(key: ValueKey('squelette'));
     } else if (data.isEmpty) {
       content = const StatusMessage(
+        key: ValueKey('vide'),
         icon: Icons.movie_filter_outlined,
         text: 'Votre serveur ne contient encore rien à afficher.',
       );
     } else {
-      content = RefreshIndicator(
-        edgeOffset: MediaQuery.paddingOf(context).top,
-        onRefresh: () async {
-          ref.invalidate(homeProvider);
-          await ref.read(homeProvider.future);
-        },
-        child: CustomScrollView(
-          slivers: [
-            if (data.featured.isNotEmpty)
-              SliverToBoxAdapter(
-                child: FeaturedCarousel(
-                  items: data.featured,
-                  onAccent: (c) {
-                    if (c != _accent) setState(() => _accent = c);
+      content = EntranceScope(
+        key: const ValueKey('contenu'),
+        child: RefreshIndicator(
+          edgeOffset: MediaQuery.paddingOf(context).top,
+          onRefresh: () async {
+            ref.invalidate(homeProvider);
+            await ref.read(homeProvider.future);
+          },
+          child: CustomScrollView(
+            slivers: [
+              if (data.featured.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: FeaturedCarousel(
+                    items: data.featured,
+                    onAccent: (c) {
+                      if (c != _accent) setState(() => _accent = c);
+                    },
+                  ),
+                )
+              else
+                SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).top + 72)),
+              SliverPadding(
+                padding: EdgeInsets.only(top: OFSpacing.xl, bottom: bottomInset),
+                sliver: SliverList.separated(
+                  itemCount: data.sections.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: OFSpacing.xxl),
+                  itemBuilder: (context, i) {
+                    final s = data.sections[i];
+                    // Les rangées montent l'une après l'autre sous le carrousel.
+                    return FadeSlideIn(
+                      key: ValueKey(s.id),
+                      delay: staggerDelay(i + 2),
+                      offset: 24,
+                      child: MediaItemsRow(
+                        title: s.title,
+                        items: s.items,
+                        style: s.style,
+                        heroScope: 'home-${s.id}',
+                        onSeeAll: s.library == null ? null : () => context.openItem(s.library!),
+                      ),
+                    );
                   },
                 ),
-              )
-            else
-              SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).top + 72)),
-            SliverPadding(
-              padding: EdgeInsets.only(top: OFSpacing.xl, bottom: bottomInset),
-              sliver: SliverList.separated(
-                itemCount: data.sections.length,
-                separatorBuilder: (_, _) => const SizedBox(height: OFSpacing.xxl),
-                itemBuilder: (context, i) {
-                  final s = data.sections[i];
-                  return MediaItemsRow(
-                    key: ValueKey(s.id),
-                    title: s.title,
-                    items: s.items,
-                    style: s.style,
-                    heroScope: 'home-${s.id}',
-                    onSeeAll: s.library == null ? null : () => context.openItem(s.library!),
-                  );
-                },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -93,7 +103,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Scaffold(
         body: Stack(
           children: [
-            Positioned.fill(child: content),
+            // Squelette → contenu : fondu enchaîné plutôt qu'un remplacement sec.
+            Positioned.fill(child: FadeThroughSwitcher(child: content)),
             Positioned(
               top: MediaQuery.paddingOf(context).top + OFSpacing.sm,
               right: gutter,
@@ -107,7 +118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _HomeSkeleton extends StatelessWidget {
-  const _HomeSkeleton();
+  const _HomeSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {

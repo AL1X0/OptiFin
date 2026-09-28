@@ -64,10 +64,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _quickConnect(JellyfinServer server) async {
-    final session = await showOFSheet<ActiveSession>(
-      context,
-      builder: (_) => _QuickConnectSheet(server: server),
-    );
+    final session = await showOFSheet<ActiveSession>(context, builder: (_) => _QuickConnectSheet(server: server));
     if (session != null) await _finish(session);
   }
 
@@ -89,106 +86,121 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final images = JellyfinImageUrlBuilder(server.baseUrl);
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: AutofillGroup(
-              child: ListView(
-                padding: EdgeInsets.symmetric(horizontal: gutter, vertical: OFSpacing.xxl),
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: OFIconButton(icon: Icons.arrow_back_rounded, tooltip: 'Retour', onPressed: () => context.pop()),
-                  ),
-                  const SizedBox(height: OFSpacing.xl),
-                  Semantics(header: true, child: Text(server.name, style: OFTypography.title1)),
-                  const SizedBox(height: OFSpacing.xs),
-                  Text(
-                    '${server.baseUrl} · Jellyfin ${server.version}',
-                    style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
-                  ),
-                  if (users.isNotEmpty) ...[
+      // Arrivée douce du formulaire.
+      body: FadeSlideIn(
+        offset: 24,
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: AutofillGroup(
+                child: ListView(
+                  padding: EdgeInsets.symmetric(horizontal: gutter, vertical: OFSpacing.xxl),
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OFIconButton(
+                        icon: Icons.arrow_back_rounded,
+                        tooltip: 'Retour',
+                        onPressed: () => context.pop(),
+                      ),
+                    ),
                     const SizedBox(height: OFSpacing.xl),
-                    SizedBox(
-                      height: 96,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: users.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: OFSpacing.lg),
-                        itemBuilder: (context, i) {
-                          final u = users[i];
-                          final selected = _username.text == u.name;
-                          return GestureDetector(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() => _username.text = u.name);
-                            },
-                            child: Column(
-                              children: [
-                                AnimatedContainer(
-                                  duration: OFMotion.of(context).fast,
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: selected ? Theme.of(context).colorScheme.primary : Colors.transparent,
-                                      width: 2,
+                    Semantics(header: true, child: Text(server.name, style: OFTypography.title1)),
+                    const SizedBox(height: OFSpacing.xs),
+                    Text(
+                      '${server.baseUrl} · Jellyfin ${server.version}',
+                      style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
+                    ),
+                    if (users.isNotEmpty) ...[
+                      const SizedBox(height: OFSpacing.xl),
+                      SizedBox(
+                        height: 96,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: users.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: OFSpacing.lg),
+                          itemBuilder: (context, i) {
+                            final u = users[i];
+                            final selected = _username.text == u.name;
+                            return GestureDetector(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => _username.text = u.name);
+                              },
+                              child: Column(
+                                children: [
+                                  AnimatedContainer(
+                                    duration: OFMotion.of(context).fast,
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: selected ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: AvatarChip(
+                                      name: u.name,
+                                      size: 60,
+                                      imageUrl: u.avatarTag == null
+                                          ? null
+                                          : images.userAvatar(
+                                              userId: u.id,
+                                              tag: u.avatarTag,
+                                              logicalWidth: 60,
+                                              devicePixelRatio: dpr,
+                                            ),
                                     ),
                                   ),
-                                  child: AvatarChip(
-                                    name: u.name,
-                                    size: 60,
-                                    imageUrl: u.avatarTag == null
-                                        ? null
-                                        : images.userAvatar(userId: u.id, tag: u.avatarTag, logicalWidth: 60, devicePixelRatio: dpr),
-                                  ),
-                                ),
-                                const SizedBox(height: OFSpacing.xs),
-                                SizedBox(
-                                  width: 72,
-                                  child: Text(u.name,
+                                  const SizedBox(height: OFSpacing.xs),
+                                  SizedBox(
+                                    width: 72,
+                                    child: Text(
+                                      u.name,
                                       textAlign: TextAlign.center,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: OFTypography.caption),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                                      style: OFTypography.caption,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                       ),
+                    ],
+                    const SizedBox(height: OFSpacing.xl),
+                    OFTextField(
+                      label: 'Nom d’utilisateur',
+                      controller: _username,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.username],
                     ),
-                  ],
-                  const SizedBox(height: OFSpacing.xl),
-                  OFTextField(
-                    label: 'Nom d’utilisateur',
-                    controller: _username,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.username],
-                  ),
-                  const SizedBox(height: OFSpacing.md),
-                  OFTextField(
-                    label: 'Mot de passe',
-                    controller: _password,
-                    obscure: true,
-                    textInputAction: TextInputAction.done,
-                    autofillHints: const [AutofillHints.password],
-                    onSubmitted: (_) => _login(server),
-                    errorText: _error,
-                  ),
-                  const SizedBox(height: OFSpacing.xl),
-                  OFButton(label: 'Se connecter', expand: true, loading: _busy, onPressed: () => _login(server)),
-                  if (quickConnect) ...[
                     const SizedBox(height: OFSpacing.md),
-                    OFButton.secondary(
-                      label: 'Utiliser Quick Connect',
-                      icon: Icons.bolt_rounded,
-                      expand: true,
-                      onPressed: _busy ? null : () => _quickConnect(server),
+                    OFTextField(
+                      label: 'Mot de passe',
+                      controller: _password,
+                      obscure: true,
+                      textInputAction: TextInputAction.done,
+                      autofillHints: const [AutofillHints.password],
+                      onSubmitted: (_) => _login(server),
+                      errorText: _error,
                     ),
+                    const SizedBox(height: OFSpacing.xl),
+                    OFButton(label: 'Se connecter', expand: true, loading: _busy, onPressed: () => _login(server)),
+                    if (quickConnect) ...[
+                      const SizedBox(height: OFSpacing.md),
+                      OFButton.secondary(
+                        label: 'Utiliser Quick Connect',
+                        icon: Icons.bolt_rounded,
+                        expand: true,
+                        onPressed: _busy ? null : () => _quickConnect(server),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -257,7 +269,11 @@ class _QuickConnectSheetState extends ConsumerState<_QuickConnectSheet> {
           ),
           const SizedBox(height: OFSpacing.xl),
           if (_error != null)
-            Text(_error!, textAlign: TextAlign.center, style: OFTypography.callout.copyWith(color: OFColors.danger))
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: OFTypography.callout.copyWith(color: OFColors.danger),
+            )
           else if (ticket == null)
             const SizedBox(height: 56, child: Center(child: CircularProgressIndicator()))
           else ...[
@@ -266,7 +282,11 @@ class _QuickConnectSheetState extends ConsumerState<_QuickConnectSheet> {
               excludeSemantics: true,
               child: SelectableText(
                 ticket.code,
-                style: OFTypography.display.copyWith(fontSize: 44, letterSpacing: 8, fontFeatures: const [FontFeature.tabularFigures()]),
+                style: OFTypography.display.copyWith(
+                  fontSize: 44,
+                  letterSpacing: 8,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
             const SizedBox(height: OFSpacing.lg),

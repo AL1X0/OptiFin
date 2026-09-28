@@ -16,6 +16,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
@@ -67,7 +68,17 @@ class NativePlayer(
     init {
         // Repli sur un autre décodeur si le premier échoue (fréquent en HEVC 10 bits).
         val renderers = DefaultRenderersFactory(context).setEnableDecoderFallback(true)
+        // Démarrage rapide : lecture dès 1 s de tampon (2,5 s par défaut), 3 s après une coupure.
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
+                DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
+                1_000,
+                3_000,
+            )
+            .build()
         player = ExoPlayer.Builder(context, renderers)
+            .setLoadControl(loadControl)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)

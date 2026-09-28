@@ -584,18 +584,28 @@ class _PlayerControlsState extends State<PlayerControls> {
               Positioned(
                 right: OFSpacing.xl,
                 bottom: bottomInset + (_visible ? 112 : OFSpacing.xxl),
-                child: SkipSegmentButton(segment: ui.segment!, onSkip: widget.controller.skipSegment),
+                child: FadeSlideIn(
+                  key: ValueKey(ui.segment),
+                  axis: Axis.horizontal,
+                  offset: 32,
+                  child: SkipSegmentButton(segment: ui.segment!, onSkip: widget.controller.skipSegment),
+                ),
               ),
             if (ui.upNext && next != null && !_locked)
               Positioned(
                 right: OFSpacing.xl,
                 bottom: bottomInset + (_visible ? 112 : OFSpacing.xxl),
-                child: UpNextCard(
-                  key: ValueKey(next.id),
-                  next: next,
-                  autoPlay: widget.autoPlayNext,
-                  onPlay: () => unawaited(widget.controller.playNext()),
-                  onDismiss: widget.controller.dismissUpNext,
+                child: FadeSlideIn(
+                  key: ValueKey('suivant-${next.id}'),
+                  axis: Axis.horizontal,
+                  offset: 48,
+                  child: UpNextCard(
+                    key: ValueKey(next.id),
+                    next: next,
+                    autoPlay: widget.autoPlayNext,
+                    onPlay: () => unawaited(widget.controller.playNext()),
+                    onDismiss: widget.controller.dismissUpNext,
+                  ),
                 ),
               ),
             if (_locked)

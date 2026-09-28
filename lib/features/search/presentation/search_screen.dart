@@ -101,22 +101,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
             ),
             Expanded(
-              child: switch (results) {
-                AsyncData(value: null) => const StatusMessage(
+              child: FadeThroughSwitcher(
+                child: switch (results) {
+                  AsyncData(value: null) => const StatusMessage(
+                    key: ValueKey('accueil'),
                     icon: Icons.search_rounded,
                     text: 'Recherchez dans toutes vos bibliothèques.',
                   ),
-                AsyncData(:final value?) when value.isEmpty => StatusMessage(
+                  AsyncData(:final value?) when value.isEmpty => StatusMessage(
+                    key: const ValueKey('aucun'),
                     icon: Icons.search_off_rounded,
                     text: 'Aucun résultat pour « ${ref.read(searchTermProvider)} ».',
                   ),
-                AsyncData(:final value?) => _Results(results: value),
-                AsyncError(:final error) => StatusMessage(
+                  // Nouvelle recherche : nouvelles entrées animées.
+                  AsyncData(:final value?) => _Results(key: ValueKey(value), results: value),
+                  AsyncError(:final error) => StatusMessage(
+                    key: const ValueKey('erreur'),
                     text: error is ApiFailure ? error.userMessage : 'La recherche a échoué.',
                     onRetry: () => ref.invalidate(searchResultsProvider),
                   ),
-                _ => const Center(child: CircularProgressIndicator()),
-              },
+                  _ => const Center(key: ValueKey('chargement'), child: CircularProgressIndicator()),
+                },
+              ),
             ),
           ],
         ),
@@ -126,7 +132,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 }
 
 class _Results extends StatelessWidget {
-  const _Results({required this.results});
+  const _Results({super.key, required this.results});
 
   final SearchResults results;
 
@@ -142,19 +148,27 @@ class _Results extends StatelessWidget {
       ('Morceaux', results.songs, CardStyle.square),
     ].where((s) => s.$2.isNotEmpty).toList();
 
-    return ListView(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: EdgeInsets.only(top: OFSpacing.md, bottom: MediaQuery.paddingOf(context).bottom + 96),
-      children: [
-        for (final (i, s) in sections.indexed) ...[
-          if (i > 0) const SizedBox(height: OFSpacing.xxl),
-          MediaItemsRow(title: s.$1, items: s.$2, style: s.$3, heroScope: 'search-$i'),
+    return EntranceScope(
+      child: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: EdgeInsets.only(top: OFSpacing.md, bottom: MediaQuery.paddingOf(context).bottom + 96),
+        children: [
+          for (final (i, s) in sections.indexed) ...[
+            if (i > 0) const SizedBox(height: OFSpacing.xxl),
+            FadeSlideIn(
+              delay: staggerDelay(i),
+              child: MediaItemsRow(title: s.$1, items: s.$2, style: s.$3, heroScope: 'search-$i'),
+            ),
+          ],
+          if (results.people.isNotEmpty) ...[
+            if (sections.isNotEmpty) const SizedBox(height: OFSpacing.xxl),
+            FadeSlideIn(
+              delay: staggerDelay(sections.length),
+              child: _PeopleRow(people: results.people),
+            ),
+          ],
         ],
-        if (results.people.isNotEmpty) ...[
-          if (sections.isNotEmpty) const SizedBox(height: OFSpacing.xxl),
-          _PeopleRow(people: results.people),
-        ],
-      ],
+      ),
     );
   }
 }
@@ -185,11 +199,21 @@ class _PeopleRow extends ConsumerWidget {
             onTap: () => context.openPerson(p.id),
             child: Column(
               children: [
-                AvatarChip(name: p.name, size: size, imageUrl: images.maybe(p.primary, logicalWidth: size, devicePixelRatio: dpr)),
+                AvatarChip(
+                  name: p.name,
+                  size: size,
+                  imageUrl: images.maybe(p.primary, logicalWidth: size, devicePixelRatio: dpr),
+                ),
                 const SizedBox(height: OFSpacing.sm),
                 SizedBox(
                   width: size,
-                  child: Text(p.name, textAlign: TextAlign.center, style: OFTypography.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    p.name,
+                    textAlign: TextAlign.center,
+                    style: OFTypography.caption,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

@@ -327,7 +327,9 @@ NOTE commentaire
       final p = await preparer(repo).prepare('m');
       expect(p.decision.engine, EngineKind.mpv);
       expect(repo.prepareCalls, hasLength(1));
-      expect(repo.prepareOptions.single, isNull, reason: 'analyse avec le profil mpv par défaut');
+      // Analyse avec le profil natif (appareil compatible) ; mpv retenu : flux statique, sans 2e requête.
+      expect(repo.prepareOptions.single!.deviceProfile['Name'], 'OptiFin (AVPlayer)');
+      expect(p.plan.streamUrl.queryParameters['static'], 'true');
     });
 
     test('natif : second PlaybackInfo avec le profil natif et les options de la décision', () async {
@@ -347,6 +349,43 @@ NOTE commentaire
       expect(fallback.decision.engine, EngineKind.mpv);
       expect(fallback.hasFallback, isTrue);
       expect(repo.prepareCalls, hasLength(2), reason: 'repli mpv : plan d’analyse réutilisé');
+    });
+
+    PlaybackPlan withMethod(PlaybackPlan p, PlayMethod m) => PlaybackPlan(
+      itemId: p.itemId,
+      mediaSourceId: p.mediaSourceId,
+      playSessionId: p.playSessionId,
+      method: m,
+      streamUrl: p.streamUrl,
+      audioTracks: p.audioTracks,
+      subtitleTracks: p.subtitleTracks,
+      audioIndex: p.audioIndex,
+      subtitleIndex: p.subtitleIndex,
+      source: p.source,
+    );
+
+    test('natif en lecture directe : une seule requête (analyse = plan)', () async {
+      final repo = FakePlaybackRepository(
+        ({int? audioIndex, int? subtitleIndex, PlaybackRequestOptions? options}) =>
+            withSource(plan(), files.firstWhere((f) => f.id == 'h264_mp4').source),
+      );
+      final p = await preparer(repo).prepare('m');
+      expect(p.decision.label, 'Natif · Lecture directe');
+      expect(repo.prepareCalls, hasLength(1));
+    });
+
+    test('remux natif : réutilisé si le serveur a remuxé la même piste audio', () async {
+      final source = files.firstWhere((f) => f.id == 'hevc_hdr10_mkv').source;
+      final repo = FakePlaybackRepository(
+        ({int? audioIndex, int? subtitleIndex, PlaybackRequestOptions? options}) =>
+            withMethod(withSource(plan(audioIndex: audioIndex ?? 1), source), PlayMethod.directStream),
+      );
+      final p = await preparer(repo).prepare('m');
+      expect(p.decision.label, 'Natif · Remux');
+      expect(repo.prepareCalls, hasLength(1));
+      // Autre piste audio demandée : le remux du serveur ne la contient pas → nouvelle demande.
+      await preparer(repo).prepare('m', explicitTracks: true, audioIndex: 2);
+      expect(repo.prepareCalls, hasLength(3));
     });
 
     test('pistes explicites prioritaires sur les préférences', () async {

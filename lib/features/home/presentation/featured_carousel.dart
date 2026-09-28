@@ -8,6 +8,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/media/formatters.dart';
 import '../../../core/media/media_item.dart';
 import '../../../core/providers.dart';
+import '../../player/presentation/playback_providers.dart';
 
 /// Le backdrop est plus large que la page pour que la parallaxe (décalage max
 /// ±[_parallax] de la largeur) ne découvre jamais le fond noir sur les bords.
@@ -65,6 +66,15 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
   void _onSettled() {
     _updateAccent();
     _precacheAround(_index);
+    _prefetchPlayback();
+  }
+
+  /// « Lecture » lance directement le film : son plan de lecture (PlaybackInfo, choix du
+  /// moteur) est préparé dès que la page est affichée, comme sur une fiche.
+  void _prefetchPlayback() {
+    if (widget.items.isEmpty) return;
+    final item = widget.items[_index];
+    if (item.kind.isPlayableVideo) ref.read(playbackPrefetchProvider(item.id));
   }
 
   /// Précharge backdrop + logo de la page courante et des voisines (même clé de
@@ -124,7 +134,13 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
           if (width != _pageWidth) {
             final first = _pageWidth == 0;
             _pageWidth = width;
-            if (first) WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? _precacheAround(_index) : null);
+            if (first) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                _precacheAround(_index);
+                _prefetchPlayback();
+              });
+            }
           }
           return Stack(
             children: [

@@ -88,7 +88,9 @@ final class NativePlayer: NSObject, FlutterStreamHandler, AVPictureInPictureCont
     }
     eventChannel.setStreamHandler(self)
 
-    player.automaticallyWaitsToMinimizeStalling = true
+    // Démarrage immédiat : AVPlayer n'attend pas un tampon « confortable » avant la première image
+    // (Jellyfin sert à débit suffisant ; en cas de manque, il se met simplement en pause de chargement).
+    player.automaticallyWaitsToMinimizeStalling = false
     player.appliesMediaSelectionCriteriaAutomatically = false
     // AirPlay : la vidéo part sur l'Apple TV, l'iPhone devient la télécommande.
     player.allowsExternalPlayback = true
@@ -257,7 +259,9 @@ final class NativePlayer: NSObject, FlutterStreamHandler, AVPictureInPictureCont
           self.emitState()
         }
         if self.startTime > .zero {
-          item.seek(to: self.startTime, toleranceBefore: .zero, toleranceAfter: .zero) { _ in begin() }
+          // Reprise : image clé la plus proche (≤ 2 s avant) — bien plus rapide qu'un seek exact,
+          // surtout en HLS où il évite de décoder tout un segment.
+          item.seek(to: self.startTime, toleranceBefore: CMTime(value: 2, timescale: 1), toleranceAfter: .zero) { _ in begin() }
         } else {
           begin()
         }

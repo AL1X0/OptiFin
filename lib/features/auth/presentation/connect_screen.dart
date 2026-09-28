@@ -73,43 +73,46 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     final canPop = context.canPop();
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: ListView(
-              padding: EdgeInsets.symmetric(horizontal: gutter, vertical: OFSpacing.xxl),
-              children: [
-                if (canPop)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: OFIconButton(icon: Icons.close_rounded, tooltip: 'Fermer', onPressed: () => context.pop()),
+      // Arrivée douce du formulaire.
+      body: FadeSlideIn(
+        offset: 24,
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: ListView(
+                padding: EdgeInsets.symmetric(horizontal: gutter, vertical: OFSpacing.xxl),
+                children: [
+                  if (canPop)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OFIconButton(icon: Icons.close_rounded, tooltip: 'Fermer', onPressed: () => context.pop()),
+                    ),
+                  const SizedBox(height: OFSpacing.xl),
+                  Semantics(header: true, child: const Text('OptiFin', style: OFTypography.display)),
+                  const SizedBox(height: OFSpacing.sm),
+                  Text(
+                    'Connectez-vous à votre serveur Jellyfin.',
+                    style: OFTypography.body.copyWith(color: OFColors.textSecondary),
                   ),
-                const SizedBox(height: OFSpacing.xl),
-                Semantics(header: true, child: const Text('OptiFin', style: OFTypography.display)),
-                const SizedBox(height: OFSpacing.sm),
-                Text(
-                  'Connectez-vous à votre serveur Jellyfin.',
-                  style: OFTypography.body.copyWith(color: OFColors.textSecondary),
-                ),
-                if (accounts.isNotEmpty) ...[
+                  if (accounts.isNotEmpty) ...[
+                    const SizedBox(height: OFSpacing.xxl),
+                    const _SectionTitle('Comptes'),
+                    for (final a in accounts) _AccountTile(stored: a, onTap: () => _resume(a)),
+                  ],
                   const SizedBox(height: OFSpacing.xxl),
-                  const _SectionTitle('Comptes'),
-                  for (final a in accounts) _AccountTile(stored: a, onTap: () => _resume(a)),
-                ],
-                const SizedBox(height: OFSpacing.xxl),
-                _SectionTitle(
-                  'Sur ce réseau',
-                  trailing: discovered.isLoading
-                      ? const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                      : IconButton(
-                          tooltip: 'Relancer la recherche',
-                          icon: const Icon(Icons.refresh_rounded, size: 20, color: OFColors.textSecondary),
-                          onPressed: () => ref.invalidate(discoveredServersProvider),
-                        ),
-                ),
-                ...switch (discovered) {
-                  AsyncData(:final value) when value.isEmpty => [
+                  _SectionTitle(
+                    'Sur ce réseau',
+                    trailing: discovered.isLoading
+                        ? const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                        : IconButton(
+                            tooltip: 'Relancer la recherche',
+                            icon: const Icon(Icons.refresh_rounded, size: 20, color: OFColors.textSecondary),
+                            onPressed: () => ref.invalidate(discoveredServersProvider),
+                          ),
+                  ),
+                  ...switch (discovered) {
+                    AsyncData(:final value) when value.isEmpty => [
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: OFSpacing.sm),
                         child: Text(
@@ -118,7 +121,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                         ),
                       ),
                     ],
-                  AsyncValue(:final value?) => [
+                    AsyncValue(:final value?) => [
                       for (final s in value)
                         _ServerTile(
                           name: s.name,
@@ -126,27 +129,28 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                           onTap: _probing ? null : () => _connect(s.address.toString()),
                         ),
                     ],
-                  _ => const [],
-                },
-                const SizedBox(height: OFSpacing.xxl),
-                const _SectionTitle('Adresse du serveur'),
-                OFTextField(
-                  label: 'https://jellyfin.exemple.fr',
-                  controller: _address,
-                  keyboardType: TextInputType.url,
-                  textInputAction: TextInputAction.go,
-                  autofillHints: const [AutofillHints.url],
-                  onSubmitted: _connect,
-                  errorText: _error,
-                ),
-                const SizedBox(height: OFSpacing.lg),
-                OFButton(
-                  label: 'Continuer',
-                  expand: true,
-                  loading: _probing,
-                  onPressed: () => _connect(_address.text),
-                ),
-              ],
+                    _ => const [],
+                  },
+                  const SizedBox(height: OFSpacing.xxl),
+                  const _SectionTitle('Adresse du serveur'),
+                  OFTextField(
+                    label: 'https://jellyfin.exemple.fr',
+                    controller: _address,
+                    keyboardType: TextInputType.url,
+                    textInputAction: TextInputAction.go,
+                    autofillHints: const [AutofillHints.url],
+                    onSubmitted: _connect,
+                    errorText: _error,
+                  ),
+                  const SizedBox(height: OFSpacing.lg),
+                  OFButton(
+                    label: 'Continuer',
+                    expand: true,
+                    loading: _probing,
+                    onPressed: () => _connect(_address.text),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -170,8 +174,10 @@ class _SectionTitle extends StatelessWidget {
           Expanded(
             child: Semantics(
               header: true,
-              child: Text(text.toUpperCase(),
-                  style: OFTypography.caption.copyWith(color: OFColors.textTertiary, letterSpacing: 1.2)),
+              child: Text(
+                text.toUpperCase(),
+                style: OFTypography.caption.copyWith(color: OFColors.textTertiary, letterSpacing: 1.2),
+              ),
             ),
           ),
           ?trailing,
@@ -258,10 +264,12 @@ class _Tile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title, style: OFTypography.headline, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(subtitle,
-                          style: OFTypography.caption.copyWith(color: OFColors.textSecondary),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
+                      Text(
+                        subtitle,
+                        style: OFTypography.caption.copyWith(color: OFColors.textSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),

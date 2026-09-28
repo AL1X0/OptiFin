@@ -17,7 +17,9 @@ final personProvider = FutureProvider.autoDispose.family<MediaItem, String>(
 
 /// Filmographie : films et séries, du plus récent au plus ancien.
 final filmographyProvider = FutureProvider.autoDispose.family<List<MediaItem>, String>((ref, id) async {
-  final page = await ref.watch(mediaRepositoryProvider).page(
+  final page = await ref
+      .watch(mediaRepositoryProvider)
+      .page(
         LibraryQuery(
           personIds: [id],
           kinds: const [MediaKind.movie, MediaKind.series],
@@ -49,25 +51,27 @@ class PersonScreen extends ConsumerWidget {
     final cardWidth = (avail - OFSpacing.md * (columns - 1)) / columns;
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            backgroundColor: OFColors.background.withValues(alpha: 0.9),
-            leading: context.canPop()
-                ? IconButton(
-                    tooltip: 'Retour',
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                    onPressed: () => context.pop(),
-                  )
-                : null,
-            title: Text(person.value?.name ?? '', style: OFTypography.headline),
-          ),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, 0),
-            sliver: SliverToBoxAdapter(
-              child: switch (person) {
-                AsyncData(:final value) => Row(
+      body: EntranceScope(
+        window: const Duration(milliseconds: 1500),
+        child: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              backgroundColor: OFColors.background.withValues(alpha: 0.9),
+              leading: context.canPop()
+                  ? IconButton(
+                      tooltip: 'Retour',
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                      onPressed: () => context.pop(),
+                    )
+                  : null,
+              title: Text(person.value?.name ?? '', style: OFTypography.headline),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, 0),
+              sliver: SliverToBoxAdapter(
+                child: switch (person) {
+                  AsyncData(:final value) => Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       AvatarChip(
@@ -95,23 +99,23 @@ class PersonScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                AsyncError(:final error) => StatusMessage(
+                  AsyncError(:final error) => StatusMessage(
                     text: error is ApiFailure ? error.userMessage : 'Personne introuvable.',
                     onRetry: () => ref.invalidate(personProvider(personId)),
                   ),
-                _ => const SizedBox(height: 112, child: Center(child: CircularProgressIndicator())),
-              },
+                  _ => const SizedBox(height: 112, child: Center(child: CircularProgressIndicator())),
+                },
+              ),
             ),
-          ),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(gutter, OFSpacing.xxl, gutter, OFSpacing.md),
-            sliver: const SliverToBoxAdapter(child: Text('Filmographie', style: OFTypography.title2)),
-          ),
-          switch (films) {
-            AsyncData(:final value) when value.isEmpty => const SliverToBoxAdapter(
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(gutter, OFSpacing.xxl, gutter, OFSpacing.md),
+              sliver: const SliverToBoxAdapter(child: Text('Filmographie', style: OFTypography.title2)),
+            ),
+            switch (films) {
+              AsyncData(:final value) when value.isEmpty => const SliverToBoxAdapter(
                 child: StatusMessage(text: 'Aucun titre dans votre bibliothèque.'),
               ),
-            AsyncData(:final value) => SliverPadding(
+              AsyncData(:final value) => SliverPadding(
                 padding: EdgeInsets.fromLTRB(gutter, 0, gutter, MediaQuery.paddingOf(context).bottom + 96),
                 sliver: SliverGrid.builder(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -121,19 +125,22 @@ class PersonScreen extends ConsumerWidget {
                     mainAxisExtent: cardHeightFor(CardStyle.poster, cardWidth),
                   ),
                   itemCount: value.length,
-                  itemBuilder: (context, i) =>
-                      MediaCard(item: value[i], style: CardStyle.poster, width: cardWidth, heroScope: 'person'),
+                  itemBuilder: (context, i) => FadeSlideIn(
+                    delay: staggerDelay(i ~/ columns + i % columns),
+                    child: MediaCard(item: value[i], style: CardStyle.poster, width: cardWidth, heroScope: 'person'),
+                  ),
                 ),
               ),
-            AsyncError() => SliverToBoxAdapter(
+              AsyncError() => SliverToBoxAdapter(
                 child: StatusMessage(
                   text: 'Impossible de charger la filmographie.',
                   onRetry: () => ref.invalidate(filmographyProvider(personId)),
                 ),
               ),
-            _ => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
-          },
-        ],
+              _ => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+            },
+          ],
+        ),
       ),
     );
   }

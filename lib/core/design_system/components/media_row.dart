@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../tokens.dart';
+import 'motion.dart';
 
 /// Rangée horizontale virtualisée (titre + « Tout voir »).
 class MediaRow extends StatelessWidget {
@@ -56,9 +57,15 @@ class MediaRow extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: gutter),
             itemExtent: itemExtent,
             itemCount: itemCount,
+            // Arrivée des cartes de gauche à droite (dans la fenêtre d'entrée de l'écran).
             itemBuilder: (context, i) => Align(
               alignment: Alignment.topLeft,
-              child: itemBuilder(context, i),
+              child: FadeSlideIn(
+                delay: staggerDelay(i, max: 6),
+                axis: Axis.horizontal,
+                offset: 24,
+                child: itemBuilder(context, i),
+              ),
             ),
           ),
         ),

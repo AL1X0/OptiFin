@@ -349,6 +349,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('ÉPISODE SUIVANT'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 400)); // fin de l'entrée animée
     await tester.tap(find.bySemanticsLabel('Continuer le générique'));
     await tester.pump();
     expect(find.text('ÉPISODE SUIVANT'), findsNothing);

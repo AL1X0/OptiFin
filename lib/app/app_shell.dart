@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -95,24 +97,7 @@ class _GlassTabBar extends StatelessWidget {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => onSelect(i),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            i == current ? tab.selectedIcon : tab.icon,
-                            size: 24,
-                            color: i == current ? accent : OFColors.textSecondary,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            tab.label,
-                            style: OFTypography.caption.copyWith(
-                              fontSize: 11,
-                              color: i == current ? accent : OFColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: _TabItem(tab: tab, selected: i == current, accent: accent),
                     ),
                   ),
                 ),
@@ -196,6 +181,104 @@ class _SideRail extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Conteneur des onglets : garde chaque onglet en vie (état, défilement) et passe
+/// de l'un à l'autre en fondu enchaîné rapide.
+class FadingBranches extends StatefulWidget {
+  const FadingBranches({super.key, required this.index, required this.children});
+
+  final int index;
+  final List<Widget> children;
+
+  @override
+  State<FadingBranches> createState() => _FadingBranchesState();
+}
+
+class _FadingBranchesState extends State<FadingBranches> {
+  int? _previous;
+  Timer? _timer;
+
+  @override
+  void didUpdateWidget(FadingBranches old) {
+    super.didUpdateWidget(old);
+    if (old.index != widget.index) {
+      _previous = old.index;
+      _timer?.cancel();
+      _timer = Timer(const Duration(milliseconds: 260), () {
+        if (mounted) setState(() => _previous = null);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = OFMotion.of(context).standard;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        for (final (i, child) in widget.children.indexed)
+          Offstage(
+            // Onglets inactifs hors écran (aucun rendu), sauf celui qui s'efface.
+            offstage: i != widget.index && i != _previous,
+            child: TickerMode(
+              enabled: i == widget.index,
+              child: IgnorePointer(
+                ignoring: i != widget.index,
+                child: AnimatedOpacity(
+                  opacity: i == widget.index ? 1 : 0,
+                  duration: duration,
+                  curve: OFMotion.standardCurve,
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Onglet de la barre du bas : l'onglet actif grossit légèrement, couleur et icône en fondu.
+class _TabItem extends StatelessWidget {
+  const _TabItem({required this.tab, required this.selected, required this.accent});
+
+  final _Tab tab;
+  final bool selected;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = OFMotion.of(context);
+    final color = selected ? accent : OFColors.textSecondary;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedScale(
+          scale: selected ? 1.12 : 1,
+          duration: motion.standard,
+          curve: Curves.easeOutBack,
+          child: TweenAnimationBuilder<Color?>(
+            tween: ColorTween(end: color),
+            duration: motion.standard,
+            builder: (context, c, _) => AnimatedStateIcon(icon: selected ? tab.selectedIcon : tab.icon, color: c),
+          ),
+        ),
+        const SizedBox(height: 2),
+        AnimatedDefaultTextStyle(
+          duration: motion.standard,
+          style: OFTypography.caption.copyWith(fontSize: 11, color: color),
+          child: Text(tab.label),
+        ),
+      ],
     );
   }
 }

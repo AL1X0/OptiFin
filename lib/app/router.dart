@@ -28,8 +28,10 @@ abstract final class Routes {
   static const logs = '/settings/logs';
 
   /// Lecteur plein écran ; `start` en millisecondes (absent = reprise serveur).
-  static String play(String itemId, {Duration? start}) =>
-      Uri(path: '/play/$itemId', queryParameters: start == null ? null : {'start': '${start.inMilliseconds}'}).toString();
+  static String play(String itemId, {Duration? start}) => Uri(
+    path: '/play/$itemId',
+    queryParameters: start == null ? null : {'start': '${start.inMilliseconds}'},
+  ).toString();
 }
 
 final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -37,25 +39,33 @@ final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 /// Routes de contenu disponibles sous chaque onglet (la fiche s'ouvre dans
 /// l'onglet courant : barre d'onglets conservée, retour naturel).
 List<RouteBase> _contentRoutes() => [
-      GoRoute(
-        path: 'item/:id',
-        builder: (_, s) => ItemDetailsScreen(
-          itemId: s.pathParameters['id']!,
-          heroTag: s.extra is String ? s.extra! as String : null,
-          initialSeasonId: s.uri.queryParameters['season'],
-        ),
-      ),
-      GoRoute(path: 'person/:id', builder: (_, s) => PersonScreen(personId: s.pathParameters['id']!)),
-      GoRoute(path: 'library/:id', builder: (_, s) => LibraryScreen(source: ViewSource(s.pathParameters['id']!))),
-      GoRoute(
-        path: 'genre/:id',
-        builder: (_, s) => LibraryScreen(source: GenreSource(s.pathParameters['id']!, s.uri.queryParameters['name'] ?? 'Genre')),
-      ),
-      GoRoute(
-        path: 'studio/:id',
-        builder: (_, s) => LibraryScreen(source: StudioSource(s.pathParameters['id']!, s.uri.queryParameters['name'] ?? 'Studio')),
-      ),
-    ];
+  GoRoute(
+    path: 'item/:id',
+    builder: (_, s) => ItemDetailsScreen(
+      itemId: s.pathParameters['id']!,
+      heroTag: s.extra is String ? s.extra! as String : null,
+      initialSeasonId: s.uri.queryParameters['season'],
+    ),
+  ),
+  GoRoute(
+    path: 'person/:id',
+    builder: (_, s) => PersonScreen(personId: s.pathParameters['id']!),
+  ),
+  GoRoute(
+    path: 'library/:id',
+    builder: (_, s) => LibraryScreen(source: ViewSource(s.pathParameters['id']!)),
+  ),
+  GoRoute(
+    path: 'genre/:id',
+    builder: (_, s) =>
+        LibraryScreen(source: GenreSource(s.pathParameters['id']!, s.uri.queryParameters['name'] ?? 'Genre')),
+  ),
+  GoRoute(
+    path: 'studio/:id',
+    builder: (_, s) =>
+        LibraryScreen(source: StudioSource(s.pathParameters['id']!, s.uri.queryParameters['name'] ?? 'Studio')),
+  ),
+];
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Pont Riverpod → Listenable pour que go_router réévalue les redirections.
@@ -76,18 +86,23 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/', redirect: (_, _) => Routes.home),
-      StatefulShellRoute.indexedStack(
+      StatefulShellRoute(
         builder: (_, _, shell) => AppShell(shell: shell),
+        // Changement d'onglet : fondu enchaîné (les onglets restent vivants comme avec indexedStack).
+        navigatorContainerBuilder: (_, shell, children) =>
+            FadingBranches(index: shell.currentIndex, children: children),
         branches: [
-          StatefulShellBranch(routes: [
-            GoRoute(path: Routes.home, builder: (_, _) => const HomeScreen(), routes: _contentRoutes()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: Routes.libraries, builder: (_, _) => const LibrariesScreen(), routes: _contentRoutes()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: Routes.search, builder: (_, _) => const SearchScreen(), routes: _contentRoutes()),
-          ]),
+          StatefulShellBranch(
+            routes: [GoRoute(path: Routes.home, builder: (_, _) => const HomeScreen(), routes: _contentRoutes())],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: Routes.libraries, builder: (_, _) => const LibrariesScreen(), routes: _contentRoutes()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: Routes.search, builder: (_, _) => const SearchScreen(), routes: _contentRoutes())],
+          ),
         ],
       ),
       GoRoute(
@@ -103,7 +118,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             reverseTransitionDuration: const Duration(milliseconds: 200),
             transitionsBuilder: (_, animation, _, child) => FadeTransition(opacity: animation, child: child),
             child: PlayerScreen(
-              args: PlayerArgs(s.pathParameters['id']!, start: startMs == null ? null : Duration(milliseconds: startMs)),
+              args: PlayerArgs(
+                s.pathParameters['id']!,
+                start: startMs == null ? null : Duration(milliseconds: startMs),
+              ),
             ),
           );
         },
@@ -119,7 +137,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootKey,
         builder: (_, _) => const ConnectScreen(),
         routes: [
-          GoRoute(path: 'login', builder: (_, state) => LoginScreen(initialUsername: state.extra as String?)),
+          GoRoute(
+            path: 'login',
+            builder: (_, state) => LoginScreen(initialUsername: state.extra as String?),
+          ),
         ],
       ),
     ],

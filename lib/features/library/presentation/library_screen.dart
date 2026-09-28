@@ -30,12 +30,12 @@ class LibraryScreen extends ConsumerWidget {
     return switch (ctx) {
       AsyncData(:final value) => _LibraryBrowser(key: ValueKey(source), context0: value),
       AsyncError(:final error) => Scaffold(
-          appBar: AppBar(backgroundColor: Colors.transparent),
-          body: StatusMessage(
-            text: error is ApiFailure ? error.userMessage : 'Bibliothèque indisponible.',
-            onRetry: () => ref.invalidate(libraryContextProvider(source)),
-          ),
+        appBar: AppBar(backgroundColor: Colors.transparent),
+        body: StatusMessage(
+          text: error is ApiFailure ? error.userMessage : 'Bibliothèque indisponible.',
+          onRetry: () => ref.invalidate(libraryContextProvider(source)),
         ),
+      ),
       _ => const Scaffold(body: Center(child: CircularProgressIndicator())),
     };
   }
@@ -134,58 +134,86 @@ class _LibraryBrowserState extends ConsumerState<_LibraryBrowser> {
           if (_pager.error != null) {
             final e = _pager.error;
             body = StatusMessage(
+              key: const ValueKey('erreur'),
               text: e is ApiFailure ? e.userMessage : 'Impossible de charger le contenu.',
               onRetry: _pager.retry,
             );
           } else if (total == null) {
-            body = const Center(child: CircularProgressIndicator());
+            body = const Center(key: ValueKey('chargement'), child: CircularProgressIndicator());
           } else if (total == 0) {
             body = StatusMessage(
+              key: const ValueKey('vide'),
               icon: Icons.filter_alt_off_rounded,
               text: _query.activeFilterCount > 0 ? 'Aucun résultat avec ces filtres.' : 'Cette bibliothèque est vide.',
             );
           } else {
-            body = Scrollbar(
-              controller: _scroll,
-              child: CustomScrollView(
+            body = EntranceScope(
+              key: ValueKey('grille-${_query.hashCode}-$_listMode'),
+              child: Scrollbar(
                 controller: _scroll,
-                slivers: [
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(g.gutter, topInset + OFSpacing.md, g.gutter + (_query.supportsAlphaIndex ? 12 : 0), bottomInset),
-                    sliver: _listMode
-                        ? SliverFixedExtentList.builder(
-                            itemExtent: g.rowExtent,
-                            itemCount: total,
-                            itemBuilder: (context, i) => _ListRow(item: _pager.itemAt(i)),
-                          )
-                        : SliverGrid.builder(
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: g.columns,
-                              mainAxisSpacing: OFSpacing.lg,
-                              crossAxisSpacing: OFSpacing.md,
-                              mainAxisExtent: g.rowExtent - OFSpacing.lg,
-                            ),
-                            itemCount: total,
-                            itemBuilder: (context, i) {
-                              final item = _pager.itemAt(i);
-                              if (item == null) {
-                                return Align(
-                                  alignment: Alignment.topCenter,
-                                  child: SkeletonBox(width: g.cardWidth, aspectRatio: _aspect(widget.context0.style)),
+                child: CustomScrollView(
+                  controller: _scroll,
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        g.gutter,
+                        topInset + OFSpacing.md,
+                        g.gutter + (_query.supportsAlphaIndex ? 12 : 0),
+                        bottomInset,
+                      ),
+                      sliver: _listMode
+                          ? SliverFixedExtentList.builder(
+                              itemExtent: g.rowExtent,
+                              itemCount: total,
+                              itemBuilder: (context, i) => FadeSlideIn(
+                                delay: staggerDelay(i),
+                                child: _ListRow(item: _pager.itemAt(i)),
+                              ),
+                            )
+                          : SliverGrid.builder(
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: g.columns,
+                                mainAxisSpacing: OFSpacing.lg,
+                                crossAxisSpacing: OFSpacing.md,
+                                mainAxisExtent: g.rowExtent - OFSpacing.lg,
+                              ),
+                              itemCount: total,
+                              itemBuilder: (context, i) {
+                                final item = _pager.itemAt(i);
+                                // Arrivée en diagonale (ligne + colonne), puis squelette → carte en fondu.
+                                return FadeSlideIn(
+                                  delay: staggerDelay(i ~/ g.columns + i % g.columns),
+                                  child: FadeThroughSwitcher(
+                                    child: item == null
+                                        ? Align(
+                                            key: const ValueKey('squelette'),
+                                            alignment: Alignment.topCenter,
+                                            child: SkeletonBox(
+                                              width: g.cardWidth,
+                                              aspectRatio: _aspect(widget.context0.style),
+                                            ),
+                                          )
+                                        : MediaCard(
+                                            key: ValueKey(item.id),
+                                            item: item,
+                                            style: widget.context0.style,
+                                            width: g.cardWidth,
+                                            heroScope: 'lib',
+                                          ),
+                                  ),
                                 );
-                              }
-                              return MediaCard(item: item, style: widget.context0.style, width: g.cardWidth, heroScope: 'lib');
-                            },
-                          ),
-                  ),
-                ],
+                              },
+                            ),
+                    ),
+                  ],
+                ),
               ),
             );
           }
 
           return Stack(
             children: [
-              Positioned.fill(child: body),
+              Positioned.fill(child: FadeThroughSwitcher(child: body)),
               if (_query.supportsAlphaIndex && (total ?? 0) > 40)
                 Positioned(
                   right: 2,
@@ -214,10 +242,10 @@ class _LibraryBrowserState extends ConsumerState<_LibraryBrowser> {
   }
 
   static double _aspect(CardStyle s) => switch (s) {
-        CardStyle.poster => 2 / 3,
-        CardStyle.square => 1,
-        CardStyle.landscape => 16 / 9,
-      };
+    CardStyle.poster => 2 / 3,
+    CardStyle.square => 1,
+    CardStyle.landscape => 16 / 9,
+  };
 }
 
 class _Geometry {
@@ -310,7 +338,13 @@ class _ListRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final item = this.item;
     if (item == null) {
-      return const Row(children: [SkeletonBox(width: 60, aspectRatio: 2 / 3), SizedBox(width: OFSpacing.md), Expanded(child: SizedBox())]);
+      return const Row(
+        children: [
+          SkeletonBox(width: 60, aspectRatio: 2 / 3),
+          SizedBox(width: OFSpacing.md),
+          Expanded(child: SizedBox()),
+        ],
+      );
     }
     final images = ref.watch(imageUrlBuilderProvider);
     final dpr = MediaQuery.devicePixelRatioOf(context);
@@ -372,7 +406,35 @@ class AlphabetIndex extends StatefulWidget {
 
   final ValueChanged<String> onLetter;
 
-  static const letters = ['#', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+  static const letters = [
+    '#',
+    'A',
+    'B',
+    'C',
+    'D',
+    'E',
+    'F',
+    'G',
+    'H',
+    'I',
+    'J',
+    'K',
+    'L',
+    'M',
+    'N',
+    'O',
+    'P',
+    'Q',
+    'R',
+    'S',
+    'T',
+    'U',
+    'V',
+    'W',
+    'X',
+    'Y',
+    'Z',
+  ];
 
   @override
   State<AlphabetIndex> createState() => _AlphabetIndexState();

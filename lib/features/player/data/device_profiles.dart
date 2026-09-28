@@ -111,7 +111,9 @@ Map<String, Object?> nativeDeviceProfile(
         'VideoCodec': hlsVideo.join(','),
         'AudioCodec': hlsAudio.join(','),
         'MaxAudioChannels': '8',
-        'MinSegments': 2,
+        // Démarrage rapide : lecture dès le premier segment, segments courts (3 s au lieu de 6).
+        'MinSegments': 1,
+        'SegmentLength': 3,
         'BreakOnNonKeyFrames': true,
       },
       {'Type': 'Audio', 'Container': 'mp3', 'Protocol': 'http', 'Context': 'Streaming', 'AudioCodec': 'mp3'},

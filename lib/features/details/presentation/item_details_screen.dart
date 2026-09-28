@@ -27,9 +27,17 @@ class ItemDetailsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final item = ref.watch(itemProvider(itemId));
-    return switch (item) {
-      AsyncData(:final value) => _Details(item: value, heroTag: heroTag, initialSeasonId: initialSeasonId),
-      AsyncError(:final error) => Scaffold(
+    // Chargement → fiche : fondu enchaîné (le Hero de la carte se pose pendant ce temps).
+    return FadeThroughSwitcher(
+      child: switch (item) {
+        AsyncData(:final value) => _Details(
+          key: const ValueKey('fiche'),
+          item: value,
+          heroTag: heroTag,
+          initialSeasonId: initialSeasonId,
+        ),
+        AsyncError(:final error) => Scaffold(
+          key: const ValueKey('erreur'),
           body: Stack(
             children: [
               StatusMessage(
@@ -41,8 +49,17 @@ class ItemDetailsScreen extends ConsumerWidget {
             ],
           ),
         ),
-      _ => const Scaffold(body: Stack(children: [Center(child: CircularProgressIndicator()), _BackButton()])),
-    };
+        _ => const Scaffold(
+          key: ValueKey('chargement'),
+          body: Stack(
+            children: [
+              Center(child: CircularProgressIndicator()),
+              _BackButton(),
+            ],
+          ),
+        ),
+      },
+    );
   }
 }
 
@@ -53,7 +70,7 @@ double detailsHeaderHeight(Size size) {
 }
 
 class _Details extends ConsumerStatefulWidget {
-  const _Details({required this.item, required this.heroTag, required this.initialSeasonId});
+  const _Details({super.key, required this.item, required this.heroTag, required this.initialSeasonId});
 
   final MediaItem item;
   final String? heroTag;
@@ -99,36 +116,48 @@ class _DetailsState extends ConsumerState<_Details> {
       data: OFTheme.dark(accent: _accent ?? OFColors.accentFallback),
       duration: OFMotion.of(context).standard,
       child: Scaffold(
-        body: Stack(
-          children: [
-            CustomScrollView(
-              controller: _scroll,
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _Header(
-                    item: item,
-                    height: headerHeight,
-                    scroll: _scroll,
-                    heroTag: widget.heroTag,
-                    wide: wide,
+        body: EntranceScope(
+          child: Stack(
+            children: [
+              CustomScrollView(
+                controller: _scroll,
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _Header(
+                      item: item,
+                      height: headerHeight,
+                      scroll: _scroll,
+                      heroTag: widget.heroTag,
+                      wide: wide,
+                    ),
                   ),
-                ),
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, 0),
-                  sliver: SliverToBoxAdapter(child: _Summary(item: item)),
-                ),
-                if (item.kind == MediaKind.series)
-                  SliverToBoxAdapter(child: SeasonsSection(series: item, initialSeasonId: widget.initialSeasonId)),
-                if (item.kind == MediaKind.boxSet || item.kind == MediaKind.playlist)
-                  SliverToBoxAdapter(child: ChildrenSection(parent: item)),
-                if (item.people.isNotEmpty) SliverToBoxAdapter(child: CastSection(people: item.people)),
-                if (item.kind != MediaKind.episode) SliverToBoxAdapter(child: SimilarSection(itemId: item.id)),
-                if (item.streams.isNotEmpty) SliverToBoxAdapter(child: TechnicalSection(item: item)),
-                SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 120)),
-              ],
-            ),
-            _TopBar(scroll: _scroll, title: item.name, fadeStart: headerHeight - 140),
-          ],
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: FadeSlideIn(
+                        delay: staggerDelay(3),
+                        child: _Summary(item: item),
+                      ),
+                    ),
+                  ),
+                  // Les sections arrivent en cascade sous les actions.
+                  for (final (i, section) in [
+                    if (item.kind == MediaKind.series)
+                      SeasonsSection(series: item, initialSeasonId: widget.initialSeasonId),
+                    if (item.kind == MediaKind.boxSet || item.kind == MediaKind.playlist) ChildrenSection(parent: item),
+                    if (item.people.isNotEmpty) CastSection(people: item.people),
+                    if (item.kind != MediaKind.episode) SimilarSection(itemId: item.id),
+                    if (item.streams.isNotEmpty) TechnicalSection(item: item),
+                  ].indexed)
+                    SliverToBoxAdapter(
+                      child: FadeSlideIn(delay: staggerDelay(i + 5), offset: 24, child: section),
+                    ),
+                  SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 120)),
+                ],
+              ),
+              _TopBar(scroll: _scroll, title: item.name, fadeStart: headerHeight - 140),
+            ],
+          ),
         ),
       ),
     );
@@ -136,7 +165,13 @@ class _DetailsState extends ConsumerState<_Details> {
 }
 
 class _Header extends ConsumerWidget {
-  const _Header({required this.item, required this.height, required this.scroll, required this.heroTag, required this.wide});
+  const _Header({
+    required this.item,
+    required this.height,
+    required this.scroll,
+    required this.heroTag,
+    required this.wide,
+  });
 
   final MediaItem item;
   final double height;
@@ -150,7 +185,9 @@ class _Header extends ConsumerWidget {
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final images = ref.watch(imageUrlBuilderProvider);
     final gutter = OFSpacing.screenGutter(size.width);
-    final backdropRef = item.kind == MediaKind.episode ? (item.primary ?? item.backdrop) : (item.backdrop ?? item.primary);
+    final backdropRef = item.kind == MediaKind.episode
+        ? (item.primary ?? item.backdrop)
+        : (item.backdrop ?? item.primary);
     final motion = OFMotion.of(context);
 
     Widget backdrop = OFImage(
@@ -192,7 +229,9 @@ class _Header extends ConsumerWidget {
           )
         else
           _TitleText(
-            item.kind == MediaKind.episode && item.episodeLabel != null ? '${item.episodeLabel} · ${item.name}' : item.name,
+            item.kind == MediaKind.episode && item.episodeLabel != null
+                ? '${item.episodeLabel} · ${item.name}'
+                : item.name,
             wide: wide,
           ),
         if (meta.isNotEmpty) ...[
@@ -229,7 +268,11 @@ class _Header extends ConsumerWidget {
                 if (!motion.enabled) return child!;
                 if (offset < 0) {
                   // Sur-défilement iOS : léger zoom plutôt qu'un vide.
-                  return Transform.scale(scale: 1 + (-offset / height), alignment: Alignment.bottomCenter, child: child);
+                  return Transform.scale(
+                    scale: 1 + (-offset / height),
+                    alignment: Alignment.bottomCenter,
+                    child: child,
+                  );
                 }
                 return Transform.translate(offset: Offset(0, offset * 0.4), child: child);
               },
@@ -241,17 +284,20 @@ class _Header extends ConsumerWidget {
             left: gutter,
             right: gutter,
             bottom: OFSpacing.lg,
-            child: wide
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      if (item.poster != null)
-                        _Poster(item: item, heroTag: heroTag, width: 160),
-                      if (item.poster != null) const SizedBox(width: OFSpacing.xl),
-                      Expanded(child: titleBlock),
-                    ],
-                  )
-                : titleBlock,
+            child: FadeSlideIn(
+              delay: staggerDelay(1),
+              offset: 20,
+              child: wide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (item.poster != null) _Poster(item: item, heroTag: heroTag, width: 160),
+                        if (item.poster != null) const SizedBox(width: OFSpacing.xl),
+                        Expanded(child: titleBlock),
+                      ],
+                    )
+                  : titleBlock,
+            ),
           ),
         ],
       ),
@@ -297,15 +343,15 @@ class _TitleText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-        header: true,
-        child: Text(
-          text,
-          textAlign: wide ? TextAlign.start : TextAlign.center,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: OFTypography.display,
-        ),
-      );
+    header: true,
+    child: Text(
+      text,
+      textAlign: wide ? TextAlign.start : TextAlign.center,
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+      style: OFTypography.display,
+    ),
+  );
 }
 
 /// Actions + synopsis + informations.
@@ -343,7 +389,6 @@ class _Summary extends ConsumerWidget {
     }
 
     final controller = ref.read(userStateProvider(item.id).notifier);
-
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -400,7 +445,10 @@ class _Summary extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: OFSpacing.md),
-              Text(MediaFormat.remaining(item) ?? '', style: OFTypography.caption.copyWith(color: OFColors.textSecondary)),
+              Text(
+                MediaFormat.remaining(item) ?? '',
+                style: OFTypography.caption.copyWith(color: OFColors.textSecondary),
+              ),
             ],
           ),
         ],
@@ -408,10 +456,7 @@ class _Summary extends ConsumerWidget {
           const SizedBox(height: OFSpacing.xl),
           Text(item.tagline!, style: OFTypography.headline.copyWith(color: OFColors.textSecondary)),
         ],
-        if (item.overview != null) ...[
-          const SizedBox(height: OFSpacing.md),
-          ExpandableText(item.overview!),
-        ],
+        if (item.overview != null) ...[const SizedBox(height: OFSpacing.md), ExpandableText(item.overview!)],
         if (item.kind == MediaKind.episode && item.seriesId != null) ...[
           const SizedBox(height: OFSpacing.lg),
           OFButton.secondary(
@@ -451,7 +496,13 @@ class _Summary extends ConsumerWidget {
 }
 
 class _ToggleIcon extends StatelessWidget {
-  const _ToggleIcon({required this.active, required this.icon, required this.activeIcon, required this.label, required this.onTap});
+  const _ToggleIcon({
+    required this.active,
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.onTap,
+  });
 
   final bool active;
   final IconData icon;
@@ -464,8 +515,11 @@ class _ToggleIcon extends StatelessWidget {
     return Semantics(
       toggled: active,
       child: AnimatedSwitcher(
-        duration: OFMotion.of(context).fast,
-        transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
+        duration: OFMotion.of(context).standard,
+        transitionBuilder: (child, a) => ScaleTransition(
+          scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
+          child: FadeTransition(opacity: a, child: child),
+        ),
         child: OFIconButton(key: ValueKey(active), icon: active ? activeIcon : icon, tooltip: label, onPressed: onTap),
       ),
     );
@@ -474,9 +528,9 @@ class _ToggleIcon extends StatelessWidget {
 
 class _InfoLine extends StatelessWidget {
   _InfoLine({required this.label, required List<PersonCredit> people})
-      : refs = [for (final p in people) NamedRef(id: p.id, name: p.name)],
-        onTap = null,
-        isPeople = true;
+    : refs = [for (final p in people) NamedRef(id: p.id, name: p.name)],
+      onTap = null,
+      isPeople = true;
 
   const _InfoLine.named({required this.label, required this.refs, required this.onTap}) : isPeople = false;
 
@@ -502,10 +556,7 @@ class _InfoLine extends StatelessWidget {
                 for (final (i, r) in refs.indexed)
                   GestureDetector(
                     onTap: () => isPeople ? context.openPerson(r.id) : onTap?.call(r),
-                    child: Text(
-                      '${r.name}${i < refs.length - 1 ? ', ' : ''}',
-                      style: OFTypography.callout,
-                    ),
+                    child: Text('${r.name}${i < refs.length - 1 ? ', ' : ''}', style: OFTypography.callout),
                   ),
               ],
             ),
@@ -607,7 +658,12 @@ class _TopBar extends StatelessWidget {
                         child: Padding(
                           padding: EdgeInsets.only(top: top, left: 64, right: 64),
                           child: Center(
-                            child: Text(title, style: OFTypography.headline, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            child: Text(
+                              title,
+                              style: OFTypography.headline,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
                       ),
@@ -639,4 +695,3 @@ class _BackButton extends StatelessWidget {
 
 /// Style de carte pour les enfants d'une collection/playlist.
 CardStyle childStyle(MediaItem parent) => parent.kind == MediaKind.playlist ? CardStyle.landscape : CardStyle.poster;
-

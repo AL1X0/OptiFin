@@ -181,3 +181,20 @@ L'ancienne adresse reste valide.
 8. **AirPlay** : bouton système `AVRoutePickerView` avec le lecteur natif, lecture externe activée.
 9. **Chromecast reporté** à la phase 8 (contrôle à distance) : il exige le SDK Google Cast sur les
    deux plateformes et un récepteur ; il sera traité avec les autres « écrans distants ».
+
+## Démarrage natif plus rapide et animations (2026-09-28)
+
+1. **Une seule requête avant la première image** dans le cas courant : l'analyse `PlaybackInfo`
+   est faite avec le profil natif ; si le natif est retenu avec le même mode (direct / remux, même
+   piste audio), elle sert de plan. mpv en lecture directe réutilise aussi l'analyse (flux
+   statique construit localement). Seuls transcodage, incrustation ou autre piste audio en remux
+   demandent une seconde requête.
+2. **HLS** : un seul segment requis au démarrage, segments de 3 s (au lieu de 2 × 6 s).
+3. **AVPlayer** : lecture sans attendre un tampon « confortable » ; reprise sur l'image clé la plus
+   proche (≤ 2 s avant) au lieu d'un seek exact. **Media3** : lecture dès 1 s de tampon.
+4. **Préchargement** du plan aussi depuis le carrousel de l'accueil (bouton Lecture direct).
+5. **Animations** (≤ 300 ms, désactivées avec « Réduire les animations ») : entrées en cascade
+   (`FadeSlideIn`, fenêtre d'entrée `EntranceScope` pour ne pas réanimer au défilement),
+   fondus enchaînés squelette → contenu (`FadeThroughSwitcher`), onglets en fondu, barre
+   d'onglets animée, favori/vu avec rebond, cartes de bibliothèque en diagonale, bouton
+   « Passer » et carte « Épisode suivant » glissant depuis la droite.
