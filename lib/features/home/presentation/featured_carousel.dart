@@ -10,15 +10,10 @@ import '../../../core/media/media_item.dart';
 import '../../../core/providers.dart';
 import '../../player/presentation/playback_providers.dart';
 
-/// Le backdrop est plus large que la page pour que la parallaxe (décalage max
-/// ±[_parallax] de la largeur) ne découvre jamais le fond noir sur les bords.
-const _parallax = 0.15;
-const _overscan = 1 + 2 * _parallax;
-
 /// Au-delà, décoder plus large n'apporte rien à l'œil et coûte des images saccadées.
 const _maxDecodeWidth = 2400;
 
-int _decodeWidth(double logicalWidth, double dpr) => (logicalWidth * _overscan * dpr).ceil().clamp(1, _maxDecodeWidth);
+int _decodeWidth(double logicalWidth, double dpr) => (logicalWidth * dpr).ceil().clamp(1, _maxDecodeWidth);
 
 /// Hauteur du carrousel selon l'écran : immersif sur téléphone, borné sur tablette.
 double featuredHeight(Size size) {
@@ -28,7 +23,7 @@ double featuredHeight(Size size) {
 
 /// Grand carrousel « à la une » : backdrop plein cadre + logo + actions.
 ///
-/// Parallaxe horizontale légère au swipe, défilement auto toutes les 8 s (désactivé
+/// Swipe entre les titres, défilement auto toutes les 8 s (désactivé
 /// avec « Réduire les animations » et pendant une interaction), accent dynamique.
 class FeaturedCarousel extends ConsumerStatefulWidget {
   const FeaturedCarousel({super.key, required this.items, required this.onAccent});
@@ -43,7 +38,11 @@ class FeaturedCarousel extends ConsumerStatefulWidget {
 class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
   final _controller = PageController();
   Timer? _timer;
-  int _index = 0;
+
+  /// Page courante : seuls les points s'y abonnent (pas de reconstruction du carrousel au swipe).
+  final _page = ValueNotifier<int>(0);
+
+  int get _index => _page.value;
 
   /// Largeur réelle d'une page (≠ largeur d'écran quand un rail latéral est affiché).
   double _pageWidth = 0;
@@ -88,7 +87,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
     final images = ref.read(imageUrlBuilderProvider);
     for (final i in {index, (index + 1) % n, (index - 1 + n) % n}) {
       final item = widget.items[i];
-      final backdrop = images.maybe(item.backdrop, logicalWidth: width * _overscan, devicePixelRatio: dpr);
+      final backdrop = images.maybe(item.backdrop, logicalWidth: width, devicePixelRatio: dpr);
       if (backdrop != null) {
         precacheImage(OFImage.provider(backdrop, decodeWidth: _decodeWidth(width, dpr)), context, onError: (_, _) {});
       }
@@ -102,6 +101,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
   void dispose() {
     _timer?.cancel();
     _controller.dispose();
+    _page.dispose();
     super.dispose();
   }
 
@@ -157,14 +157,8 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
                   child: PageView.builder(
                     controller: _controller,
                     itemCount: widget.items.length,
-                    onPageChanged: (i) => setState(() => _index = i),
-                    itemBuilder: (context, i) => _FeaturedPage(
-                      item: widget.items[i],
-                      index: i,
-                      controller: _controller,
-                      width: width,
-                      height: height,
-                    ),
+                    onPageChanged: (i) => _page.value = i,
+                    itemBuilder: (context, i) => _FeaturedPage(item: widget.items[i], width: width, height: height),
                   ),
                 ),
               ),
@@ -174,7 +168,10 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
                   right: 0,
                   bottom: OFSpacing.md,
                   child: ExcludeSemantics(
-                    child: _Dots(count: widget.items.length, index: _index),
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: _page,
+                      builder: (_, index, _) => _Dots(count: widget.items.length, index: index),
+                    ),
                   ),
                 ),
             ],
@@ -186,17 +183,9 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
 }
 
 class _FeaturedPage extends ConsumerWidget {
-  const _FeaturedPage({
-    required this.item,
-    required this.index,
-    required this.controller,
-    required this.width,
-    required this.height,
-  });
+  const _FeaturedPage({required this.item, required this.width, required this.height});
 
   final MediaItem item;
-  final int index;
-  final PageController controller;
   final double width;
   final double height;
 
@@ -215,25 +204,12 @@ class _FeaturedPage extends ConsumerWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Parallaxe : l'image glisse moins vite que la page.
-          ClipRect(
-            child: AnimatedBuilder(
-              animation: controller,
-              builder: (context, child) {
-                final page = controller.hasClients && controller.position.haveDimensions ? controller.page ?? 0 : 0.0;
-                final shift = (page - index).clamp(-1.0, 1.0) * width * _parallax;
-                return Transform.translate(offset: Offset(shift, 0), child: child);
-              },
-              child: OverflowBox(
-                maxWidth: width * _overscan,
-                minWidth: width * _overscan,
-                child: OFImage(
-                  url: images.maybe(backdrop, logicalWidth: width * _overscan, devicePixelRatio: dpr),
-                  blurHash: backdrop?.blurHash,
-                  decodeWidth: _decodeWidth(width, dpr),
-                ),
-              ),
-            ),
+          // Illustration solidaire de sa page (pas de parallaxe : au relâcher du doigt, l'image
+          // donnait l'impression de « revenir en arrière » en rattrapant la page).
+          OFImage(
+            url: images.maybe(backdrop, logicalWidth: width, devicePixelRatio: dpr),
+            blurHash: backdrop?.blurHash,
+            decodeWidth: _decodeWidth(width, dpr),
           ),
           const DecoratedBox(decoration: BoxDecoration(gradient: OFColors.scrim)),
           // Voile haut pour la lisibilité de la barre d'état.

@@ -214,3 +214,10 @@ L'ancienne adresse reste valide.
 4. `bash demo/make_demo.sh` régénère la vidéo (`docs/media/optifin-demo.mp4`), les GIF et les captures
    du README. Au passage : note affichée avec une icône étoile (le caractère « ★ » dépend des polices),
    styles de texte hérités dans la barre d'onglets, flux PiP Android plus écouté sur iOS.
+
+## Carrousel sans parallaxe (2026-09-28)
+
+La parallaxe horizontale (image 15 % plus lente que la page) donnait, au relâcher du doigt, l'impression
+que l'image « revenait en arrière » en rattrapant la page. Supprimée : l'illustration est solidaire de sa
+page (comme Infuse), décodée à la largeur réelle (moins de mémoire). Au swipe, seuls les points se
+redessinent (ValueNotifier) au lieu du carrousel entier.
