@@ -49,9 +49,17 @@ class _MemoryVault implements TokenVault {
 
 /// App OptiFin réelle, branchée sur le serveur simulé et les illustrations générées.
 class DemoHarness {
-  DemoHarness(this.tester);
+  DemoHarness(this.tester, {this.device = phone, this.tablet = false});
 
   final WidgetTester tester;
+
+  /// Taille logique de l'appareil filmé (portrait).
+  final Size device;
+
+  /// iPad : pas d'îlot, marges de sécurité réduites.
+  final bool tablet;
+
+  double get _dpr => tablet ? 2 : 3;
   final assets = DemoAssets();
   final _boundary = GlobalKey();
   final _touches = GlobalKey<_TouchesState>();
@@ -76,7 +84,12 @@ class DemoHarness {
     db = AppDatabase(NativeDatabase.memory());
 
     final session = ActiveSession(
-      server: JellyfinServer(id: 'srv', name: 'Maison', baseUrl: Uri.parse('https://jellyfin.maison/jf'), version: '10.10.7'),
+      server: JellyfinServer(
+        id: 'srv',
+        name: 'Maison',
+        baseUrl: Uri.parse('https://jellyfin.maison/jf'),
+        version: '10.10.7',
+      ),
       account: const Account(serverId: 'srv', userId: 'demo-user', userName: 'Léa'),
       token: 'demo',
     );
@@ -127,7 +140,7 @@ class DemoHarness {
                   ],
                   child: const OptiFinApp(),
                 ),
-                _StatusBar(visible: () => !landscape),
+                _StatusBar(visible: () => !landscape && !tablet),
               ],
             ),
           ),
@@ -145,17 +158,23 @@ class DemoHarness {
 
   void _portrait() {
     landscape = false;
-    tester.view.devicePixelRatio = 3;
-    tester.view.physicalSize = phone * 3;
-    tester.view.padding = const FakeViewPadding(top: 59 * 3, bottom: 34 * 3);
-    tester.view.viewPadding = const FakeViewPadding(top: 59 * 3, bottom: 34 * 3);
+    tester.view.devicePixelRatio = _dpr;
+    tester.view.physicalSize = device * _dpr;
+    final pad = tablet
+        ? const FakeViewPadding(top: 24 * 2, bottom: 20 * 2)
+        : const FakeViewPadding(top: 59 * 3, bottom: 34 * 3);
+    tester.view.padding = pad;
+    tester.view.viewPadding = pad;
   }
 
   void goLandscape() {
     landscape = true;
-    tester.view.physicalSize = Size(phone.height, phone.width) * 3;
-    tester.view.padding = const FakeViewPadding(left: 59 * 3, right: 59 * 3, bottom: 21 * 3);
-    tester.view.viewPadding = const FakeViewPadding(left: 59 * 3, right: 59 * 3, bottom: 21 * 3);
+    tester.view.physicalSize = Size(device.height, device.width) * _dpr;
+    final pad = tablet
+        ? const FakeViewPadding(top: 24 * 2, bottom: 20 * 2)
+        : const FakeViewPadding(left: 59 * 3, right: 59 * 3, bottom: 21 * 3);
+    tester.view.padding = pad;
+    tester.view.viewPadding = pad;
   }
 
   void goPortrait() => _portrait();
@@ -226,7 +245,7 @@ class DemoHarness {
   Future<void> screenshot(String name) async {
     await tester.runAsync(() async {
       final boundary = _boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-      final image = await boundary.toImage(pixelRatio: 3);
+      final image = await boundary.toImage(pixelRatio: tablet ? 1 : 3);
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
       Directory('build/demo/shots').createSync(recursive: true);

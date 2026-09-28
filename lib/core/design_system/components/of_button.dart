@@ -64,10 +64,7 @@ class _OFButtonState extends State<OFButton> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (widget.loading)
-          SizedBox.square(
-            dimension: 18,
-            child: CircularProgressIndicator(strokeWidth: 2, color: fg),
-          )
+          SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: fg))
         else if (widget.icon != null)
           Icon(widget.icon, size: 20, color: fg),
         if (widget.loading || widget.icon != null) const SizedBox(width: OFSpacing.sm),
@@ -152,6 +149,99 @@ class OFIconButton extends StatelessWidget {
               child: Center(child: Icon(icon, size: 20, color: OFColors.textPrimary)),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bouton « liquid glass » : rond (icône seule) ou pilule (icône + libellé),
+/// léger rétrécissement au toucher et retour haptique.
+class OFGlassButton extends StatefulWidget {
+  const OFGlassButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.size = 44,
+    this.iconSize,
+    this.showLabel = false,
+    this.child,
+  });
+
+  final IconData icon;
+
+  /// Libellé d'accessibilité (et texte affiché si [showLabel]).
+  final String label;
+  final VoidCallback? onPressed;
+
+  /// Diamètre (ou hauteur de la pilule).
+  final double size;
+  final double? iconSize;
+  final bool showLabel;
+
+  /// Contenu à la place de l'icône (indicateur de chargement…).
+  final Widget? child;
+
+  @override
+  State<OFGlassButton> createState() => _OFGlassButtonState();
+}
+
+class _OFGlassButtonState extends State<OFGlassButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = OFMotion.of(context);
+    final enabled = widget.onPressed != null;
+    final icon =
+        widget.child ?? Icon(widget.icon, size: widget.iconSize ?? widget.size * 0.5, color: OFColors.textPrimary);
+    final body = widget.showLabel
+        ? LiquidGlass(
+            child: SizedBox(
+              height: widget.size,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: widget.size * 0.42),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    icon,
+                    const SizedBox(width: OFSpacing.sm),
+                    Text(widget.label, style: OFTypography.headline),
+                  ],
+                ),
+              ),
+            ),
+          )
+        : SizedBox.square(
+            dimension: widget.size,
+            child: LiquidGlass.circle(child: Center(child: icon)),
+          );
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: widget.label,
+      excludeSemantics: true,
+      onTap: enabled ? widget.onPressed : null,
+      child: GestureDetector(
+        onTapDown: enabled ? (_) => _setPressed(true) : null,
+        onTapCancel: () => _setPressed(false),
+        onTapUp: (_) => _setPressed(false),
+        onTap: enabled
+            ? () {
+                HapticFeedback.selectionClick();
+                widget.onPressed!();
+              }
+            : null,
+        child: AnimatedScale(
+          duration: motion.fast,
+          curve: OFMotion.fastCurve,
+          scale: _pressed ? 0.9 : 1,
+          child: AnimatedOpacity(duration: motion.fast, opacity: enabled ? 1 : 0.4, child: body),
         ),
       ),
     );

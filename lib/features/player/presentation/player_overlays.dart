@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design_system/design_system.dart';
@@ -23,13 +22,13 @@ class SkipSegmentButton extends StatelessWidget {
   final VoidCallback onSkip;
 
   @override
-  Widget build(BuildContext context) => OFButton.secondary(
+  Widget build(BuildContext context) => OFGlassButton(
     label: segment.type.skipLabel,
     icon: Icons.skip_next_rounded,
-    onPressed: () {
-      HapticFeedback.selectionClick();
-      onSkip();
-    },
+    iconSize: 22,
+    size: 48,
+    showLabel: true,
+    onPressed: onSkip,
   );
 }
 
@@ -83,12 +82,13 @@ class _UpNextCardState extends ConsumerState<UpNextCard> with SingleTickerProvid
     return Semantics(
       container: true,
       label: 'Épisode suivant : ${next.name}',
-      child: ClipRRect(
-        borderRadius: OFRadius.lgAll,
-        child: GlassSurface(
-          borderRadius: OFRadius.lgAll,
-          child: ColoredBox(
-            color: const Color(0xB3000000),
+      child: LiquidGlass(
+        borderRadius: const BorderRadius.all(Radius.circular(22)),
+        shade: 0.55,
+        child: Padding(
+          padding: const EdgeInsets.all(OFSpacing.sm),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.all(Radius.circular(16)),
             child: SizedBox(
               width: width,
               child: Column(
@@ -157,9 +157,11 @@ class _UpNextCardState extends ConsumerState<UpNextCard> with SingleTickerProvid
                               ),
                             ),
                             const SizedBox(width: OFSpacing.sm),
-                            OFIconButton(
+                            OFGlassButton(
                               icon: Icons.close_rounded,
-                              tooltip: 'Continuer le générique',
+                              label: 'Continuer le générique',
+                              size: 48,
+                              iconSize: 22,
                               onPressed: widget.onDismiss,
                             ),
                           ],
@@ -291,12 +293,9 @@ class LevelIndicator extends StatelessWidget {
   final double value;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => LiquidGlass(
     padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg, vertical: OFSpacing.md),
-    decoration: const BoxDecoration(
-      color: Color(0x99000000),
-      borderRadius: BorderRadius.all(Radius.circular(OFRadius.pill)),
-    ),
+    shade: 0.4,
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -317,102 +316,6 @@ class LevelIndicator extends StatelessWidget {
       ],
     ),
   );
-}
-
-/// Liste des chapitres avec vignettes ; le chapitre en cours est mis en avant.
-class ChaptersSheet extends ConsumerWidget {
-  const ChaptersSheet({
-    super.key,
-    required this.itemId,
-    required this.chapters,
-    required this.current,
-    required this.onSelect,
-  });
-
-  final String itemId;
-  final List<Chapter> chapters;
-  final Chapter? current;
-  final ValueChanged<Chapter> onSelect;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final images = ref.watch(imageUrlBuilderProvider);
-    final dpr = MediaQuery.devicePixelRatioOf(context);
-    final accent = Theme.of(context).colorScheme.primary;
-    const thumbWidth = 128.0;
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
-      child: ListView.builder(
-        shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(OFSpacing.lg, 0, OFSpacing.lg, OFSpacing.xl),
-        itemCount: chapters.length + 1,
-        itemBuilder: (context, i) {
-          if (i == 0) {
-            return const Padding(
-              padding: EdgeInsets.all(OFSpacing.sm),
-              child: Text('Chapitres', style: OFTypography.title2),
-            );
-          }
-          final c = chapters[i - 1];
-          final selected = identical(c, current);
-          return InkWell(
-            borderRadius: OFRadius.mdAll,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              onSelect(c);
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(OFSpacing.sm),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: OFRadius.smAll,
-                    child: SizedBox(
-                      width: thumbWidth,
-                      height: thumbWidth * 9 / 16,
-                      child: c.imageTag == null
-                          ? const ColoredBox(
-                              color: OFColors.surfaceRaised,
-                              child: Icon(Icons.movie_outlined, color: OFColors.textTertiary),
-                            )
-                          : OFImage(
-                              url: images.chapterImage(
-                                itemId,
-                                c.index,
-                                tag: c.imageTag,
-                                logicalWidth: thumbWidth,
-                                devicePixelRatio: dpr,
-                              ),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(width: OFSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          c.name,
-                          style: OFTypography.callout.copyWith(color: selected ? accent : OFColors.textPrimary),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          MediaFormat.clock(c.start),
-                          style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (selected) Icon(Icons.play_arrow_rounded, color: accent),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 }
 
 /// Recherche de sous-titres via les fournisseurs du serveur (ex. plugin OpenSubtitles).

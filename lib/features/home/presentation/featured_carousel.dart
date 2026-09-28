@@ -15,6 +15,10 @@ const _maxDecodeWidth = 2400;
 
 int _decodeWidth(double logicalWidth, double dpr) => (logicalWidth * dpr).ceil().clamp(1, _maxDecodeWidth);
 
+/// Largeur du logo : centré et large sur téléphone, plus sobre (à gauche) sur tablette.
+double _logoWidth(double pageWidth, Size screen) =>
+    screen.shortestSide >= 600 ? (pageWidth * 0.36).clamp(280.0, 460.0) : pageWidth * 0.62;
+
 /// Hauteur du carrousel selon l'écran : immersif sur téléphone, borné sur tablette.
 double featuredHeight(Size size) {
   final portrait = size.height > size.width;
@@ -91,7 +95,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
       if (backdrop != null) {
         precacheImage(OFImage.provider(backdrop, decodeWidth: _decodeWidth(width, dpr)), context, onError: (_, _) {});
       }
-      final logoWidth = width * 0.62;
+      final logoWidth = _logoWidth(width, MediaQuery.sizeOf(context));
       final logo = images.maybe(item.logo, logicalWidth: logoWidth, devicePixelRatio: dpr);
       if (logo != null) precacheImage(OFImage.provider(logo), context, onError: (_, _) {});
     }
@@ -131,6 +135,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
+          final tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
           if (width != _pageWidth) {
             final first = _pageWidth == 0;
             _pageWidth = width;
@@ -164,13 +169,13 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
               ),
               if (widget.items.length > 1)
                 Positioned(
-                  left: 0,
+                  left: tablet ? OFSpacing.screenGutter(width) - 3 : 0,
                   right: 0,
-                  bottom: OFSpacing.md,
+                  bottom: tablet ? OFSpacing.xl : OFSpacing.md,
                   child: ExcludeSemantics(
                     child: ValueListenableBuilder<int>(
                       valueListenable: _page,
-                      builder: (_, index, _) => _Dots(count: widget.items.length, index: index),
+                      builder: (_, index, _) => _Dots(count: widget.items.length, index: index, start: tablet),
                     ),
                   ),
                 ),
@@ -197,6 +202,10 @@ class _FeaturedPage extends ConsumerWidget {
     final backdrop = item.backdrop;
     final logo = item.logo;
     final meta = [...item.genres.take(2).map((g) => g.name), ?MediaFormat.years(item)].join(' · ');
+    // Tablette : bloc titre à gauche (à la manière de l'Apple TV), l'illustration respire à droite.
+    final tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+    final logoWidth = _logoWidth(width, MediaQuery.sizeOf(context));
+    final align = tablet ? CrossAxisAlignment.start : CrossAxisAlignment.center;
 
     return Semantics(
       container: true,
@@ -228,32 +237,39 @@ class _FeaturedPage extends ConsumerWidget {
               ),
             ),
           ),
+          if (tablet)
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Color(0x99000000), Color(0x00000000)], stops: [0, 0.6]),
+              ),
+            ),
           Positioned(
             left: gutter,
-            right: gutter,
-            bottom: OFSpacing.xxxl,
+            right: tablet ? width * 0.45 : gutter,
+            bottom: tablet ? OFSpacing.xxxl + OFSpacing.lg : OFSpacing.xxxl,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: align,
               children: [
                 if (logo != null)
                   ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: width * 0.62, maxHeight: height * 0.2),
+                    constraints: BoxConstraints(maxWidth: logoWidth, maxHeight: height * 0.2),
                     child: OFImage(
-                      url: images.image(logo, logicalWidth: width * 0.62, devicePixelRatio: dpr),
+                      url: images.image(logo, logicalWidth: logoWidth, devicePixelRatio: dpr),
                       fit: BoxFit.contain,
+                      alignment: tablet ? Alignment.bottomLeft : Alignment.center,
                       transparentPlaceholder: true,
-                      fallback: _Title(item.name),
+                      fallback: _Title(item.name, start: tablet),
                     ),
                   )
                 else
-                  _Title(item.name),
+                  _Title(item.name, start: tablet),
                 if (meta.isNotEmpty) ...[
                   const SizedBox(height: OFSpacing.md),
                   Text(meta, style: OFTypography.callout.copyWith(color: OFColors.textSecondary)),
                 ],
                 const SizedBox(height: OFSpacing.lg),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: tablet ? MainAxisAlignment.start : MainAxisAlignment.center,
                   children: [
                     OFButton(
                       label: 'Lecture',
@@ -279,14 +295,17 @@ class _FeaturedPage extends ConsumerWidget {
 }
 
 class _Title extends StatelessWidget {
-  const _Title(this.text);
+  const _Title(this.text, {this.start = false});
 
   final String text;
+
+  /// Aligné à gauche (tablette).
+  final bool start;
 
   @override
   Widget build(BuildContext context) => Text(
     text,
-    textAlign: TextAlign.center,
+    textAlign: start ? TextAlign.start : TextAlign.center,
     maxLines: 2,
     overflow: TextOverflow.ellipsis,
     style: OFTypography.display,
@@ -294,17 +313,18 @@ class _Title extends StatelessWidget {
 }
 
 class _Dots extends StatelessWidget {
-  const _Dots({required this.count, required this.index});
+  const _Dots({required this.count, required this.index, this.start = false});
 
   final int count;
   final int index;
+  final bool start;
 
   @override
   Widget build(BuildContext context) {
     final motion = OFMotion.of(context);
     final accent = Theme.of(context).colorScheme.primary;
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: start ? MainAxisAlignment.start : MainAxisAlignment.center,
       children: [
         for (var i = 0; i < count; i++)
           AnimatedContainer(

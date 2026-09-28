@@ -227,9 +227,20 @@ void main() {
     await tester.pump();
     expect(engine.commands, contains('pause'));
 
-    await tester.tap(find.bySemanticsLabel('Audio et sous-titres'));
+    // Réglages → Audio : pistes audio ; retour → Sous-titres : pistes de sous-titres.
+    await tester.tap(find.bySemanticsLabel('Réglages'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.bySemanticsLabel(RegExp(r'^Audio, ')));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('English 7.1'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Retour'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.bySemanticsLabel(RegExp(r'^Sous-titres, ')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Externe SRT'), findsOneWidget);
 
     // Démonte l'écran puis le conteneur : aucune minuterie ne doit survivre (cache 2 min, masquage).
@@ -365,6 +376,9 @@ void main() {
     expect(engine.commands, contains('seek:660'));
 
     // Verrou : les contrôles disparaissent, seul « Déverrouiller » peut revenir.
+    await tester.tap(find.bySemanticsLabel('Réglages'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.bySemanticsLabel('Verrouiller l’écran'));
     await tester.pump(const Duration(milliseconds: 400));
     // Contrôles encore présents (fondu) mais plus touchables.

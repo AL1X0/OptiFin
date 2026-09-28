@@ -20,8 +20,8 @@ const _tabs = [
   _Tab('Recherche', Icons.search_rounded, Icons.search_rounded),
 ];
 
-/// Coquille de navigation : barre d'onglets en verre (téléphone, même en paysage)
-/// ou rail latéral (tablette ≥ 840 px de large). Le contenu défile sous la barre (extendBody).
+/// Coquille de navigation : barre d'onglets en verre pleine largeur (téléphone) ou
+/// pilule flottante (tablette). Le contenu défile sous la barre (extendBody).
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.shell});
 
@@ -35,35 +35,14 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    // Téléphone en paysage : on garde la barre du bas (le rail est réservé aux tablettes).
-    final wide = mq.size.shortestSide >= 600 && mq.size.width >= 840;
-    if (wide) {
-      // Le rail absorbe l'encoche gauche ; le contenu reçoit sa vraie largeur pour
-      // que grilles et carrousel se dimensionnent sur l'espace réellement disponible.
-      final railWidth = _SideRail.baseWidth + mq.padding.left;
-      return Scaffold(
-        body: Row(
-          children: [
-            _SideRail(current: shell.currentIndex, onSelect: _select, width: railWidth),
-            Expanded(
-              child: MediaQuery(
-                data: mq.copyWith(
-                  size: Size(mq.size.width - railWidth, mq.size.height),
-                  padding: mq.padding.copyWith(left: 0),
-                  viewPadding: mq.viewPadding.copyWith(left: 0),
-                ),
-                child: shell,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    // Tablette (portrait comme paysage) : barre flottante ; téléphone : barre pleine largeur.
+    final tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
     return Scaffold(
       extendBody: true,
       body: shell,
-      bottomNavigationBar: _GlassTabBar(current: shell.currentIndex, onSelect: _select),
+      bottomNavigationBar: tablet
+          ? _FloatingTabBar(current: shell.currentIndex, onSelect: _select)
+          : _GlassTabBar(current: shell.currentIndex, onSelect: _select),
     );
   }
 }
@@ -109,33 +88,32 @@ class _GlassTabBar extends StatelessWidget {
   }
 }
 
-class _SideRail extends StatelessWidget {
-  const _SideRail({required this.current, required this.onSelect, required this.width});
-
-  static const baseWidth = 96.0;
+/// Tablette : barre d'onglets flottante en verre, centrée en bas (icône + libellé
+/// côte à côte). Le contenu garde toute la largeur de l'écran.
+class _FloatingTabBar extends StatelessWidget {
+  const _FloatingTabBar({required this.current, required this.onSelect});
 
   final int current;
   final ValueChanged<int> onSelect;
-  final double width;
 
   @override
   Widget build(BuildContext context) {
+    final bottom = MediaQuery.paddingOf(context).bottom;
     final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      width: width,
-      decoration: const BoxDecoration(
-        color: OFColors.background,
-        border: Border(right: BorderSide(color: OFColors.stroke, width: 0.5)),
-      ),
-      child: SafeArea(
-        right: false,
-        child: Column(
-          children: [
-            const SizedBox(height: OFSpacing.xl),
-            for (final (i, tab) in _tabs.indexed)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: OFSpacing.sm),
-                child: Semantics(
+    final motion = OFMotion.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom > 0 ? bottom : OFSpacing.lg, top: OFSpacing.sm),
+      child: Center(
+        heightFactor: 1,
+        child: LiquidGlass(
+          shade: 0.45,
+          sigma: 24,
+          padding: const EdgeInsets.all(5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final (i, tab) in _tabs.indexed)
+                Semantics(
                   selected: i == current,
                   button: true,
                   label: tab.label,
@@ -144,41 +122,40 @@ class _SideRail extends StatelessWidget {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => onSelect(i),
-                    child: SizedBox(
-                      width: baseWidth,
-                      child: Column(
+                    child: AnimatedContainer(
+                      duration: motion.standard,
+                      curve: OFMotion.standardCurve,
+                      height: 46,
+                      padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg + 2),
+                      decoration: BoxDecoration(
+                        color: i == current ? const Color(0x24FFFFFF) : const Color(0x00FFFFFF),
+                        borderRadius: const BorderRadius.all(Radius.circular(OFRadius.pill)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          AnimatedContainer(
-                            duration: OFMotion.of(context).fast,
-                            width: 56,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: i == current ? accent.withValues(alpha: 0.18) : Colors.transparent,
-                              borderRadius: const BorderRadius.all(Radius.circular(OFRadius.pill)),
-                            ),
-                            child: Icon(
-                              i == current ? tab.selectedIcon : tab.icon,
-                              color: i == current ? accent : OFColors.textSecondary,
-                            ),
+                          AnimatedStateIcon(
+                            icon: i == current ? tab.selectedIcon : tab.icon,
+                            color: i == current ? accent : OFColors.textSecondary,
                           ),
-                          const SizedBox(height: OFSpacing.xs),
-                          Text(
-                            tab.label,
-                            maxLines: 1,
-                            softWrap: false,
-                            overflow: TextOverflow.fade,
-                            style: OFTypography.caption.copyWith(
-                              fontSize: 11,
-                              color: i == current ? accent : OFColors.textSecondary,
+                          const SizedBox(width: OFSpacing.sm),
+                          AnimatedDefaultTextStyle(
+                            duration: motion.standard,
+                            style: DefaultTextStyle.of(context).style.merge(
+                              OFTypography.callout.copyWith(
+                                color: i == current ? OFColors.textPrimary : OFColors.textSecondary,
+                                fontWeight: i == current ? FontWeight.w600 : FontWeight.w500,
+                              ),
                             ),
+                            child: Text(tab.label),
                           ),
                         ],
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

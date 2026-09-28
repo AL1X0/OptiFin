@@ -221,3 +221,21 @@ La parallaxe horizontale (image 15 % plus lente que la page) donnait, au relâch
 que l'image « revenait en arrière » en rattrapant la page. Supprimée : l'illustration est solidaire de sa
 page (comme Infuse), décodée à la largeur réelle (moins de mémoire). Au swipe, seuls les points se
 redessinent (ValueNotifier) au lieu du carrousel entier.
+
+## iPad et lecteur « liquid glass » (2026-09-28)
+
+1. **Tablette** : le rail latéral (noir, plat) est remplacé par une **barre d'onglets flottante en verre**,
+   centrée en bas, portrait comme paysage : le contenu garde toute la largeur. Carrousel : titre, boutons et
+   points alignés à gauche avec un voile latéral (à la manière de l'Apple TV). Cartes paysage plafonnées à
+   264 px (4–5 visibles au lieu de 3 énormes), logos alignés à gauche dans les fiches, synopsis limité à
+   820 px de large. Vérifié par des captures iPad 11" (`demo/ipad_audit_test.dart`).
+2. **`LiquidGlass`** (design system) : flou partagé (`BackdropGroup`), voile sombre, reflet en dégradé et
+   liseré spéculaire. Le voile garde les commandes lisibles là où le flou ne s'applique pas (vue vidéo
+   native Android). `OFGlassButton` : bouton rond ou pilule en verre.
+3. **Lecteur simplifié** : en haut, seulement fermer, titre, et une pilule AirPlay · PiP · format ·
+   **Réglages**. Tout le reste passe dans un **menu en verre à sous-menus** ancré sous son bouton
+   (Audio, Sous-titres → recherche en ligne et apparence, Chapitres, Vitesse, Synchronisation, Moteur,
+   Verrouiller, Infos techniques), chaque ligne affichant la valeur actuelle. Un choix (piste, vitesse,
+   chapitre, moteur) referme le menu ; les réglages fins le gardent ouvert. Le menu ne recouvre jamais la
+   barre de progression. Boutons centraux, barre de progression, « Passer l'intro », « Épisode suivant »,
+   indicateurs et verrou passent aussi en verre ; tout grandit un peu sur tablette.

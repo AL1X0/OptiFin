@@ -13,7 +13,8 @@ double cardWidthFor(CardStyle style, double screenWidth) {
   return switch (style) {
     CardStyle.poster => poster,
     CardStyle.square => poster * 1.15,
-    CardStyle.landscape => poster * 1.9,
+    // Plafonnée : sur tablette, 4 à 5 cartes visibles plutôt que 3 énormes.
+    CardStyle.landscape => poster * 1.9 > 264 ? 264.0 : poster * 1.9,
   };
 }
 
@@ -29,7 +30,14 @@ double cardHeightFor(CardStyle style, double width, {bool showTitle = true}) {
 
 /// Carte média branchée sur les données Jellyfin et la navigation.
 class MediaCard extends ConsumerWidget {
-  const MediaCard({super.key, required this.item, required this.style, required this.width, this.onTap, this.heroScope});
+  const MediaCard({
+    super.key,
+    required this.item,
+    required this.style,
+    required this.width,
+    this.onTap,
+    this.heroScope,
+  });
 
   final MediaItem item;
   final CardStyle style;
@@ -85,7 +93,14 @@ class MediaCard extends ConsumerWidget {
 
 /// Rangée horizontale de cartes média.
 class MediaItemsRow extends StatelessWidget {
-  const MediaItemsRow({super.key, required this.title, required this.items, required this.style, this.onSeeAll, this.heroScope});
+  const MediaItemsRow({
+    super.key,
+    required this.title,
+    required this.items,
+    required this.style,
+    this.onSeeAll,
+    this.heroScope,
+  });
 
   final String title;
   final List<MediaItem> items;
@@ -134,11 +149,14 @@ class SkeletonRow extends StatelessWidget {
                 child: Row(
                   children: [
                     for (var i = 0; i < 6; i++) ...[
-                      SkeletonBox(width: width, aspectRatio: switch (style) {
-                        CardStyle.poster => 2 / 3,
-                        CardStyle.square => 1,
-                        CardStyle.landscape => 16 / 9,
-                      }),
+                      SkeletonBox(
+                        width: width,
+                        aspectRatio: switch (style) {
+                          CardStyle.poster => 2 / 3,
+                          CardStyle.square => 1,
+                          CardStyle.landscape => 16 / 9,
+                        },
+                      ),
                       const SizedBox(width: OFSpacing.md),
                     ],
                   ],
@@ -172,7 +190,11 @@ class StatusMessage extends StatelessWidget {
               Icon(icon, size: 40, color: OFColors.textTertiary),
               const SizedBox(height: OFSpacing.lg),
             ],
-            Text(text, textAlign: TextAlign.center, style: OFTypography.body.copyWith(color: OFColors.textSecondary)),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: OFTypography.body.copyWith(color: OFColors.textSecondary),
+            ),
             if (onRetry != null) ...[
               const SizedBox(height: OFSpacing.lg),
               OFButton.secondary(label: 'Réessayer', onPressed: onRetry),

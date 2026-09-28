@@ -136,7 +136,14 @@ class _DetailsState extends ConsumerState<_Details> {
                     sliver: SliverToBoxAdapter(
                       child: FadeSlideIn(
                         delay: staggerDelay(3),
-                        child: _Summary(item: item),
+                        // Tablette : le synopsis garde une longueur de ligne confortable.
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 820),
+                            child: _Summary(item: item),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -224,6 +231,7 @@ class _Header extends ConsumerWidget {
                 fit: BoxFit.contain,
                 transparentPlaceholder: true,
                 fallback: _TitleText(item.name, wide: wide),
+                alignment: wide ? Alignment.bottomLeft : Alignment.center,
               ),
             ),
           )

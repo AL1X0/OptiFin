@@ -81,10 +81,12 @@ void main() {
     await h.screenshot('player');
     await h.tap(find.text('Passer l’intro'));
     await h.hold(const Duration(milliseconds: 900));
-    await h.tap(find.bySemanticsLabel('Audio et sous-titres'));
+    await h.tap(find.bySemanticsLabel('Réglages'));
+    await h.hold(const Duration(milliseconds: 900));
+    await h.tap(find.bySemanticsLabel(RegExp('^Sous-titres, ')));
     await h.hold(const Duration(milliseconds: 1800));
     await h.screenshot('player_tracks');
-    await h.tapAt(const Offset(80, 40));
+    await h.tapAt(const Offset(250, 200));
     await h.hold(const Duration(milliseconds: 500));
     final engine = h.engine!;
     engine.jumpTo(engine.snapshot.duration - const Duration(seconds: 88));

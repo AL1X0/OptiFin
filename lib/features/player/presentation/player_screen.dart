@@ -17,6 +17,7 @@ import '../domain/playback_engine.dart';
 import '../domain/playback_extras.dart';
 import 'player_controller.dart';
 import 'player_overlays.dart';
+import 'player_menu.dart';
 import 'player_sheets.dart';
 
 /// Lecteur plein écran. Même UI quel que soit le moteur : tout passe par
@@ -146,15 +147,10 @@ class _NoticePill extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: const BoxDecoration(
-      color: Color(0xB3000000),
-      borderRadius: BorderRadius.all(Radius.circular(OFRadius.pill)),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg, vertical: OFSpacing.sm),
-      child: Text(text, style: OFTypography.callout.copyWith(color: OFColors.textSecondary)),
-    ),
+  Widget build(BuildContext context) => LiquidGlass(
+    shade: 0.45,
+    padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg, vertical: OFSpacing.sm),
+    child: Text(text, style: OFTypography.callout.copyWith(color: OFColors.textSecondary)),
   );
 }
 
@@ -247,12 +243,15 @@ class _CloseButton extends StatelessWidget {
   Widget build(BuildContext context) => SafeArea(
     child: Padding(
       padding: const EdgeInsets.all(OFSpacing.md),
-      child: OFIconButton(icon: Icons.close_rounded, tooltip: 'Fermer le lecteur', onPressed: onClose),
+      child: OFGlassButton(icon: Icons.close_rounded, label: 'Fermer le lecteur', onPressed: onClose),
     ),
   );
 }
 
-/// Contrôles minimalistes : apparaissent au toucher, disparaissent après 4 s de lecture.
+/// Contrôles minimalistes en verre : apparaissent au toucher, disparaissent après 4 s de lecture.
+///
+/// En haut : fermer, titre, puis AirPlay, Picture-in-Picture, format d'image et Réglages
+/// (tout le reste : audio, sous-titres, chapitres, vitesse, synchronisation, moteur, verrou).
 ///
 /// Gestes : toucher = afficher/masquer, double-toucher = ±10 s, glissé vertical à
 /// gauche = luminosité, à droite = volume. Verrou : plus aucun geste jusqu'au déverrouillage.
@@ -293,6 +292,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   Duration? _scrubbing;
   _SeekFeedback? _feedback;
   Timer? _feedbackTimer;
+  bool _menu = false;
 
   bool _locked = false;
   bool _showUnlock = false;
@@ -341,7 +341,9 @@ class _PlayerControlsState extends State<PlayerControls> {
   void _scheduleHide() {
     _hideTimer?.cancel();
     _hideTimer = Timer(_hideAfter, () {
-      if (mounted && widget.engine.snapshot.playing && _scrubbing == null) setState(() => _visible = false);
+      if (mounted && widget.engine.snapshot.playing && _scrubbing == null && !_menu) {
+        setState(() => _visible = false);
+      }
     });
   }
 
@@ -355,12 +357,30 @@ class _PlayerControlsState extends State<PlayerControls> {
       _flashUnlock();
       return;
     }
+    if (_menu) {
+      _closeMenu();
+      return;
+    }
     if (_visible) {
       _hideTimer?.cancel();
       setState(() => _visible = false);
     } else {
       _show();
     }
+  }
+
+  void _openMenu() {
+    _hideTimer?.cancel();
+    setState(() {
+      _menu = true;
+      _visible = true;
+    });
+  }
+
+  void _closeMenu() {
+    if (!_menu) return;
+    setState(() => _menu = false);
+    _scheduleHide();
   }
 
   void _flashUnlock() {
@@ -375,6 +395,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     HapticFeedback.mediumImpact();
     _hideTimer?.cancel();
     setState(() {
+      _menu = false;
       _locked = true;
       _visible = false;
     });
@@ -392,7 +413,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   void _doubleTapSeek(TapDownDetails d) {
-    if (_locked) return;
+    if (_locked || _menu) return;
     final width = context.size?.width ?? 1;
     final forward = d.localPosition.dx > width / 2;
     HapticFeedback.lightImpact();
@@ -411,7 +432,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   // ------------------------------------------------------------ Luminosité / volume
 
   void _levelStart(DragStartDetails d) {
-    if (_locked) return;
+    if (_locked || _menu) return;
     final width = context.size?.width ?? 1;
     final level = d.localPosition.dx < width / 2 ? _Level.brightness : _Level.volume;
     _dragDistance = 0;
@@ -445,38 +466,13 @@ class _PlayerControlsState extends State<PlayerControls> {
     if (_level != null) setState(() => _level = null);
   }
 
-  // ------------------------------------------------------------ Feuilles
+  // ------------------------------------------------------------ Actions
 
-  Future<void> _openSheet(WidgetBuilder builder) async {
+  Future<void> _searchSubtitles() async {
+    setState(() => _menu = false);
     _hideTimer?.cancel();
-    await showOFSheet<void>(context, builder: builder);
+    await showOFSheet<void>(context, builder: (_) => SubtitleSearchSheet(controller: widget.controller));
     _scheduleHide();
-  }
-
-  Future<void> _openTracks() => _openSheet(
-    (_) => TracksSheet(
-      controller: widget.controller,
-      engine: widget.engine,
-      onSearchSubtitles: () {
-        Navigator.of(context).pop();
-        unawaited(_openSheet((_) => SubtitleSearchSheet(controller: widget.controller)));
-      },
-    ),
-  );
-
-  Future<void> _openChapters(Duration position) {
-    final extras = widget.state.extras;
-    return _openSheet(
-      (sheetContext) => ChaptersSheet(
-        itemId: widget.state.plan?.itemId ?? '',
-        chapters: extras.chapters,
-        current: extras.chapterAt(position),
-        onSelect: (c) {
-          Navigator.of(sheetContext).pop();
-          unawaited(widget.controller.seek(c.start));
-        },
-      ),
-    );
   }
 
   Future<void> _pictureInPicture() async {
@@ -492,147 +488,213 @@ class _PlayerControlsState extends State<PlayerControls> {
     final motion = OFMotion.of(context);
     final ui = widget.state;
     final next = ui.extras.nextEpisode;
-    return StreamBuilder<PlayerSnapshot>(
-      stream: widget.engine.snapshots,
-      initialData: widget.engine.snapshot,
-      builder: (context, snap) {
-        final s = snap.data ?? const PlayerSnapshot();
-        final showSpinner = s.buffering || s.status == PlaybackStatus.loading || ui.reloading;
-        final bottomInset = MediaQuery.paddingOf(context).bottom;
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            // Couche gestes SOUS les contrôles : les boutons reçoivent leurs taps
-            // immédiatement (sinon le détecteur de double-tap les retarde de 300 ms),
-            // les zones vides laissent passer vers cette couche.
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _toggle,
-              onDoubleTapDown: _doubleTapSeek,
-              onDoubleTap: () {},
-              onVerticalDragStart: _levelStart,
-              onVerticalDragUpdate: _levelUpdate,
-              onVerticalDragEnd: _levelEnd,
-              onVerticalDragCancel: _levelEnd,
-            ),
-            if (_feedback != null) IgnorePointer(child: _SeekIndicator(feedback: _feedback!)),
-            if (_level != null)
+    final metrics = _Metrics.of(context);
+    return BackdropGroup(
+      child: StreamBuilder<PlayerSnapshot>(
+        stream: widget.engine.snapshots,
+        initialData: widget.engine.snapshot,
+        builder: (context, snap) {
+          final s = snap.data ?? const PlayerSnapshot();
+          final showSpinner = s.buffering || s.status == PlaybackStatus.loading || ui.reloading;
+          final padding = MediaQuery.paddingOf(context);
+          final overlayBottom = padding.bottom + (_visible ? metrics.bottomBarClearance : OFSpacing.xxl);
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // Couche gestes SOUS les contrôles : les boutons reçoivent leurs taps
+              // immédiatement (sinon le détecteur de double-tap les retarde de 300 ms),
+              // les zones vides laissent passer vers cette couche.
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _toggle,
+                onDoubleTapDown: _doubleTapSeek,
+                onDoubleTap: () {},
+                onVerticalDragStart: _levelStart,
+                onVerticalDragUpdate: _levelUpdate,
+                onVerticalDragEnd: _levelEnd,
+                onVerticalDragCancel: _levelEnd,
+              ),
+              if (_feedback != null) IgnorePointer(child: _SeekIndicator(feedback: _feedback!)),
+              if (_level != null)
+                IgnorePointer(
+                  child: Align(
+                    alignment: const Alignment(0, -0.7),
+                    child: LevelIndicator(
+                      icon: _level == _Level.brightness ? Icons.brightness_6_rounded : Icons.volume_up_rounded,
+                      value: _level == _Level.brightness ? _brightness : _volume,
+                    ),
+                  ),
+                ),
+              if (showSpinner && !_visible)
+                const IgnorePointer(
+                  child: Center(
+                    child: SizedBox.square(dimension: 36, child: CircularProgressIndicator(strokeWidth: 2.5)),
+                  ),
+                ),
               IgnorePointer(
-                child: Align(
-                  alignment: const Alignment(0, -0.7),
-                  child: LevelIndicator(
-                    icon: _level == _Level.brightness ? Icons.brightness_6_rounded : Icons.volume_up_rounded,
-                    value: _level == _Level.brightness ? _brightness : _volume,
+                key: const ValueKey('controles'),
+                ignoring: !_visible || _locked,
+                child: AnimatedOpacity(
+                  opacity: _visible && !_locked ? 1 : 0,
+                  duration: motion.standard,
+                  curve: OFMotion.standardCurve,
+                  child: (_visible && !_locked) || motion.enabled
+                      ? _ControlsLayer(
+                          metrics: metrics,
+                          snapshot: s,
+                          scrubbing: _scrubbing,
+                          showSpinner: showSpinner,
+                          debug: _debug,
+                          menuOpen: _menu,
+                          ui: ui,
+                          engine: widget.engine,
+                          fit: widget.fit,
+                          onClose: widget.onClose,
+                          onPlayPause: () {
+                            unawaited(widget.controller.togglePlay());
+                            _show();
+                          },
+                          onSkip: (d) {
+                            unawaited(widget.controller.seekBy(d));
+                            _show();
+                          },
+                          onScrubStart: (p) {
+                            _hideTimer?.cancel();
+                            setState(() => _scrubbing = p);
+                          },
+                          onScrub: (p) => setState(() => _scrubbing = p),
+                          onScrubEnd: (p) {
+                            setState(() => _scrubbing = null);
+                            unawaited(widget.controller.seek(p));
+                            _scheduleHide();
+                          },
+                          onSettings: () => _menu ? _closeMenu() : _openMenu(),
+                          onPictureInPicture: widget.engine.capabilities.pictureInPicture ? _pictureInPicture : null,
+                          onCycleFit: () {
+                            widget.onCycleFit();
+                            _show();
+                          },
+                          onToggleDebug: () => setState(() => _debug = !_debug),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+              // Menu Réglages : ancré sous son bouton, se déploie depuis le coin.
+              Positioned(
+                key: const ValueKey('menu'),
+                top: padding.top + metrics.menuTop,
+                right: padding.right + metrics.edge,
+                child: AnimatedSwitcher(
+                  duration: motion.standard,
+                  switchInCurve: OFMotion.emphasizedCurve,
+                  switchOutCurve: OFMotion.standardCurve,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(
+                      scale: Tween(begin: 0.85, end: 1.0).animate(animation),
+                      alignment: Alignment.topRight,
+                      child: child,
+                    ),
+                  ),
+                  child: _menu && !_locked
+                      ? PlayerSettingsMenu(
+                          key: const ValueKey('menu'),
+                          controller: widget.controller,
+                          engine: widget.engine,
+                          debug: _debug,
+                          onDismiss: _closeMenu,
+                          onLock: _lock,
+                          onSearchSubtitles: _searchSubtitles,
+                          // Au-dessus de la barre de progression, qu'il ne recouvre jamais.
+                          maxHeight:
+                              MediaQuery.sizeOf(context).height -
+                              padding.vertical -
+                              metrics.menuTop -
+                              metrics.bottomBarClearance,
+                          onToggleDebug: () => setState(() => _debug = !_debug),
+                        )
+                      : const SizedBox.shrink(key: ValueKey('ferme')),
+                ),
+              ),
+              // « Passer l'intro » : visible même contrôles masqués (mais pas verrouillé).
+              if (ui.segment != null && !_locked && !ui.upNext && !_menu)
+                Positioned(
+                  right: padding.right + metrics.edge,
+                  bottom: overlayBottom,
+                  child: FadeSlideIn(
+                    key: ValueKey(ui.segment),
+                    axis: Axis.horizontal,
+                    offset: 32,
+                    child: SkipSegmentButton(segment: ui.segment!, onSkip: widget.controller.skipSegment),
                   ),
                 ),
-              ),
-            if (showSpinner && !_visible)
-              const IgnorePointer(
-                child: Center(
-                  child: SizedBox.square(dimension: 36, child: CircularProgressIndicator(strokeWidth: 2.5)),
-                ),
-              ),
-            IgnorePointer(
-              ignoring: !_visible || _locked,
-              child: AnimatedOpacity(
-                opacity: _visible && !_locked ? 1 : 0,
-                duration: motion.standard,
-                curve: OFMotion.standardCurve,
-                child: (_visible && !_locked) || motion.enabled
-                    ? _ControlsLayer(
-                        snapshot: s,
-                        scrubbing: _scrubbing,
-                        showSpinner: showSpinner,
-                        debug: _debug,
-                        ui: ui,
-                        engine: widget.engine,
-                        fit: widget.fit,
-                        onClose: widget.onClose,
-                        onPlayPause: () {
-                          unawaited(widget.controller.togglePlay());
-                          _show();
-                        },
-                        onSkip: (d) {
-                          unawaited(widget.controller.seekBy(d));
-                          _show();
-                        },
-                        onScrubStart: (p) {
-                          _hideTimer?.cancel();
-                          setState(() => _scrubbing = p);
-                        },
-                        onScrub: (p) => setState(() => _scrubbing = p),
-                        onScrubEnd: (p) {
-                          setState(() => _scrubbing = null);
-                          unawaited(widget.controller.seek(p));
-                          _scheduleHide();
-                        },
-                        onTracks: _openTracks,
-                        onChapters: ui.extras.chapters.isEmpty ? null : () => _openChapters(s.position),
-                        onPictureInPicture: widget.engine.capabilities.pictureInPicture ? _pictureInPicture : null,
-                        onLock: _lock,
-                        onCycleFit: () {
-                          widget.onCycleFit();
-                          _show();
-                        },
-                        onToggleDebug: () => setState(() => _debug = !_debug),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ),
-            // « Passer l'intro » : visible même contrôles masqués (mais pas verrouillé).
-            if (ui.segment != null && !_locked && !ui.upNext)
-              Positioned(
-                right: OFSpacing.xl,
-                bottom: bottomInset + (_visible ? 112 : OFSpacing.xxl),
-                child: FadeSlideIn(
-                  key: ValueKey(ui.segment),
-                  axis: Axis.horizontal,
-                  offset: 32,
-                  child: SkipSegmentButton(segment: ui.segment!, onSkip: widget.controller.skipSegment),
-                ),
-              ),
-            if (ui.upNext && next != null && !_locked)
-              Positioned(
-                right: OFSpacing.xl,
-                bottom: bottomInset + (_visible ? 112 : OFSpacing.xxl),
-                child: FadeSlideIn(
-                  key: ValueKey('suivant-${next.id}'),
-                  axis: Axis.horizontal,
-                  offset: 48,
-                  child: UpNextCard(
-                    key: ValueKey(next.id),
-                    next: next,
-                    autoPlay: widget.autoPlayNext,
-                    onPlay: () => unawaited(widget.controller.playNext()),
-                    onDismiss: widget.controller.dismissUpNext,
+              if (ui.upNext && next != null && !_locked && !_menu)
+                Positioned(
+                  right: padding.right + metrics.edge,
+                  bottom: overlayBottom,
+                  child: FadeSlideIn(
+                    key: ValueKey('suivant-${next.id}'),
+                    axis: Axis.horizontal,
+                    offset: 48,
+                    child: UpNextCard(
+                      key: ValueKey(next.id),
+                      next: next,
+                      autoPlay: widget.autoPlayNext,
+                      onPlay: () => unawaited(widget.controller.playNext()),
+                      onDismiss: widget.controller.dismissUpNext,
+                    ),
                   ),
                 ),
-              ),
-            if (_locked)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: bottomInset + OFSpacing.xxl,
-                child: Center(
-                  child: AnimatedOpacity(
-                    opacity: _showUnlock ? 1 : 0,
-                    duration: motion.standard,
-                    child: IgnorePointer(
-                      ignoring: !_showUnlock,
-                      child: OFButton.secondary(
-                        label: 'Déverrouiller',
-                        icon: Icons.lock_open_rounded,
-                        onPressed: _unlock,
+              if (_locked)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: padding.bottom + OFSpacing.xxl,
+                  child: Center(
+                    child: AnimatedOpacity(
+                      opacity: _showUnlock ? 1 : 0,
+                      duration: motion.standard,
+                      child: IgnorePointer(
+                        ignoring: !_showUnlock,
+                        child: OFGlassButton(
+                          label: 'Déverrouiller',
+                          icon: Icons.lock_open_rounded,
+                          iconSize: 22,
+                          size: 48,
+                          showLabel: true,
+                          onPressed: _unlock,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
-        );
-      },
+            ],
+          );
+        },
+      ),
     );
   }
+}
+
+/// Tailles du lecteur selon l'appareil : tout grandit un peu sur tablette.
+class _Metrics {
+  const _Metrics({required this.tablet});
+
+  factory _Metrics.of(BuildContext context) => _Metrics(tablet: MediaQuery.sizeOf(context).shortestSide >= 600);
+
+  final bool tablet;
+
+  double get edge => tablet ? OFSpacing.xl : OFSpacing.lg;
+  double get button => tablet ? 50 : 44;
+  double get skip => tablet ? 68 : 58;
+  double get play => tablet ? 92 : 76;
+  double get gap => tablet ? 44 : 32;
+
+  /// Haut du menu Réglages (sous la barre du haut).
+  double get menuTop => OFSpacing.sm + button + OFSpacing.sm;
+
+  /// Hauteur réservée à la barre de progression quand elle est visible.
+  double get bottomBarClearance => tablet ? 104 : 92;
 }
 
 class _SeekFeedback {
@@ -651,12 +713,8 @@ class _SeekIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Align(
       alignment: feedback.forward ? const Alignment(0.6, 0) : const Alignment(-0.6, 0),
-      child: Container(
+      child: LiquidGlass(
         padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg, vertical: OFSpacing.md),
-        decoration: const BoxDecoration(
-          color: Color(0x80000000),
-          borderRadius: BorderRadius.all(Radius.circular(OFRadius.pill)),
-        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -675,10 +733,12 @@ class _SeekIndicator extends StatelessWidget {
 
 class _ControlsLayer extends StatelessWidget {
   const _ControlsLayer({
+    required this.metrics,
     required this.snapshot,
     required this.scrubbing,
     required this.showSpinner,
     required this.debug,
+    required this.menuOpen,
     required this.ui,
     required this.engine,
     required this.fit,
@@ -688,18 +748,18 @@ class _ControlsLayer extends StatelessWidget {
     required this.onScrubStart,
     required this.onScrub,
     required this.onScrubEnd,
-    required this.onTracks,
-    required this.onChapters,
+    required this.onSettings,
     required this.onPictureInPicture,
-    required this.onLock,
     required this.onCycleFit,
     required this.onToggleDebug,
   });
 
+  final _Metrics metrics;
   final PlayerSnapshot snapshot;
   final Duration? scrubbing;
   final bool showSpinner;
   final bool debug;
+  final bool menuOpen;
   final PlayerUiState ui;
   final PlaybackEngine engine;
   final BoxFit fit;
@@ -709,10 +769,8 @@ class _ControlsLayer extends StatelessWidget {
   final ValueChanged<Duration> onScrubStart;
   final ValueChanged<Duration> onScrub;
   final ValueChanged<Duration> onScrubEnd;
-  final VoidCallback onTracks;
-  final VoidCallback? onChapters;
+  final VoidCallback onSettings;
   final VoidCallback? onPictureInPicture;
-  final VoidCallback onLock;
   final VoidCallback onCycleFit;
   final VoidCallback onToggleDebug;
 
@@ -729,30 +787,39 @@ class _ControlsLayer extends StatelessWidget {
       BoxFit.cover => (Icons.aspect_ratio_rounded, 'Étirer à l’écran'),
       _ => (Icons.fullscreen_exit_rounded, 'Format d’origine'),
     };
+    final m = metrics;
+    final times = OFTypography.caption.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
 
     return Stack(
       fit: StackFit.expand,
       children: [
+        // Voiles haut et bas, discrets : le verre assure déjà la lisibilité.
         const IgnorePointer(
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xB3000000), Color(0x00000000), Color(0x00000000), Color(0xCC000000)],
-                stops: [0, 0.3, 0.6, 1],
+                colors: [Color(0x80000000), Color(0x00000000), Color(0x00000000), Color(0x99000000)],
+                stops: [0, 0.25, 0.65, 1],
               ),
             ),
           ),
         ),
         SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg, vertical: OFSpacing.sm),
+            padding: EdgeInsets.fromLTRB(m.edge, OFSpacing.sm, m.edge, OFSpacing.md),
             child: Column(
               children: [
                 Row(
                   children: [
-                    _RoundButton(icon: Icons.close_rounded, label: 'Fermer le lecteur', onTap: onClose),
+                    OFGlassButton(
+                      icon: Icons.close_rounded,
+                      label: 'Fermer le lecteur',
+                      size: m.button,
+                      iconSize: m.button * 0.5,
+                      onPressed: onClose,
+                    ),
                     const SizedBox(width: OFSpacing.md),
                     Expanded(
                       child: GestureDetector(
@@ -774,18 +841,28 @@ class _ControlsLayer extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (engine.capabilities.airPlay) const AirPlayButton(),
-                    if (onPictureInPicture != null)
-                      _RoundButton(
-                        icon: Icons.picture_in_picture_alt_rounded,
-                        label: 'Picture-in-Picture',
-                        onTap: onPictureInPicture!,
-                      ),
-                    if (onChapters != null)
-                      _RoundButton(icon: Icons.list_rounded, label: 'Chapitres', onTap: onChapters!),
-                    _RoundButton(icon: fitIcon, label: fitLabel, onTap: onCycleFit),
-                    _RoundButton(icon: Icons.lock_outline_rounded, label: 'Verrouiller l’écran', onTap: onLock),
-                    _RoundButton(icon: Icons.subtitles_outlined, label: 'Audio et sous-titres', onTap: onTracks),
+                    const SizedBox(width: OFSpacing.md),
+                    _GlassCluster(
+                      height: m.button,
+                      children: [
+                        if (engine.capabilities.airPlay) AirPlayButton(size: m.button),
+                        if (onPictureInPicture != null)
+                          _BareButton(
+                            icon: Icons.picture_in_picture_alt_rounded,
+                            label: 'Picture-in-Picture',
+                            size: m.button,
+                            onTap: onPictureInPicture!,
+                          ),
+                        _BareButton(icon: fitIcon, label: fitLabel, size: m.button, onTap: onCycleFit),
+                        _BareButton(
+                          icon: menuOpen ? Icons.close_rounded : Icons.tune_rounded,
+                          label: 'Réglages',
+                          size: m.button,
+                          active: menuOpen,
+                          onTap: onSettings,
+                        ),
+                      ],
+                    ),
                   ],
                 ),
                 if (debug)
@@ -797,80 +874,93 @@ class _ControlsLayer extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _RoundButton(
+                    OFGlassButton(
                       icon: Icons.replay_10_rounded,
                       label: 'Reculer de 10 secondes',
-                      size: 56,
-                      onTap: () => onSkip(const Duration(seconds: -10)),
+                      size: m.skip,
+                      iconSize: m.skip * 0.48,
+                      onPressed: () => onSkip(const Duration(seconds: -10)),
                     ),
-                    const SizedBox(width: OFSpacing.xxl),
-                    SizedBox.square(
-                      dimension: 76,
+                    SizedBox(width: m.gap),
+                    OFGlassButton(
+                      icon: snapshot.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      label: snapshot.playing ? 'Pause' : 'Lecture',
+                      size: m.play,
+                      iconSize: m.play * 0.52,
+                      onPressed: showSpinner ? null : onPlayPause,
                       child: showSpinner
-                          ? const Padding(
-                              padding: EdgeInsets.all(20),
-                              child: CircularProgressIndicator(strokeWidth: 2.5),
+                          ? SizedBox.square(
+                              dimension: m.play * 0.4,
+                              child: const CircularProgressIndicator(strokeWidth: 2.5, color: OFColors.textPrimary),
                             )
-                          : _RoundButton(
-                              icon: snapshot.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                              label: snapshot.playing ? 'Pause' : 'Lecture',
-                              size: 76,
-                              iconSize: 40,
-                              onTap: onPlayPause,
-                            ),
+                          : null,
                     ),
-                    const SizedBox(width: OFSpacing.xxl),
-                    _RoundButton(
+                    SizedBox(width: m.gap),
+                    OFGlassButton(
                       icon: Icons.forward_10_rounded,
                       label: 'Avancer de 10 secondes',
-                      size: 56,
-                      onTap: () => onSkip(const Duration(seconds: 10)),
+                      size: m.skip,
+                      iconSize: m.skip * 0.48,
+                      onPressed: () => onSkip(const Duration(seconds: 10)),
                     ),
                   ],
                 ),
                 const Spacer(),
                 if (chapter != null && scrubbing == null)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      chapter.name,
-                      style: OFTypography.caption.copyWith(color: OFColors.textSecondary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  Padding(
+                    padding: const EdgeInsets.only(left: OFSpacing.lg, bottom: OFSpacing.xs),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        chapter.name,
+                        style: OFTypography.caption.copyWith(color: OFColors.textSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
-                Scrubber(
-                  position: position,
-                  duration: duration,
-                  buffered: snapshot.buffered,
-                  chapters: ui.extras.chapters,
-                  scrubbing: scrubbing != null,
-                  preview: scrubbing == null
-                      ? null
-                      : (ui.extras.trickplay != null && ui.plan != null
-                            ? TrickplayPreview(
-                                manifest: ui.extras.trickplay!,
-                                itemId: ui.plan!.itemId,
-                                mediaSourceId: ui.plan!.mediaSourceId,
-                                position: position,
-                              )
-                            : ScrubLabel(position: position, chapter: chapter)),
-                  onStart: onScrubStart,
-                  onChanged: onScrub,
-                  onEnd: onScrubEnd,
-                ),
-                Row(
+                // Barre de progression sur une pilule de verre (fond seul : l'aperçu
+                // au-dessus du doigt ne doit pas être rogné).
+                Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    Text(
-                      MediaFormat.clock(position),
-                      style: OFTypography.caption.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '-${MediaFormat.clock(duration > position ? duration - position : Duration.zero)}',
-                      style: OFTypography.caption.copyWith(
-                        color: OFColors.textSecondary,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                    const Positioned.fill(child: LiquidGlass(child: SizedBox.expand())),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: m.tablet ? OFSpacing.xl : OFSpacing.lg, vertical: 4),
+                      child: Row(
+                        children: [
+                          SizedBox(width: 56, child: Text(MediaFormat.clock(position), style: times)),
+                          Expanded(
+                            child: Scrubber(
+                              position: position,
+                              duration: duration,
+                              buffered: snapshot.buffered,
+                              chapters: ui.extras.chapters,
+                              scrubbing: scrubbing != null,
+                              preview: scrubbing == null
+                                  ? null
+                                  : (ui.extras.trickplay != null && ui.plan != null
+                                        ? TrickplayPreview(
+                                            manifest: ui.extras.trickplay!,
+                                            itemId: ui.plan!.itemId,
+                                            mediaSourceId: ui.plan!.mediaSourceId,
+                                            position: position,
+                                          )
+                                        : ScrubLabel(position: position, chapter: chapter)),
+                              onStart: onScrubStart,
+                              onChanged: onScrub,
+                              onEnd: onScrubEnd,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 64,
+                            child: Text(
+                              '-${MediaFormat.clock(duration > position ? duration - position : Duration.zero)}',
+                              textAlign: TextAlign.end,
+                              style: times.copyWith(color: OFColors.textSecondary),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -884,39 +974,98 @@ class _ControlsLayer extends StatelessWidget {
   }
 }
 
-class _RoundButton extends StatelessWidget {
-  const _RoundButton({
+/// Groupe de boutons dans une même pilule de verre (AirPlay, PiP, format, réglages).
+class _GlassCluster extends StatelessWidget {
+  const _GlassCluster({required this.children, required this.height});
+
+  final List<Widget> children;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => LiquidGlass(
+    padding: const EdgeInsets.symmetric(horizontal: OFSpacing.xs),
+    child: SizedBox(
+      height: height,
+      child: Row(mainAxisSize: MainAxisSize.min, children: children),
+    ),
+  );
+}
+
+/// Bouton icône sans fond propre (posé dans un [_GlassCluster]).
+class _BareButton extends StatefulWidget {
+  const _BareButton({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.size = 44,
-    this.iconSize = 24,
+    required this.size,
+    this.active = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final double size;
-  final double iconSize;
+  final bool active;
+
+  @override
+  State<_BareButton> createState() => _BareButtonState();
+}
+
+class _BareButtonState extends State<_BareButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool v) {
+    if (v != _pressed) setState(() => _pressed = v);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final motion = OFMotion.of(context);
     return Semantics(
       button: true,
-      label: label,
+      label: widget.label,
       excludeSemantics: true,
-      onTap: onTap,
-      child: Tooltip(
-        message: label,
-        child: InkResponse(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onTap();
-          },
-          radius: size / 2,
+      onTap: widget.onTap,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _setPressed(true),
+        onTapCancel: () => _setPressed(false),
+        onTapUp: (_) => _setPressed(false),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          widget.onTap();
+        },
+        child: AnimatedScale(
+          scale: _pressed ? 0.86 : 1,
+          duration: motion.fast,
+          curve: OFMotion.fastCurve,
           child: SizedBox.square(
-            dimension: size,
-            child: Icon(icon, size: iconSize, color: OFColors.textPrimary),
+            dimension: widget.size,
+            child: Center(
+              child: AnimatedContainer(
+                duration: motion.standard,
+                curve: OFMotion.standardCurve,
+                width: widget.size - 8,
+                height: widget.size - 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.active ? const Color(0x33FFFFFF) : const Color(0x00FFFFFF),
+                ),
+                child: AnimatedSwitcher(
+                  duration: motion.fast,
+                  transitionBuilder: (child, a) => FadeTransition(
+                    opacity: a,
+                    child: RotationTransition(turns: Tween(begin: 0.85, end: 1.0).animate(a), child: child),
+                  ),
+                  child: Icon(
+                    widget.icon,
+                    key: ValueKey(widget.icon),
+                    size: widget.size * 0.48,
+                    color: OFColors.textPrimary,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

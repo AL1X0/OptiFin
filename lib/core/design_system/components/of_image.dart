@@ -23,6 +23,7 @@ class OFImage extends StatelessWidget {
     this.decodeWidth,
     this.fallback,
     this.transparentPlaceholder = false,
+    this.alignment = Alignment.center,
   });
 
   final Uri? url;
@@ -37,6 +38,9 @@ class OFImage extends StatelessWidget {
 
   /// Rien sous l'image pendant le chargement (logos posés sur un backdrop).
   final bool transparentPlaceholder;
+
+  /// Position de l'image dans sa boîte (logo aligné à gauche, par exemple).
+  final Alignment alignment;
 
   /// Provider exact utilisé par [OFImage] : à passer à `precacheImage` pour
   /// préparer une image avant son affichage (même clé de cache mémoire).
@@ -66,12 +70,14 @@ class OFImage extends StatelessWidget {
           Image(
             image: provider(url!, decodeWidth: decodeWidth),
             fit: fit,
+            alignment: alignment,
             gaplessPlayback: true,
           )
         else
           CachedNetworkImage(
             imageUrl: url.toString(),
             fit: fit,
+            alignment: alignment,
             memCacheWidth: decodeWidth,
             fadeInDuration: fade,
             fadeOutDuration: Duration.zero,
