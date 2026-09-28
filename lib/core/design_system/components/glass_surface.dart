@@ -57,12 +57,19 @@ class LiquidGlass extends StatelessWidget {
     this.sigma = 24,
     this.tint,
     this.shade = 0.28,
+    this.rim = true,
   });
 
   /// Cercle (boutons ronds).
-  const LiquidGlass.circle({super.key, required this.child, this.sigma = 24, this.tint, this.shade = 0.28})
-    : borderRadius = const BorderRadius.all(Radius.circular(OFRadius.pill)),
-      padding = null;
+  const LiquidGlass.circle({
+    super.key,
+    required this.child,
+    this.sigma = 24,
+    this.tint,
+    this.shade = 0.28,
+    this.rim = true,
+  }) : borderRadius = const BorderRadius.all(Radius.circular(OFRadius.pill)),
+       padding = null;
 
   final Widget child;
   final BorderRadius borderRadius;
@@ -74,6 +81,9 @@ class LiquidGlass extends StatelessWidget {
 
   /// Opacité du voile sombre sous le reflet (0 = verre clair).
   final double shade;
+
+  /// Liseré spéculaire (false : verre sans contour, ex. barre de progression).
+  final bool rim;
 
   @override
   Widget build(BuildContext context) {
@@ -87,13 +97,13 @@ class LiquidGlass extends StatelessWidget {
         scope: native,
         borderRadius: borderRadius,
         child: CustomPaint(
-          foregroundPainter: _RimPainter(borderRadius, strength: 0.5),
+          foregroundPainter: rim ? _RimPainter(borderRadius, strength: 0.5) : null,
           child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
         ),
       );
     }
     final surface = CustomPaint(
-      foregroundPainter: _RimPainter(borderRadius),
+      foregroundPainter: rim ? _RimPainter(borderRadius) : null,
       child: DecoratedBox(
         // Voile sombre sous le reflet : lisibilité sur une image claire. Sans flou,
         // il est plus dense pour compenser.

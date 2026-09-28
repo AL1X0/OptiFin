@@ -15,7 +15,6 @@ import '../../../app/router.dart';
 import '../../settings/presentation/settings_providers.dart';
 import '../domain/engine_selector.dart';
 import '../domain/playback_engine.dart';
-import '../domain/playback_extras.dart';
 import 'player_controller.dart';
 import 'player_overlays.dart';
 import 'player_menu.dart';
@@ -923,7 +922,7 @@ class _ControlsLayer extends StatelessWidget {
                 const Spacer(),
                 if (chapter != null && scrubbing == null)
                   Padding(
-                    padding: const EdgeInsets.only(left: OFSpacing.lg, bottom: OFSpacing.xs),
+                    padding: const EdgeInsets.only(left: 2, bottom: OFSpacing.xxs),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -934,51 +933,39 @@ class _ControlsLayer extends StatelessWidget {
                       ),
                     ),
                   ),
-                // Barre de progression sur une pilule de verre (fond seul : l'aperçu
-                // au-dessus du doigt ne doit pas être rogné).
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Positioned.fill(child: LiquidGlass(child: SizedBox.expand())),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: m.tablet ? OFSpacing.xl : OFSpacing.lg, vertical: 4),
-                      child: Row(
-                        children: [
-                          SizedBox(width: 56, child: Text(MediaFormat.clock(position), style: times)),
-                          Expanded(
-                            child: Scrubber(
-                              position: position,
-                              duration: duration,
-                              buffered: snapshot.buffered,
-                              chapters: ui.extras.chapters,
-                              scrubbing: scrubbing != null,
-                              preview: scrubbing == null
-                                  ? null
-                                  : (ui.extras.trickplay != null && ui.plan != null
-                                        ? TrickplayPreview(
-                                            manifest: ui.extras.trickplay!,
-                                            itemId: ui.plan!.itemId,
-                                            mediaSourceId: ui.plan!.mediaSourceId,
-                                            position: position,
-                                          )
-                                        : ScrubLabel(position: position, chapter: chapter)),
-                              onStart: onScrubStart,
-                              onChanged: onScrub,
-                              onEnd: onScrubEnd,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 64,
-                            child: Text(
-                              '-${MediaFormat.clock(duration > position ? duration - position : Duration.zero)}',
-                              textAlign: TextAlign.end,
-                              style: times.copyWith(color: OFColors.textSecondary),
-                            ),
-                          ),
-                        ],
+                // Barre de progression façon Infuse : la piste est elle-même en verre et
+                // la lecture la remplit de blanc ; temps écoulé et restant dessous.
+                Scrubber(
+                  position: position,
+                  duration: duration,
+                  buffered: snapshot.buffered,
+                  scrubbing: scrubbing != null,
+                  preview: scrubbing == null
+                      ? null
+                      : (ui.extras.trickplay != null && ui.plan != null
+                            ? TrickplayPreview(
+                                manifest: ui.extras.trickplay!,
+                                itemId: ui.plan!.itemId,
+                                mediaSourceId: ui.plan!.mediaSourceId,
+                                position: position,
+                              )
+                            : ScrubLabel(position: position, chapter: chapter)),
+                  onStart: onScrubStart,
+                  onChanged: onScrub,
+                  onEnd: onScrubEnd,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Row(
+                    children: [
+                      Text(MediaFormat.clock(position), style: times.copyWith(color: OFColors.textSecondary)),
+                      const Spacer(),
+                      Text(
+                        '-${MediaFormat.clock(duration > position ? duration - position : Duration.zero)}',
+                        style: times.copyWith(color: OFColors.textSecondary),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -1088,9 +1075,11 @@ class _BareButtonState extends State<_BareButton> {
   }
 }
 
-/// Barre de progression fine avec zone tactile large, repères de chapitres et,
-/// pendant le glissé, une prévisualisation (vignette trickplay ou heure) au-dessus du doigt.
-class Scrubber extends StatelessWidget {
+/// Barre de progression façon Infuse : une piste en verre que la lecture remplit de
+/// blanc (le tampon en blanc léger), sans curseur ni couleur d'accent. Elle s'épaissit
+/// pendant le glissé, avec une prévisualisation (vignette trickplay ou heure) au-dessus
+/// du doigt. Toucher = aller directement à ce point.
+class Scrubber extends StatefulWidget {
   const Scrubber({
     super.key,
     required this.position,
@@ -1099,7 +1088,6 @@ class Scrubber extends StatelessWidget {
     required this.onStart,
     required this.onChanged,
     required this.onEnd,
-    this.chapters = const [],
     this.scrubbing = false,
     this.preview,
   });
@@ -1107,80 +1095,121 @@ class Scrubber extends StatelessWidget {
   final Duration position;
   final Duration duration;
   final Duration buffered;
-  final List<Chapter> chapters;
   final bool scrubbing;
   final Widget? preview;
   final ValueChanged<Duration> onStart;
   final ValueChanged<Duration> onChanged;
   final ValueChanged<Duration> onEnd;
 
-  /// Marge du rail du Slider (rayon du curseur).
-  static const _inset = 7.0;
+  static const _touchHeight = 36.0;
+
+  @override
+  State<Scrubber> createState() => _ScrubberState();
+}
+
+class _ScrubberState extends State<Scrubber> {
+  Duration _last = Duration.zero;
+
+  int get _total => widget.duration.inMilliseconds;
+
+  double _fraction(Duration d) => _total <= 0 ? 0 : (d.inMilliseconds / _total).clamp(0.0, 1.0);
+
+  Duration _at(double dx, double width) =>
+      Duration(milliseconds: (width <= 0 ? 0 : (dx / width).clamp(0.0, 1.0) * _total).round());
+
+  void _start(Duration d) {
+    HapticFeedback.selectionClick();
+    _last = d;
+    widget.onStart(d);
+  }
+
+  void _update(Duration d) {
+    _last = d;
+    widget.onChanged(d);
+  }
+
+  void _end() => widget.onEnd(_last);
 
   @override
   Widget build(BuildContext context) {
-    final total = duration.inMilliseconds.toDouble();
-    final accent = Theme.of(context).colorScheme.primary;
-    Duration at(double v) => Duration(milliseconds: v.round());
-    double fraction(Duration d) => total <= 0 ? 0 : (d.inMilliseconds / total).clamp(0.0, 1.0);
+    final motion = OFMotion.of(context);
+    final enabled = _total > 0;
+    final played = _fraction(widget.position);
+    final buffered = _fraction(widget.buffered);
+    final thickness = widget.scrubbing ? 13.0 : 8.0;
+    const step = Duration(seconds: 10);
+
+    Widget fill(double fraction, Color color) => Align(
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        widthFactor: fraction,
+        heightFactor: 1,
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: color, borderRadius: const BorderRadius.all(Radius.circular(OFRadius.pill))),
+        ),
+      ),
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final track = constraints.maxWidth - _inset * 2;
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Semantics(
-              label: 'Position de lecture',
-              value: MediaFormat.clock(position),
-              child: SliderTheme(
-                data: SliderThemeData(
-                  trackHeight: scrubbing ? 5 : 3,
-                  activeTrackColor: accent,
-                  inactiveTrackColor: OFColors.textPrimary.withValues(alpha: 0.25),
-                  secondaryActiveTrackColor: OFColors.textPrimary.withValues(alpha: 0.45),
-                  thumbColor: OFColors.textPrimary,
-                  overlayShape: SliderComponentShape.noOverlay,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: _inset),
-                  trackShape: const RoundedRectSliderTrackShape(),
-                ),
-                child: SizedBox(
-                  height: 36,
-                  child: Slider(
-                    value: total <= 0 ? 0 : position.inMilliseconds.clamp(0, total).toDouble(),
-                    secondaryTrackValue: total <= 0 ? null : buffered.inMilliseconds.clamp(0, total).toDouble(),
-                    max: total <= 0 ? 1 : total,
-                    onChangeStart: total <= 0 ? null : (v) => onStart(at(v)),
-                    onChanged: total <= 0 ? null : (v) => onChanged(at(v)),
-                    onChangeEnd: total <= 0 ? null : (v) => onEnd(at(v)),
+        final width = constraints.maxWidth;
+        return Semantics(
+          slider: true,
+          label: 'Position de lecture',
+          value: MediaFormat.clock(widget.position),
+          increasedValue: MediaFormat.clock(widget.position + step),
+          decreasedValue: MediaFormat.clock(widget.position > step ? widget.position - step : Duration.zero),
+          onIncrease: enabled ? () => widget.onEnd(widget.position + step) : null,
+          onDecrease: enabled ? () => widget.onEnd(widget.position - step) : null,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragStart: enabled ? (d) => _start(_at(d.localPosition.dx, width)) : null,
+            onHorizontalDragUpdate: enabled ? (d) => _update(_at(d.localPosition.dx, width)) : null,
+            onHorizontalDragEnd: enabled ? (_) => _end() : null,
+            onHorizontalDragCancel: enabled ? _end : null,
+            onTapUp: enabled
+                ? (d) {
+                    _start(_at(d.localPosition.dx, width));
+                    _end();
+                  }
+                : null,
+            child: SizedBox(
+              height: Scrubber._touchHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Center(
+                    child: AnimatedContainer(
+                      duration: motion.fast,
+                      curve: OFMotion.standardCurve,
+                      height: thickness,
+                      child: LiquidGlass(
+                        shade: 0,
+                        rim: false,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [fill(buffered, const Color(0x33FFFFFF)), fill(played, const Color(0xF2FFFFFF))],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  if (widget.preview != null)
+                    Positioned(
+                      bottom: Scrubber._touchHeight + 4,
+                      left: 0,
+                      right: 0,
+                      child: IgnorePointer(
+                        child: Align(
+                          // Centré sur le doigt, sans déborder de l'écran.
+                          alignment: Alignment(played * 2 - 1, 1),
+                          child: widget.preview,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            // Repères de chapitres : fines coupures dans le rail.
-            for (final c in chapters)
-              if (c.start > Duration.zero && fraction(c.start) < 1)
-                Positioned(
-                  left: _inset + track * fraction(c.start) - 1,
-                  top: 36 / 2 - 4,
-                  child: const IgnorePointer(
-                    child: SizedBox(width: 2, height: 8, child: ColoredBox(color: Color(0xCC000000))),
-                  ),
-                ),
-            if (preview != null)
-              Positioned(
-                bottom: 40,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Align(
-                    // Centré sur le doigt, sans déborder de l'écran.
-                    alignment: Alignment(fraction(position) * 2 - 1, 1),
-                    child: preview,
-                  ),
-                ),
-              ),
-          ],
+          ),
         );
       },
     );

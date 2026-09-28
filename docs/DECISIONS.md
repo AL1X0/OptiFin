@@ -257,3 +257,7 @@ redessinent (ValueNotifier) au lieu du carrousel entier.
    icônes et un liseré. Aucune découpe ni flou Flutter au-dessus de la vidéo. Le verre Flutter (mpv, reste de
    l'app) est éclairci : voile léger, flou plus fort avec saturation relevée, liseré spéculaire plus vif.
    Android (Media3, SurfaceView non floutable) garde le verre teinté.
+8. **Barre de progression façon Infuse** : plus de Slider Material (curseur, bleu d'accent) ni de pilule
+   autour. La piste est elle-même un verre sans contour (natif sur iOS), remplie de blanc à mesure de la
+   lecture (tampon en blanc léger), 8 pt d'épaisseur, 13 pt pendant le glissé ; toucher = sauter au point.
+   Temps écoulé et restant sous la barre.
