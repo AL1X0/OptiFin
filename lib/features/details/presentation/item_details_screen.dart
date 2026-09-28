@@ -11,6 +11,7 @@ import '../../../core/media/quality_badges.dart';
 import '../../../core/network/api_failure.dart';
 import '../../../core/providers.dart';
 import '../../common/presentation/media_cards.dart';
+import '../../downloads/presentation/download_button.dart';
 import '../../home/domain/home_data.dart';
 import '../../player/presentation/player_controller.dart';
 import 'details_providers.dart';
@@ -433,6 +434,7 @@ class _Summary extends ConsumerWidget {
               label: user.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
               onTap: () => run(() => controller.toggleFavorite(user)),
             ),
+            if (item.kind.isPlayableVideo) DownloadButton(itemId: item.id),
             if (item.trailers.isNotEmpty)
               OFIconButton(
                 icon: Icons.movie_outlined,

@@ -95,7 +95,10 @@ alphabétique, recherche instantanée, pages personne, genre et studio, multi-se
 - gestes (luminosité, volume, ±10 s) et verrouillage de l'écran ;
 - mode debug avec journaux copiables.
 
-**En préparation** : musique (lecteur audio, paroles), téléchargements hors ligne, Live TV, SyncPlay,
+**Hors connexion** : téléchargement des films, épisodes ou saisons entières (fichier d’origine, en arrière-plan,
+pause et reprise, Wi-Fi uniquement au choix), onglet « Téléchargements » pour les gérer, lecture sans réseau.
+
+**En préparation** : musique (lecteur audio, paroles), Live TV, SyncPlay,
 Chromecast et contrôle à distance.
 
 ## Installer

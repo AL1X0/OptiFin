@@ -93,4 +93,18 @@ void main() {
     await h.screenshot('phone_land_library');
     await h.tearDown();
   }, timeout: const Timeout(Duration(minutes: 20)));
+
+  testWidgets('Téléchargements', (tester) async {
+    final h = DemoHarness(tester);
+    await h.setUp();
+    await h.seedDownloads();
+    await h.idle(const Duration(milliseconds: 800));
+    await tester.tap(find.text('Téléchargements').first);
+    await h.idle(const Duration(milliseconds: 1200));
+    await h.screenshot('phone_downloads');
+    unawaited(h.router.push<void>('/home/item/horizon'));
+    await h.idle(const Duration(milliseconds: 1500));
+    await h.screenshot('phone_details_download');
+    await h.tearDown();
+  }, timeout: const Timeout(Duration(minutes: 20)));
 }

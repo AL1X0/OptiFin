@@ -5,9 +5,11 @@ import 'package:optifin_native_player/optifin_native_player.dart' show NativePla
 
 import '../../../core/logging/app_log.dart';
 import '../../../core/media/media_item.dart';
+import '../../../core/media/media_mapper.dart';
 import '../../../core/network/api_failure.dart';
 import '../../../core/providers.dart';
 import '../../details/presentation/details_providers.dart';
+import '../../downloads/presentation/downloads_providers.dart';
 import '../../home/presentation/home_providers.dart';
 import '../../settings/presentation/settings_providers.dart';
 import '../data/playback_preparer.dart';
@@ -217,7 +219,7 @@ class PlayerController extends Notifier<PlayerUiState> {
   Future<void> _start() async {
     try {
       final media = ref.read(mediaRepositoryProvider);
-      final itemFuture = media.item(args.itemId);
+      final itemFuture = media.item(args.itemId).catchError((Object e) => _offlineItem(e));
       // Plan et décision préchargés par la fiche si disponibles, sinon calculés maintenant.
       final preparedFuture = ref.read(playbackPrefetchProvider(args.itemId).future);
       // Future.wait relance l'erreur d'origine (ApiFailure et son message précis).
@@ -281,8 +283,21 @@ class PlayerController extends Notifier<PlayerUiState> {
     }
   }
 
+  /// Hors connexion : la fiche conservée avec le téléchargement, sinon l'erreur d'origine.
+  Future<MediaItem> _offlineItem(Object error) async {
+    final local = await ref.read(downloadsRepositoryProvider).local(args.itemId).catchError((Object _) => null);
+    if (local == null) throw error;
+    return MediaMapper.fromDto(local.item);
+  }
+
   Future<void> _loadExtras(MediaItem item, String mediaSourceId) async {
-    final extras = await ref.read(playbackExtrasRepositoryProvider).load(item, mediaSourceId: mediaSourceId);
+    final PlaybackExtras extras;
+    try {
+      extras = await ref.read(playbackExtrasRepositoryProvider).load(item, mediaSourceId: mediaSourceId);
+    } catch (e) {
+      AppLog.w('extras', 'Chapitres, segments et épisode suivant indisponibles : $e');
+      return;
+    }
     if (_closed) return;
     AppLog.i(
       'extras',

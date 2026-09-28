@@ -56,6 +56,7 @@ class AppSettings {
     this.imageSubtitles = ImageSubtitlePolicy.auto,
     this.autoSkipSegments = false,
     this.autoPlayNext = true,
+    this.downloadWifiOnly = true,
   });
 
   final bool debugMode;
@@ -81,6 +82,9 @@ class AppSettings {
   /// Enchaîne l'épisode suivant après un compte à rebours.
   final bool autoPlayNext;
 
+  /// Téléchargements hors connexion uniquement en Wi-Fi (pas de données mobiles).
+  final bool downloadWifiOnly;
+
   SubtitleStyle get subtitleStyle => SubtitleStyle(scale: subtitleScale, background: subtitleBackground);
 
   AppSettings copyWith({
@@ -96,6 +100,7 @@ class AppSettings {
     ImageSubtitlePolicy? imageSubtitles,
     bool? autoSkipSegments,
     bool? autoPlayNext,
+    bool? downloadWifiOnly,
   }) => AppSettings(
     debugMode: debugMode ?? this.debugMode,
     maxBitrateWifi: maxBitrateWifi ?? this.maxBitrateWifi,
@@ -109,6 +114,7 @@ class AppSettings {
     imageSubtitles: imageSubtitles ?? this.imageSubtitles,
     autoSkipSegments: autoSkipSegments ?? this.autoSkipSegments,
     autoPlayNext: autoPlayNext ?? this.autoPlayNext,
+    downloadWifiOnly: downloadWifiOnly ?? this.downloadWifiOnly,
   );
 
   Map<String, Object?> toJson() => {
@@ -125,6 +131,7 @@ class AppSettings {
     'imageSubtitles': imageSubtitles.name,
     'autoSkipSegments': autoSkipSegments,
     'autoPlayNext': autoPlayNext,
+    'downloadWifiOnly': downloadWifiOnly,
   };
 
   /// Lecture tolérante : une clé absente ou invalide reprend sa valeur par défaut
@@ -152,6 +159,7 @@ class AppSettings {
             ImageSubtitlePolicy.values.where((e) => e.name == j['imageSubtitles']).firstOrNull ?? d.imageSubtitles,
         autoSkipSegments: pick<bool>('autoSkipSegments') ?? d.autoSkipSegments,
         autoPlayNext: pick<bool>('autoPlayNext') ?? d.autoPlayNext,
+        downloadWifiOnly: pick<bool>('downloadWifiOnly') ?? d.downloadWifiOnly,
       );
     } catch (_) {
       return d;

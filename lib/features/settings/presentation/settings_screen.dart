@@ -214,6 +214,16 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const _Section('Stockage'),
+          SwitchListTile(
+            secondary: const Icon(Icons.wifi_rounded, color: OFColors.textSecondary),
+            title: const Text('Télécharger en Wi-Fi uniquement', style: OFTypography.body),
+            subtitle: Text(
+              'Les films et épisodes téléchargés attendent le Wi-Fi (pas de données mobiles).',
+              style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
+            ),
+            value: settings.downloadWifiOnly,
+            onChanged: (v) => controller.update((s) => s.copyWith(downloadWifiOnly: v)),
+          ),
           _Tile(
             icon: Icons.image_outlined,
             title: 'Vider le cache des images',

@@ -4,6 +4,7 @@ import '../domain/device_capabilities.dart';
 import '../domain/engine_selector.dart';
 import '../domain/playback_plan.dart';
 import '../domain/track_preferences.dart';
+import '../../downloads/data/downloads_repository.dart';
 import 'device_profiles.dart';
 import 'playback_repository.dart';
 
@@ -44,12 +45,17 @@ class PlaybackPreparer {
     required this.device,
     required this.settings,
     required this.maxBitrate,
+    this.local,
   });
 
   final PlaybackRepository repository;
   final DeviceCapabilities device;
   final AppSettings settings;
   final int maxBitrate;
+
+  /// Fichier téléchargé de l'élément, s'il existe : lu en priorité (hors connexion,
+  /// sans consommer de débit).
+  final Future<LocalMedia?> Function(String itemId)? local;
 
   EngineSelection select(PlaybackPlan probe, {int? audioIndex, int? subtitleIndex, EnginePreference? preference}) {
     final source = probe.source;
@@ -90,6 +96,18 @@ class PlaybackPreparer {
     int? subtitleIndex,
     EnginePreference? preference,
   }) async {
+    final downloaded = probe == null ? await local?.call(itemId) : null;
+    if (downloaded != null) {
+      return _prepareLocal(
+        itemId,
+        downloaded,
+        start: start,
+        explicitTracks: explicitTracks,
+        audioIndex: audioIndex,
+        subtitleIndex: subtitleIndex,
+        preference: preference,
+      );
+    }
     // Analyse avec le profil natif quand il existe : si le natif est retenu (cas le plus
     // courant), la réponse sert directement de plan — une seule requête avant la première image.
     final analysisEngine = device.nativeAvailable ? EngineKind.native : EngineKind.mpv;
@@ -134,6 +152,16 @@ class PlaybackPreparer {
     EngineKind? probeEngine,
   }) async {
     final decision = selection.chain[attempt];
+    // Fichier téléchargé : le repli change de moteur, jamais de source.
+    if (probe != null && probe.streamUrl.isScheme('file')) {
+      return PreparedPlayback(
+        plan: probe.withTracks(audioIndex: audioIndex, subtitleIndex: () => subtitleIndex),
+        selection: selection,
+        attempt: attempt,
+        audioIndex: audioIndex ?? probe.audioIndex,
+        subtitleIndex: subtitleIndex,
+      );
+    }
     final reused = probe == null ? null : _reuse(probe, decision, probeEngine, audioIndex, subtitleIndex);
     if (reused != null) AppLog.d('player', 'Plan d’analyse réutilisé pour ${decision.label} (aucune requête de plus)');
     final plan =
@@ -180,5 +208,79 @@ class PlaybackPreparer {
       Delivery.transcode => false,
     };
     return sameMethod ? withTracks(probe) : null;
+  }
+}
+
+extension on PlaybackPreparer {
+  /// Lecture d'un fichier téléchargé : plan construit depuis le `PlaybackInfo` conservé,
+  /// flux = fichier local. Seule la lecture directe est possible (remux, transcodage et
+  /// sous-titres servis par Jellyfin demandent le serveur) : mpv reste en dernier recours.
+  PreparedPlayback _prepareLocal(
+    String itemId,
+    LocalMedia media, {
+    required Duration start,
+    required bool explicitTracks,
+    int? audioIndex,
+    int? subtitleIndex,
+    EnginePreference? preference,
+  }) {
+    final base = PlaybackRepository.planFromResponse(
+      media.playbackInfo,
+      itemId: itemId,
+      baseUrl: repository.baseUrl,
+      start: start,
+    );
+    final plan = PlaybackPlan(
+      itemId: itemId,
+      mediaSourceId: base.mediaSourceId,
+      playSessionId: null,
+      method: PlayMethod.directPlay,
+      streamUrl: Uri.file(media.file.path),
+      audioTracks: base.audioTracks,
+      // Sous-titres externes : servis par le serveur, indisponibles hors connexion.
+      subtitleTracks: [
+        for (final t in base.subtitleTracks)
+          if (!t.isExternal) t,
+      ],
+      audioIndex: base.audioIndex,
+      container: base.container,
+      bitrate: base.bitrate,
+      videoCodec: base.videoCodec,
+      startPosition: start,
+      runtime: base.runtime,
+      source: base.source,
+    );
+    final (audio, subtitle) = explicitTracks ? (audioIndex, subtitleIndex) : preferredTracks(plan, settings);
+    final selection = select(plan, audioIndex: audio, subtitleIndex: subtitle, preference: preference);
+    final usable = [
+      for (final d in selection.chain)
+        if (d.delivery == Delivery.directPlay &&
+            (d.subtitles == SubtitleRoute.none || d.subtitles == SubtitleRoute.engine))
+          d,
+    ];
+    if (!usable.any((d) => d.engine == EngineKind.mpv)) {
+      usable.add(
+        EngineDecision(
+          EngineKind.mpv,
+          Delivery.directPlay,
+          subtitles: subtitle == null ? SubtitleRoute.none : SubtitleRoute.engine,
+          reason: 'Fichier téléchargé : mpv',
+        ),
+      );
+    }
+    final local = EngineSelection(
+      usable.first,
+      fallbacks: usable.skip(1).toList(),
+      trace: ['Fichier téléchargé : ${media.file.path.split('/').last}', ...selection.trace],
+    );
+    for (final line in local.trace) {
+      AppLog.i('selector', line);
+    }
+    return PreparedPlayback(
+      plan: plan.withTracks(audioIndex: audio, subtitleIndex: () => subtitle),
+      selection: local,
+      audioIndex: audio ?? plan.audioIndex,
+      subtitleIndex: subtitle,
+    );
   }
 }

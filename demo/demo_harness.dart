@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +22,8 @@ import 'package:optifin/core/providers.dart';
 import 'package:optifin/core/storage/app_database.dart';
 import 'package:optifin/core/storage/token_vault.dart';
 import 'package:optifin/features/auth/domain/entities.dart';
+import 'package:optifin/features/downloads/data/file_transfers.dart';
+import 'package:optifin/features/downloads/presentation/downloads_providers.dart';
 import 'package:optifin/features/player/domain/device_capabilities.dart';
 import 'package:optifin/features/player/domain/engine_selector.dart';
 import 'package:optifin/features/player/domain/source_profile.dart';
@@ -130,6 +134,7 @@ class DemoHarness {
                     initialSessionProvider.overrideWithValue(session),
                     initialSettingsProvider.overrideWithValue(const AppSettings()),
                     jellyfinDioProvider.overrideWithValue(dio),
+                    fileTransfersProvider.overrideWithValue(_DemoTransfers()),
                     deviceCapabilitiesProvider.overrideWith((ref) async => caps),
                     maxBitrateResolverProvider.overrideWithValue(() async => 120000000),
                     playbackEngineFactoryProvider.overrideWithValue(
@@ -435,4 +440,70 @@ class _TouchesState extends State<_Touches> with SingleTickerProviderStateMixin 
       ],
     ),
   );
+}
+
+/// Transferts simulés : aucune requête, fichiers dans un dossier temporaire.
+class _DemoTransfers implements FileTransfers {
+  final _updates = StreamController<TransferUpdate>.broadcast();
+
+  @override
+  Stream<TransferUpdate> get updates => _updates.stream;
+
+  @override
+  Future<String> rootPath() async => Directory.systemTemp.path;
+
+  @override
+  Future<void> start({
+    required String taskId,
+    required Uri url,
+    required String relativePath,
+    Map<String, String> headers = const {},
+    bool wifiOnly = false,
+    String? displayName,
+  }) async {}
+
+  @override
+  Future<void> pause(String taskId) async {}
+
+  @override
+  Future<void> resume(String taskId) async {}
+
+  @override
+  Future<void> cancel(String taskId) async {}
+}
+
+extension DemoDownloads on DemoHarness {
+  /// Quelques téléchargements fictifs (terminés, en cours, en pause) pour les captures.
+  Future<void> seedDownloads() async {
+    Future<void> add(String id, String status, double progress, int mb) async {
+      final t = titleById(id);
+      final dto = DemoJellyfinAdapter.dto(t, full: true);
+      await tester.runAsync(
+        () => db
+            .into(db.downloads)
+            .insert(
+              DownloadsCompanion.insert(
+                itemId: id,
+                accountId: 'srv:demo-user',
+                kind: t.seriesId == null ? 'movie' : 'episode',
+                title: t.name,
+                seriesId: Value(t.seriesId),
+                itemJson: jsonEncode(dto),
+                playbackJson: jsonEncode(DemoJellyfinAdapter.playbackInfo(id)),
+                filePath: 'downloads/$id.mp4',
+                sizeBytes: Value(mb * 1024 * 1024),
+                progress: Value(progress),
+                status: status,
+                createdAt: DateTime.now().subtract(Duration(minutes: allTitles.indexOf(t))),
+              ),
+            ),
+      );
+    }
+
+    await add('horizon', 'complete', 1, 4210);
+    await add('nebuleuse', 'running', 0.46, 3120);
+    await add('veilleurs-s1e1', 'complete', 1, 1480);
+    await add('veilleurs-s1e2', 'complete', 1, 1395);
+    await add('veilleurs-s1e3', 'paused', 0.18, 1510);
+  }
 }

@@ -11,6 +11,7 @@ import '../../settings/presentation/settings_providers.dart';
 import '../data/engines/mpv_engine.dart';
 import '../data/engines/native_engine.dart';
 import '../data/playback_extras_repository.dart';
+import '../../downloads/presentation/downloads_providers.dart';
 import '../data/playback_preparer.dart';
 import '../data/playback_repository.dart';
 import '../domain/device_capabilities.dart';
@@ -78,6 +79,13 @@ final playbackPreparerProvider = Provider<Future<PlaybackPreparer> Function()>(
         device: await ref.read(deviceCapabilitiesProvider.future),
         settings: ref.read(settingsProvider),
         maxBitrate: await ref.read(maxBitrateResolverProvider)(),
+        local: (itemId) async {
+          try {
+            return await ref.read(downloadsRepositoryProvider).local(itemId);
+          } catch (_) {
+            return null;
+          }
+        },
       ),
 );
 

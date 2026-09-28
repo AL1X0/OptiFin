@@ -74,6 +74,28 @@ class PlaybackRepository implements PlaybackReportSink {
     );
   }
 
+  /// Réponse `PlaybackInfo` brute pour un téléchargement : profil mpv (tout en lecture
+  /// directe), débit illimité — le fichier d'origine, conservé tel quel.
+  Future<PlaybackInfoResponse> downloadInfo(String itemId) async {
+    const unlimited = 400000000;
+    final o = PlaybackRequestOptions.mpv(unlimited);
+    try {
+      return await _api.mediaInfo.getPostedPlaybackInfo(
+        itemId: itemId,
+        body: PlaybackInfoDto.fromJson({
+          'UserId': userId,
+          'MaxStreamingBitrate': unlimited,
+          'DeviceProfile': o.deviceProfile,
+          'EnableDirectPlay': true,
+          'EnableDirectStream': false,
+          'EnableTranscoding': false,
+        }),
+      );
+    } catch (e) {
+      throw ApiFailure.from(e);
+    }
+  }
+
   /// Convertit la réponse `PlaybackInfo` en plan de lecture. Pur, testé.
   static PlaybackPlan planFromResponse(
     PlaybackInfoResponse response, {

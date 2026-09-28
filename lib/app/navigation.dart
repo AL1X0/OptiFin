@@ -32,6 +32,8 @@ extension OFNavigation on BuildContext {
   void play(String itemId, {Duration? start}) => push(Routes.play(itemId, start: start));
   void openPerson(String id) => push('/$_branch/person/$id');
   void openLibrary(String id) => push('/$_branch/library/$id');
-  void openGenre(NamedRef genre) => push(Uri(path: '/$_branch/genre/${genre.id}', queryParameters: {'name': genre.name}).toString());
-  void openStudio(NamedRef studio) => push(Uri(path: '/$_branch/studio/${studio.id}', queryParameters: {'name': studio.name}).toString());
+  void openGenre(NamedRef genre) =>
+      push(Uri(path: '/$_branch/genre/${genre.id}', queryParameters: {'name': genre.name}).toString());
+  void openStudio(NamedRef studio) =>
+      push(Uri(path: '/$_branch/studio/${studio.id}', queryParameters: {'name': studio.name}).toString());
 }

@@ -275,3 +275,22 @@ redessinent (ValueNotifier) au lieu du carrousel entier.
    illustration (`FilmAccent`, même accent que la fiche).
 5. **Carrousel plus rapide** : illustrations en WebP qualité 75 ; les images de la sélection de la prochaine
    ouverture sont téléchargées sur le disque pendant l'utilisation (au lancement suivant, affichage immédiat).
+
+## Phase 7 : téléchargements hors connexion (2026-09-28)
+
+1. **Fichier d'origine** (flux statique `Videos/{id}/stream?static=true`, en-tête d'authentification, jamais de
+   token dans l'URL) : aucune perte de qualité, HDR/Dolby Vision conservés. Pas de transcodage à la volée.
+2. **Transferts en arrière-plan** avec `background_downloader` (URLSession d'arrière-plan sur iOS, WorkManager sur
+   Android) : l'app peut être fermée ; pause, reprise (requêtes Range), 3 nouvelles tentatives ; Wi-Fi uniquement
+   par défaut (réglage « Télécharger en Wi-Fi uniquement »). Interface `FileTransfers` pour les tests et la démo.
+3. **Table `Downloads`** (schéma v3) par compte : fiche (`BaseItemDto`) et réponse `PlaybackInfo` conservées en JSON,
+   chemins relatifs au dossier de l'app (le chemin absolu change à chaque installation iOS), affiche et fond
+   téléchargés à côté pour une liste lisible sans réseau.
+4. **Lecture** : `PlaybackPreparer` lit d'abord le fichier téléchargé (hors connexion comme en ligne : aucun débit
+   consommé). Plan reconstruit depuis le `PlaybackInfo` conservé ; seule la lecture directe est possible (remux,
+   transcodage et sous-titres servis par Jellyfin exigent le serveur) : natif si le fichier et les sous-titres s'y
+   prêtent, mpv sinon ; les replis restent sur le fichier. Fiche du lecteur reprise du téléchargement si le serveur
+   est injoignable ; chapitres/segments ignorés sans réseau.
+5. **Interface** : bouton rond sur les fiches (anneau de progression, coche, actions pause/reprise/annulation/
+   suppression), « Télécharger la saison » et un bouton par épisode ; onglet **Téléchargements** (4e onglet) : films
+   et séries regroupés (épisodes ordonnés), progression, espace occupé, glisser pour supprimer, tout supprimer.

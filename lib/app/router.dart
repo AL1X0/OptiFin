@@ -13,6 +13,7 @@ import '../features/library/presentation/library_screen.dart';
 import '../features/person/presentation/person_screen.dart';
 import '../features/player/presentation/player_controller.dart';
 import '../features/player/presentation/player_screen.dart';
+import '../features/downloads/presentation/downloads_screen.dart';
 import '../features/search/presentation/search_screen.dart';
 import '../features/settings/presentation/logs_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
@@ -22,6 +23,7 @@ abstract final class Routes {
   static const home = '/home';
   static const libraries = '/libraries';
   static const search = '/search';
+  static const downloads = '/downloads';
   static const connect = '/connect';
   static const login = '/connect/login';
   static const settings = '/settings';
@@ -102,6 +104,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [GoRoute(path: Routes.search, builder: (_, _) => const SearchScreen(), routes: _contentRoutes())],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: Routes.downloads, builder: (_, _) => const DownloadsScreen(), routes: _contentRoutes()),
+            ],
           ),
         ],
       ),

@@ -57,6 +57,8 @@ dependencies:
   flutter_cache_manager: ^3.4.5
   screen_brightness: ^2.1.11
   volume_controller: ^3.7.1
+  background_downloader: ^9.6.3
+  path_provider: ^2.1.6
 dev_dependencies:
   flutter_test:
     sdk: flutter

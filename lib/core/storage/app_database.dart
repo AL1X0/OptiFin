@@ -54,22 +54,54 @@ class CachedResponses extends Table {
   Set<Column> get primaryKey => {key};
 }
 
-@DriftDatabase(tables: [Servers, Accounts, KeyValues, CachedResponses])
+/// Films et épisodes téléchargés (ou en cours) pour la lecture hors connexion.
+@DataClassName('DownloadRow')
+class Downloads extends Table {
+  TextColumn get itemId => text()();
+
+  /// `<serverId>:<userId>` : chaque compte voit ses propres téléchargements.
+  TextColumn get accountId => text()();
+  TextColumn get kind => text()();
+  TextColumn get title => text()();
+  TextColumn get seriesId => text().nullable()();
+  TextColumn get seriesName => text().nullable()();
+  IntColumn get seasonNumber => integer().nullable()();
+  IntColumn get episodeNumber => integer().nullable()();
+
+  /// Fiche complète (`BaseItemDto`) et réponse `PlaybackInfo` : de quoi afficher et lire sans réseau.
+  TextColumn get itemJson => text()();
+  TextColumn get playbackJson => text()();
+
+  /// Chemin relatif au dossier de l'app (le chemin absolu change à chaque installation iOS).
+  TextColumn get filePath => text()();
+  IntColumn get sizeBytes => integer().withDefault(const Constant(0))();
+  RealColumn get progress => real().withDefault(const Constant(0))();
+  TextColumn get status => text()();
+  TextColumn get posterPath => text().nullable()();
+  TextColumn get backdropPath => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {itemId};
+}
+
+@DriftDatabase(tables: [Servers, Accounts, KeyValues, CachedResponses, Downloads])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   factory AppDatabase.open() => AppDatabase(driftDatabase(name: 'optifin'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onUpgrade: (m, from, to) async {
-          if (from < 2) await m.createTable(cachedResponses);
-        },
-        beforeOpen: (details) async => customStatement('PRAGMA foreign_keys = ON'),
-      );
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await m.createTable(cachedResponses);
+      if (from < 3) await m.createTable(downloads);
+    },
+    beforeOpen: (details) async => customStatement('PRAGMA foreign_keys = ON'),
+  );
 }
 
 /// Cache clé → JSON. Les erreurs de lecture sont silencieuses : le cache n'est

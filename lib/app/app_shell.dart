@@ -20,6 +20,7 @@ const _tabs = [
   _Tab('Accueil', Icons.home_outlined, Icons.home_rounded),
   _Tab('Bibliothèques', Icons.video_library_outlined, Icons.video_library_rounded),
   _Tab('Recherche', Icons.search_rounded, Icons.search_rounded),
+  _Tab('Téléchargements', Icons.download_for_offline_outlined, Icons.download_for_offline_rounded),
 ];
 
 /// Coquille de navigation : barre d'onglets flottante en pilule de verre, centrée en bas,
@@ -61,36 +62,40 @@ class _FloatingTabBar extends StatelessWidget {
     final tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
     final nativeGlass = NativeGlassView.supported;
 
-    final row = Padding(
-      padding: const EdgeInsets.all(5),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final (i, tab) in _tabs.indexed)
-            Semantics(
-              selected: i == current,
-              button: true,
-              label: tab.label,
-              excludeSemantics: true,
-              onTap: () => onSelect(i),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
+    // Rétrécit plutôt que de déborder (petits écrans, grandes polices).
+    final row = FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Padding(
+        padding: const EdgeInsets.all(5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (i, tab) in _tabs.indexed)
+              Semantics(
+                selected: i == current,
+                button: true,
+                label: tab.label,
+                excludeSemantics: true,
                 onTap: () => onSelect(i),
-                child: AnimatedContainer(
-                  duration: motion.standard,
-                  curve: OFMotion.standardCurve,
-                  height: tablet ? 46 : 54,
-                  constraints: BoxConstraints(minWidth: tablet ? 0 : 88),
-                  padding: EdgeInsets.symmetric(horizontal: tablet ? OFSpacing.lg + 2 : OFSpacing.md),
-                  decoration: BoxDecoration(
-                    color: i == current ? const Color(0x24FFFFFF) : const Color(0x00FFFFFF),
-                    borderRadius: const BorderRadius.all(Radius.circular(OFRadius.pill)),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onSelect(i),
+                  child: AnimatedContainer(
+                    duration: motion.standard,
+                    curve: OFMotion.standardCurve,
+                    height: tablet ? 46 : 54,
+                    constraints: BoxConstraints(minWidth: tablet ? 0 : 88),
+                    padding: EdgeInsets.symmetric(horizontal: tablet ? OFSpacing.lg + 2 : OFSpacing.md),
+                    decoration: BoxDecoration(
+                      color: i == current ? const Color(0x24FFFFFF) : const Color(0x00FFFFFF),
+                      borderRadius: const BorderRadius.all(Radius.circular(OFRadius.pill)),
+                    ),
+                    child: _TabContent(tab: tab, selected: i == current, accent: accent, stacked: !tablet),
                   ),
-                  child: _TabContent(tab: tab, selected: i == current, accent: accent, stacked: !tablet),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
 
@@ -98,15 +103,18 @@ class _FloatingTabBar extends StatelessWidget {
       padding: EdgeInsets.only(bottom: bottom > 0 ? bottom - OFSpacing.xs : OFSpacing.md, top: OFSpacing.sm),
       child: Center(
         heightFactor: 1,
-        child: nativeGlass
-            // iOS : vrai Liquid Glass natif sous les icônes (vue UIKit), liseré compris.
-            ? Stack(
-                children: [
-                  const Positioned.fill(child: NativeGlassView()),
-                  row,
-                ],
-              )
-            : LiquidGlass(shade: 0.45, child: row),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width - OFSpacing.lg * 2),
+          child: nativeGlass
+              // iOS : vrai Liquid Glass natif sous les icônes (vue UIKit), liseré compris.
+              ? Stack(
+                  children: [
+                    const Positioned.fill(child: NativeGlassView()),
+                    row,
+                  ],
+                )
+              : LiquidGlass(shade: 0.45, child: row),
+        ),
       ),
     );
   }
