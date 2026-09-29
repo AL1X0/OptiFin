@@ -65,6 +65,59 @@ final playbackEngineFactoryProvider = Provider<Future<PlaybackEngine> Function(E
       },
 );
 
+/// Un moteur préparé d'avance : dès que la fiche (ou le carrousel) connaît le moteur
+/// retenu, il est instancié pendant que l'utilisateur lit le synopsis. Au clic sur
+/// Lecture, le lecteur le prend sans attendre. Un seul moteur en réserve, libéré au bout
+/// de 2 minutes s'il n'a pas servi.
+class EnginePool {
+  EnginePool(this._factory);
+
+  final Future<PlaybackEngine> Function(EngineKind kind) _factory;
+  (EngineKind, Future<PlaybackEngine>)? _warm;
+  Timer? _expiry;
+
+  void prewarm(EngineKind kind) {
+    if (_warm?.$1 == kind) return;
+    _discard();
+    final future = _factory(kind);
+    // Échec de création : rien en réserve, le lecteur réessaiera lui-même.
+    future.catchError((Object _) => _discardIf(kind)).ignore();
+    _warm = (kind, future);
+    _expiry = Timer(const Duration(minutes: 2), _discard);
+  }
+
+  Future<PlaybackEngine> take(EngineKind kind) {
+    final warm = _warm;
+    if (warm != null && warm.$1 == kind) {
+      _warm = null;
+      _expiry?.cancel();
+      AppLog.d('player', 'Moteur pris dans la réserve');
+      return warm.$2;
+    }
+    return _factory(kind);
+  }
+
+  PlaybackEngine _discardIf(EngineKind kind) {
+    if (_warm?.$1 == kind) _warm = null;
+    throw StateError('moteur indisponible');
+  }
+
+  void _discard() {
+    _expiry?.cancel();
+    final warm = _warm;
+    _warm = null;
+    if (warm != null) unawaited(warm.$2.then((e) => e.dispose(), onError: (_) {}));
+  }
+
+  void dispose() => _discard();
+}
+
+final enginePoolProvider = Provider<EnginePool>((ref) {
+  final pool = EnginePool(ref.watch(playbackEngineFactoryProvider));
+  ref.onDispose(pool.dispose);
+  return pool;
+});
+
 /// En-têtes d'authentification transmis au moteur (jamais le token dans l'URL).
 final playbackHeadersProvider = Provider<Map<String, String>>((ref) {
   final session = ref.watch(sessionControllerProvider);
@@ -97,5 +150,7 @@ final playbackPrefetchProvider = FutureProvider.autoDispose.family<PreparedPlayb
   final timer = Timer(const Duration(minutes: 2), link.close);
   ref.onDispose(timer.cancel);
   final preparer = await ref.read(playbackPreparerProvider)();
-  return preparer.prepare(itemId);
+  final prepared = await preparer.prepare(itemId);
+  ref.read(enginePoolProvider).prewarm(prepared.decision.engine);
+  return prepared;
 });

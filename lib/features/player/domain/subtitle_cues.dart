@@ -94,4 +94,27 @@ class CueTrack {
     }
     return active.isEmpty ? null : active.reversed.join('\n');
   }
+
+  /// Prochain instant après [position] où le texte affiché change (début d'une cue ou
+  /// fin d'une cue active), ou null s'il n'y en a plus.
+  Duration? nextChangeAfter(Duration position) {
+    if (cues.isEmpty) return null;
+    var lo = 0;
+    var hi = cues.length;
+    while (lo < hi) {
+      final mid = (lo + hi) >> 1;
+      if (cues[mid].start <= position) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    Duration? next = lo < cues.length ? cues[lo].start : null;
+    for (var i = lo - 1; i >= 0; i--) {
+      final c = cues[i];
+      if (position - c.start > _maxLength) break;
+      if (c.end > position && (next == null || c.end < next)) next = c.end;
+    }
+    return next;
+  }
 }

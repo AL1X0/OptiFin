@@ -45,6 +45,9 @@ class NativeEngine implements PlaybackEngine, NativeGlassHost {
   int _subtitleRequest = 0;
   String? _fit;
 
+  /// Média HDR en cours : vue Android en composition hybride (SurfaceView).
+  bool _hdr = false;
+
   static String _nameFor(DeviceCapabilities d) => d.platform == DevicePlatform.ios ? 'AVPlayer' : 'Media3';
 
   @override
@@ -121,6 +124,7 @@ class NativeEngine implements PlaybackEngine, NativeGlassHost {
   @override
   Future<void> open(EngineMedia media) async {
     _completed = false;
+    _hdr = media.hdr;
     _cues.value = null;
     _emit(PlayerSnapshot(status: PlaybackStatus.loading, position: media.start, rate: _snapshot.rate));
     final external = media.externalSubtitle;
@@ -223,7 +227,7 @@ class NativeEngine implements PlaybackEngine, NativeGlassHost {
       fit: StackFit.expand,
       children: [
         const ColoredBox(color: Color(0xFF000000)),
-        NativePlayerView(playerId: _player.id),
+        NativePlayerView(key: ValueKey(_hdr), playerId: _player.id, hdr: _hdr),
         SubtitleOverlay(track: _cues, clock: _clock, style: _style, delay: _subtitleDelay),
       ],
     );

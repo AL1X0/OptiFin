@@ -1,9 +1,19 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../tokens.dart';
 import 'native_glass.dart';
+
+/// Réglage global du verre.
+abstract final class OFGlass {
+  /// Flou d'arrière-plan en temps réel. Coupé sur Android : chaque `BackdropFilter`
+  /// relit et floute l'image à chaque frame (barre d'onglets, boutons, en-têtes), ce qui
+  /// chauffe et ralentit les téléphones Android de milieu de gamme. Le verre y reste
+  /// teinté, avec liseré et reflet.
+  static bool blur = defaultTargetPlatform != TargetPlatform.android;
+}
 
 /// Verre dépoli borné (barres, sheets). Ne jamais l'étendre à une zone qui défile
 /// en plein écran : le flou est recalculé à chaque frame.
@@ -23,6 +33,17 @@ class GlassSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!OFGlass.blur) {
+      // Sans flou : teinte dense, aucune couche de découpe ni relecture de l'image.
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xE61A1A1D),
+          borderRadius: borderRadius,
+          border: Border.all(color: OFColors.stroke, width: 0.5),
+        ),
+        child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
+      );
+    }
     return ClipRRect(
       borderRadius: borderRadius,
       child: BackdropFilter(
@@ -156,7 +177,7 @@ class GlassBlur extends InheritedWidget {
   final bool enabled;
 
   static bool enabledOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<GlassBlur>()?.enabled ?? true;
+      OFGlass.blur && (context.dependOnInheritedWidgetOfExactType<GlassBlur>()?.enabled ?? true);
 
   @override
   bool updateShouldNotify(GlassBlur old) => old.enabled != enabled;

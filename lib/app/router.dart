@@ -121,7 +121,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             key: s.pageKey,
             opaque: true,
             barrierColor: const Color(0xFF000000),
-            transitionDuration: const Duration(milliseconds: 250),
+            transitionDuration: const Duration(milliseconds: 180),
             reverseTransitionDuration: const Duration(milliseconds: 200),
             transitionsBuilder: (_, animation, _, child) => FadeTransition(opacity: animation, child: child),
             child: PlayerScreen(

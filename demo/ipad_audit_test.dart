@@ -127,4 +127,17 @@ void main() {
     await h.idle(const Duration(milliseconds: 800));
     await h.tearDown();
   }, timeout: const Timeout(Duration(minutes: 20)));
+
+  testWidgets('Boutons de fiche', (tester) async {
+    final h = DemoHarness(tester);
+    await h.setUp();
+    await h.idle(const Duration(milliseconds: 600));
+    unawaited(h.router.push<void>('/home/item/veilleurs'));
+    await h.idle(const Duration(milliseconds: 1500));
+    await h.screenshot('actions_series');
+    unawaited(h.router.push<void>('/home/item/horizon'));
+    await h.idle(const Duration(milliseconds: 1500));
+    await h.screenshot('actions_movie');
+    await h.tearDown();
+  }, timeout: const Timeout(Duration(minutes: 20)));
 }

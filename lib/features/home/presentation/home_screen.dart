@@ -7,6 +7,7 @@ import '../../../core/network/api_failure.dart';
 import '../../auth/presentation/account_switcher.dart';
 import '../../common/presentation/media_cards.dart';
 import '../domain/home_data.dart';
+import '../../downloads/presentation/downloads_providers.dart';
 import 'featured_carousel.dart';
 import 'home_providers.dart';
 
@@ -20,6 +21,19 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Moteur de téléchargement démarré dès l'accueil (reprise des transferts, états
+    // rattrapés) : son initialisation n'est plus sur le chemin du bouton Lecture.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        ref.read(downloadsRepositoryProvider);
+      } catch (_) {}
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final home = ref.watch(homeProvider);

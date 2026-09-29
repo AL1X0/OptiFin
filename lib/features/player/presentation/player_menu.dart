@@ -54,6 +54,13 @@ class PlayerSettingsMenu extends ConsumerStatefulWidget {
 }
 
 class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
+  /// Changement de page : le panneau change de taille, le verre natif doit suivre.
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    NativeGlassScope.maybeOf(context)?.wake();
+  }
+
   late PlayerMenuPage _page = widget.initialPage;
   bool _forward = true;
 

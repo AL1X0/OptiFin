@@ -5,9 +5,7 @@ import 'package:optifin_native_player/optifin_native_player.dart' show NativePla
 
 import '../../../core/logging/app_log.dart';
 import '../../../core/media/media_item.dart';
-import '../../../core/media/media_mapper.dart';
 import '../../../core/network/api_failure.dart';
-import '../../../core/providers.dart';
 import '../../details/presentation/details_providers.dart';
 import '../../downloads/presentation/downloads_providers.dart';
 import '../../home/presentation/home_providers.dart';
@@ -19,6 +17,7 @@ import '../domain/playback_engine.dart';
 import '../domain/playback_extras.dart';
 import '../domain/playback_plan.dart';
 import '../domain/playback_reporter.dart';
+import '../domain/source_profile.dart';
 import 'playback_providers.dart';
 
 export 'playback_providers.dart';
@@ -216,12 +215,20 @@ class PlayerController extends Notifier<PlayerUiState> {
 
   Future<PlaybackPreparer> _getPreparer() async => _preparer ??= await ref.read(playbackPreparerProvider)();
 
+  /// Chronomètre du démarrage (clic sur Lecture → première image), dans les journaux.
+  final _startClock = Stopwatch();
+
+  void _mark(String step) => AppLog.i('player', 'Démarrage +${_startClock.elapsedMilliseconds} ms : $step');
+
   Future<void> _start() async {
+    _startClock.start();
     try {
-      final media = ref.read(mediaRepositoryProvider);
-      final itemFuture = media.item(args.itemId).catchError((Object e) => _offlineItem(e));
+      // Fiche : celle de la page d'où l'on vient (déjà en mémoire) plutôt qu'une nouvelle
+      // requête ; hors connexion, celle du téléchargement (géré par itemProvider).
+      final keepItem = ref.listen(itemProvider(args.itemId), (_, _) {});
+      final itemFuture = ref.read(itemProvider(args.itemId).future).whenComplete(keepItem.close);
       // Fichier téléchargé : on ignore un plan préchargé plus tôt (flux du serveur) pour lire
-      // le fichier local — indispensable hors connexion.
+      // le fichier local — indispensable hors connexion. Vérifié en parallèle de la fiche.
       if (await _hasLocalFile()) ref.invalidate(playbackPrefetchProvider(args.itemId));
       // Plan et décision préchargés par la fiche si disponibles, sinon calculés maintenant.
       final preparedFuture = ref.read(playbackPrefetchProvider(args.itemId).future);
@@ -230,6 +237,7 @@ class PlayerController extends Notifier<PlayerUiState> {
       final item = results[0] as MediaItem;
       final prepared = results[1] as PreparedPlayback;
       if (_closed) return;
+      _mark('fiche et plan prêts (${prepared.decision.label})');
       state = state.copyWith(item: item);
       unawaited(_loadExtras(item, prepared.plan.mediaSourceId));
       await _launch(prepared, start: args.start ?? item.resumePosition);
@@ -253,11 +261,13 @@ class PlayerController extends Notifier<PlayerUiState> {
       await _releaseEngine();
       // Lecteur fermé pendant le remplacement : ref n'est plus utilisable.
       if (_closed) return;
-      engine = await ref.read(playbackEngineFactoryProvider)(kind);
+      // Moteur préparé d'avance par la fiche si possible (libmpv : initialisation coûteuse).
+      engine = await ref.read(enginePoolProvider).take(kind);
       if (_closed) {
         await engine.dispose();
         return;
       }
+      _mark('moteur ${engine.name} prêt');
       _engine = engine;
       _engineKind = kind;
       await engine.setSubtitleStyle(state.subtitleStyle);
@@ -292,13 +302,6 @@ class PlayerController extends Notifier<PlayerUiState> {
     } catch (_) {
       return false;
     }
-  }
-
-  /// Hors connexion : la fiche conservée avec le téléchargement, sinon l'erreur d'origine.
-  Future<MediaItem> _offlineItem(Object error) async {
-    final local = await ref.read(downloadsRepositoryProvider).local(args.itemId).catchError((Object _) => null);
-    if (local == null) throw error;
-    return MediaMapper.fromDto(local.item);
   }
 
   Future<void> _loadExtras(MediaItem item, String mediaSourceId) async {
@@ -416,6 +419,10 @@ class PlayerController extends Notifier<PlayerUiState> {
     if (_starting && s.status == PlaybackStatus.ready) {
       _starting = false;
       _startupTimer?.cancel();
+      if (_startClock.isRunning) {
+        _mark('première image');
+        _startClock.stop();
+      }
       // Android : quitter l'app pendant la lecture la réduit en Picture-in-Picture.
       if (_engine?.capabilities.pictureInPicture ?? false) {
         final size = s.videoSize;
@@ -549,6 +556,8 @@ class PlayerController extends Notifier<PlayerUiState> {
       subtitleOrdinal: subtitleOrdinal,
       externalSubtitle: external,
       title: state.item?.name,
+      // Transcodage : le serveur livre du SDR.
+      hdr: plan.method != PlayMethod.transcode && (plan.source?.video?.range ?? DynamicRange.sdr) != DynamicRange.sdr,
     );
   }
 

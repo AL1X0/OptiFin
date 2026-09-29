@@ -317,3 +317,20 @@ les GIF et la galerie de captures sont supprimés.
 2. **`GlassPress`** sur tous les boutons en verre (ronds, pilules, grappe du lecteur, téléchargement) : au toucher
    le bouton gonfle avec un rebond et un reflet suit le doigt ; aucun calque de découpe (compatible avec le verre
    natif posé sur la vidéo).
+
+## Optimisation Android et démarrage de la lecture (2026-09-29)
+
+1. **Vidéo Android** : SDR (cas courant) sur `TextureView` en composition par couche de texture (la plus légère) ;
+   la composition hybride + `SurfaceView` (coûteuse : threads Flutter et Android synchronisés à chaque image) est
+   réservée au HDR, seule à pouvoir l'afficher. `EngineMedia.hdr` indique la nature du flux.
+2. **Sous-titres superposés** : plus d'horloge à chaque image pendant tout le film ; un réveil programmé au prochain
+   changement de réplique (`CueTrack.nextChangeAfter`) et aucune reconstruction tant que le texte ne change pas.
+3. **Flou coupé sur Android** (`OFGlass.blur`) : chaque `BackdropFilter` refloutait l'image à chaque frame (barre
+   d'onglets, boutons, en-têtes) ; le verre y est teinté, avec liseré et reflet.
+4. **iOS** : le suivi du verre natif du lecteur s'endort après 0,7 s sans mouvement (il tournait à chaque image
+   pendant tout le film) et se réveille au toucher, aux changements d'état, du menu et des boutons.
+5. **Démarrage de la lecture** : fiche reprise de la page d'origine (plus de requête), moteur instancié d'avance dès
+   que la fiche connaît le moteur retenu (`EnginePool`, libéré après 2 min), moteur de téléchargement démarré dès
+   l'accueil, transition plus courte ; chronométrage de chaque étape dans les journaux (« Démarrage +N ms »).
+6. **Fiche** : bouton Lecture et boutons ronds jamais sur deux lignes d'icônes : tout sur une ligne si la largeur
+   le permet, sinon Lecture sur toute la largeur et les icônes sur une seule ligne en dessous.

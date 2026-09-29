@@ -310,6 +310,14 @@ class PlayerControls extends StatefulWidget {
 enum _Level { brightness, volume }
 
 class _PlayerControlsState extends State<PlayerControls> {
+  /// Chaque changement d'état (contrôles affichés/masqués, menu, verrou, glissé) peut
+  /// déplacer les formes de verre : leur suivi natif est relancé.
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    NativeGlassScope.maybeOf(context)?.wake();
+  }
+
   bool _visible = true;
   late bool _debug = widget.debugByDefault;
   Timer? _hideTimer;
@@ -513,183 +521,190 @@ class _PlayerControlsState extends State<PlayerControls> {
     final ui = widget.state;
     final next = ui.extras.nextEpisode;
     final metrics = _Metrics.of(context);
-    return BackdropGroup(
-      child: StreamBuilder<PlayerSnapshot>(
-        stream: widget.engine.snapshots,
-        initialData: widget.engine.snapshot,
-        builder: (context, snap) {
-          final s = snap.data ?? const PlayerSnapshot();
-          final showSpinner = s.buffering || s.status == PlaybackStatus.loading || ui.reloading;
-          final padding = MediaQuery.paddingOf(context);
-          final overlayBottom = padding.bottom + (_visible ? metrics.bottomBarClearance : OFSpacing.xxl);
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              // Couche gestes SOUS les contrôles : les boutons reçoivent leurs taps
-              // immédiatement (sinon le détecteur de double-tap les retarde de 300 ms),
-              // les zones vides laissent passer vers cette couche.
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _toggle,
-                onDoubleTapDown: _doubleTapSeek,
-                onDoubleTap: () {},
-                onVerticalDragStart: _levelStart,
-                onVerticalDragUpdate: _levelUpdate,
-                onVerticalDragEnd: _levelEnd,
-                onVerticalDragCancel: _levelEnd,
-              ),
-              if (_feedback != null) IgnorePointer(child: _SeekIndicator(feedback: _feedback!)),
-              if (_level != null)
+    return Listener(
+      // Tout toucher réveille le suivi du verre natif (boutons, menu, barre de progression).
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => NativeGlassScope.maybeOf(context)?.wake(),
+      onPointerMove: (_) => NativeGlassScope.maybeOf(context)?.wake(),
+      onPointerUp: (_) => NativeGlassScope.maybeOf(context)?.wake(),
+      child: BackdropGroup(
+        child: StreamBuilder<PlayerSnapshot>(
+          stream: widget.engine.snapshots,
+          initialData: widget.engine.snapshot,
+          builder: (context, snap) {
+            final s = snap.data ?? const PlayerSnapshot();
+            final showSpinner = s.buffering || s.status == PlaybackStatus.loading || ui.reloading;
+            final padding = MediaQuery.paddingOf(context);
+            final overlayBottom = padding.bottom + (_visible ? metrics.bottomBarClearance : OFSpacing.xxl);
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                // Couche gestes SOUS les contrôles : les boutons reçoivent leurs taps
+                // immédiatement (sinon le détecteur de double-tap les retarde de 300 ms),
+                // les zones vides laissent passer vers cette couche.
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _toggle,
+                  onDoubleTapDown: _doubleTapSeek,
+                  onDoubleTap: () {},
+                  onVerticalDragStart: _levelStart,
+                  onVerticalDragUpdate: _levelUpdate,
+                  onVerticalDragEnd: _levelEnd,
+                  onVerticalDragCancel: _levelEnd,
+                ),
+                if (_feedback != null) IgnorePointer(child: _SeekIndicator(feedback: _feedback!)),
+                if (_level != null)
+                  IgnorePointer(
+                    child: Align(
+                      alignment: const Alignment(0, -0.7),
+                      child: LevelIndicator(
+                        icon: _level == _Level.brightness ? Icons.brightness_6_rounded : Icons.volume_up_rounded,
+                        value: _level == _Level.brightness ? _brightness : _volume,
+                      ),
+                    ),
+                  ),
+                if (showSpinner && !_visible) IgnorePointer(child: Center(child: OFLoader.glass())),
                 IgnorePointer(
-                  child: Align(
-                    alignment: const Alignment(0, -0.7),
-                    child: LevelIndicator(
-                      icon: _level == _Level.brightness ? Icons.brightness_6_rounded : Icons.volume_up_rounded,
-                      value: _level == _Level.brightness ? _brightness : _volume,
-                    ),
+                  key: const ValueKey('controles'),
+                  ignoring: !_visible || _locked,
+                  child: AnimatedOpacity(
+                    opacity: _visible && !_locked ? 1 : 0,
+                    duration: motion.standard,
+                    curve: OFMotion.standardCurve,
+                    child: (_visible && !_locked) || motion.enabled
+                        ? _ControlsLayer(
+                            metrics: metrics,
+                            snapshot: s,
+                            scrubbing: _scrubbing,
+                            showSpinner: showSpinner,
+                            debug: _debug,
+                            menuOpen: _menu,
+                            ui: ui,
+                            engine: widget.engine,
+                            fit: widget.fit,
+                            onClose: widget.onClose,
+                            onPlayPause: () {
+                              unawaited(widget.controller.togglePlay());
+                              _show();
+                            },
+                            onSkip: (d) {
+                              unawaited(widget.controller.seekBy(d));
+                              _show();
+                            },
+                            onScrubStart: (p) {
+                              _hideTimer?.cancel();
+                              setState(() => _scrubbing = p);
+                            },
+                            onScrub: (p) => setState(() => _scrubbing = p),
+                            onScrubEnd: (p) {
+                              setState(() => _scrubbing = null);
+                              unawaited(widget.controller.seek(p));
+                              _scheduleHide();
+                            },
+                            onSettings: () => _menu ? _closeMenu() : _openMenu(),
+                            onPictureInPicture: widget.engine.capabilities.pictureInPicture ? _pictureInPicture : null,
+                            onCycleFit: () {
+                              widget.onCycleFit();
+                              _show();
+                            },
+                            onToggleDebug: () => setState(() => _debug = !_debug),
+                          )
+                        : const SizedBox.shrink(),
                   ),
                 ),
-              if (showSpinner && !_visible) IgnorePointer(child: Center(child: OFLoader.glass())),
-              IgnorePointer(
-                key: const ValueKey('controles'),
-                ignoring: !_visible || _locked,
-                child: AnimatedOpacity(
-                  opacity: _visible && !_locked ? 1 : 0,
-                  duration: motion.standard,
-                  curve: OFMotion.standardCurve,
-                  child: (_visible && !_locked) || motion.enabled
-                      ? _ControlsLayer(
-                          metrics: metrics,
-                          snapshot: s,
-                          scrubbing: _scrubbing,
-                          showSpinner: showSpinner,
-                          debug: _debug,
-                          menuOpen: _menu,
-                          ui: ui,
-                          engine: widget.engine,
-                          fit: widget.fit,
-                          onClose: widget.onClose,
-                          onPlayPause: () {
-                            unawaited(widget.controller.togglePlay());
-                            _show();
-                          },
-                          onSkip: (d) {
-                            unawaited(widget.controller.seekBy(d));
-                            _show();
-                          },
-                          onScrubStart: (p) {
-                            _hideTimer?.cancel();
-                            setState(() => _scrubbing = p);
-                          },
-                          onScrub: (p) => setState(() => _scrubbing = p),
-                          onScrubEnd: (p) {
-                            setState(() => _scrubbing = null);
-                            unawaited(widget.controller.seek(p));
-                            _scheduleHide();
-                          },
-                          onSettings: () => _menu ? _closeMenu() : _openMenu(),
-                          onPictureInPicture: widget.engine.capabilities.pictureInPicture ? _pictureInPicture : null,
-                          onCycleFit: () {
-                            widget.onCycleFit();
-                            _show();
-                          },
-                          onToggleDebug: () => setState(() => _debug = !_debug),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ),
-              // Menu Réglages : ancré sous son bouton, se déploie depuis le coin.
-              Positioned(
-                key: const ValueKey('menu'),
-                top: padding.top + metrics.menuTop,
-                right: padding.right + metrics.edge,
-                child: AnimatedSwitcher(
-                  duration: motion.standard,
-                  switchInCurve: OFMotion.emphasizedCurve,
-                  switchOutCurve: OFMotion.standardCurve,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(
-                      scale: Tween(begin: 0.85, end: 1.0).animate(animation),
-                      alignment: Alignment.topRight,
-                      child: child,
-                    ),
-                  ),
-                  child: _menu && !_locked
-                      ? PlayerSettingsMenu(
-                          key: const ValueKey('menu'),
-                          controller: widget.controller,
-                          engine: widget.engine,
-                          debug: _debug,
-                          onDismiss: _closeMenu,
-                          onLock: _lock,
-                          onSearchSubtitles: _searchSubtitles,
-                          // Au-dessus de la barre de progression, qu'il ne recouvre jamais.
-                          maxHeight:
-                              MediaQuery.sizeOf(context).height -
-                              padding.vertical -
-                              metrics.menuTop -
-                              metrics.bottomBarClearance,
-                          onToggleDebug: () => setState(() => _debug = !_debug),
-                        )
-                      : const SizedBox.shrink(key: ValueKey('ferme')),
-                ),
-              ),
-              // « Passer l'intro » : visible même contrôles masqués (mais pas verrouillé).
-              if (ui.segment != null && !_locked && !ui.upNext && !_menu)
+                // Menu Réglages : ancré sous son bouton, se déploie depuis le coin.
                 Positioned(
+                  key: const ValueKey('menu'),
+                  top: padding.top + metrics.menuTop,
                   right: padding.right + metrics.edge,
-                  bottom: overlayBottom,
-                  child: FadeSlideIn(
-                    key: ValueKey(ui.segment),
-                    axis: Axis.horizontal,
-                    offset: 32,
-                    child: SkipSegmentButton(segment: ui.segment!, onSkip: widget.controller.skipSegment),
+                  child: AnimatedSwitcher(
+                    duration: motion.standard,
+                    switchInCurve: OFMotion.emphasizedCurve,
+                    switchOutCurve: OFMotion.standardCurve,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween(begin: 0.85, end: 1.0).animate(animation),
+                        alignment: Alignment.topRight,
+                        child: child,
+                      ),
+                    ),
+                    child: _menu && !_locked
+                        ? PlayerSettingsMenu(
+                            key: const ValueKey('menu'),
+                            controller: widget.controller,
+                            engine: widget.engine,
+                            debug: _debug,
+                            onDismiss: _closeMenu,
+                            onLock: _lock,
+                            onSearchSubtitles: _searchSubtitles,
+                            // Au-dessus de la barre de progression, qu'il ne recouvre jamais.
+                            maxHeight:
+                                MediaQuery.sizeOf(context).height -
+                                padding.vertical -
+                                metrics.menuTop -
+                                metrics.bottomBarClearance,
+                            onToggleDebug: () => setState(() => _debug = !_debug),
+                          )
+                        : const SizedBox.shrink(key: ValueKey('ferme')),
                   ),
                 ),
-              if (ui.upNext && next != null && !_locked && !_menu)
-                Positioned(
-                  right: padding.right + metrics.edge,
-                  bottom: overlayBottom,
-                  child: FadeSlideIn(
-                    key: ValueKey('suivant-${next.id}'),
-                    axis: Axis.horizontal,
-                    offset: 48,
-                    child: UpNextCard(
-                      key: ValueKey(next.id),
-                      next: next,
-                      autoPlay: widget.autoPlayNext,
-                      onPlay: () => unawaited(widget.controller.playNext()),
-                      onDismiss: widget.controller.dismissUpNext,
+                // « Passer l'intro » : visible même contrôles masqués (mais pas verrouillé).
+                if (ui.segment != null && !_locked && !ui.upNext && !_menu)
+                  Positioned(
+                    right: padding.right + metrics.edge,
+                    bottom: overlayBottom,
+                    child: FadeSlideIn(
+                      key: ValueKey(ui.segment),
+                      axis: Axis.horizontal,
+                      offset: 32,
+                      child: SkipSegmentButton(segment: ui.segment!, onSkip: widget.controller.skipSegment),
                     ),
                   ),
-                ),
-              if (_locked)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: padding.bottom + OFSpacing.xxl,
-                  child: Center(
-                    child: AnimatedOpacity(
-                      opacity: _showUnlock ? 1 : 0,
-                      duration: motion.standard,
-                      child: IgnorePointer(
-                        ignoring: !_showUnlock,
-                        child: OFGlassButton(
-                          label: 'Déverrouiller',
-                          icon: Icons.lock_open_rounded,
-                          iconSize: 22,
-                          size: 48,
-                          showLabel: true,
-                          onPressed: _unlock,
+                if (ui.upNext && next != null && !_locked && !_menu)
+                  Positioned(
+                    right: padding.right + metrics.edge,
+                    bottom: overlayBottom,
+                    child: FadeSlideIn(
+                      key: ValueKey('suivant-${next.id}'),
+                      axis: Axis.horizontal,
+                      offset: 48,
+                      child: UpNextCard(
+                        key: ValueKey(next.id),
+                        next: next,
+                        autoPlay: widget.autoPlayNext,
+                        onPlay: () => unawaited(widget.controller.playNext()),
+                        onDismiss: widget.controller.dismissUpNext,
+                      ),
+                    ),
+                  ),
+                if (_locked)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: padding.bottom + OFSpacing.xxl,
+                    child: Center(
+                      child: AnimatedOpacity(
+                        opacity: _showUnlock ? 1 : 0,
+                        duration: motion.standard,
+                        child: IgnorePointer(
+                          ignoring: !_showUnlock,
+                          child: OFGlassButton(
+                            label: 'Déverrouiller',
+                            icon: Icons.lock_open_rounded,
+                            iconSize: 22,
+                            size: 48,
+                            showLabel: true,
+                            onPressed: _unlock,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }

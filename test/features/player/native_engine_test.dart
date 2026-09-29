@@ -209,6 +209,14 @@ NOTE commentaire
       expect(track.textAt(const Duration(seconds: 11)), isNull);
       expect(track.textAt(const Duration(milliseconds: 12500)), 'C');
       expect(CueTrack(const []).textAt(Duration.zero), isNull);
+
+      // Prochain changement de texte : réveil unique de l'overlay, pas une horloge par image.
+      expect(track.nextChangeAfter(Duration.zero), const Duration(seconds: 1));
+      expect(track.nextChangeAfter(const Duration(milliseconds: 1500)), const Duration(seconds: 2));
+      expect(track.nextChangeAfter(const Duration(milliseconds: 2500)), const Duration(seconds: 3));
+      expect(track.nextChangeAfter(const Duration(seconds: 5)), const Duration(seconds: 10));
+      expect(track.nextChangeAfter(const Duration(seconds: 11)), const Duration(seconds: 12));
+      expect(track.nextChangeAfter(const Duration(seconds: 14)), isNull);
     });
 
     test('horloge extrapolée entre deux mesures du moteur', () {

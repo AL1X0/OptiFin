@@ -402,17 +402,10 @@ class _Summary extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: OFSpacing.md,
-          runSpacing: OFSpacing.md,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            if (canPlay)
-              OFButton(
-                label: playLabel(),
-                icon: Icons.play_arrow_rounded,
-                onPressed: () => context.play(playTarget.id, start: targetResumable ? null : Duration.zero),
-              ),
+        _ActionBar(
+          playLabel: canPlay ? playLabel() : null,
+          onPlay: () => context.play(playTarget.id, start: targetResumable ? null : Duration.zero),
+          icons: [
             if (canPlay && targetResumable)
               OFIconButton(
                 icon: Icons.restart_alt_rounded,
@@ -501,6 +494,69 @@ class _Summary extends ConsumerWidget {
             _InfoLine.named(label: 'Studio', refs: item.studios.take(3).toList(), onTap: context.openStudio),
         ],
       ],
+    );
+  }
+}
+
+/// Bouton Lecture + boutons ronds, jamais répartis sur deux lignes d'icônes : tout sur
+/// une ligne si la largeur le permet, sinon Lecture sur toute la largeur et toutes les
+/// icônes sur une seule ligne en dessous.
+class _ActionBar extends StatelessWidget {
+  const _ActionBar({required this.playLabel, required this.onPlay, required this.icons});
+
+  final String? playLabel;
+  final VoidCallback onPlay;
+  final List<Widget> icons;
+
+  static const _icon = 44.0;
+  static const _gap = OFSpacing.md;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = playLabel;
+    final iconsRow = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final (i, w) in icons.indexed) ...[if (i > 0) const SizedBox(width: _gap), w],
+      ],
+    );
+    if (label == null) return iconsRow;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Largeur du bouton Lecture (marges, icône, espace, texte mesuré au style réel).
+        final text = TextPainter(
+          text: TextSpan(text: label, style: DefaultTextStyle.of(context).style.merge(OFTypography.headline)),
+          textDirection: TextDirection.ltr,
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        )..layout();
+        final playWidth = OFSpacing.xl * 2 + 20 + OFSpacing.sm + text.width + 2;
+        final iconsWidth = icons.isEmpty ? 0.0 : icons.length * _icon + (icons.length - 1) * _gap;
+        final oneLine = playWidth + (icons.isEmpty ? 0 : _gap + iconsWidth) <= constraints.maxWidth;
+        final play = OFButton(label: label, icon: Icons.play_arrow_rounded, expand: !oneLine, onPressed: onPlay);
+        if (oneLine) {
+          return Row(
+            children: [
+              play,
+              if (icons.isNotEmpty) ...[const SizedBox(width: _gap), iconsRow],
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            play,
+            if (icons.isNotEmpty) ...[
+              const SizedBox(height: _gap),
+              // Toujours une seule ligne : réduite si l'écran est vraiment étroit.
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FittedBox(fit: BoxFit.scaleDown, child: iconsRow),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

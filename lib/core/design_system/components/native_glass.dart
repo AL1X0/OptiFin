@@ -27,10 +27,22 @@ class NativeGlassScopeState extends State<NativeGlassScope> with SingleTickerPro
   final _slots = <NativeGlassSlotState>{};
   late final Ticker _ticker = createTicker(_tick);
   String _last = '';
+  Duration _lastChange = Duration.zero;
+
+  /// Sans mouvement pendant ce délai, le suivi s'endort (aucune image calculée pendant
+  /// le film) ; [wake] le relance au prochain toucher, changement d'état ou bouton.
+  static const _idleAfter = Duration(milliseconds: 700);
+
+  /// Relance le suivi des formes de verre (toucher, contrôles qui apparaissent…).
+  void wake() {
+    if (_slots.isEmpty || _ticker.isActive) return;
+    _lastChange = Duration.zero;
+    _ticker.start();
+  }
 
   void _register(NativeGlassSlotState slot) {
     _slots.add(slot);
-    if (!_ticker.isActive) _ticker.start();
+    wake();
   }
 
   void _unregister(NativeGlassSlotState slot) {
@@ -38,22 +50,30 @@ class NativeGlassScopeState extends State<NativeGlassScope> with SingleTickerPro
     if (_slots.isEmpty) {
       _ticker.stop();
       _send(const []);
+    } else {
+      wake();
     }
   }
 
-  void _tick(Duration _) {
+  void _tick(Duration elapsed) {
     final anchor = widget.anchorKey.currentContext?.findRenderObject();
     if (anchor is! RenderBox || !anchor.attached || !anchor.hasSize) return;
     final origin = anchor.localToGlobal(Offset.zero);
     final items = <Map<String, Object>>[for (final slot in _slots) ?slot._measure(origin)];
-    _send(items);
+    if (_send(items)) {
+      _lastChange = elapsed;
+    } else if (elapsed - _lastChange > _idleAfter) {
+      _ticker.stop();
+    }
   }
 
-  void _send(List<Map<String, Object>> items) {
+  /// true si la liste a changé (et a été transmise).
+  bool _send(List<Map<String, Object>> items) {
     final signature = items.toString();
-    if (signature == _last) return;
+    if (signature == _last) return false;
     _last = signature;
     widget.onChanged(items);
+    return true;
   }
 
   @override

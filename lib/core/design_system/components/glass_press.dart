@@ -2,6 +2,7 @@ import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 
 import '../tokens.dart';
+import 'native_glass.dart';
 
 /// Réaction « verre interactif » (iOS 26) d'un bouton : au toucher il gonfle légèrement
 /// avec un rebond, et un reflet suit le doigt ; au relâcher il revient en oscillant.
@@ -36,7 +37,11 @@ class _GlassPressState extends State<GlassPress> with SingleTickerProviderStateM
   /// Ressort vif et peu amorti : le verre « rebondit » comme un liquide.
   static const _spring = SpringDescription(mass: 1, stiffness: 520, damping: 17);
 
-  void _to(double target) => _press.animateWith(SpringSimulation(_spring, _press.value, target, _press.velocity));
+  void _to(double target) {
+    // Verre natif sous le bouton : son suivi doit accompagner le rebond.
+    NativeGlassScope.maybeOf(context)?.wake();
+    _press.animateWith(SpringSimulation(_spring, _press.value, target, _press.velocity));
+  }
 
   void _track(Offset local) {
     final size = context.size;

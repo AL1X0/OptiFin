@@ -174,6 +174,7 @@ class EngineMedia {
     this.subtitleOrdinal,
     this.externalSubtitle,
     this.title,
+    this.hdr = false,
   });
 
   final Uri url;
@@ -185,6 +186,10 @@ class EngineMedia {
   final int? subtitleOrdinal;
   final ExternalSubtitle? externalSubtitle;
   final String? title;
+
+  /// Image HDR ou Dolby Vision à l'arrivée : le lecteur natif Android garde alors sa
+  /// SurfaceView (composition hybride), seule capable d'afficher le HDR.
+  final bool hdr;
 }
 
 class ExternalSubtitle {

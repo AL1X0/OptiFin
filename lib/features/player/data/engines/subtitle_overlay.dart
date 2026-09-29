@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 import '../../domain/playback_engine.dart';
 import '../../domain/subtitle_cues.dart';
@@ -49,8 +50,11 @@ class SubtitleOverlay extends StatefulWidget {
   State<SubtitleOverlay> createState() => _SubtitleOverlayState();
 }
 
-class _SubtitleOverlayState extends State<SubtitleOverlay> with SingleTickerProviderStateMixin {
-  late final Ticker _ticker = createTicker((_) => _refresh());
+class _SubtitleOverlayState extends State<SubtitleOverlay> {
+  /// Réveil programmé au prochain changement de texte (début ou fin de réplique) :
+  /// aucune image calculée entre deux répliques (une horloge à chaque image gardait
+  /// le GPU actif pendant tout le film).
+  Timer? _timer;
   String? _text;
 
   @override
@@ -60,7 +64,8 @@ class _SubtitleOverlayState extends State<SubtitleOverlay> with SingleTickerProv
       l.addListener(_onChange);
     }
     _text = _currentText();
-    _syncTicker();
+    _style = widget.style.value;
+    _schedule();
   }
 
   @override
@@ -68,20 +73,33 @@ class _SubtitleOverlayState extends State<SubtitleOverlay> with SingleTickerProv
     for (final l in [widget.track, widget.clock, widget.style, widget.delay]) {
       l.removeListener(_onChange);
     }
-    _ticker.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
-  /// Le ticker ne tourne que pendant la lecture et s'il y a des sous-titres.
-  void _syncTicker() {
-    final active = widget.clock.value.playing && widget.track.value != null;
-    if (active && !_ticker.isActive) _ticker.start();
-    if (!active && _ticker.isActive) _ticker.stop();
+  void _schedule() {
+    _timer?.cancel();
+    final clock = widget.clock.value;
+    final track = widget.track.value;
+    if (!clock.playing || track == null || clock.rate <= 0) return;
+    final position = clock.estimate(monotonicMicros()) - widget.delay.value;
+    final next = track.nextChangeAfter(position);
+    if (next == null) return;
+    final wait = Duration(microseconds: ((next - position).inMicroseconds / clock.rate).round() + 2000);
+    _timer = Timer(wait, () {
+      _refresh();
+      _schedule();
+    });
   }
 
+  SubtitleStyle? _style;
+
   void _onChange() {
-    _syncTicker();
-    _refresh(force: true);
+    // L'horloge change 4 fois par seconde : reconstruction seulement si le texte ou le style change.
+    final styleChanged = !identical(_style, widget.style.value);
+    _style = widget.style.value;
+    _refresh(force: styleChanged);
+    _schedule();
   }
 
   String? _currentText() {
