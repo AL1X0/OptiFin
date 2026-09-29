@@ -19,6 +19,7 @@ import 'player_controller.dart';
 import 'player_overlays.dart';
 import 'player_menu.dart';
 import 'player_sheets.dart';
+import 'player_tv_controls.dart';
 
 /// Lecteur plein écran. Même UI quel que soit le moteur : tout passe par
 /// [PlayerController] et l'interface [PlaybackEngine].
@@ -339,6 +340,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   _SeekFeedback? _feedback;
   Timer? _feedbackTimer;
   bool _menu = false;
+  PlayerMenuPage _menuPage = PlayerMenuPage.root;
 
   bool _locked = false;
   bool _showUnlock = false;
@@ -354,7 +356,8 @@ class _PlayerControlsState extends State<PlayerControls> {
   static const _skip = Duration(seconds: 10);
 
   /// Racine des touches (télécommande, clavier) quand aucun bouton n'a le focus.
-  final _keys = FocusNode(debugLabel: 'lecteur');
+  /// Hors du parcours des flèches : il couvre tout l'écran et capterait le focus entre deux boutons.
+  final _keys = FocusNode(debugLabel: 'lecteur', skipTraversal: true);
 
   /// Bouton lecture/pause : le focus y va quand les contrôles apparaissent à la télécommande.
   final _playFocus = FocusNode(debugLabel: 'lecture/pause');
@@ -425,6 +428,16 @@ class _PlayerControlsState extends State<PlayerControls> {
     if (_locked) return KeyEventResult.ignored;
     if (!_visible && !_menu) {
       if (key == LogicalKeyboardKey.select || key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.space) {
+        // « Passer l'intro » ou « Épisode suivant » à l'écran : OK les déclenche (comme sur Netflix).
+        final ui = widget.state;
+        if (!repeat && ui.upNext && ui.extras.nextEpisode != null) {
+          unawaited(widget.controller.playNext());
+          return KeyEventResult.handled;
+        }
+        if (!repeat && ui.segment != null) {
+          unawaited(widget.controller.skipSegment());
+          return KeyEventResult.handled;
+        }
         if (!repeat) {
           unawaited(widget.controller.togglePlay());
           _show();
@@ -509,10 +522,11 @@ class _PlayerControlsState extends State<PlayerControls> {
     }
   }
 
-  void _openMenu() {
+  void _openMenu([PlayerMenuPage page = PlayerMenuPage.root]) {
     _hideTimer?.cancel();
     setState(() {
       _menu = true;
+      _menuPage = page;
       _visible = true;
     });
   }
@@ -521,6 +535,8 @@ class _PlayerControlsState extends State<PlayerControls> {
     if (!_menu) return;
     setState(() => _menu = false);
     _scheduleHide();
+    // Télécommande : le focus revient sur les boutons du lecteur.
+    if (OFDevice.tv) _playFocus.requestFocus();
   }
 
   void _flashUnlock() {
@@ -683,7 +699,41 @@ class _PlayerControlsState extends State<PlayerControls> {
                       opacity: _visible && !_locked ? 1 : 0,
                       duration: motion.standard,
                       curve: OFMotion.standardCurve,
-                      child: (_visible && !_locked) || motion.enabled
+                      child: OFDevice.tv
+                          ? TvPlayerControls(
+                              snapshot: s,
+                              scrubbing: _scrubbing,
+                              showSpinner: showSpinner,
+                              debug: _debug,
+                              ui: ui,
+                              engine: widget.engine,
+                              fit: widget.fit,
+                              playFocus: _playFocus,
+                              onPlayPause: () {
+                                unawaited(widget.controller.togglePlay());
+                                _show();
+                              },
+                              onSkip: (d) {
+                                unawaited(widget.controller.seekBy(d));
+                                _show();
+                              },
+                              onScrubStart: (p) {
+                                _hideTimer?.cancel();
+                                setState(() => _scrubbing = p);
+                              },
+                              onScrub: (p) => setState(() => _scrubbing = p),
+                              onScrubEnd: (p) {
+                                setState(() => _scrubbing = null);
+                                unawaited(widget.controller.seek(p));
+                                _scheduleHide();
+                              },
+                              onMenu: _openMenu,
+                              onCycleFit: () {
+                                widget.onCycleFit();
+                                _show();
+                              },
+                            )
+                          : (_visible && !_locked) || motion.enabled
                           ? _ControlsLayer(
                               metrics: metrics,
                               snapshot: s,
@@ -729,10 +779,11 @@ class _PlayerControlsState extends State<PlayerControls> {
                     ),
                   ),
                   // Menu Réglages : ancré sous son bouton, se déploie depuis le coin.
+                  // TV : panneau latéral à droite, sur toute la hauteur.
                   Positioned(
                     key: const ValueKey('menu'),
-                    top: padding.top + metrics.menuTop,
-                    right: padding.right + metrics.edge,
+                    top: OFDevice.tv ? TvPlayerControls.safeY : padding.top + metrics.menuTop,
+                    right: OFDevice.tv ? TvPlayerControls.safeX - OFSpacing.lg : padding.right + metrics.edge,
                     child: AnimatedSwitcher(
                       duration: motion.standard,
                       switchInCurve: OFMotion.emphasizedCurve,
@@ -746,21 +797,26 @@ class _PlayerControlsState extends State<PlayerControls> {
                         ),
                       ),
                       child: _menu && !_locked
-                          ? PlayerSettingsMenu(
-                              key: const ValueKey('menu'),
-                              controller: widget.controller,
-                              engine: widget.engine,
-                              debug: _debug,
-                              onDismiss: _closeMenu,
-                              onLock: _lock,
-                              onSearchSubtitles: _searchSubtitles,
-                              // Au-dessus de la barre de progression, qu'il ne recouvre jamais.
-                              maxHeight:
-                                  MediaQuery.sizeOf(context).height -
-                                  padding.vertical -
-                                  metrics.menuTop -
-                                  metrics.bottomBarClearance,
-                              onToggleDebug: () => setState(() => _debug = !_debug),
+                          // Portée de focus propre : les flèches restent dans le menu ouvert.
+                          ? FocusScope(
+                              key: ValueKey('menu-${_menuPage.name}'),
+                              child: PlayerSettingsMenu(
+                                initialPage: _menuPage,
+                                controller: widget.controller,
+                                engine: widget.engine,
+                                debug: _debug,
+                                onDismiss: _closeMenu,
+                                onLock: _lock,
+                                onSearchSubtitles: _searchSubtitles,
+                                // Au-dessus de la barre de progression, qu'il ne recouvre jamais.
+                                maxHeight: OFDevice.tv
+                                    ? MediaQuery.sizeOf(context).height - 2 * TvPlayerControls.safeY
+                                    : MediaQuery.sizeOf(context).height -
+                                          padding.vertical -
+                                          metrics.menuTop -
+                                          metrics.bottomBarClearance,
+                                onToggleDebug: () => setState(() => _debug = !_debug),
+                              ),
                             )
                           : const SizedBox.shrink(key: ValueKey('ferme')),
                     ),
@@ -1254,13 +1310,54 @@ class _ScrubberState extends State<Scrubber> {
   /// Focalisée à la télécommande : barre épaissie, ◀ ▶ reculent ou avancent.
   bool _focused = false;
 
+  /// Recherche à la télécommande (comme sur l'Apple TV) : ◀ ▶ déplacent un curseur
+  /// d'aperçu (vignettes), de plus en plus vite si la touche reste enfoncée ; la lecture
+  /// saute à la position choisie à l'appui sur OK ou une fraction de seconde après.
+  Duration? _keyTarget;
+  Timer? _keyCommit;
+  int _repeats = 0;
+
+  @override
+  void dispose() {
+    _keyCommit?.cancel();
+    super.dispose();
+  }
+
+  void _commitKeys() {
+    _keyCommit?.cancel();
+    final target = _keyTarget;
+    _keyTarget = null;
+    _repeats = 0;
+    if (target != null) widget.onEnd(target);
+  }
+
   KeyEventResult _onKey(FocusNode _, KeyEvent event) {
-    if (event is KeyUpEvent || _total <= 0) return KeyEventResult.ignored;
-    final left = event.logicalKey == LogicalKeyboardKey.arrowLeft;
-    if (!left && event.logicalKey != LogicalKeyboardKey.arrowRight) return KeyEventResult.ignored;
-    final step = event is KeyRepeatEvent ? const Duration(seconds: 30) : const Duration(seconds: 10);
-    final target = widget.position + (left ? -step : step);
-    widget.onEnd(target < Duration.zero ? Duration.zero : target);
+    if (_total <= 0) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (_keyTarget != null && (key == LogicalKeyboardKey.select || key == LogicalKeyboardKey.enter)) {
+      if (event is KeyDownEvent) _commitKeys();
+      return KeyEventResult.handled;
+    }
+    final left = key == LogicalKeyboardKey.arrowLeft;
+    if (!left && key != LogicalKeyboardKey.arrowRight) return KeyEventResult.ignored;
+    if (event is KeyUpEvent) {
+      _keyCommit?.cancel();
+      _keyCommit = Timer(const Duration(milliseconds: 900), _commitKeys);
+      return KeyEventResult.handled;
+    }
+    _keyCommit?.cancel();
+    _repeats = event is KeyRepeatEvent ? _repeats + 1 : 0;
+    final step = Duration(seconds: _repeats > 20 ? 120 : (_repeats > 6 ? 60 : (_repeats > 0 ? 30 : 10)));
+    final from = _keyTarget ?? widget.position;
+    var target = from + (left ? -step : step);
+    if (target < Duration.zero) target = Duration.zero;
+    if (target > widget.duration) target = widget.duration;
+    if (_keyTarget == null) {
+      widget.onStart(target);
+    } else {
+      widget.onChanged(target);
+    }
+    _keyTarget = target;
     return KeyEventResult.handled;
   }
 
@@ -1319,7 +1416,10 @@ class _ScrubberState extends State<Scrubber> {
             ring: false,
             scale: 1,
             onKeyEvent: _onKey,
-            onFocusChange: (f) => setState(() => _focused = f),
+            onFocusChange: (f) {
+              if (!f && _keyTarget != null) _commitKeys();
+              setState(() => _focused = f);
+            },
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onHorizontalDragStart: enabled ? (d) => _start(_at(d.localPosition.dx, width)) : null,

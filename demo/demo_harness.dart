@@ -23,6 +23,7 @@ import 'package:optifin/core/providers.dart';
 import 'package:optifin/core/storage/app_database.dart';
 import 'package:optifin/core/storage/token_vault.dart';
 import 'package:optifin/features/auth/domain/entities.dart';
+import 'package:optifin/features/auth/presentation/auth_providers.dart';
 import 'package:optifin/features/downloads/data/file_transfers.dart';
 import 'package:optifin/features/downloads/presentation/downloads_providers.dart';
 import 'package:optifin/features/player/domain/device_capabilities.dart';
@@ -55,7 +56,10 @@ class _MemoryVault implements TokenVault {
 
 /// App OptiFin réelle, branchée sur le serveur simulé et les illustrations générées.
 class DemoHarness {
-  DemoHarness(this.tester, {this.device = phone, this.tablet = false, this.tv = false});
+  DemoHarness(this.tester, {this.device = phone, this.tablet = false, this.tv = false, this.signedIn = true});
+
+  /// false : l'app démarre sur l'écran de connexion (serveur et profils simulés).
+  final bool signedIn;
 
   final WidgetTester tester;
 
@@ -144,7 +148,22 @@ class DemoHarness {
                     appDatabaseProvider.overrideWithValue(db),
                     tokenVaultProvider.overrideWithValue(_MemoryVault()),
                     clientIdentityProvider.overrideWithValue(identity),
-                    initialSessionProvider.overrideWithValue(session),
+                    initialSessionProvider.overrideWithValue(signedIn ? session : null),
+                    if (!signedIn) ...[
+                      discoveredServersProvider.overrideWith(
+                        (ref) => Stream.value([
+                          DiscoveredServer(id: 'srv', name: 'Maison', address: Uri.parse('http://192.168.1.20:8096')),
+                        ]),
+                      ),
+                      publicUsersProvider.overrideWith(
+                        (ref, server) async => const [
+                          PublicUser(id: 'u1', name: 'Léa', hasPassword: true),
+                          PublicUser(id: 'u2', name: 'Hugo', hasPassword: true),
+                          PublicUser(id: 'u3', name: 'Enfants', hasPassword: false),
+                        ],
+                      ),
+                      quickConnectEnabledProvider.overrideWith((ref, server) async => true),
+                    ],
                     initialSettingsProvider.overrideWithValue(const AppSettings()),
                     jellyfinDioProvider.overrideWithValue(dio),
                     fileTransfersProvider.overrideWithValue(_DemoTransfers()),

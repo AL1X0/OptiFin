@@ -51,6 +51,9 @@ object CapabilitiesProbe {
             decodersFor("video/dolby-vision").forEach { info ->
                 info.getCapabilitiesForType("video/dolby-vision").profileLevels.forEach { level ->
                     dolbyVisionProfile(level.profile)?.let(dvProfiles::add)
+                    // Profil 7 (double couche des Blu-ray UHD) : annoncé par bien des box, mais seul
+                    // le Shield le décode vraiment ; ailleurs, la couche de base HDR10 est lue.
+                    if (!Build.MODEL.contains("SHIELD", ignoreCase = true)) dvProfiles.remove(7)
                 }
             }
         }

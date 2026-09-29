@@ -164,6 +164,10 @@ class PlayerController extends Notifier<PlayerUiState> {
   /// Délai max avant la première image : au-delà, le moteur est considéré en échec.
   static Duration startupTimeout = const Duration(seconds: 25);
 
+  /// Pause entre la libération d'un moteur et le démarrage du suivant (décodeur vidéo rendu
+  /// au système ; une seule instance 4K sur bien des téléviseurs). Nulle dans les tests.
+  static Duration engineSwitchPause = const Duration(milliseconds: 400);
+
   // Créé dans build() : ref n'est plus utilisable pendant la destruction du provider.
   late PlaybackReporter _reporter;
   final _subscriptions = <StreamSubscription<Object?>>[];
@@ -258,7 +262,11 @@ class PlayerController extends Notifier<PlayerUiState> {
     final kind = prepared.decision.engine;
     var engine = _engine;
     if (engine == null || _engineKind != kind) {
+      final replacing = engine != null;
       await _releaseEngine();
+      // Bascule d'un moteur à l'autre : on laisse au système le temps de libérer le
+      // décodeur vidéo (une seule instance 4K sur bien des téléviseurs).
+      if (replacing && !_closed && engineSwitchPause > Duration.zero) await Future<void>.delayed(engineSwitchPause);
       // Lecteur fermé pendant le remplacement : ref n'est plus utilisable.
       if (_closed) return;
       // Moteur préparé d'avance par la fiche si possible (libmpv : initialisation coûteuse).

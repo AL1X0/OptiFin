@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../device.dart';
 import '../theme.dart';
 import '../tokens.dart';
 import 'glass_surface.dart';
 import 'of_image.dart';
+import 'tv_focus.dart';
 
 /// Badge qualité monochrome : 4K, HDR, DV, Atmos, DTS…
 class QualityBadge extends StatelessWidget {
@@ -44,7 +46,10 @@ class OFTextField extends StatelessWidget {
     this.onSubmitted,
     this.autofocus = false,
     this.errorText,
+    this.focusNode,
   });
+
+  final FocusNode? focusNode;
 
   final String label;
   final TextEditingController? controller;
@@ -63,29 +68,49 @@ class OFTextField extends StatelessWidget {
       borderRadius: OFRadius.mdAll,
       borderSide: BorderSide(color: c, width: 1),
     );
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      autocorrect: false,
-      enableSuggestions: !obscure,
-      keyboardType: keyboardType,
-      textInputAction: textInputAction,
-      autofillHints: autofillHints,
-      onSubmitted: onSubmitted,
-      autofocus: autofocus,
-      style: OFTypography.body,
-      cursorColor: accent,
-      decoration: InputDecoration(
-        labelText: label,
-        errorText: errorText,
-        filled: true,
-        fillColor: OFColors.surface,
-        labelStyle: OFTypography.callout.copyWith(color: OFColors.textSecondary),
-        contentPadding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg, vertical: OFSpacing.lg),
-        enabledBorder: border(OFColors.stroke),
-        focusedBorder: border(accent),
-        errorBorder: border(OFColors.danger),
-        focusedErrorBorder: border(OFColors.danger),
+    // Télécommande : OK pour saisir, flèches pour sortir du champ (voir TvTextEntry).
+    return TvTextEntry(
+      enabled: OFDevice.tv,
+      focusNode: focusNode,
+      builder: (context, node, readOnly, done) => TextField(
+        focusNode: node,
+        readOnly: readOnly,
+        showCursor: !readOnly,
+        controller: controller,
+        obscureText: obscure,
+        autocorrect: false,
+        enableSuggestions: !obscure,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        autofillHints: autofillHints,
+        onSubmitted: (v) {
+          done();
+          onSubmitted?.call(v);
+        },
+        onEditingComplete: OFDevice.tv
+            ? () {
+                done();
+                // Validation « suivant » du clavier : champ suivant (sans rouvrir le clavier).
+                if (textInputAction == TextInputAction.next) {
+                  FocusScope.of(context).nextFocus();
+                }
+              }
+            : null,
+        autofocus: autofocus,
+        style: OFTypography.body,
+        cursorColor: accent,
+        decoration: InputDecoration(
+          labelText: label,
+          errorText: errorText,
+          filled: true,
+          fillColor: OFColors.surface,
+          labelStyle: OFTypography.callout.copyWith(color: OFColors.textSecondary),
+          contentPadding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg, vertical: OFSpacing.lg),
+          enabledBorder: border(OFColors.stroke),
+          focusedBorder: border(accent),
+          errorBorder: border(OFColors.danger),
+          focusedErrorBorder: border(OFColors.danger),
+        ),
       ),
     );
   }

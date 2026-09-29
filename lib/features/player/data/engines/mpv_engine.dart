@@ -6,6 +6,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:optifin_native_player/optifin_native_player.dart' show NativePlayers;
 
+import '../../../../core/design_system/device.dart';
 import '../../../../core/logging/app_log.dart';
 import '../../domain/playback_engine.dart';
 
@@ -82,20 +83,24 @@ class MpvEngine implements PlaybackEngine {
       MediaKit.ensureInitialized();
       _initialized = true;
     }
-    AppLog.i('mpv', 'Création du moteur (libmpv, décodage matériel auto-safe)');
+    // Téléviseurs : copie des images décodées plutôt que l'échange direct avec le GPU
+    // (AImageReader), qui fait planter les pilotes graphiques de nombreuses box.
+    final hwdec = OFDevice.tv ? 'mediacodec-copy' : 'auto-safe';
+    AppLog.i('mpv', 'Création du moteur (libmpv, décodage matériel $hwdec)');
     final player = Player(
       configuration: PlayerConfiguration(
         title: 'OptiFin',
         // Sous-titres rendus par mpv/libass dans l'image : styles ASS et PGS fidèles.
         libass: true,
-        // Tampon démuxeur généreux : remux 4K à haut débit sans à-coups.
-        bufferSize: 96 * 1024 * 1024,
+        // Tampon démuxeur généreux : remux 4K à haut débit sans à-coups (réduit sur les box TV,
+        // souvent limitées à 1,5 Go de mémoire).
+        bufferSize: (OFDevice.tv ? 32 : 96) * 1024 * 1024,
         logLevel: verbose ? MPVLogLevel.info : MPVLogLevel.warn,
       ),
     );
     final video = VideoController(
       player,
-      configuration: const VideoControllerConfiguration(enableHardwareAcceleration: true, hwdec: 'auto-safe'),
+      configuration: VideoControllerConfiguration(enableHardwareAcceleration: true, hwdec: hwdec),
     );
     final engine = MpvEngine._(player, video);
     await engine._configure();
@@ -130,6 +135,11 @@ class MpvEngine implements PlaybackEngine {
     await _set('sub-ass-override', 'scale'); // garde les styles ASS, applique la taille choisie
     await _set('demuxer-readahead-secs', '30');
     await _set('cache', 'yes');
+    if (OFDevice.tv) {
+      // Box TV (1,5 à 2 Go de mémoire) : tampons bornés.
+      await _set('demuxer-max-back-bytes', '${16 * 1024 * 1024}');
+      await _set('demuxer-readahead-secs', '15');
+    }
   }
 
   void _updateSize() {

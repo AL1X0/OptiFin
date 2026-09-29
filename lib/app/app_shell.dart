@@ -48,12 +48,16 @@ class AppShell extends StatelessWidget {
   }
 }
 
-/// Coquille TV : menu en pilule en haut (comme l'Apple TV) ; l'image occupe tout l'écran et
-/// les pages reçoivent une marge haute pour ne pas passer sous le menu.
+/// Coquille TV, comme les grandes applis de streaming sur Android TV : un menu vertical à
+/// gauche, réduit à ses icônes, qui se déploie avec les libellés quand on y entre.
 ///
-/// Chaque onglet a sa propre zone de focus : ▲ tout en haut d'une page n'y trouve rien. La
-/// coquille prend alors le relais et remonte dans le menu (sur l'onglet ouvert) ; ▼ depuis
-/// le menu redescend dans la page, sur l'élément qui avait le focus.
+/// - ◀ au bord gauche d'une page, ou Retour sur une page racine : on entre dans le menu ;
+/// - ▲ ▼ dans le menu : on passe d'une rubrique à l'autre, **sans** l'ouvrir (rien ne
+///   change à l'écran tant qu'on n'a pas appuyé sur OK) ;
+/// - OK ouvre la rubrique ; ▶ ou Retour revient dans la page, là où l'on était.
+///
+/// Menu et page ont chacun leur portée de focus : les flèches ne sautent jamais de l'un à
+/// l'autre par hasard.
 class _TvShell extends StatefulWidget {
   const _TvShell({required this.shell});
 
@@ -63,49 +67,130 @@ class _TvShell extends StatefulWidget {
   State<_TvShell> createState() => _TvShellState();
 }
 
+/// Rubriques du menu TV : index de branche, ou null pour les Réglages (écran à part).
+const _tvItems = <(int?, String, IconData, IconData)>[
+  (2, 'Recherche', Icons.search_rounded, Icons.search_rounded),
+  (0, 'Accueil', Icons.home_outlined, Icons.home_rounded),
+  (1, 'Bibliothèques', Icons.video_library_outlined, Icons.video_library_rounded),
+  (null, 'Réglages', Icons.settings_outlined, Icons.settings_rounded),
+];
+
 class _TvShellState extends State<_TvShell> {
   final _content = FocusScopeNode(debugLabel: 'page');
-  final _tabs = List.generate(4, (i) => FocusNode(debugLabel: 'onglet $i'));
+  final _menu = FocusScopeNode(debugLabel: 'menu');
+  final _items = List.generate(_tvItems.length, (i) => FocusNode(debugLabel: 'menu $i'));
+  bool _open = false;
+
+  /// Retour consommé à l'appui (Android déclenche le retour au relâchement de la touche).
+  bool _backDown = false;
+
+  static const collapsed = 76.0;
+  static const expanded = 248.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _menu.addListener(_onMenuFocus);
+  }
 
   @override
   void dispose() {
+    _menu.removeListener(_onMenuFocus);
     _content.dispose();
-    for (final n in _tabs) {
+    _menu.dispose();
+    for (final n in _items) {
       n.dispose();
     }
     super.dispose();
   }
 
-  KeyEventResult _fromContent(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.arrowUp) return KeyEventResult.ignored;
-    final primary = FocusManager.instance.primaryFocus;
-    if (primary == null || _tabs.contains(primary)) return KeyEventResult.ignored;
-    if (primary.focusInDirection(TraversalDirection.up)) return KeyEventResult.handled;
-    _tabs[widget.shell.currentIndex.clamp(0, 2)].requestFocus();
-    return KeyEventResult.handled;
+  void _onMenuFocus() {
+    if (_menu.hasFocus != _open) setState(() => _open = _menu.hasFocus);
   }
 
-  KeyEventResult _fromMenu(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.arrowDown) return KeyEventResult.ignored;
-    if (!_tabs.contains(FocusManager.instance.primaryFocus)) return KeyEventResult.ignored;
-    // Dernier élément focalisé de la page, sinon son premier élément.
-    var target = _content.focusedChild;
+  int get _currentItem => _tvItems.indexWhere((t) => t.$1 == widget.shell.currentIndex).clamp(0, _tvItems.length - 1);
+
+  void _enterMenu() => _items[_currentItem].requestFocus();
+
+  /// Retour dans la page : sur l'élément qui avait le focus, sinon sur le premier.
+  void _enterContent() {
+    FocusNode? target = _content.focusedChild;
     while (target is FocusScopeNode && target.focusedChild != null) {
       target = target.focusedChild;
     }
-    if (target != null && target is! FocusScopeNode) {
+    if (target != null && target is! FocusScopeNode && target.context != null && target.canRequestFocus) {
       target.requestFocus();
-    } else {
-      (target as FocusScopeNode? ?? _content).nextFocus();
+      return;
     }
-    return KeyEventResult.handled;
+    final scope = target is FocusScopeNode ? target : _content;
+    scope.requestFocus();
+    if (!scope.nextFocus()) _content.nextFocus();
+  }
+
+  void _select(int item) {
+    final branch = _tvItems[item].$1;
+    if (branch == null) {
+      unawaited(context.push(Routes.settings));
+      return;
+    }
+    widget.shell.goBranch(branch, initialLocation: branch == widget.shell.currentIndex);
+    // La page s'ouvre avec le focus sur son premier élément.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _content.requestFocus();
+      _content.nextFocus();
+    });
+  }
+
+  static bool _isBack(KeyEvent e) =>
+      e.logicalKey == LogicalKeyboardKey.goBack || e.logicalKey == LogicalKeyboardKey.escape;
+
+  KeyEventResult _fromContent(FocusNode node, KeyEvent event) {
+    if (_isBack(event)) {
+      if (event is KeyDownEvent) {
+        // Page racine (rien à dépiler) : Retour mène au menu au lieu de quitter l'appli.
+        _backDown = !GoRouter.of(context).canPop();
+        if (_backDown) _enterMenu();
+      }
+      return _backDown ? KeyEventResult.handled : KeyEventResult.ignored;
+    }
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final primary = FocusManager.instance.primaryFocus;
+    // Focus perdu dans la page (élément disparu) : la flèche le rend à la page.
+    if (primary == null || primary is FocusScopeNode) {
+      _enterContent();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      if (primary.focusInDirection(TraversalDirection.left)) return KeyEventResult.handled;
+      _enterMenu();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _fromMenu(FocusNode node, KeyEvent event) {
+    if (_isBack(event)) {
+      // Retour depuis le menu : vers l'Accueil ; depuis l'Accueil, on quitte l'appli.
+      if (event is KeyDownEvent) {
+        _backDown = widget.shell.currentIndex != 0;
+        if (_backDown) _select(_tvItems.indexWhere((t) => t.$1 == 0));
+      }
+      return _backDown ? KeyEventResult.handled : KeyEventResult.ignored;
+    }
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      _enterContent();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
-    const barSpace = 76.0;
-    final shell = widget.shell;
+    final motion = OFMotion.of(context);
+    final accent = Theme.of(context).colorScheme.primary;
     return Scaffold(
       body: Stack(
         children: [
@@ -116,30 +201,74 @@ class _TvShellState extends State<_TvShell> {
             child: FocusScope(
               node: _content,
               child: MediaQuery(
+                // Les pages s'écartent du menu réduit (et des bords rognés des téléviseurs).
                 data: mq.copyWith(
-                  padding: mq.padding.copyWith(top: mq.padding.top + barSpace),
-                  viewPadding: mq.viewPadding.copyWith(top: mq.viewPadding.top + barSpace),
+                  padding: mq.padding.copyWith(left: mq.padding.left + collapsed, top: mq.padding.top + OFSpacing.md),
+                  viewPadding: mq.viewPadding.copyWith(
+                    left: mq.viewPadding.left + collapsed,
+                    top: mq.viewPadding.top + OFSpacing.md,
+                  ),
                 ),
-                child: shell,
+                child: widget.shell,
+              ),
+            ),
+          ),
+          // Voile derrière le menu déployé.
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: _open ? 1 : 0,
+                duration: motion.standard,
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xF2000000), Color(0xB3000000), Color(0x00000000)],
+                      stops: [0, 0.3, 0.6],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
           Positioned(
-            top: mq.padding.top + OFSpacing.lg,
+            top: 0,
+            bottom: 0,
             left: 0,
-            right: 0,
-            child: Center(
-              child: Focus(
-                canRequestFocus: false,
-                skipTraversal: true,
-                onKeyEvent: _fromMenu,
-                child: _TvTabBar(
-                  current: shell.currentIndex,
-                  focusNodes: _tabs,
-                  onSelect: (i) {
-                    if (i != shell.currentIndex) shell.goBranch(i);
-                  },
-                  onSettings: () => context.push(Routes.settings),
+            child: Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              onKeyEvent: _fromMenu,
+              child: FocusScope(
+                node: _menu,
+                child: AnimatedContainer(
+                  duration: motion.standard,
+                  curve: OFMotion.standardCurve,
+                  width: _open ? expanded : collapsed,
+                  padding: EdgeInsets.fromLTRB(OFSpacing.md, mq.padding.top + OFSpacing.xl, OFSpacing.md, OFSpacing.xl),
+                  // Réduit : fine bande sombre, les icônes restent lisibles sur l'image.
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [Color(_open ? 0x00000000 : 0x8C000000), const Color(0x00000000)]),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Spacer(),
+                      for (final (i, (branch, label, icon, selectedIcon)) in _tvItems.indexed)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: _TvMenuItem(
+                            icon: branch == widget.shell.currentIndex ? selectedIcon : icon,
+                            label: label,
+                            selected: branch == widget.shell.currentIndex,
+                            expanded: _open,
+                            accent: accent,
+                            focusNode: _items[i],
+                            onSelect: () => _select(i),
+                          ),
+                        ),
+                      const Spacer(flex: 2),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -150,112 +279,82 @@ class _TvShellState extends State<_TvShell> {
   }
 }
 
-/// Menu TV : pilule de verre en haut. Poser le focus sur un onglet l'ouvre (comme sur
-/// l'Apple TV) ; l'onglet focalisé passe en blanc, l'onglet ouvert garde sa pastille.
-/// « Réglages » remplace « Téléchargements » (inutiles sur un téléviseur).
-class _TvTabBar extends StatelessWidget {
-  const _TvTabBar({required this.current, required this.onSelect, required this.onSettings, required this.focusNodes});
-
-  final int current;
-  final List<FocusNode> focusNodes;
-  final ValueChanged<int> onSelect;
-  final VoidCallback onSettings;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return LiquidGlass(
-      shade: 0.5,
-      padding: const EdgeInsets.all(5),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final (i, tab) in _tabs.take(3).indexed)
-            _TvTab(
-              icon: i == current ? tab.selectedIcon : tab.icon,
-              label: tab.label,
-              selected: i == current,
-              accent: accent,
-              focusNode: focusNodes[i],
-              onFocus: () => onSelect(i),
-              onSelect: () => onSelect(i),
-            ),
-          _TvTab(
-            icon: Icons.settings_outlined,
-            label: 'Réglages',
-            selected: false,
-            accent: accent,
-            focusNode: focusNodes[3],
-            onSelect: onSettings,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TvTab extends StatefulWidget {
-  const _TvTab({
+/// Rubrique du menu TV : icône seule (menu réduit) ou icône et libellé (menu déployé) ;
+/// pilule blanche au focus, icône colorée pour la rubrique ouverte.
+class _TvMenuItem extends StatefulWidget {
+  const _TvMenuItem({
     required this.icon,
     required this.label,
     required this.selected,
+    required this.expanded,
     required this.accent,
-    required this.onSelect,
     required this.focusNode,
-    this.onFocus,
+    required this.onSelect,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
+  final bool expanded;
   final Color accent;
-  final VoidCallback onSelect;
-  final VoidCallback? onFocus;
   final FocusNode focusNode;
+  final VoidCallback onSelect;
 
   @override
-  State<_TvTab> createState() => _TvTabState();
+  State<_TvMenuItem> createState() => _TvMenuItemState();
 }
 
-class _TvTabState extends State<_TvTab> {
+class _TvMenuItemState extends State<_TvMenuItem> {
   bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
     final motion = OFMotion.of(context);
     final fg = _focused ? OFColors.background : (widget.selected ? widget.accent : OFColors.textSecondary);
-    return TvFocusable(
-      ring: false,
-      scale: 1.08,
-      focusNode: widget.focusNode,
-      onSelect: widget.onSelect,
-      onFocusChange: (f) {
-        setState(() => _focused = f);
-        if (f) widget.onFocus?.call();
-      },
-      child: AnimatedContainer(
-        duration: motion.fast,
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg + 2),
-        decoration: BoxDecoration(
-          color: _focused
-              ? OFColors.textPrimary
-              : (widget.selected ? const Color(0x24FFFFFF) : const Color(0x00FFFFFF)),
-          borderRadius: const BorderRadius.all(Radius.circular(OFRadius.pill)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(widget.icon, size: 20, color: fg),
-            const SizedBox(width: OFSpacing.sm),
-            Text(
-              widget.label,
-              style: OFTypography.callout.copyWith(
-                color: fg,
-                fontWeight: widget.selected || _focused ? FontWeight.w600 : FontWeight.w500,
-              ),
+    return Semantics(
+      button: true,
+      selected: widget.selected,
+      label: widget.label,
+      excludeSemantics: true,
+      child: TvFocusable(
+        ring: false,
+        scale: 1.04,
+        focusNode: widget.focusNode,
+        onSelect: widget.onSelect,
+        onFocusChange: (f) => setState(() => _focused = f),
+        child: GestureDetector(
+          onTap: widget.onSelect,
+          child: AnimatedContainer(
+            duration: motion.fast,
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: _focused ? OFColors.textPrimary : const Color(0x00FFFFFF),
+              borderRadius: const BorderRadius.all(Radius.circular(OFRadius.pill)),
             ),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(widget.icon, size: 24, color: fg),
+                if (widget.expanded)
+                  Flexible(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: OFSpacing.md, right: OFSpacing.sm),
+                      child: Text(
+                        widget.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.clip,
+                        softWrap: false,
+                        style: OFTypography.headline.copyWith(
+                          color: _focused ? OFColors.background : OFColors.textPrimary,
+                          fontWeight: widget.selected || _focused ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -562,13 +661,18 @@ class _FadingBranchesState extends State<FadingBranches> {
             offstage: i != widget.index && i != _previous,
             child: TickerMode(
               enabled: i == widget.index,
-              child: IgnorePointer(
-                ignoring: i != widget.index,
-                child: AnimatedOpacity(
-                  opacity: i == widget.index ? 1 : 0,
-                  duration: duration,
-                  curve: OFMotion.standardCurve,
-                  child: child,
+              // Onglets inactifs hors d'atteinte de la télécommande (sinon le focus pouvait
+              // sauter dans une page cachée, comme le champ de la recherche).
+              child: ExcludeFocus(
+                excluding: i != widget.index,
+                child: IgnorePointer(
+                  ignoring: i != widget.index,
+                  child: AnimatedOpacity(
+                    opacity: i == widget.index ? 1 : 0,
+                    duration: duration,
+                    curve: OFMotion.standardCurve,
+                    child: child,
+                  ),
                 ),
               ),
             ),

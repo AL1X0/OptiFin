@@ -118,6 +118,8 @@ void main() {
     return controller;
   }
 
+  setUp(() => PlayerController.engineSwitchPause = Duration.zero);
+
   tearDown(() {
     PlayerController.startupTimeout = const Duration(seconds: 25);
     try {

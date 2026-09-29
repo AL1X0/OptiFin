@@ -70,33 +70,47 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, OFSpacing.md),
-              child: TextField(
-                controller: _controller,
+              // Télécommande : OK pour saisir (le clavier ne surgit pas au passage du focus).
+              child: TvTextEntry(
+                enabled: OFDevice.tv,
                 focusNode: _focus,
-                onChanged: _onChanged,
-                textInputAction: TextInputAction.search,
-                autocorrect: false,
-                style: OFTypography.body,
-                cursorColor: accent,
-                decoration: InputDecoration(
-                  hintText: 'Films, séries, personnes, musique…',
-                  hintStyle: OFTypography.body.copyWith(color: OFColors.textTertiary),
-                  prefixIcon: const Icon(Icons.search_rounded, color: OFColors.textSecondary),
-                  suffixIcon: _controller.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Effacer',
-                          icon: const Icon(Icons.close_rounded, color: OFColors.textSecondary),
-                          onPressed: () {
-                            _controller.clear();
-                            _onChanged('');
-                            _focus.requestFocus();
-                          },
-                        ),
-                  filled: true,
-                  fillColor: OFColors.surface,
-                  contentPadding: const EdgeInsets.symmetric(vertical: OFSpacing.md),
-                  border: const OutlineInputBorder(borderRadius: OFRadius.mdAll, borderSide: BorderSide.none),
+                builder: (context, node, readOnly, done) => TextField(
+                  controller: _controller,
+                  focusNode: node,
+                  readOnly: readOnly,
+                  showCursor: !readOnly,
+                  onSubmitted: (_) => done(),
+                  onChanged: _onChanged,
+                  textInputAction: TextInputAction.search,
+                  autocorrect: false,
+                  style: OFTypography.body,
+                  cursorColor: accent,
+                  decoration: InputDecoration(
+                    hintText: 'Films, séries, personnes, musique…',
+                    hintStyle: OFTypography.body.copyWith(color: OFColors.textTertiary),
+                    prefixIcon: const Icon(Icons.search_rounded, color: OFColors.textSecondary),
+                    suffixIcon: _controller.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Effacer',
+                            icon: const Icon(Icons.close_rounded, color: OFColors.textSecondary),
+                            onPressed: () {
+                              _controller.clear();
+                              _onChanged('');
+                              _focus.requestFocus();
+                            },
+                          ),
+                    filled: true,
+                    fillColor: OFColors.surface,
+                    contentPadding: const EdgeInsets.symmetric(vertical: OFSpacing.md),
+                    border: const OutlineInputBorder(borderRadius: OFRadius.mdAll, borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: OFRadius.mdAll,
+                      borderSide: OFDevice.tv
+                          ? const BorderSide(color: OFColors.textPrimary, width: 2)
+                          : BorderSide.none,
+                    ),
+                  ),
                 ),
               ),
             ),

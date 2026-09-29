@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:optifin_native_player/optifin_native_player.dart' show NativePlayers;
 
@@ -20,6 +22,13 @@ import 'features/settings/presentation/settings_providers.dart';
 /// Aucun appel réseau, aucun moteur de lecture (libmpv est chargé à la demande).
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Journal sur disque : lisible au lancement suivant, même après un plantage.
+  try {
+    final dir = await getApplicationSupportDirectory();
+    await AppLog.instance.persistTo(File('${dir.path}/optifin.log'));
+  } catch (_) {
+    // Pas de dossier de l'app (tests) : journal en mémoire seulement.
+  }
   // Toute erreur non interceptée finit dans le journal (Paramètres › Journaux).
   final previousOnError = FlutterError.onError;
   FlutterError.onError = (details) {

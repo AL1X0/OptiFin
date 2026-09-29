@@ -353,3 +353,28 @@ Même APK que les téléphones : `OFDevice.tv` est fixé au démarrage (mode d'i
    touches média ; barre de progression pilotable ; menu Réglages focalisé sur sa première ligne ; Retour
    ferme le menu, puis masque les contrôles, puis quitte. Pas de verrou ni de Picture-in-Picture sur TV.
 6. **Rendu** vérifié à 960 × 540 (1080p) avec une télécommande simulée : `demo/tv_audit_test.dart`.
+
+## Android TV, deuxième version (2026-09-30)
+
+Retours d'un premier essai sur téléviseur : navigation piégée, clavier surgissant, plantage à la bascule vers mpv.
+
+1. **Menu latéral** (remplace la pilule du haut) : icônes à gauche, déployées avec les libellés quand on y entre.
+   ◀ au bord d'une page ou Retour sur une page racine y mène ; ▲ ▼ parcourent les rubriques **sans les ouvrir** ;
+   OK ouvre, ▶ ou Retour revient dans la page à l'élément quitté. Menu et page ont chacun leur portée de focus.
+2. **Onglets cachés hors focus** (`ExcludeFocus`) : le focus pouvait sauter dans une page invisible, notamment le
+   champ de recherche, d'où le clavier qui surgissait sans raison.
+3. **Champs texte** (`TvTextEntry`) : le focus s'y pose sans ouvrir le clavier, OK l'ouvre, ▲ ▼ quittent le champ
+   (Flutter gardait ces flèches pour le curseur : le bouton Quick Connect était inatteignable).
+4. **Connexion TV** : présentation à gauche, choix à droite ; Quick Connect en premier et focalisé (saisir un mot
+   de passe à la télécommande est pénible), code dans une fenêtre centrée ; profils sélectionnables.
+5. **Lecteur TV** (`TvPlayerControls`) : tout en bas, lisible de loin — titre, barre pleine largeur, temps
+   écoulé, heure de fin, temps restant ; boutons ±10 s, lecture, sous-titres, audio, format, réglages (pilule
+   blanche avec libellé au focus). Barre : ◀ ▶ déplacent un aperçu (vignettes), de plus en plus vite, la lecture
+   saute au relâchement ou à OK. Menu en panneau à droite, focus confiné. OK déclenche « Passer l'intro » et
+   « Épisode suivant ». Le nœud racine des touches est hors du parcours des flèches (il captait le focus).
+6. **Bascule vers mpv** (le repli reste) : pause de 400 ms entre les moteurs (décodeur 4K unique sur bien des
+   box), `hwdec=mediacodec-copy` sur TV (l'échange direct avec le GPU fait planter des pilotes), tampons bornés.
+   Dolby Vision profil 7 n'est plus annoncé hors Shield.
+7. **Journal persistant** : écrit ligne à ligne dans un fichier, la session précédente est relue au lancement
+   (un plantage natif reste diagnosticable) ; bouton « Envoyer au serveur » (`/ClientLog/Document`), seul moyen de
+   récupérer le journal depuis un téléviseur.

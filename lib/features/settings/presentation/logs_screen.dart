@@ -2,21 +2,24 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/design_system/design_system.dart';
 import '../../../core/logging/app_log.dart';
+import '../../../core/providers.dart';
 
 /// Journaux de l'application : lecture, filtre par niveau, copie en un geste.
 /// Les secrets sont déjà masqués dans le journal (voir [AppLog.redact]).
-class LogsScreen extends StatefulWidget {
+class LogsScreen extends ConsumerStatefulWidget {
   const LogsScreen({super.key});
 
   @override
-  State<LogsScreen> createState() => _LogsScreenState();
+  ConsumerState<LogsScreen> createState() => _LogsScreenState();
 }
 
-class _LogsScreenState extends State<LogsScreen> {
+class _LogsScreenState extends ConsumerState<LogsScreen> {
   LogLevel _minLevel = LogLevel.debug;
   final _scroll = ScrollController();
 
@@ -33,6 +36,28 @@ class _LogsScreenState extends State<LogsScreen> {
     unawaited(HapticFeedback.mediumImpact());
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text('${text.split('\n').length} lignes copiées dans le presse-papiers')));
+  }
+
+  /// Envoie le journal au serveur Jellyfin (Tableau de bord › Journaux, fichier
+  /// « upload_… ») : seul moyen de le récupérer depuis un téléviseur.
+  Future<void> _upload() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final response = await ref
+          .read(jellyfinDioProvider)
+          .post<Map<String, Object?>>(
+            '/ClientLog/Document',
+            data: AppLog.instance.export(minLevel: _minLevel),
+            options: Options(contentType: 'text/plain'),
+          );
+      final name = response.data?['FileName'] ?? 'journal';
+      messenger.showSnackBar(SnackBar(content: Text('Envoyé au serveur : $name (Tableau de bord › Journaux)')));
+    } catch (e) {
+      AppLog.w('log', 'Envoi du journal impossible : $e');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Envoi impossible (serveur hors ligne ou envoi désactivé).')),
+      );
+    }
   }
 
   Color _color(LogLevel level) => switch (level) {
@@ -55,6 +80,7 @@ class _LogsScreenState extends State<LogsScreen> {
         ),
         title: const Text('Journaux', style: OFTypography.headline),
         actions: [
+          IconButton(tooltip: 'Envoyer au serveur', icon: const Icon(Icons.cloud_upload_outlined), onPressed: _upload),
           IconButton(tooltip: 'Tout copier', icon: const Icon(Icons.copy_all_rounded), onPressed: _copy),
           IconButton(
             tooltip: 'Effacer',

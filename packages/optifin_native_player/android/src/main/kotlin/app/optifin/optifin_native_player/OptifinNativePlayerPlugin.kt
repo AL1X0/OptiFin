@@ -91,7 +91,11 @@ class OptifinNativePlayerPlugin :
             // Téléviseur : mode d'interface TV, fonctionnalité leanback ou Fire TV.
             "isTelevision" -> result.success(isTelevision())
             "capabilities" -> result.success(
-                CapabilitiesProbe.probe(context) + mapOf("pictureInPicture" to pipSupported(), "airPlay" to false),
+                CapabilitiesProbe.probe(context) + mapOf(
+                    "pictureInPicture" to (pipSupported() && !isTelevision()),
+                    "airPlay" to false,
+                    "television" to isTelevision(),
+                ),
             )
             "create" -> {
                 val id = nextId++

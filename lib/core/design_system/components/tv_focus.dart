@@ -97,3 +97,103 @@ class _TvFocusableState extends State<TvFocusable> {
     return Focus(onKeyEvent: onKey, skipTraversal: true, canRequestFocus: false, child: detector);
   }
 }
+
+/// Champ texte à la télécommande : le focus s'y pose sans ouvrir le clavier (sinon, il
+/// surgit au simple passage) ; OK ouvre le clavier, ▲ ▼ quittent le champ (Flutter les
+/// garde pour déplacer le curseur, ce qui y piégeait le focus). Hors TV : transparent.
+///
+/// [builder] reçoit le nœud de focus à donner au champ, `readOnly` (vrai tant que l'on
+/// n'édite pas) et `done`, à appeler à la validation du clavier.
+class TvTextEntry extends StatefulWidget {
+  const TvTextEntry({super.key, required this.enabled, required this.builder, this.focusNode});
+
+  /// Comportement TV actif (OFDevice.tv).
+  final bool enabled;
+  final FocusNode? focusNode;
+  final Widget Function(BuildContext context, FocusNode node, bool readOnly, VoidCallback done) builder;
+
+  @override
+  State<TvTextEntry> createState() => _TvTextEntryState();
+}
+
+class _TvEditIntent extends Intent {
+  const _TvEditIntent();
+}
+
+class _TvTextEntryState extends State<TvTextEntry> {
+  FocusNode? _own;
+  FocusNode get _node => widget.focusNode ?? (_own ??= FocusNode(debugLabel: 'champ'));
+  bool _editing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _node.addListener(_onFocus);
+  }
+
+  @override
+  void dispose() {
+    _node.removeListener(_onFocus);
+    _own?.dispose();
+    super.dispose();
+  }
+
+  void _onFocus() {
+    if (!_node.hasFocus && _editing) setState(() => _editing = false);
+  }
+
+  void _edit() {
+    setState(() => _editing = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _node.requestFocus();
+      SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+    });
+  }
+
+  void _done() {
+    if (_editing) setState(() => _editing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.builder(context, _node, false, () {});
+    return Shortcuts(
+      shortcuts: {
+        const SingleActivator(LogicalKeyboardKey.arrowUp): const DirectionalFocusIntent(
+          TraversalDirection.up,
+          ignoreTextFields: false,
+        ),
+        const SingleActivator(LogicalKeyboardKey.arrowDown): const DirectionalFocusIntent(
+          TraversalDirection.down,
+          ignoreTextFields: false,
+        ),
+        if (!_editing) ...{
+          const SingleActivator(LogicalKeyboardKey.arrowLeft): const DirectionalFocusIntent(
+            TraversalDirection.left,
+            ignoreTextFields: false,
+          ),
+          const SingleActivator(LogicalKeyboardKey.arrowRight): const DirectionalFocusIntent(
+            TraversalDirection.right,
+            ignoreTextFields: false,
+          ),
+          const SingleActivator(LogicalKeyboardKey.select): const _TvEditIntent(),
+          const SingleActivator(LogicalKeyboardKey.enter): const _TvEditIntent(),
+          const SingleActivator(LogicalKeyboardKey.numpadEnter): const _TvEditIntent(),
+          const SingleActivator(LogicalKeyboardKey.gameButtonA): const _TvEditIntent(),
+        },
+      },
+      child: Actions(
+        actions: {
+          _TvEditIntent: CallbackAction<_TvEditIntent>(
+            onInvoke: (_) {
+              _edit();
+              return null;
+            },
+          ),
+        },
+        child: widget.builder(context, _node, !_editing, _done),
+      ),
+    );
+  }
+}
