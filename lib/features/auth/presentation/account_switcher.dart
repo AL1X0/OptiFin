@@ -34,7 +34,11 @@ class AccountSwitcherSheet extends ConsumerWidget {
               imageUrl: s.account.avatarTag == null
                   ? null
                   : JellyfinImageUrlBuilder(s.server.baseUrl).userAvatar(
-                      userId: s.account.userId, tag: s.account.avatarTag, logicalWidth: 40, devicePixelRatio: dpr),
+                      userId: s.account.userId,
+                      tag: s.account.avatarTag,
+                      logicalWidth: 40,
+                      devicePixelRatio: dpr,
+                    ),
             ),
             title: Text(s.account.userName, style: OFTypography.headline),
             subtitle: Text(s.server.name, style: OFTypography.caption.copyWith(color: OFColors.textSecondary)),

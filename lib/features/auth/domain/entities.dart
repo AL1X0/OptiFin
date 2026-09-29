@@ -1,11 +1,6 @@
 /// Serveur Jellyfin validé (a répondu à /System/Info/Public).
 class JellyfinServer {
-  const JellyfinServer({
-    required this.id,
-    required this.name,
-    required this.baseUrl,
-    required this.version,
-  });
+  const JellyfinServer({required this.id, required this.name, required this.baseUrl, required this.version});
 
   final String id;
   final String name;
@@ -14,7 +9,11 @@ class JellyfinServer {
 
   @override
   bool operator ==(Object other) =>
-      other is JellyfinServer && other.id == id && other.baseUrl == baseUrl && other.name == name && other.version == version;
+      other is JellyfinServer &&
+      other.id == id &&
+      other.baseUrl == baseUrl &&
+      other.name == name &&
+      other.version == version;
 
   @override
   int get hashCode => Object.hash(id, baseUrl, name, version);
@@ -22,12 +21,7 @@ class JellyfinServer {
 
 /// Compte connecté sur un serveur.
 class Account {
-  const Account({
-    required this.serverId,
-    required this.userId,
-    required this.userName,
-    this.avatarTag,
-  });
+  const Account({required this.serverId, required this.userId, required this.userName, this.avatarTag});
 
   final String serverId;
   final String userId;

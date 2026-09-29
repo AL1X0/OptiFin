@@ -23,8 +23,7 @@ abstract class ApiFailure implements Exception {
       return switch (error.type) {
         DioExceptionType.connectionTimeout ||
         DioExceptionType.receiveTimeout ||
-        DioExceptionType.sendTimeout =>
-          const TimeoutFailure(),
+        DioExceptionType.sendTimeout => const TimeoutFailure(),
         DioExceptionType.badCertificate => const CertificateFailure(),
         DioExceptionType.connectionError => const UnreachableFailure(),
         _ when error.error is SocketException => const UnreachableFailure(),

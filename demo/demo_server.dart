@@ -68,7 +68,11 @@ class DemoJellyfinAdapter implements HttpClientAdapter {
           ],
         };
       case ['Items', 'Filters2'] || ['Items', 'Filters2', ...]:
-        return {'Genres': _genres, 'Years': [2022, 2023, 2024, 2025], 'OfficialRatings': ['12', '16']};
+        return {
+          'Genres': _genres,
+          'Years': [2022, 2023, 2024, 2025],
+          'OfficialRatings': ['12', '16'],
+        };
       case ['Persons']:
         final term = _fold(one('searchTerm') ?? '');
         return result([
@@ -147,7 +151,10 @@ class DemoJellyfinAdapter implements HttpClientAdapter {
     }
     final lessThan = one('nameLessThan');
     if (lessThan != null) {
-      return {'Items': <Object>[], 'TotalRecordCount': list.where((e) => _fold(e.name).compareTo(_fold(lessThan)) < 0).length};
+      return {
+        'Items': <Object>[],
+        'TotalRecordCount': list.where((e) => _fold(e.name).compareTo(_fold(lessThan)) < 0).length,
+      };
     }
     final start = int.tryParse(one('startIndex') ?? '') ?? 0;
     final limit = int.tryParse(one('limit') ?? '') ?? list.length;
@@ -204,7 +211,16 @@ class DemoJellyfinAdapter implements HttpClientAdapter {
     if (full) 'Overview': '${p.name} est une figure fictive de la bibliothèque de démonstration d’OptiFin.',
   };
 
-  static const _genres = ['Action', 'Aventure', 'Drame', 'Mystère', 'Romance', 'Science-fiction', 'Thriller', 'Western'];
+  static const _genres = [
+    'Action',
+    'Aventure',
+    'Drame',
+    'Mystère',
+    'Romance',
+    'Science-fiction',
+    'Thriller',
+    'Western',
+  ];
 
   static String _genreId(String g) => 'g-${_fold(g).replaceAll(' ', '-')}';
 
@@ -262,8 +278,7 @@ class DemoJellyfinAdapter implements HttpClientAdapter {
         'IsFavorite': t.favorite,
         'PlayCount': t.played ? 1 : 0,
         'Key': t.id,
-        if (t.type == 'Series')
-          'UnplayedItemCount': episodes.where((e) => e.seriesId == t.id && !e.played).length,
+        if (t.type == 'Series') 'UnplayedItemCount': episodes.where((e) => e.seriesId == t.id && !e.played).length,
       },
       if (parent != null) ...{
         'SeriesId': parent.id,

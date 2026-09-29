@@ -37,14 +37,14 @@ abstract final class MediaFormat {
 
   /// Ligne de métadonnées d'une fiche : « 2021 · 2 h 35 min · 12 · ★ 8,1 ».
   static List<String> metadataLine(MediaItem item) => [
-        ?years(item),
-        if (item.kind == MediaKind.series && item.childCount != null)
-          '${item.childCount} saison${item.childCount! > 1 ? 's' : ''}'
-        else
-          ?duration(item.runtime),
-        if (item.officialRating?.isNotEmpty ?? false) item.officialRating!,
-        if (rating(item.communityRating) case final r?) '★ $r',
-      ];
+    ?years(item),
+    if (item.kind == MediaKind.series && item.childCount != null)
+      '${item.childCount} saison${item.childCount! > 1 ? 's' : ''}'
+    else
+      ?duration(item.runtime),
+    if (item.officialRating?.isNotEmpty ?? false) item.officialRating!,
+    if (rating(item.communityRating) case final r?) '★ $r',
+  ];
 
   /// Temps restant : « 1 h 12 min restantes ».
   static String? remaining(MediaItem item) {

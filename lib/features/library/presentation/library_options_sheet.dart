@@ -31,19 +31,19 @@ class _LibraryOptionsSheetState extends ConsumerState<LibraryOptionsSheet> {
     final maxHeight = MediaQuery.sizeOf(context).height * 0.8;
 
     Widget chip(String label, bool selected, VoidCallback onTap) => Padding(
-          padding: const EdgeInsets.only(right: OFSpacing.sm, bottom: OFSpacing.sm),
-          child: FilterChip(
-            label: Text(label),
-            selected: selected,
-            onSelected: (_) => onTap(),
-            showCheckmark: false,
-            labelStyle: OFTypography.callout.copyWith(color: selected ? OFColors.background : OFColors.textPrimary),
-            selectedColor: accent,
-            backgroundColor: OFColors.surfaceRaised,
-            side: BorderSide.none,
-            shape: const StadiumBorder(),
-          ),
-        );
+      padding: const EdgeInsets.only(right: OFSpacing.sm, bottom: OFSpacing.sm),
+      child: FilterChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        showCheckmark: false,
+        labelStyle: OFTypography.callout.copyWith(color: selected ? OFColors.background : OFColors.textPrimary),
+        selectedColor: accent,
+        backgroundColor: OFColors.surfaceRaised,
+        side: BorderSide.none,
+        shape: const StadiumBorder(),
+      ),
+    );
 
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxHeight),
@@ -85,9 +85,21 @@ class _LibraryOptionsSheetState extends ConsumerState<LibraryOptionsSheet> {
           const _Section('Résolution'),
           Wrap(
             children: [
-              chip('Toutes', _q.resolution == ResolutionFilter.any, () => _update(_q.copyWith(resolution: ResolutionFilter.any))),
-              chip('HD', _q.resolution == ResolutionFilter.hd, () => _update(_q.copyWith(resolution: ResolutionFilter.hd))),
-              chip('4K', _q.resolution == ResolutionFilter.uhd, () => _update(_q.copyWith(resolution: ResolutionFilter.uhd))),
+              chip(
+                'Toutes',
+                _q.resolution == ResolutionFilter.any,
+                () => _update(_q.copyWith(resolution: ResolutionFilter.any)),
+              ),
+              chip(
+                'HD',
+                _q.resolution == ResolutionFilter.hd,
+                () => _update(_q.copyWith(resolution: ResolutionFilter.hd)),
+              ),
+              chip(
+                '4K',
+                _q.resolution == ResolutionFilter.uhd,
+                () => _update(_q.copyWith(resolution: ResolutionFilter.uhd)),
+              ),
             ],
           ),
           if (options != null && options.genres.isNotEmpty) ...[
@@ -129,10 +141,10 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: OFSpacing.xl, bottom: OFSpacing.md),
-        child: Text(
-          title.toUpperCase(),
-          style: OFTypography.caption.copyWith(color: OFColors.textTertiary, letterSpacing: 1.2),
-        ),
-      );
+    padding: const EdgeInsets.only(top: OFSpacing.xl, bottom: OFSpacing.md),
+    child: Text(
+      title.toUpperCase(),
+      style: OFTypography.caption.copyWith(color: OFColors.textTertiary, letterSpacing: 1.2),
+    ),
+  );
 }

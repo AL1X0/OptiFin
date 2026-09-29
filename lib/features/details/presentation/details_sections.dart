@@ -122,7 +122,22 @@ class _EpisodeList extends ConsumerWidget {
         child: Column(
           key: ValueKey(seasonId),
           children: [
-            // Saison entière hors connexion (épisodes déjà téléchargés ignorés).            Padding(              padding: EdgeInsets.fromLTRB(gutter - OFSpacing.sm, 0, gutter, OFSpacing.sm),              child: Align(                alignment: Alignment.centerLeft,                child: TextButton.icon(                  onPressed: () => startDownload(context, ref, [for (final e in value) e.id]),                  icon: const Icon(Icons.download_rounded, size: 20),                  label: Text(                    'Télécharger la saison (${value.length} épisode${value.length > 1 ? 's' : ''})',                    style: OFTypography.callout,                  ),                ),              ),            ),
+            // Saison entière hors connexion (épisodes déjà téléchargés ignorés). Pas sur TV.
+            if (!OFDevice.tv)
+              Padding(
+                padding: EdgeInsets.fromLTRB(gutter - OFSpacing.sm, 0, gutter, OFSpacing.sm),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => startDownload(context, ref, [for (final e in value) e.id]),
+                    icon: const Icon(Icons.download_rounded, size: 20),
+                    label: Text(
+                      'Télécharger la saison (${value.length} épisode${value.length > 1 ? 's' : ''})',
+                      style: OFTypography.callout,
+                    ),
+                  ),
+                ),
+              ),
             for (final e in value)
               Padding(
                 padding: EdgeInsets.fromLTRB(gutter, 0, gutter, OFSpacing.lg),

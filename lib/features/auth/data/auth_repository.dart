@@ -68,12 +68,7 @@ class AuthRepository {
       final users = await _clientFor(server.baseUrl).user.getPublicUsers();
       return [
         for (final u in users)
-          PublicUser(
-            id: u.id,
-            name: u.name ?? '',
-            avatarTag: u.primaryImageTag,
-            hasPassword: u.hasPassword ?? true,
-          ),
+          PublicUser(id: u.id, name: u.name ?? '', avatarTag: u.primaryImageTag, hasPassword: u.hasPassword ?? true),
       ];
     } catch (_) {
       // Non bloquant : l'utilisateur peut toujours saisir son identifiant.
@@ -83,9 +78,9 @@ class AuthRepository {
 
   Future<ActiveSession> login(JellyfinServer server, {required String username, required String password}) async {
     try {
-      final result = await _clientFor(server.baseUrl)
-          .authentication
-          .authenticateUserByName(body: AuthenticateUserByName(username: username, pw: password));
+      final result = await _clientFor(server.baseUrl).authentication.authenticateUserByName(
+        body: AuthenticateUserByName(username: username, pw: password),
+      );
       return _toSession(server, result);
     } catch (e) {
       throw ApiFailure.from(e);
@@ -156,7 +151,12 @@ class AuthRepository {
     }
     return ActiveSession(
       server: server,
-      account: Account(serverId: server.id, userId: user.id, userName: user.name ?? '', avatarTag: user.primaryImageTag),
+      account: Account(
+        serverId: server.id,
+        userId: user.id,
+        userName: user.name ?? '',
+        avatarTag: user.primaryImageTag,
+      ),
       token: token,
     );
   }

@@ -9,10 +9,11 @@ abstract interface class TokenVault {
 
 class SecureTokenVault implements TokenVault {
   SecureTokenVault([FlutterSecureStorage? storage])
-      : _storage = storage ??
-            const FlutterSecureStorage(
-              iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
-            );
+    : _storage =
+          storage ??
+          const FlutterSecureStorage(
+            iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
+          );
 
   final FlutterSecureStorage _storage;
 

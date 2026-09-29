@@ -533,7 +533,13 @@ class _ActionBar extends StatelessWidget {
         final playWidth = OFSpacing.xl * 2 + 20 + OFSpacing.sm + text.width + 2;
         final iconsWidth = icons.isEmpty ? 0.0 : icons.length * _icon + (icons.length - 1) * _gap;
         final oneLine = playWidth + (icons.isEmpty ? 0 : _gap + iconsWidth) <= constraints.maxWidth;
-        final play = OFButton(label: label, icon: Icons.play_arrow_rounded, expand: !oneLine, onPressed: onPlay);
+        final play = OFButton(
+          label: label,
+          icon: Icons.play_arrow_rounded,
+          expand: !oneLine,
+          autofocus: OFDevice.tv,
+          onPressed: onPlay,
+        );
         if (oneLine) {
           return Row(
             children: [

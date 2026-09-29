@@ -195,15 +195,17 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
             onTap: () => _open(PlayerMenuPage.engine),
           ),
           const _MenuDivider(),
-          _MenuRow(
-            icon: Icons.lock_outline_rounded,
-            label: 'Verrouiller l’écran',
-            chevron: false,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              widget.onLock();
-            },
-          ),
+          // Verrou (écran tactile) : inutile à la télécommande.
+          if (!OFDevice.tv)
+            _MenuRow(
+              icon: Icons.lock_outline_rounded,
+              label: 'Verrouiller l’écran',
+              chevron: false,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                widget.onLock();
+              },
+            ),
           _MenuRow(
             icon: Icons.info_outline_rounded,
             label: 'Infos techniques',
@@ -443,11 +445,45 @@ class _MenuPageView extends StatelessWidget {
           ),
         if (title != null) const _MenuDivider(),
         Flexible(
-          child: ListView(shrinkWrap: true, padding: const EdgeInsets.all(OFSpacing.sm), children: children),
+          child: _FocusFirst(
+            child: ListView(shrinkWrap: true, padding: const EdgeInsets.all(OFSpacing.sm), children: children),
+          ),
         ),
       ],
     );
   }
+}
+
+/// TV : à l'ouverture d'une page du menu, le focus va sur sa première ligne.
+class _FocusFirst extends StatefulWidget {
+  const _FocusFirst({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_FocusFirst> createState() => _FocusFirstState();
+}
+
+class _FocusFirstState extends State<_FocusFirst> {
+  final _group = FocusNode(debugLabel: 'page du menu', skipTraversal: true, canRequestFocus: false);
+
+  @override
+  void initState() {
+    super.initState();
+    if (!OFDevice.tv) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _group.traversalDescendants.firstOrNull?.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _group.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Focus(focusNode: _group, child: widget.child);
 }
 
 class _MenuRow extends StatelessWidget {
@@ -476,7 +512,7 @@ class _MenuRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    final compact = MediaQuery.sizeOf(context).shortestSide < 600;
+    final compact = !OFDevice.large(context);
     return Semantics(
       button: true,
       selected: selected,

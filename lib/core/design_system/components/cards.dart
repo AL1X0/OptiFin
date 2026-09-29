@@ -178,6 +178,9 @@ class _CardFrame extends StatefulWidget {
 class _CardFrameState extends State<_CardFrame> {
   bool _pressed = false;
 
+  /// Focus venu de la télécommande (ou du clavier) : carte agrandie, image cerclée.
+  bool _focused = false;
+
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
@@ -191,7 +194,7 @@ class _CardFrameState extends State<_CardFrame> {
       fallback: _TitleFallback(title: data.title),
     );
 
-    final artwork = ClipRRect(
+    final clipped = ClipRRect(
       borderRadius: OFRadius.mdAll,
       child: AspectRatio(
         aspectRatio: widget.aspectRatio,
@@ -214,6 +217,22 @@ class _CardFrameState extends State<_CardFrame> {
         ),
       ),
     );
+    final artwork = AnimatedContainer(
+      duration: motion.fast,
+      foregroundDecoration: BoxDecoration(
+        borderRadius: OFRadius.mdAll,
+        border: Border.all(
+          color: _focused ? const Color(0xF2FFFFFF) : const Color(0x00FFFFFF),
+          width: 3,
+          strokeAlign: BorderSide.strokeAlignOutside,
+        ),
+      ),
+      decoration: BoxDecoration(
+        borderRadius: OFRadius.mdAll,
+        boxShadow: [if (_focused) const BoxShadow(color: Color(0x59000000), blurRadius: 28, offset: Offset(0, 12))],
+      ),
+      child: clipped,
+    );
 
     final semanticsLabel = [
       data.title,
@@ -234,34 +253,41 @@ class _CardFrameState extends State<_CardFrame> {
       label: semanticsLabel,
       excludeSemantics: true,
       onTap: onTap,
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapCancel: () => setState(() => _pressed = false),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTap: onTap,
-        child: AnimatedScale(
-          scale: _pressed ? 0.97 : 1,
-          duration: motion.fast,
-          curve: OFMotion.fastCurve,
-          child: SizedBox(
-            width: widget.width,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                artwork,
-                if (widget.showTitle) ...[
-                  const SizedBox(height: OFSpacing.sm),
-                  Text(data.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: OFTypography.callout),
-                  if (data.subtitle != null)
-                    Text(
-                      data.subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: OFTypography.caption.copyWith(color: OFColors.textSecondary),
-                    ),
+      child: FocusableActionDetector(
+        enabled: onTap != null,
+        actions: {if (onTap != null) ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => onTap())},
+        onShowFocusHighlight: (v) {
+          if (v != _focused) setState(() => _focused = v);
+        },
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapCancel: () => setState(() => _pressed = false),
+          onTapUp: (_) => setState(() => _pressed = false),
+          onTap: onTap,
+          child: AnimatedScale(
+            scale: _pressed ? 0.97 : (_focused ? 1.07 : 1),
+            duration: motion.fast,
+            curve: OFMotion.fastCurve,
+            child: SizedBox(
+              width: widget.width,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  artwork,
+                  if (widget.showTitle) ...[
+                    const SizedBox(height: OFSpacing.sm),
+                    Text(data.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: OFTypography.callout),
+                    if (data.subtitle != null)
+                      Text(
+                        data.subtitle!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: OFTypography.caption.copyWith(color: OFColors.textSecondary),
+                      ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

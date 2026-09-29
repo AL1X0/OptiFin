@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,8 +24,8 @@ Uri? _backdropUrl(JellyfinImageUrlBuilder images, MediaItem item, double width, 
     images.maybe(item.backdrop, logicalWidth: width, devicePixelRatio: dpr, quality: 75);
 
 /// Largeur du logo : centré et large sur téléphone, plus sobre (à gauche) sur tablette.
-double _logoWidth(double pageWidth, Size screen) =>
-    screen.shortestSide >= 600 ? (pageWidth * 0.36).clamp(280.0, 460.0) : pageWidth * 0.62;
+double _logoWidth(double pageWidth, {required bool large}) =>
+    large ? (pageWidth * 0.36).clamp(280.0, 460.0) : pageWidth * 0.62;
 
 /// Hauteur du carrousel selon l'écran : immersif sur téléphone, borné sur tablette.
 double featuredHeight(Size size) {
@@ -102,14 +103,18 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
     _warmed = true;
     final width = _pageWidth;
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final screen = MediaQuery.sizeOf(context);
+    final large = OFDevice.large(context);
     final images = ref.read(imageUrlBuilderProvider);
     Future<void>.delayed(const Duration(seconds: 3), () async {
       for (final item in widget.upcoming) {
         if (!mounted) return;
         for (final url in [
           _backdropUrl(images, item, width, dpr),
-          images.maybe(item.logo, logicalWidth: _logoWidth(width, screen), devicePixelRatio: dpr),
+          images.maybe(
+            item.logo,
+            logicalWidth: _logoWidth(width, large: large),
+            devicePixelRatio: dpr,
+          ),
         ]) {
           if (url == null) continue;
           try {
@@ -120,7 +125,8 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
     });
   }
 
-  /// « Lecture » lance directement le film : son plan de lecture (PlaybackInfo, choix du  /// moteur) est préparé dès que la page est affichée, comme sur une fiche.
+  /// « Lecture » lance directement le film : son plan de lecture (PlaybackInfo, choix du
+  /// moteur) est préparé dès que la page est affichée, comme sur une fiche.
   void _prefetchPlayback() {
     if (widget.items.isEmpty) return;
     final item = widget.items[_index];
@@ -142,10 +148,28 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
       if (backdrop != null) {
         precacheImage(OFImage.provider(backdrop, decodeWidth: _decodeWidth(width, dpr)), context, onError: (_, _) {});
       }
-      final logoWidth = _logoWidth(width, MediaQuery.sizeOf(context));
+      final logoWidth = _logoWidth(width, large: OFDevice.large(context));
       final logo = images.maybe(item.logo, logicalWidth: logoWidth, devicePixelRatio: dpr);
       if (logo != null) precacheImage(OFImage.provider(logo), context, onError: (_, _) {});
     }
+  }
+
+  /// Télécommande : bouton « Lecture » de chaque page (le focus y revient au changement de page).
+  final _playNodes = <int, FocusNode>{};
+  FocusNode _playNode(int i) => _playNodes.putIfAbsent(i, () => FocusNode(debugLabel: 'Lecture $i'));
+
+  /// ◀ sur « Lecture » / ▶ sur « Infos » : titre précédent / suivant.
+  bool _step(int delta) {
+    final target = _index + delta;
+    if (target < 0 || target >= widget.items.length || !_controller.hasClients) return false;
+    unawaited(
+      _controller
+          .animateToPage(target, duration: const Duration(milliseconds: 350), curve: OFMotion.standardCurve)
+          .then((_) {
+            if (mounted) _playNode(target).requestFocus();
+          }),
+    );
+    return true;
   }
 
   @override
@@ -154,12 +178,16 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
     _controller.dispose();
     _page.dispose();
     _accent.dispose();
+    for (final n in _playNodes.values) {
+      n.dispose();
+    }
     super.dispose();
   }
 
   void _restartTimer() {
     _timer?.cancel();
-    if (!OFMotion.of(context).enabled || widget.items.length < 2) return;
+    // TV : pas de défilement automatique (il déroberait le focus de la télécommande).
+    if (!OFMotion.of(context).enabled || widget.items.length < 2 || OFDevice.tv) return;
     _timer = Timer.periodic(const Duration(seconds: 8), (_) {
       if (!mounted || !_controller.hasClients) return;
       final next = (_index + 1) % widget.items.length;
@@ -183,7 +211,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
-          final tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+          final tablet = OFDevice.large(context);
           if (width != _pageWidth) {
             final first = _pageWidth == 0;
             _pageWidth = width;
@@ -212,7 +240,14 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
                     controller: _controller,
                     itemCount: widget.items.length,
                     onPageChanged: (i) => _page.value = i,
-                    itemBuilder: (context, i) => _FeaturedPage(item: widget.items[i], width: width, height: height),
+                    itemBuilder: (context, i) => _FeaturedPage(
+                      item: widget.items[i],
+                      width: width,
+                      height: height,
+                      playFocus: _playNode(i),
+                      autofocus: OFDevice.tv && i == 0,
+                      onStep: _step,
+                    ),
                   ),
                 ),
               ),
@@ -241,11 +276,29 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
 }
 
 class _FeaturedPage extends ConsumerWidget {
-  const _FeaturedPage({required this.item, required this.width, required this.height});
+  const _FeaturedPage({
+    required this.item,
+    required this.width,
+    required this.height,
+    required this.playFocus,
+    required this.onStep,
+    this.autofocus = false,
+  });
 
   final MediaItem item;
   final double width;
   final double height;
+  final FocusNode playFocus;
+  final bool autofocus;
+
+  /// Télécommande : titre précédent (-1) ou suivant (+1) ; false en bout de carrousel.
+  final bool Function(int delta) onStep;
+
+  /// ◀ ou ▶ au bord de la rangée de boutons : change de titre plutôt que de sortir.
+  KeyEventResult Function(FocusNode, KeyEvent) _edge(LogicalKeyboardKey key, int delta) =>
+      (_, event) => event is KeyDownEvent && event.logicalKey == key && onStep(delta)
+      ? KeyEventResult.handled
+      : KeyEventResult.ignored;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -256,8 +309,8 @@ class _FeaturedPage extends ConsumerWidget {
     final logo = item.logo;
     final meta = [...item.genres.take(2).map((g) => g.name), ?MediaFormat.years(item)].join(' · ');
     // Tablette : bloc titre à gauche (à la manière de l'Apple TV), l'illustration respire à droite.
-    final tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
-    final logoWidth = _logoWidth(width, MediaQuery.sizeOf(context));
+    final tablet = OFDevice.large(context);
+    final logoWidth = _logoWidth(width, large: OFDevice.large(context));
     final align = tablet ? CrossAxisAlignment.start : CrossAxisAlignment.center;
 
     return Semantics(
@@ -324,17 +377,29 @@ class _FeaturedPage extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: tablet ? MainAxisAlignment.start : MainAxisAlignment.center,
                   children: [
-                    OFButton(
-                      label: 'Lecture',
-                      icon: Icons.play_arrow_rounded,
-                      // Film : lecture directe. Série : la fiche choisit l'épisode à suivre.
-                      onPressed: () => item.kind.isPlayableVideo ? context.play(item.id) : context.openItem(item),
+                    Focus(
+                      canRequestFocus: false,
+                      skipTraversal: true,
+                      onKeyEvent: _edge(LogicalKeyboardKey.arrowLeft, -1),
+                      child: OFButton(
+                        label: 'Lecture',
+                        icon: Icons.play_arrow_rounded,
+                        focusNode: playFocus,
+                        autofocus: autofocus,
+                        // Film : lecture directe. Série : la fiche choisit l'épisode à suivre.
+                        onPressed: () => item.kind.isPlayableVideo ? context.play(item.id) : context.openItem(item),
+                      ),
                     ),
                     const SizedBox(width: OFSpacing.md),
-                    OFButton.secondary(
-                      label: 'Infos',
-                      icon: Icons.info_outline_rounded,
-                      onPressed: () => context.openItem(item),
+                    Focus(
+                      canRequestFocus: false,
+                      skipTraversal: true,
+                      onKeyEvent: _edge(LogicalKeyboardKey.arrowRight, 1),
+                      child: OFButton.secondary(
+                        label: 'Infos',
+                        icon: Icons.info_outline_rounded,
+                        onPressed: () => context.openItem(item),
+                      ),
                     ),
                   ],
                 ),

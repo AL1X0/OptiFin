@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import '../device.dart';
 import '../tokens.dart';
 import 'motion.dart';
 
@@ -56,6 +57,8 @@ class MediaRow extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.symmetric(horizontal: gutter),
             itemExtent: itemExtent,
+            // TV : la carte focalisée grossit et déborde sans être rognée.
+            clipBehavior: OFDevice.tv ? Clip.none : Clip.hardEdge,
             itemCount: itemCount,
             // Arrivée des cartes de gauche à droite (dans la fenêtre d'entrée de l'écran).
             itemBuilder: (context, i) => Align(

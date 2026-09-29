@@ -18,7 +18,10 @@ class LoggingInterceptor extends Interceptor {
 
   @override
   void onResponse(Response<dynamic> response, ResponseInterceptorHandler handler) {
-    AppLog.d('http', '${response.requestOptions.method} ${_path(response.requestOptions)} → ${response.statusCode} (${_ms(response.requestOptions)} ms)');
+    AppLog.d(
+      'http',
+      '${response.requestOptions.method} ${_path(response.requestOptions)} → ${response.statusCode} (${_ms(response.requestOptions)} ms)',
+    );
     handler.next(response);
   }
 
@@ -30,13 +33,14 @@ class LoggingInterceptor extends Interceptor {
     AppLog.w(
       'http',
       '${o.method} ${_path(o)} → ${status ?? err.type.name} (${_ms(o)} ms)'
-      '${err.message != null && status == null ? ' ${err.message}' : ''}'
-      '${body.isEmpty ? '' : '\n  réponse : $body'}',
+          '${err.message != null && status == null ? ' ${err.message}' : ''}'
+          '${body.isEmpty ? '' : '\n  réponse : $body'}',
     );
     handler.next(err);
   }
 
-  static String _path(RequestOptions o) => o.uri.replace(host: '').toString().replaceFirst(RegExp(r'^[a-z]+://(:\d+)?'), '');
+  static String _path(RequestOptions o) =>
+      o.uri.replace(host: '').toString().replaceFirst(RegExp(r'^[a-z]+://(:\d+)?'), '');
 
   static int _ms(RequestOptions o) {
     final start = o.extra[_startKey];

@@ -200,7 +200,8 @@ const movies = [
     minutes: 125,
     rating: 7.2,
     tagline: 'Le désert rend toujours ce qu’on lui prend.',
-    overview: 'Une convoyeuse d’eau et un faussaire traversent les canyons rouges, poursuivis par une compagnie minière.',
+    overview:
+        'Une convoyeuse d’eau et un faussaire traversent les canyons rouges, poursuivis par une compagnie minière.',
     addedDaysAgo: 35,
   ),
   DemoTitle(
@@ -261,7 +262,8 @@ const series = [
     minutes: 52,
     variant: 5,
     tagline: 'À 1 400 années-lumière, personne ne vous entend mentir.',
-    overview: 'Huis clos à bord d’une station minière en orbite d’une exoplanète, après la disparition de son commandant.',
+    overview:
+        'Huis clos à bord d’une station minière en orbite d’une exoplanète, après la disparition de son commandant.',
     addedDaysAgo: 15,
   ),
   DemoTitle(

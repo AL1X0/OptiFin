@@ -35,7 +35,12 @@ abstract final class ServerAddress {
   /// (serveur derrière `https://domaine/jellyfin`).
   static Uri normalize(Uri uri) {
     final path = uri.path.replaceAll(RegExp(r'/+$'), '');
-    return Uri(scheme: uri.scheme.toLowerCase(), host: uri.host.toLowerCase(), port: uri.hasPort ? uri.port : null, path: path);
+    return Uri(
+      scheme: uri.scheme.toLowerCase(),
+      host: uri.host.toLowerCase(),
+      port: uri.hasPort ? uri.port : null,
+      path: path,
+    );
   }
 
   static const minimumVersion = (10, 9, 0);

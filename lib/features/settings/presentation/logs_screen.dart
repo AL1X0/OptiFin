@@ -31,17 +31,16 @@ class _LogsScreenState extends State<LogsScreen> {
     await Clipboard.setData(ClipboardData(text: text.isEmpty ? '(journal vide)' : text));
     if (!mounted) return;
     unawaited(HapticFeedback.mediumImpact());
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${text.split('\n').length} lignes copiées dans le presse-papiers')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('${text.split('\n').length} lignes copiées dans le presse-papiers')));
   }
 
   Color _color(LogLevel level) => switch (level) {
-        LogLevel.error => OFColors.danger,
-        LogLevel.warning => OFColors.warning,
-        LogLevel.info => OFColors.textPrimary,
-        LogLevel.debug => OFColors.textTertiary,
-      };
+    LogLevel.error => OFColors.danger,
+    LogLevel.warning => OFColors.warning,
+    LogLevel.info => OFColors.textPrimary,
+    LogLevel.debug => OFColors.textTertiary,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +104,9 @@ class _LogsScreenState extends State<LogsScreen> {
                 if (entries.isEmpty) {
                   return Center(
                     child: Text(
-                      AppLog.instance.verbose ? 'Journal vide.' : 'Journal vide. Activez le mode debug pour plus de détails.',
+                      AppLog.instance.verbose
+                          ? 'Journal vide.'
+                          : 'Journal vide. Activez le mode debug pour plus de détails.',
                       style: OFTypography.callout.copyWith(color: OFColors.textTertiary),
                     ),
                   );
@@ -123,7 +124,12 @@ class _LogsScreenState extends State<LogsScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 3),
                         child: Text(
                           e.format(),
-                          style: TextStyle(fontFamily: 'monospace', fontSize: 11.5, height: 1.35, color: _color(e.level)),
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11.5,
+                            height: 1.35,
+                            color: _color(e.level),
+                          ),
                         ),
                       );
                     },

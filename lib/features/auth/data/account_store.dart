@@ -27,21 +27,29 @@ class AccountStore {
     final now = _clock();
     await _vault.write(session.account.id, session.token);
     await _db.transaction(() async {
-      await _db.into(_db.servers).insertOnConflictUpdate(ServersCompanion.insert(
-            id: session.server.id,
-            name: session.server.name,
-            baseUrl: session.server.baseUrl.toString(),
-            version: session.server.version,
-            lastUsedAt: now,
-          ));
-      await _db.into(_db.accounts).insertOnConflictUpdate(AccountsCompanion.insert(
-            id: session.account.id,
-            serverId: session.account.serverId,
-            userId: session.account.userId,
-            userName: session.account.userName,
-            avatarTag: Value(session.account.avatarTag),
-            lastUsedAt: now,
-          ));
+      await _db
+          .into(_db.servers)
+          .insertOnConflictUpdate(
+            ServersCompanion.insert(
+              id: session.server.id,
+              name: session.server.name,
+              baseUrl: session.server.baseUrl.toString(),
+              version: session.server.version,
+              lastUsedAt: now,
+            ),
+          );
+      await _db
+          .into(_db.accounts)
+          .insertOnConflictUpdate(
+            AccountsCompanion.insert(
+              id: session.account.id,
+              serverId: session.account.serverId,
+              userId: session.account.userId,
+              userName: session.account.userName,
+              avatarTag: Value(session.account.avatarTag),
+              lastUsedAt: now,
+            ),
+          );
       await _setActive(session.account.id);
     });
   }
@@ -50,8 +58,7 @@ class AccountStore {
   Future<List<StoredAccount>> listAccounts() async {
     final query = _db.select(_db.accounts).join([
       innerJoin(_db.servers, _db.servers.id.equalsExp(_db.accounts.serverId)),
-    ])
-      ..orderBy([OrderingTerm.desc(_db.accounts.lastUsedAt)]);
+    ])..orderBy([OrderingTerm.desc(_db.accounts.lastUsedAt)]);
     final rows = await query.get();
     return rows.map((r) {
       final a = r.readTable(_db.accounts);
@@ -70,9 +77,7 @@ class AccountStore {
   Future<ActiveSession?> sessionFor(String accountId) async {
     final row = await (_db.select(_db.accounts).join([
       innerJoin(_db.servers, _db.servers.id.equalsExp(_db.accounts.serverId)),
-    ])
-          ..where(_db.accounts.id.equals(accountId)))
-        .getSingleOrNull();
+    ])..where(_db.accounts.id.equals(accountId))).getSingleOrNull();
     if (row == null) return null;
     final token = await _vault.read(accountId);
     if (token == null || token.isEmpty) return null;
@@ -88,8 +93,9 @@ class AccountStore {
     final session = await sessionFor(accountId);
     if (session == null) return null;
     await _db.transaction(() async {
-      await (_db.update(_db.accounts)..where((t) => t.id.equals(accountId)))
-          .write(AccountsCompanion(lastUsedAt: Value(_clock())));
+      await (_db.update(
+        _db.accounts,
+      )..where((t) => t.id.equals(accountId))).write(AccountsCompanion(lastUsedAt: Value(_clock())));
       await _setActive(accountId);
     });
     return session;

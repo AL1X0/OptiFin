@@ -1,5 +1,6 @@
 export 'components/cards.dart';
 export 'components/glass_press.dart';
+export 'components/tv_focus.dart';
 export 'components/glass_surface.dart';
 export 'components/loader.dart';
 export 'components/media_row.dart';
@@ -12,4 +13,5 @@ export 'components/of_image.dart';
 export 'theme.dart';
 export 'tokens.dart';
 export 'accent.dart';
+export 'device.dart';
 export 'image_source.dart';

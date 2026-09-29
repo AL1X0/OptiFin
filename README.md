@@ -6,7 +6,7 @@
 
 **Votre Jellyfin, en version cinéma.**
 
-Client [Jellyfin](https://jellyfin.org) pour iPhone, iPad et Android.
+Client [Jellyfin](https://jellyfin.org) pour iPhone, iPad, Android et Android TV.
 
 [![CI](https://github.com/AL1X0/OptiFin/actions/workflows/ci.yml/badge.svg)](https://github.com/AL1X0/OptiFin/actions/workflows/ci.yml)
 [![Dernière build](https://img.shields.io/github/v/release/AL1X0/OptiFin?label=build&color=4DA3FF)](https://github.com/AL1X0/OptiFin/releases/latest)
@@ -28,7 +28,7 @@ Client [Jellyfin](https://jellyfin.org) pour iPhone, iPad et Android.
 - **Un lecteur hybride** : AVPlayer, Media3 ou mpv choisi automatiquement pour chaque fichier, sans transcodage inutile.
 - **Pensé pour les séries** : reprise synchronisée, « Passer l'intro », épisode suivant préparé pendant le générique.
 - **Hors connexion** : films et saisons téléchargés en arrière-plan, lus sans réseau.
-- **iPhone, iPad et Android**, mode sombre soigné, Picture-in-Picture, AirPlay.
+- **iPhone, iPad, Android et Android TV** (télécommande), mode sombre soigné, Picture-in-Picture, AirPlay.
 
 ## Installer
 
@@ -38,7 +38,7 @@ Client [Jellyfin](https://jellyfin.org) pour iPhone, iPad et Android.
 https://raw.githubusercontent.com/AL1X0/OptiFin/sidestore/source.json
 ```
 
-**Android** : `OptiFin-android-arm64-v8a.apk` dans la [dernière Release](https://github.com/AL1X0/OptiFin/releases/latest).
+**Android et Android TV** : `OptiFin-android-arm64-v8a.apk` (ou `armeabi-v7a` pour les box et Fire TV plus anciens) dans la [dernière Release](https://github.com/AL1X0/OptiFin/releases/latest).
 
 Serveur Jellyfin 10.9 ou plus récent.
 

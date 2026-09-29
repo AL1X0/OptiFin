@@ -22,7 +22,16 @@ Future<void> loadDemoFonts() async {
     for (final w in ['thin', 'light', 'regular', 'medium', 'bold', 'black']) '$material/roboto-$w.ttf',
   ];
   // Sur iOS, Flutter demande la police système (SF Pro) sous ces noms : Roboto la remplace ici.
-  for (final name in ['Roboto', 'FlutterTest', 'CupertinoSystemText', 'CupertinoSystemDisplay', '.SF Pro Text', '.SF Pro Display', '.SF UI Text', '.SF UI Display']) {
+  for (final name in [
+    'Roboto',
+    'FlutterTest',
+    'CupertinoSystemText',
+    'CupertinoSystemDisplay',
+    '.SF Pro Text',
+    '.SF Pro Display',
+    '.SF UI Text',
+    '.SF UI Display',
+  ]) {
     await family(name, roboto);
   }
   await family('MaterialIcons', ['$material/materialicons-regular.otf']);

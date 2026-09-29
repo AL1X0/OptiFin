@@ -5,6 +5,7 @@ import '../theme.dart';
 import '../tokens.dart';
 import 'glass_press.dart';
 import 'glass_surface.dart';
+import 'tv_focus.dart';
 
 enum OFButtonVariant { primary, secondary }
 
@@ -18,6 +19,8 @@ class OFButton extends StatefulWidget {
     this.variant = OFButtonVariant.primary,
     this.loading = false,
     this.expand = false,
+    this.autofocus = false,
+    this.focusNode,
   });
 
   const OFButton.secondary({
@@ -27,6 +30,8 @@ class OFButton extends StatefulWidget {
     this.icon,
     this.loading = false,
     this.expand = false,
+    this.autofocus = false,
+    this.focusNode,
   }) : variant = OFButtonVariant.secondary;
 
   final String label;
@@ -35,6 +40,10 @@ class OFButton extends StatefulWidget {
   final OFButtonVariant variant;
   final bool loading;
   final bool expand;
+
+  /// Reçoit le focus à l'ouverture de l'écran (télécommande).
+  final bool autofocus;
+  final FocusNode? focusNode;
 
   @override
   State<OFButton> createState() => _OFButtonState();
@@ -101,18 +110,29 @@ class _OFButtonState extends State<OFButton> {
       label: widget.label,
       excludeSemantics: true,
       onTap: _enabled ? _handleTap : null,
-      child: GestureDetector(
-        onTapDown: _enabled ? (_) => _setPressed(true) : null,
-        onTapCancel: () => _setPressed(false),
-        onTapUp: (_) => _setPressed(false),
-        onTap: _enabled ? _handleTap : null,
-        child: AnimatedOpacity(
-          duration: motion.fast,
-          opacity: _enabled || widget.loading ? 1 : 0.4,
-          child: primary
-              ? AnimatedScale(duration: motion.fast, curve: OFMotion.fastCurve, scale: _pressed ? 0.96 : 1, child: body)
-              // Bouton en verre : il gonfle et s'illumine sous le doigt.
-              : GlassPress(borderRadius: radius, enabled: _enabled, child: body),
+      child: TvFocusable(
+        onSelect: _enabled ? _handleTap : null,
+        autofocus: widget.autofocus,
+        focusNode: widget.focusNode,
+        borderRadius: radius,
+        child: GestureDetector(
+          onTapDown: _enabled ? (_) => _setPressed(true) : null,
+          onTapCancel: () => _setPressed(false),
+          onTapUp: (_) => _setPressed(false),
+          onTap: _enabled ? _handleTap : null,
+          child: AnimatedOpacity(
+            duration: motion.fast,
+            opacity: _enabled || widget.loading ? 1 : 0.4,
+            child: primary
+                ? AnimatedScale(
+                    duration: motion.fast,
+                    curve: OFMotion.fastCurve,
+                    scale: _pressed ? 0.96 : 1,
+                    child: body,
+                  )
+                // Bouton en verre : il gonfle et s'illumine sous le doigt.
+                : GlassPress(borderRadius: radius, enabled: _enabled, child: body),
+          ),
         ),
       ),
     );
@@ -134,21 +154,25 @@ class OFIconButton extends StatelessWidget {
       child: Semantics(
         button: true,
         label: tooltip,
-        child: GestureDetector(
-          onTap: onPressed == null
-              ? null
-              : () {
-                  HapticFeedback.selectionClick();
-                  onPressed!();
-                },
-          child: SizedBox.square(
-            dimension: 44,
-            child: GlassPress(
-              enabled: onPressed != null,
-              scale: 1.12,
-              child: GlassSurface(
-                borderRadius: const BorderRadius.all(Radius.circular(22)),
-                child: Center(child: Icon(icon, size: 20, color: OFColors.textPrimary)),
+        child: TvFocusable(
+          onSelect: onPressed,
+          scale: 1.12,
+          child: GestureDetector(
+            onTap: onPressed == null
+                ? null
+                : () {
+                    HapticFeedback.selectionClick();
+                    onPressed!();
+                  },
+            child: SizedBox.square(
+              dimension: 44,
+              child: GlassPress(
+                enabled: onPressed != null,
+                scale: 1.12,
+                child: GlassSurface(
+                  borderRadius: const BorderRadius.all(Radius.circular(22)),
+                  child: Center(child: Icon(icon, size: 20, color: OFColors.textPrimary)),
+                ),
               ),
             ),
           ),
@@ -230,20 +254,24 @@ class _OFGlassButtonState extends State<OFGlassButton> {
       label: widget.label,
       excludeSemantics: true,
       onTap: enabled ? widget.onPressed : null,
-      child: GestureDetector(
-        onTapDown: enabled ? (_) => _setPressed(true) : null,
-        onTapCancel: () => _setPressed(false),
-        onTapUp: (_) => _setPressed(false),
-        onTap: enabled
-            ? () {
-                HapticFeedback.selectionClick();
-                widget.onPressed!();
-              }
-            : null,
-        child: GlassPress(
-          enabled: enabled,
-          scale: widget.showLabel ? 1.06 : 1.12,
-          child: AnimatedOpacity(duration: motion.fast, opacity: enabled ? 1 : 0.4, child: body),
+      child: TvFocusable(
+        onSelect: widget.onPressed,
+        scale: widget.showLabel ? 1.06 : 1.12,
+        child: GestureDetector(
+          onTapDown: enabled ? (_) => _setPressed(true) : null,
+          onTapCancel: () => _setPressed(false),
+          onTapUp: (_) => _setPressed(false),
+          onTap: enabled
+              ? () {
+                  HapticFeedback.selectionClick();
+                  widget.onPressed!();
+                }
+              : null,
+          child: GlassPress(
+            enabled: enabled,
+            scale: widget.showLabel ? 1.06 : 1.12,
+            child: AnimatedOpacity(duration: motion.fast, opacity: enabled ? 1 : 0.4, child: body),
+          ),
         ),
       ),
     );

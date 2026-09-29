@@ -9,6 +9,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -54,7 +55,7 @@ class _MemoryVault implements TokenVault {
 
 /// App OptiFin réelle, branchée sur le serveur simulé et les illustrations générées.
 class DemoHarness {
-  DemoHarness(this.tester, {this.device = phone, this.tablet = false});
+  DemoHarness(this.tester, {this.device = phone, this.tablet = false, this.tv = false});
 
   final WidgetTester tester;
 
@@ -64,7 +65,10 @@ class DemoHarness {
   /// iPad : pas d'îlot, marges de sécurité réduites.
   final bool tablet;
 
-  double get _dpr => tablet ? 2 : 3;
+  /// Téléviseur (Android TV) : 960 × 540 logiques, télécommande, interface TV.
+  final bool tv;
+
+  double get _dpr => tv || tablet ? 2 : 3;
   final assets = DemoAssets();
   final _boundary = GlobalKey();
   final _touches = GlobalKey<_TouchesState>();
@@ -79,7 +83,16 @@ class DemoHarness {
   final _taps = <int>[];
 
   Future<void> setUp() async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    debugDefaultTargetPlatformOverride = tv ? TargetPlatform.android : TargetPlatform.iOS;
+    OFDevice.tv = tv;
+    OFGlass.blur = !tv;
+    if (tv) {
+      // Android simulé : flux Picture-in-Picture natif absent des tests.
+      tester.binding.defaultBinaryMessenger.setMockStreamHandler(
+        const EventChannel('optifin_native_player/pip'),
+        MockStreamHandler.inline(onListen: (_, _) {}),
+      );
+    }
     NativeGlassView.enabled = false; // pas de vue native dans un rendu de test
     await tester.runAsync(() async {
       await loadDemoFonts();
@@ -177,7 +190,9 @@ class DemoHarness {
   void goLandscape() {
     landscape = true;
     tester.view.physicalSize = Size(device.height, device.width) * _dpr;
-    final pad = tablet
+    final pad = tv
+        ? FakeViewPadding.zero
+        : tablet
         ? const FakeViewPadding(top: 24 * 2, bottom: 20 * 2)
         : const FakeViewPadding(left: 59 * 3, right: 59 * 3, bottom: 21 * 3);
     tester.view.padding = pad;
@@ -193,6 +208,8 @@ class DemoHarness {
     }
     await tester.runAsync(db.close);
     debugDefaultTargetPlatformOverride = null;
+    OFDevice.tv = false;
+    OFGlass.blur = true;
     tester.view.reset();
   }
 
@@ -252,7 +269,7 @@ class DemoHarness {
   Future<void> screenshot(String name) async {
     await tester.runAsync(() async {
       final boundary = _boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-      final image = await boundary.toImage(pixelRatio: tablet ? 1 : 3);
+      final image = await boundary.toImage(pixelRatio: tv ? 2 : (tablet ? 1 : 3));
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
       Directory('build/demo/shots').createSync(recursive: true);

@@ -25,7 +25,8 @@ enum MediaKind {
   other;
 
   /// Contenu vidéo lisible directement (bouton Lecture).
-  bool get isPlayableVideo => this == movie || this == episode || this == video || this == musicVideo || this == trailer;
+  bool get isPlayableVideo =>
+      this == movie || this == episode || this == video || this == musicVideo || this == trailer;
 
   /// Affiché en format affiche 2:3 plutôt que paysage.
   bool get prefersPoster =>
@@ -33,7 +34,20 @@ enum MediaKind {
 }
 
 /// Type de bibliothèque (CollectionType Jellyfin).
-enum LibraryType { movies, tvshows, music, musicvideos, homevideos, boxsets, books, photos, livetv, playlists, folders, unknown }
+enum LibraryType {
+  movies,
+  tvshows,
+  music,
+  musicvideos,
+  homevideos,
+  boxsets,
+  books,
+  photos,
+  livetv,
+  playlists,
+  folders,
+  unknown,
+}
 
 /// Référence d'image : quel élément, quel type, quel tag de cache, quel BlurHash.
 class ImageRef {
@@ -81,12 +95,12 @@ class UserState {
   }
 
   UserState copyWith({bool? played, bool? favorite}) => UserState(
-        played: played ?? this.played,
-        favorite: favorite ?? this.favorite,
-        positionTicks: played == true ? 0 : positionTicks,
-        playedPercentage: played == true ? null : playedPercentage,
-        unplayedCount: played == true ? 0 : unplayedCount,
-      );
+    played: played ?? this.played,
+    favorite: favorite ?? this.favorite,
+    positionTicks: played == true ? 0 : positionTicks,
+    playedPercentage: played == true ? null : playedPercentage,
+    unplayedCount: played == true ? 0 : unplayedCount,
+  );
 }
 
 class PersonCredit {
@@ -124,12 +138,12 @@ class StreamSummary {
     this.height,
     this.videoRange = VideoRange.sdr,
     this.bitDepth,
-  })  : isVideo = true,
-        profile = null,
-        channels = null,
-        spatial = SpatialAudio.none,
-        language = null,
-        title = null;
+  }) : isVideo = true,
+       profile = null,
+       channels = null,
+       spatial = SpatialAudio.none,
+       language = null,
+       title = null;
 
   const StreamSummary.audio({
     required this.codec,
@@ -138,11 +152,11 @@ class StreamSummary {
     this.spatial = SpatialAudio.none,
     this.language,
     this.title,
-  })  : isVideo = false,
-        width = null,
-        height = null,
-        videoRange = VideoRange.sdr,
-        bitDepth = null;
+  }) : isVideo = false,
+       width = null,
+       height = null,
+       videoRange = VideoRange.sdr,
+       bitDepth = null;
 
   final bool isVideo;
   final String codec;
@@ -253,9 +267,9 @@ class MediaItem {
 
   /// Image 16:9 pour les cartes paysage.
   ImageRef? get landscape => switch (kind) {
-        MediaKind.episode || MediaKind.video || MediaKind.musicVideo => primary ?? parentThumb ?? parentBackdrop,
-        _ => thumb ?? backdrops.firstOrNull ?? parentThumb ?? parentBackdrop ?? primary,
-      };
+    MediaKind.episode || MediaKind.video || MediaKind.musicVideo => primary ?? parentThumb ?? parentBackdrop,
+    _ => thumb ?? backdrops.firstOrNull ?? parentThumb ?? parentBackdrop ?? primary,
+  };
 
   /// Image 2:3 pour les cartes affiche (épisode → affiche de la série).
   ImageRef? get poster => kind == MediaKind.episode ? (seriesPrimary ?? primary) : primary;
@@ -271,43 +285,43 @@ class MediaItem {
   }
 
   MediaItem withUser(UserState user) => MediaItem(
-        id: id,
-        name: name,
-        kind: kind,
-        originalTitle: originalTitle,
-        overview: overview,
-        tagline: tagline,
-        year: year,
-        premiereDate: premiereDate,
-        endDate: endDate,
-        status: status,
-        runTimeTicks: runTimeTicks,
-        communityRating: communityRating,
-        criticRating: criticRating,
-        officialRating: officialRating,
-        genres: genres,
-        studios: studios,
-        people: people,
-        trailers: trailers,
-        localTrailerCount: localTrailerCount,
-        user: user,
-        seriesId: seriesId,
-        seriesName: seriesName,
-        seasonId: seasonId,
-        seasonName: seasonName,
-        indexNumber: indexNumber,
-        parentIndexNumber: parentIndexNumber,
-        childCount: childCount,
-        libraryType: libraryType,
-        streams: streams,
-        primary: primary,
-        backdrops: backdrops,
-        logo: logo,
-        thumb: thumb,
-        parentBackdrop: parentBackdrop,
-        parentThumb: parentThumb,
-        seriesPrimary: seriesPrimary,
-        primaryAspectRatio: primaryAspectRatio,
-        isFolder: isFolder,
-      );
+    id: id,
+    name: name,
+    kind: kind,
+    originalTitle: originalTitle,
+    overview: overview,
+    tagline: tagline,
+    year: year,
+    premiereDate: premiereDate,
+    endDate: endDate,
+    status: status,
+    runTimeTicks: runTimeTicks,
+    communityRating: communityRating,
+    criticRating: criticRating,
+    officialRating: officialRating,
+    genres: genres,
+    studios: studios,
+    people: people,
+    trailers: trailers,
+    localTrailerCount: localTrailerCount,
+    user: user,
+    seriesId: seriesId,
+    seriesName: seriesName,
+    seasonId: seasonId,
+    seasonName: seasonName,
+    indexNumber: indexNumber,
+    parentIndexNumber: parentIndexNumber,
+    childCount: childCount,
+    libraryType: libraryType,
+    streams: streams,
+    primary: primary,
+    backdrops: backdrops,
+    logo: logo,
+    thumb: thumb,
+    parentBackdrop: parentBackdrop,
+    parentThumb: parentThumb,
+    seriesPrimary: seriesPrimary,
+    primaryAspectRatio: primaryAspectRatio,
+    isFolder: isFolder,
+  );
 }

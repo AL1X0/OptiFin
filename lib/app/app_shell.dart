@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:optifin_native_player/optifin_native_player.dart' show NativeGlassView;
 
 import '../core/design_system/design_system.dart';
+import 'router.dart';
 
 class _Tab {
   const _Tab(this.label, this.icon, this.selectedIcon);
@@ -38,10 +39,225 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (OFDevice.tv) return _TvShell(shell: shell);
     return Scaffold(
       extendBody: true,
       body: shell,
       bottomNavigationBar: _FloatingTabBar(current: shell.currentIndex, onSelect: _select),
+    );
+  }
+}
+
+/// Coquille TV : menu en pilule en haut (comme l'Apple TV) ; l'image occupe tout l'écran et
+/// les pages reçoivent une marge haute pour ne pas passer sous le menu.
+///
+/// Chaque onglet a sa propre zone de focus : ▲ tout en haut d'une page n'y trouve rien. La
+/// coquille prend alors le relais et remonte dans le menu (sur l'onglet ouvert) ; ▼ depuis
+/// le menu redescend dans la page, sur l'élément qui avait le focus.
+class _TvShell extends StatefulWidget {
+  const _TvShell({required this.shell});
+
+  final StatefulNavigationShell shell;
+
+  @override
+  State<_TvShell> createState() => _TvShellState();
+}
+
+class _TvShellState extends State<_TvShell> {
+  final _content = FocusScopeNode(debugLabel: 'page');
+  final _tabs = List.generate(4, (i) => FocusNode(debugLabel: 'onglet $i'));
+
+  @override
+  void dispose() {
+    _content.dispose();
+    for (final n in _tabs) {
+      n.dispose();
+    }
+    super.dispose();
+  }
+
+  KeyEventResult _fromContent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.arrowUp) return KeyEventResult.ignored;
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == null || _tabs.contains(primary)) return KeyEventResult.ignored;
+    if (primary.focusInDirection(TraversalDirection.up)) return KeyEventResult.handled;
+    _tabs[widget.shell.currentIndex.clamp(0, 2)].requestFocus();
+    return KeyEventResult.handled;
+  }
+
+  KeyEventResult _fromMenu(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.arrowDown) return KeyEventResult.ignored;
+    if (!_tabs.contains(FocusManager.instance.primaryFocus)) return KeyEventResult.ignored;
+    // Dernier élément focalisé de la page, sinon son premier élément.
+    var target = _content.focusedChild;
+    while (target is FocusScopeNode && target.focusedChild != null) {
+      target = target.focusedChild;
+    }
+    if (target != null && target is! FocusScopeNode) {
+      target.requestFocus();
+    } else {
+      (target as FocusScopeNode? ?? _content).nextFocus();
+    }
+    return KeyEventResult.handled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    const barSpace = 76.0;
+    final shell = widget.shell;
+    return Scaffold(
+      body: Stack(
+        children: [
+          Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onKeyEvent: _fromContent,
+            child: FocusScope(
+              node: _content,
+              child: MediaQuery(
+                data: mq.copyWith(
+                  padding: mq.padding.copyWith(top: mq.padding.top + barSpace),
+                  viewPadding: mq.viewPadding.copyWith(top: mq.viewPadding.top + barSpace),
+                ),
+                child: shell,
+              ),
+            ),
+          ),
+          Positioned(
+            top: mq.padding.top + OFSpacing.lg,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Focus(
+                canRequestFocus: false,
+                skipTraversal: true,
+                onKeyEvent: _fromMenu,
+                child: _TvTabBar(
+                  current: shell.currentIndex,
+                  focusNodes: _tabs,
+                  onSelect: (i) {
+                    if (i != shell.currentIndex) shell.goBranch(i);
+                  },
+                  onSettings: () => context.push(Routes.settings),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Menu TV : pilule de verre en haut. Poser le focus sur un onglet l'ouvre (comme sur
+/// l'Apple TV) ; l'onglet focalisé passe en blanc, l'onglet ouvert garde sa pastille.
+/// « Réglages » remplace « Téléchargements » (inutiles sur un téléviseur).
+class _TvTabBar extends StatelessWidget {
+  const _TvTabBar({required this.current, required this.onSelect, required this.onSettings, required this.focusNodes});
+
+  final int current;
+  final List<FocusNode> focusNodes;
+  final ValueChanged<int> onSelect;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return LiquidGlass(
+      shade: 0.5,
+      padding: const EdgeInsets.all(5),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (i, tab) in _tabs.take(3).indexed)
+            _TvTab(
+              icon: i == current ? tab.selectedIcon : tab.icon,
+              label: tab.label,
+              selected: i == current,
+              accent: accent,
+              focusNode: focusNodes[i],
+              onFocus: () => onSelect(i),
+              onSelect: () => onSelect(i),
+            ),
+          _TvTab(
+            icon: Icons.settings_outlined,
+            label: 'Réglages',
+            selected: false,
+            accent: accent,
+            focusNode: focusNodes[3],
+            onSelect: onSettings,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TvTab extends StatefulWidget {
+  const _TvTab({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.accent,
+    required this.onSelect,
+    required this.focusNode,
+    this.onFocus,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onSelect;
+  final VoidCallback? onFocus;
+  final FocusNode focusNode;
+
+  @override
+  State<_TvTab> createState() => _TvTabState();
+}
+
+class _TvTabState extends State<_TvTab> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = OFMotion.of(context);
+    final fg = _focused ? OFColors.background : (widget.selected ? widget.accent : OFColors.textSecondary);
+    return TvFocusable(
+      ring: false,
+      scale: 1.08,
+      focusNode: widget.focusNode,
+      onSelect: widget.onSelect,
+      onFocusChange: (f) {
+        setState(() => _focused = f);
+        if (f) widget.onFocus?.call();
+      },
+      child: AnimatedContainer(
+        duration: motion.fast,
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg + 2),
+        decoration: BoxDecoration(
+          color: _focused
+              ? OFColors.textPrimary
+              : (widget.selected ? const Color(0x24FFFFFF) : const Color(0x00FFFFFF)),
+          borderRadius: const BorderRadius.all(Radius.circular(OFRadius.pill)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(widget.icon, size: 20, color: fg),
+            const SizedBox(width: OFSpacing.sm),
+            Text(
+              widget.label,
+              style: OFTypography.callout.copyWith(
+                color: fg,
+                fontWeight: widget.selected || _focused ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -116,7 +332,7 @@ class _FloatingTabBarState extends State<_FloatingTabBar> with SingleTickerProvi
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
     final accent = Theme.of(context).colorScheme.primary;
-    final tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+    final tablet = OFDevice.large(context);
     final tabWidth = tablet ? 168.0 : 90.0;
     final height = tablet ? 46.0 : 54.0;
     final nativeGlass = NativeGlassView.supported;

@@ -45,7 +45,8 @@ final maxBitrateResolverProvider = Provider<Future<int> Function()>((ref) {
     var cellular = false;
     try {
       final types = await Connectivity().checkConnectivity();
-      cellular = types.contains(ConnectivityResult.mobile) &&
+      cellular =
+          types.contains(ConnectivityResult.mobile) &&
           !types.contains(ConnectivityResult.wifi) &&
           !types.contains(ConnectivityResult.ethernet);
     } catch (_) {

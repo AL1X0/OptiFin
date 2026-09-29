@@ -61,6 +61,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   /// l'accueil et la fiche, puis passe en phase `closed` → on quitte l'écran.
   void _requestClose() => unawaited(ref.read(playerControllerProvider(widget.args).notifier).close());
 
+  final _back = PlayerBack();
+
   void _pop() {
     if (_popped || !mounted) return;
     _popped = true;
@@ -95,7 +97,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _requestClose();
+        // Retour : d'abord le menu (et, sur TV, les contrôles), puis la fermeture du lecteur.
+        if (!didPop && !(_back.handle?.call() ?? false)) _requestClose();
       },
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -131,6 +134,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     fit: _fit,
                     onCycleFit: _cycleFit,
                     onClose: _requestClose,
+                    back: _back,
                     autoPlayNext: ref.watch(settingsProvider).autoPlayNext,
                     debugByDefault: ref.watch(settingsProvider).debugMode,
                   ),
@@ -288,9 +292,13 @@ class PlayerControls extends StatefulWidget {
     required this.fit,
     required this.onCycleFit,
     required this.onClose,
+    this.back,
     this.autoPlayNext = true,
     this.debugByDefault = false,
   });
+
+  /// Bouton Retour : les contrôles le traitent d'abord (menu, et sur TV contrôles affichés).
+  final PlayerBack? back;
 
   /// Mode debug : l'overlay technique est affiché d'emblée.
   final bool debugByDefault;
@@ -305,6 +313,12 @@ class PlayerControls extends StatefulWidget {
 
   @override
   State<PlayerControls> createState() => _PlayerControlsState();
+}
+
+/// Relais du bouton Retour entre l'écran du lecteur et ses contrôles.
+class PlayerBack {
+  /// true si le retour a été consommé (menu fermé, contrôles masqués).
+  bool Function()? handle;
 }
 
 enum _Level { brightness, volume }
@@ -339,11 +353,104 @@ class _PlayerControlsState extends State<PlayerControls> {
   static const _hideAfter = Duration(seconds: 4);
   static const _skip = Duration(seconds: 10);
 
+  /// Racine des touches (télécommande, clavier) quand aucun bouton n'a le focus.
+  final _keys = FocusNode(debugLabel: 'lecteur');
+
+  /// Bouton lecture/pause : le focus y va quand les contrôles apparaissent à la télécommande.
+  final _playFocus = FocusNode(debugLabel: 'lecture/pause');
+
   @override
   void initState() {
     super.initState();
     _scheduleHide();
     unawaited(_readLevels());
+    widget.back?.handle = _handleBack;
+  }
+
+  bool _handleBack() {
+    if (_menu) {
+      _closeMenu();
+      return true;
+    }
+    // TV : Retour masque d'abord les contrôles (comme sur l'Apple TV), puis quitte.
+    if (OFDevice.tv && _visible) {
+      _hide();
+      return true;
+    }
+    return false;
+  }
+
+  void _hide() {
+    _hideTimer?.cancel();
+    setState(() => _visible = false);
+    // Plus aucun bouton visible : les touches reviennent au lecteur.
+    _keys.requestFocus();
+  }
+
+  void _seekBy(Duration delta) {
+    unawaited(widget.controller.seekBy(delta));
+    _feedbackTimer?.cancel();
+    setState(() {
+      final forward = delta > Duration.zero;
+      final previous = _feedback;
+      final count = previous != null && previous.forward == forward ? previous.count + 1 : 1;
+      _feedback = _SeekFeedback(forward: forward, count: count);
+    });
+    _feedbackTimer = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) setState(() => _feedback = null);
+    });
+  }
+
+  /// Télécommande et clavier.
+  /// - touches média : lecture/pause, avance et retour rapides, toujours ;
+  /// - contrôles masqués : OK = lecture/pause, ◀ ▶ = ∓10 s (maintenu : ∓30 s),
+  ///   ▲ ▼ = afficher les contrôles, focus sur lecture/pause ;
+  /// - contrôles affichés : les flèches passent d'un bouton à l'autre (chaque touche
+  ///   repousse leur masquage).
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    final repeat = event is KeyRepeatEvent;
+    if (key == LogicalKeyboardKey.mediaPlayPause ||
+        key == LogicalKeyboardKey.mediaPlay ||
+        key == LogicalKeyboardKey.mediaPause) {
+      if (!repeat) unawaited(widget.controller.togglePlay());
+      _show();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaFastForward || key == LogicalKeyboardKey.mediaRewind) {
+      _seekBy(key == LogicalKeyboardKey.mediaFastForward ? _skip : -_skip);
+      return KeyEventResult.handled;
+    }
+    if (_locked) return KeyEventResult.ignored;
+    if (!_visible && !_menu) {
+      if (key == LogicalKeyboardKey.select || key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.space) {
+        if (!repeat) {
+          unawaited(widget.controller.togglePlay());
+          _show();
+          _playFocus.requestFocus();
+        }
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight) {
+        final step = repeat ? const Duration(seconds: 30) : _skip;
+        _seekBy(key == LogicalKeyboardKey.arrowRight ? step : -step);
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.arrowDown) {
+        _show();
+        _playFocus.requestFocus();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    // Contrôles affichés : navigation normale entre les boutons.
+    if (!_menu) _scheduleHide();
+    if (FocusManager.instance.primaryFocus == _keys) {
+      _playFocus.requestFocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   /// Valeurs de départ des gestes. Plugins absents (tests, plateforme) : valeurs par défaut.
@@ -359,6 +466,9 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   @override
   void dispose() {
+    if (widget.back?.handle == _handleBack) widget.back?.handle = null;
+    _keys.dispose();
+    _playFocus.dispose();
     _hideTimer?.cancel();
     _feedbackTimer?.cancel();
     _unlockTimer?.cancel();
@@ -373,9 +483,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   void _scheduleHide() {
     _hideTimer?.cancel();
     _hideTimer = Timer(_hideAfter, () {
-      if (mounted && widget.engine.snapshot.playing && _scrubbing == null && !_menu) {
-        setState(() => _visible = false);
-      }
+      if (mounted && widget.engine.snapshot.playing && _scrubbing == null && !_menu) _hide();
     });
   }
 
@@ -521,189 +629,198 @@ class _PlayerControlsState extends State<PlayerControls> {
     final ui = widget.state;
     final next = ui.extras.nextEpisode;
     final metrics = _Metrics.of(context);
-    return Listener(
-      // Tout toucher réveille le suivi du verre natif (boutons, menu, barre de progression).
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => NativeGlassScope.maybeOf(context)?.wake(),
-      onPointerMove: (_) => NativeGlassScope.maybeOf(context)?.wake(),
-      onPointerUp: (_) => NativeGlassScope.maybeOf(context)?.wake(),
-      child: BackdropGroup(
-        child: StreamBuilder<PlayerSnapshot>(
-          stream: widget.engine.snapshots,
-          initialData: widget.engine.snapshot,
-          builder: (context, snap) {
-            final s = snap.data ?? const PlayerSnapshot();
-            final showSpinner = s.buffering || s.status == PlaybackStatus.loading || ui.reloading;
-            final padding = MediaQuery.paddingOf(context);
-            final overlayBottom = padding.bottom + (_visible ? metrics.bottomBarClearance : OFSpacing.xxl);
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                // Couche gestes SOUS les contrôles : les boutons reçoivent leurs taps
-                // immédiatement (sinon le détecteur de double-tap les retarde de 300 ms),
-                // les zones vides laissent passer vers cette couche.
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _toggle,
-                  onDoubleTapDown: _doubleTapSeek,
-                  onDoubleTap: () {},
-                  onVerticalDragStart: _levelStart,
-                  onVerticalDragUpdate: _levelUpdate,
-                  onVerticalDragEnd: _levelEnd,
-                  onVerticalDragCancel: _levelEnd,
-                ),
-                if (_feedback != null) IgnorePointer(child: _SeekIndicator(feedback: _feedback!)),
-                if (_level != null)
+    return Focus(
+      focusNode: _keys,
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: Listener(
+        // Tout toucher réveille le suivi du verre natif (boutons, menu, barre de progression).
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => NativeGlassScope.maybeOf(context)?.wake(),
+        onPointerMove: (_) => NativeGlassScope.maybeOf(context)?.wake(),
+        onPointerUp: (_) => NativeGlassScope.maybeOf(context)?.wake(),
+        child: BackdropGroup(
+          child: StreamBuilder<PlayerSnapshot>(
+            stream: widget.engine.snapshots,
+            initialData: widget.engine.snapshot,
+            builder: (context, snap) {
+              final s = snap.data ?? const PlayerSnapshot();
+              final showSpinner = s.buffering || s.status == PlaybackStatus.loading || ui.reloading;
+              final padding = MediaQuery.paddingOf(context);
+              final overlayBottom = padding.bottom + (_visible ? metrics.bottomBarClearance : OFSpacing.xxl);
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Couche gestes SOUS les contrôles : les boutons reçoivent leurs taps
+                  // immédiatement (sinon le détecteur de double-tap les retarde de 300 ms),
+                  // les zones vides laissent passer vers cette couche.
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _toggle,
+                    onDoubleTapDown: _doubleTapSeek,
+                    onDoubleTap: () {},
+                    onVerticalDragStart: _levelStart,
+                    onVerticalDragUpdate: _levelUpdate,
+                    onVerticalDragEnd: _levelEnd,
+                    onVerticalDragCancel: _levelEnd,
+                  ),
+                  if (_feedback != null) IgnorePointer(child: _SeekIndicator(feedback: _feedback!)),
+                  if (_level != null)
+                    IgnorePointer(
+                      child: Align(
+                        alignment: const Alignment(0, -0.7),
+                        child: LevelIndicator(
+                          icon: _level == _Level.brightness ? Icons.brightness_6_rounded : Icons.volume_up_rounded,
+                          value: _level == _Level.brightness ? _brightness : _volume,
+                        ),
+                      ),
+                    ),
+                  if (showSpinner && !_visible) IgnorePointer(child: Center(child: OFLoader.glass())),
                   IgnorePointer(
-                    child: Align(
-                      alignment: const Alignment(0, -0.7),
-                      child: LevelIndicator(
-                        icon: _level == _Level.brightness ? Icons.brightness_6_rounded : Icons.volume_up_rounded,
-                        value: _level == _Level.brightness ? _brightness : _volume,
-                      ),
+                    key: const ValueKey('controles'),
+                    ignoring: !_visible || _locked,
+                    child: AnimatedOpacity(
+                      opacity: _visible && !_locked ? 1 : 0,
+                      duration: motion.standard,
+                      curve: OFMotion.standardCurve,
+                      child: (_visible && !_locked) || motion.enabled
+                          ? _ControlsLayer(
+                              metrics: metrics,
+                              snapshot: s,
+                              scrubbing: _scrubbing,
+                              showSpinner: showSpinner,
+                              debug: _debug,
+                              menuOpen: _menu,
+                              ui: ui,
+                              engine: widget.engine,
+                              fit: widget.fit,
+                              onClose: widget.onClose,
+                              onPlayPause: () {
+                                unawaited(widget.controller.togglePlay());
+                                _show();
+                              },
+                              onSkip: (d) {
+                                unawaited(widget.controller.seekBy(d));
+                                _show();
+                              },
+                              onScrubStart: (p) {
+                                _hideTimer?.cancel();
+                                setState(() => _scrubbing = p);
+                              },
+                              onScrub: (p) => setState(() => _scrubbing = p),
+                              onScrubEnd: (p) {
+                                setState(() => _scrubbing = null);
+                                unawaited(widget.controller.seek(p));
+                                _scheduleHide();
+                              },
+                              onSettings: () => _menu ? _closeMenu() : _openMenu(),
+                              // TV : pas de Picture-in-Picture (lecture en plein écran).
+                              onPictureInPicture: widget.engine.capabilities.pictureInPicture && !OFDevice.tv
+                                  ? _pictureInPicture
+                                  : null,
+                              onCycleFit: () {
+                                widget.onCycleFit();
+                                _show();
+                              },
+                              onToggleDebug: () => setState(() => _debug = !_debug),
+                              playFocus: _playFocus,
+                            )
+                          : const SizedBox.shrink(),
                     ),
                   ),
-                if (showSpinner && !_visible) IgnorePointer(child: Center(child: OFLoader.glass())),
-                IgnorePointer(
-                  key: const ValueKey('controles'),
-                  ignoring: !_visible || _locked,
-                  child: AnimatedOpacity(
-                    opacity: _visible && !_locked ? 1 : 0,
-                    duration: motion.standard,
-                    curve: OFMotion.standardCurve,
-                    child: (_visible && !_locked) || motion.enabled
-                        ? _ControlsLayer(
-                            metrics: metrics,
-                            snapshot: s,
-                            scrubbing: _scrubbing,
-                            showSpinner: showSpinner,
-                            debug: _debug,
-                            menuOpen: _menu,
-                            ui: ui,
-                            engine: widget.engine,
-                            fit: widget.fit,
-                            onClose: widget.onClose,
-                            onPlayPause: () {
-                              unawaited(widget.controller.togglePlay());
-                              _show();
-                            },
-                            onSkip: (d) {
-                              unawaited(widget.controller.seekBy(d));
-                              _show();
-                            },
-                            onScrubStart: (p) {
-                              _hideTimer?.cancel();
-                              setState(() => _scrubbing = p);
-                            },
-                            onScrub: (p) => setState(() => _scrubbing = p),
-                            onScrubEnd: (p) {
-                              setState(() => _scrubbing = null);
-                              unawaited(widget.controller.seek(p));
-                              _scheduleHide();
-                            },
-                            onSettings: () => _menu ? _closeMenu() : _openMenu(),
-                            onPictureInPicture: widget.engine.capabilities.pictureInPicture ? _pictureInPicture : null,
-                            onCycleFit: () {
-                              widget.onCycleFit();
-                              _show();
-                            },
-                            onToggleDebug: () => setState(() => _debug = !_debug),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ),
-                // Menu Réglages : ancré sous son bouton, se déploie depuis le coin.
-                Positioned(
-                  key: const ValueKey('menu'),
-                  top: padding.top + metrics.menuTop,
-                  right: padding.right + metrics.edge,
-                  child: AnimatedSwitcher(
-                    duration: motion.standard,
-                    switchInCurve: OFMotion.emphasizedCurve,
-                    switchOutCurve: OFMotion.standardCurve,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(
-                        scale: Tween(begin: 0.85, end: 1.0).animate(animation),
-                        alignment: Alignment.topRight,
-                        child: child,
-                      ),
-                    ),
-                    child: _menu && !_locked
-                        ? PlayerSettingsMenu(
-                            key: const ValueKey('menu'),
-                            controller: widget.controller,
-                            engine: widget.engine,
-                            debug: _debug,
-                            onDismiss: _closeMenu,
-                            onLock: _lock,
-                            onSearchSubtitles: _searchSubtitles,
-                            // Au-dessus de la barre de progression, qu'il ne recouvre jamais.
-                            maxHeight:
-                                MediaQuery.sizeOf(context).height -
-                                padding.vertical -
-                                metrics.menuTop -
-                                metrics.bottomBarClearance,
-                            onToggleDebug: () => setState(() => _debug = !_debug),
-                          )
-                        : const SizedBox.shrink(key: ValueKey('ferme')),
-                  ),
-                ),
-                // « Passer l'intro » : visible même contrôles masqués (mais pas verrouillé).
-                if (ui.segment != null && !_locked && !ui.upNext && !_menu)
+                  // Menu Réglages : ancré sous son bouton, se déploie depuis le coin.
                   Positioned(
+                    key: const ValueKey('menu'),
+                    top: padding.top + metrics.menuTop,
                     right: padding.right + metrics.edge,
-                    bottom: overlayBottom,
-                    child: FadeSlideIn(
-                      key: ValueKey(ui.segment),
-                      axis: Axis.horizontal,
-                      offset: 32,
-                      child: SkipSegmentButton(segment: ui.segment!, onSkip: widget.controller.skipSegment),
+                    child: AnimatedSwitcher(
+                      duration: motion.standard,
+                      switchInCurve: OFMotion.emphasizedCurve,
+                      switchOutCurve: OFMotion.standardCurve,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween(begin: 0.85, end: 1.0).animate(animation),
+                          alignment: Alignment.topRight,
+                          child: child,
+                        ),
+                      ),
+                      child: _menu && !_locked
+                          ? PlayerSettingsMenu(
+                              key: const ValueKey('menu'),
+                              controller: widget.controller,
+                              engine: widget.engine,
+                              debug: _debug,
+                              onDismiss: _closeMenu,
+                              onLock: _lock,
+                              onSearchSubtitles: _searchSubtitles,
+                              // Au-dessus de la barre de progression, qu'il ne recouvre jamais.
+                              maxHeight:
+                                  MediaQuery.sizeOf(context).height -
+                                  padding.vertical -
+                                  metrics.menuTop -
+                                  metrics.bottomBarClearance,
+                              onToggleDebug: () => setState(() => _debug = !_debug),
+                            )
+                          : const SizedBox.shrink(key: ValueKey('ferme')),
                     ),
                   ),
-                if (ui.upNext && next != null && !_locked && !_menu)
-                  Positioned(
-                    right: padding.right + metrics.edge,
-                    bottom: overlayBottom,
-                    child: FadeSlideIn(
-                      key: ValueKey('suivant-${next.id}'),
-                      axis: Axis.horizontal,
-                      offset: 48,
-                      child: UpNextCard(
-                        key: ValueKey(next.id),
-                        next: next,
-                        autoPlay: widget.autoPlayNext,
-                        onPlay: () => unawaited(widget.controller.playNext()),
-                        onDismiss: widget.controller.dismissUpNext,
+                  // « Passer l'intro » : visible même contrôles masqués (mais pas verrouillé).
+                  if (ui.segment != null && !_locked && !ui.upNext && !_menu)
+                    Positioned(
+                      right: padding.right + metrics.edge,
+                      bottom: overlayBottom,
+                      child: FadeSlideIn(
+                        key: ValueKey(ui.segment),
+                        axis: Axis.horizontal,
+                        offset: 32,
+                        child: SkipSegmentButton(segment: ui.segment!, onSkip: widget.controller.skipSegment),
                       ),
                     ),
-                  ),
-                if (_locked)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: padding.bottom + OFSpacing.xxl,
-                    child: Center(
-                      child: AnimatedOpacity(
-                        opacity: _showUnlock ? 1 : 0,
-                        duration: motion.standard,
-                        child: IgnorePointer(
-                          ignoring: !_showUnlock,
-                          child: OFGlassButton(
-                            label: 'Déverrouiller',
-                            icon: Icons.lock_open_rounded,
-                            iconSize: 22,
-                            size: 48,
-                            showLabel: true,
-                            onPressed: _unlock,
+                  if (ui.upNext && next != null && !_locked && !_menu)
+                    Positioned(
+                      right: padding.right + metrics.edge,
+                      bottom: overlayBottom,
+                      child: FadeSlideIn(
+                        key: ValueKey('suivant-${next.id}'),
+                        axis: Axis.horizontal,
+                        offset: 48,
+                        child: UpNextCard(
+                          key: ValueKey(next.id),
+                          next: next,
+                          autoPlay: widget.autoPlayNext,
+                          onPlay: () => unawaited(widget.controller.playNext()),
+                          onDismiss: widget.controller.dismissUpNext,
+                        ),
+                      ),
+                    ),
+                  if (_locked)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: padding.bottom + OFSpacing.xxl,
+                      child: Center(
+                        child: AnimatedOpacity(
+                          opacity: _showUnlock ? 1 : 0,
+                          duration: motion.standard,
+                          child: IgnorePointer(
+                            ignoring: !_showUnlock,
+                            child: OFGlassButton(
+                              label: 'Déverrouiller',
+                              icon: Icons.lock_open_rounded,
+                              iconSize: 22,
+                              size: 48,
+                              showLabel: true,
+                              onPressed: _unlock,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -714,7 +831,7 @@ class _PlayerControlsState extends State<PlayerControls> {
 class _Metrics {
   const _Metrics({required this.tablet});
 
-  factory _Metrics.of(BuildContext context) => _Metrics(tablet: MediaQuery.sizeOf(context).shortestSide >= 600);
+  factory _Metrics.of(BuildContext context) => _Metrics(tablet: OFDevice.large(context));
 
   final bool tablet;
 
@@ -786,7 +903,11 @@ class _ControlsLayer extends StatelessWidget {
     required this.onPictureInPicture,
     required this.onCycleFit,
     required this.onToggleDebug,
+    required this.playFocus,
   });
+
+  /// Focus du bouton lecture/pause (télécommande).
+  final FocusNode playFocus;
 
   final _Metrics metrics;
   final PlayerSnapshot snapshot;
@@ -922,6 +1043,8 @@ class _ControlsLayer extends StatelessWidget {
                       size: m.play,
                       iconSize: m.play * 0.72,
                       onPressed: onPlayPause,
+                      focusNode: playFocus,
+                      autofocus: OFDevice.tv,
                       child: showSpinner ? OFLoader(size: m.play * 0.42) : null,
                     ),
                     SizedBox(width: m.gap),
@@ -1043,41 +1166,45 @@ class _BareButtonState extends State<_BareButton> {
       label: widget.label,
       excludeSemantics: true,
       onTap: widget.onTap,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => _setPressed(true),
-        onTapCancel: () => _setPressed(false),
-        onTapUp: (_) => _setPressed(false),
-        onTap: () {
-          HapticFeedback.selectionClick();
-          widget.onTap();
-        },
-        // Verre interactif : le bouton gonfle et s'illumine sous le doigt.
-        child: GlassPress(
-          scale: 1.18,
-          child: SizedBox.square(
-            dimension: widget.size,
-            child: Center(
-              child: AnimatedContainer(
-                duration: motion.standard,
-                curve: OFMotion.standardCurve,
-                width: widget.size - 8,
-                height: widget.size - 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.active ? const Color(0x33FFFFFF) : const Color(0x00FFFFFF),
-                ),
-                child: AnimatedSwitcher(
-                  duration: motion.fast,
-                  transitionBuilder: (child, a) => FadeTransition(
-                    opacity: a,
-                    child: RotationTransition(turns: Tween(begin: 0.85, end: 1.0).animate(a), child: child),
+      child: TvFocusable(
+        onSelect: widget.onTap,
+        scale: 1.15,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) => _setPressed(true),
+          onTapCancel: () => _setPressed(false),
+          onTapUp: (_) => _setPressed(false),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            widget.onTap();
+          },
+          // Verre interactif : le bouton gonfle et s'illumine sous le doigt.
+          child: GlassPress(
+            scale: 1.18,
+            child: SizedBox.square(
+              dimension: widget.size,
+              child: Center(
+                child: AnimatedContainer(
+                  duration: motion.standard,
+                  curve: OFMotion.standardCurve,
+                  width: widget.size - 8,
+                  height: widget.size - 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.active ? const Color(0x33FFFFFF) : const Color(0x00FFFFFF),
                   ),
-                  child: Icon(
-                    widget.icon,
-                    key: ValueKey(widget.icon),
-                    size: widget.size * 0.48,
-                    color: OFColors.textPrimary,
+                  child: AnimatedSwitcher(
+                    duration: motion.fast,
+                    transitionBuilder: (child, a) => FadeTransition(
+                      opacity: a,
+                      child: RotationTransition(turns: Tween(begin: 0.85, end: 1.0).animate(a), child: child),
+                    ),
+                    child: Icon(
+                      widget.icon,
+                      key: ValueKey(widget.icon),
+                      size: widget.size * 0.48,
+                      color: OFColors.textPrimary,
+                    ),
                   ),
                 ),
               ),
@@ -1124,6 +1251,19 @@ class Scrubber extends StatefulWidget {
 class _ScrubberState extends State<Scrubber> {
   Duration _last = Duration.zero;
 
+  /// Focalisée à la télécommande : barre épaissie, ◀ ▶ reculent ou avancent.
+  bool _focused = false;
+
+  KeyEventResult _onKey(FocusNode _, KeyEvent event) {
+    if (event is KeyUpEvent || _total <= 0) return KeyEventResult.ignored;
+    final left = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+    if (!left && event.logicalKey != LogicalKeyboardKey.arrowRight) return KeyEventResult.ignored;
+    final step = event is KeyRepeatEvent ? const Duration(seconds: 30) : const Duration(seconds: 10);
+    final target = widget.position + (left ? -step : step);
+    widget.onEnd(target < Duration.zero ? Duration.zero : target);
+    return KeyEventResult.handled;
+  }
+
   int get _total => widget.duration.inMilliseconds;
 
   double _fraction(Duration d) => _total <= 0 ? 0 : (d.inMilliseconds / _total).clamp(0.0, 1.0);
@@ -1150,7 +1290,7 @@ class _ScrubberState extends State<Scrubber> {
     final enabled = _total > 0;
     final played = _fraction(widget.position);
     final buffered = _fraction(widget.buffered);
-    final thickness = widget.scrubbing ? 13.0 : 8.0;
+    final thickness = widget.scrubbing || _focused ? 13.0 : 8.0;
     const step = Duration(seconds: 10);
 
     Widget fill(double fraction, Color color) => Align(
@@ -1175,52 +1315,58 @@ class _ScrubberState extends State<Scrubber> {
           decreasedValue: MediaFormat.clock(widget.position > step ? widget.position - step : Duration.zero),
           onIncrease: enabled ? () => widget.onEnd(widget.position + step) : null,
           onDecrease: enabled ? () => widget.onEnd(widget.position - step) : null,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onHorizontalDragStart: enabled ? (d) => _start(_at(d.localPosition.dx, width)) : null,
-            onHorizontalDragUpdate: enabled ? (d) => _update(_at(d.localPosition.dx, width)) : null,
-            onHorizontalDragEnd: enabled ? (_) => _end() : null,
-            onHorizontalDragCancel: enabled ? _end : null,
-            onTapUp: enabled
-                ? (d) {
-                    _start(_at(d.localPosition.dx, width));
-                    _end();
-                  }
-                : null,
-            child: SizedBox(
-              height: Scrubber._touchHeight,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Center(
-                    child: AnimatedContainer(
-                      duration: motion.fast,
-                      curve: OFMotion.standardCurve,
-                      height: thickness,
-                      child: LiquidGlass(
-                        shade: 0,
-                        rim: false,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [fill(buffered, const Color(0x33FFFFFF)), fill(played, const Color(0xF2FFFFFF))],
+          child: TvFocusable(
+            ring: false,
+            scale: 1,
+            onKeyEvent: _onKey,
+            onFocusChange: (f) => setState(() => _focused = f),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragStart: enabled ? (d) => _start(_at(d.localPosition.dx, width)) : null,
+              onHorizontalDragUpdate: enabled ? (d) => _update(_at(d.localPosition.dx, width)) : null,
+              onHorizontalDragEnd: enabled ? (_) => _end() : null,
+              onHorizontalDragCancel: enabled ? _end : null,
+              onTapUp: enabled
+                  ? (d) {
+                      _start(_at(d.localPosition.dx, width));
+                      _end();
+                    }
+                  : null,
+              child: SizedBox(
+                height: Scrubber._touchHeight,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Center(
+                      child: AnimatedContainer(
+                        duration: motion.fast,
+                        curve: OFMotion.standardCurve,
+                        height: thickness,
+                        child: LiquidGlass(
+                          shade: 0,
+                          rim: false,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [fill(buffered, const Color(0x33FFFFFF)), fill(played, const Color(0xF2FFFFFF))],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  if (widget.preview != null)
-                    Positioned(
-                      bottom: Scrubber._touchHeight + 4,
-                      left: 0,
-                      right: 0,
-                      child: IgnorePointer(
-                        child: Align(
-                          // Centré sur le doigt, sans déborder de l'écran.
-                          alignment: Alignment(played * 2 - 1, 1),
-                          child: widget.preview,
+                    if (widget.preview != null)
+                      Positioned(
+                        bottom: Scrubber._touchHeight + 4,
+                        left: 0,
+                        right: 0,
+                        child: IgnorePointer(
+                          child: Align(
+                            // Centré sur le doigt, sans déborder de l'écran.
+                            alignment: Alignment(played * 2 - 1, 1),
+                            child: widget.preview,
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1240,6 +1386,8 @@ class _PlainButton extends StatefulWidget {
     required this.size,
     required this.iconSize,
     this.child,
+    this.focusNode,
+    this.autofocus = false,
   });
 
   final IconData icon;
@@ -1247,6 +1395,8 @@ class _PlainButton extends StatefulWidget {
   final VoidCallback onPressed;
   final double size;
   final double iconSize;
+  final FocusNode? focusNode;
+  final bool autofocus;
 
   /// Contenu à la place de l'icône (indicateur de chargement).
   final Widget? child;
@@ -1272,33 +1422,40 @@ class _PlainButtonState extends State<_PlainButton> {
       label: widget.label,
       excludeSemantics: true,
       onTap: widget.onPressed,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => _setPressed(true),
-        onTapCancel: () => _setPressed(false),
-        onTapUp: (_) => _setPressed(false),
-        onTap: () {
-          HapticFeedback.selectionClick();
-          widget.onPressed();
-        },
-        child: AnimatedScale(
-          scale: _pressed ? 0.86 : 1,
-          duration: motion.fast,
-          curve: OFMotion.fastCurve,
-          child: SizedBox.square(
-            dimension: widget.size,
-            child: Center(
-              child: AnimatedSwitcher(
-                duration: motion.fast,
-                child:
-                    widget.child ??
-                    Icon(
-                      widget.icon,
-                      key: ValueKey(widget.icon),
-                      size: widget.iconSize,
-                      color: OFColors.textPrimary,
-                      shadows: _shadow,
-                    ),
+      // Télécommande : cercle lumineux autour de l'icône focalisée.
+      child: TvFocusable(
+        onSelect: widget.onPressed,
+        focusNode: widget.focusNode,
+        autofocus: widget.autofocus,
+        scale: 1.12,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) => _setPressed(true),
+          onTapCancel: () => _setPressed(false),
+          onTapUp: (_) => _setPressed(false),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            widget.onPressed();
+          },
+          child: AnimatedScale(
+            scale: _pressed ? 0.86 : 1,
+            duration: motion.fast,
+            curve: OFMotion.fastCurve,
+            child: SizedBox.square(
+              dimension: widget.size,
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: motion.fast,
+                  child:
+                      widget.child ??
+                      Icon(
+                        widget.icon,
+                        key: ValueKey(widget.icon),
+                        size: widget.iconSize,
+                        color: OFColors.textPrimary,
+                        shadows: _shadow,
+                      ),
+                ),
               ),
             ),
           ),

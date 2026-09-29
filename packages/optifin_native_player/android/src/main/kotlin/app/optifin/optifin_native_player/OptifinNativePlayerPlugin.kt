@@ -88,6 +88,8 @@ class OptifinNativePlayerPlugin :
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            // Téléviseur : mode d'interface TV, fonctionnalité leanback ou Fire TV.
+            "isTelevision" -> result.success(isTelevision())
             "capabilities" -> result.success(
                 CapabilitiesProbe.probe(context) + mapOf("pictureInPicture" to pipSupported(), "airPlay" to false),
             )
@@ -122,6 +124,14 @@ class OptifinNativePlayerPlugin :
                 else -> Rational(w, h)
             }
         }
+    }
+
+    private fun isTelevision(): Boolean {
+        val uiMode = context.getSystemService(Context.UI_MODE_SERVICE) as? android.app.UiModeManager
+        val pm = context.packageManager
+        return uiMode?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+            pm.hasSystemFeature("android.software.leanback") ||
+            pm.hasSystemFeature("amazon.hardware.fire_tv")
     }
 
     private fun pipSupported(): Boolean =

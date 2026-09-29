@@ -132,8 +132,7 @@ void paintScene(Canvas c, Size size, Scene scene, {int variant = 0}) {
   // Ciel.
   c.drawRect(
     Offset.zero & size,
-    Paint()
-      ..shader = ui.Gradient.linear(Offset.zero, Offset(0, horizon), p.sky, [0, 0.55, 1]),
+    Paint()..shader = ui.Gradient.linear(Offset.zero, Offset(0, horizon), p.sky, [0, 0.55, 1]),
   );
   // Bas de l'image (sous l'horizon) : prolonge le ciel assombri.
   c.drawRect(Rect.fromLTRB(0, horizon, w, h), Paint()..color = p.layers.last);
@@ -151,7 +150,10 @@ void paintScene(Canvas c, Size size, Scene scene, {int variant = 0}) {
     light,
     unit * 0.9,
     Paint()
-      ..shader = ui.Gradient.radial(light, unit * 0.9, [p.light.withValues(alpha: p.night ? 0.22 : 0.45), p.light.withValues(alpha: 0)]),
+      ..shader = ui.Gradient.radial(light, unit * 0.9, [
+        p.light.withValues(alpha: p.night ? 0.22 : 0.45),
+        p.light.withValues(alpha: 0),
+      ]),
   );
   if (scene != Scene.aurora && scene != Scene.storm) {
     c.drawCircle(light, unit * (p.night ? 0.05 : 0.08), Paint()..color = p.light);
@@ -225,7 +227,10 @@ void _nebula(Canvas c, Size s, math.Random r) {
       rad,
       Paint()
         ..blendMode = BlendMode.plus
-        ..shader = ui.Gradient.radial(o, rad, [colors[i % 4].withValues(alpha: 0.28), colors[i % 4].withValues(alpha: 0)]),
+        ..shader = ui.Gradient.radial(o, rad, [
+          colors[i % 4].withValues(alpha: 0.28),
+          colors[i % 4].withValues(alpha: 0),
+        ]),
     );
   }
 }
@@ -249,11 +254,10 @@ void _aurora(Canvas c, Size s, math.Random r) {
       Paint()
         ..blendMode = BlendMode.plus
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, s.width * 0.012)
-        ..shader = ui.Gradient.linear(
-          Offset(0, base),
-          Offset(0, base + s.height * 0.3),
-          [color.withValues(alpha: 0.26), color.withValues(alpha: 0)],
-        ),
+        ..shader = ui.Gradient.linear(Offset(0, base), Offset(0, base + s.height * 0.3), [
+          color.withValues(alpha: 0.26),
+          color.withValues(alpha: 0),
+        ]),
     );
   }
 }
@@ -262,7 +266,11 @@ void _clouds(Canvas c, Size s, math.Random r) {
   for (var i = 0; i < 18; i++) {
     final o = Offset(r.nextDouble() * s.width, s.height * (0.05 + r.nextDouble() * 0.4));
     c.drawOval(
-      Rect.fromCenter(center: o, width: s.width * (0.3 + r.nextDouble() * 0.4), height: s.height * (0.08 + r.nextDouble() * 0.1)),
+      Rect.fromCenter(
+        center: o,
+        width: s.width * (0.3 + r.nextDouble() * 0.4),
+        height: s.height * (0.08 + r.nextDouble() * 0.1),
+      ),
       Paint()
         ..color = Color.lerp(const Color(0xFF2A3A48), const Color(0xFF55697A), r.nextDouble())!.withValues(alpha: 0.7)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, s.width * 0.03),
@@ -329,11 +337,10 @@ void _ridges(
     c.drawPath(
       path,
       Paint()
-        ..shader = ui.Gradient.linear(
-          Offset(0, top),
-          Offset(0, base + s.height * 0.2),
-          [Color.lerp(layers[i], light ?? layers[i], smooth ? 0.25 : (snow ? 0.12 : 0.1))!, layers[i]],
-        ),
+        ..shader = ui.Gradient.linear(Offset(0, top), Offset(0, base + s.height * 0.2), [
+          Color.lerp(layers[i], light ?? layers[i], smooth ? 0.25 : (snow ? 0.12 : 0.1))!,
+          layers[i],
+        ]),
     );
     if (snow && i == 0) {
       c.drawPath(path, Paint()..color = const Color(0xFFBFD9E6).withValues(alpha: 0.12));
@@ -365,11 +372,10 @@ void _mesas(Canvas c, Size s, math.Random r, List<Color> layers, double horizon)
     c.drawPath(
       path,
       Paint()
-        ..shader = ui.Gradient.linear(
-          Offset(0, base - s.height * 0.25),
-          Offset(0, s.height),
-          [Color.lerp(layers[i], const Color(0xFFFFC080), 0.25)!, layers[i]],
-        ),
+        ..shader = ui.Gradient.linear(Offset(0, base - s.height * 0.25), Offset(0, s.height), [
+          Color.lerp(layers[i], const Color(0xFFFFC080), 0.25)!,
+          layers[i],
+        ]),
     );
   }
 }
@@ -426,8 +432,9 @@ void _city(Canvas c, Size s, math.Random r, List<Color> layers, double horizon) 
       for (var wy = rect.top + step; wy < base - step; wy += step * 1.8) {
         for (var wx = rect.left + step * 0.6; wx < rect.right - step; wx += step * 1.4) {
           if (r.nextDouble() < 0.28) {
-            win.color = (r.nextDouble() < 0.8 ? const Color(0xFFFFE2A8) : neon[r.nextInt(4)])
-                .withValues(alpha: 0.35 + depth * 0.4);
+            win.color = (r.nextDouble() < 0.8 ? const Color(0xFFFFE2A8) : neon[r.nextInt(4)]).withValues(
+              alpha: 0.35 + depth * 0.4,
+            );
             c.drawRect(Rect.fromLTWH(wx, wy, step * 0.6, step * 0.8), win);
           }
         }
@@ -467,7 +474,10 @@ void _water(Canvas c, Size s, math.Random r, double horizon, Color light, Color 
     final spread = s.width * (0.04 + t * 0.2);
     final x = s.width * 0.62 + (r.nextDouble() - 0.5) * spread * 2;
     paint.color = light.withValues(alpha: (1 - t) * 0.5 * r.nextDouble());
-    c.drawRect(Rect.fromCenter(center: Offset(x, y), width: s.width * (0.01 + r.nextDouble() * 0.05), height: 1.5 + t * 2), paint);
+    c.drawRect(
+      Rect.fromCenter(center: Offset(x, y), width: s.width * (0.01 + r.nextDouble() * 0.05), height: 1.5 + t * 2),
+      paint,
+    );
   }
   if (rough) {
     for (var i = 0; i < 60; i++) {
@@ -563,8 +573,10 @@ TextStyle titleStyle(Scene scene, double size) => switch (scene) {
   ),
 };
 
-String _titleCase(Scene scene, String title) =>
-    switch (scene) { Scene.ocean || Scene.arctic || Scene.aurora || Scene.forest => title, _ => title.toUpperCase() };
+String _titleCase(Scene scene, String title) => switch (scene) {
+  Scene.ocean || Scene.arctic || Scene.aurora || Scene.forest => title,
+  _ => title.toUpperCase(),
+};
 
 // ------------------------------------------------------------------ Rendu
 
@@ -589,11 +601,10 @@ Future<Uint8List> renderPoster(Scene scene, String title, {String? tagline, int 
       c.drawRect(
         Offset.zero & s,
         Paint()
-          ..shader = ui.Gradient.linear(
-            Offset(0, s.height * 0.45),
-            Offset(0, s.height),
-            [const Color(0x00000000), const Color(0xE6000000)],
-          ),
+          ..shader = ui.Gradient.linear(Offset(0, s.height * 0.45), Offset(0, s.height), [
+            const Color(0x00000000),
+            const Color(0xE6000000),
+          ]),
       );
       if (tagline != null) {
         _text(
@@ -613,7 +624,9 @@ Future<Uint8List> renderPoster(Scene scene, String title, {String? tagline, int 
       );
       _text(
         c,
-        series ? 'UNE SÉRIE ORIGINALE   ·   PRODUCTIONS OPTIFIN   ·   TOUS LES ÉPISODES' : 'UN FILM DE CAMILLE ARNAUD   ·   PRODUCTIONS OPTIFIN   ·   BIENTÔT',
+        series
+            ? 'UNE SÉRIE ORIGINALE   ·   PRODUCTIONS OPTIFIN   ·   TOUS LES ÉPISODES'
+            : 'UN FILM DE CAMILLE ARNAUD   ·   PRODUCTIONS OPTIFIN   ·   BIENTÔT',
         center: Offset(s.width / 2, s.height * 0.95),
         maxWidth: s.width * 0.9,
         style: const TextStyle(fontFamily: fontSans, fontSize: 9, letterSpacing: 1.6, color: Color(0x99FFFFFF)),
@@ -627,9 +640,10 @@ Future<Uint8List> renderLogo(Scene scene, String title) => _render(1000, 300, (c
     _titleCase(scene, title),
     center: s.center(Offset.zero),
     maxWidth: s.width * 0.96,
-    style: titleStyle(scene, title.length > 14 ? 96 : 118).copyWith(
-      shadows: const [Shadow(color: Color(0x80000000), blurRadius: 24)],
-    ),
+    style: titleStyle(
+      scene,
+      title.length > 14 ? 96 : 118,
+    ).copyWith(shadows: const [Shadow(color: Color(0x80000000), blurRadius: 24)]),
   );
 });
 
@@ -643,7 +657,10 @@ Future<Uint8List> renderPortrait(double hue) => _render(400, 400, (c, s) {
   );
   final skin = Paint()..color = const Color(0xFF0E0C12).withValues(alpha: 0.82);
   c.drawCircle(Offset(s.width / 2, s.height * 0.42), s.width * 0.17, skin);
-  c.drawOval(Rect.fromCenter(center: Offset(s.width / 2, s.height * 0.98), width: s.width * 0.78, height: s.height * 0.62), skin);
+  c.drawOval(
+    Rect.fromCenter(center: Offset(s.width / 2, s.height * 0.98), width: s.width * 0.78, height: s.height * 0.62),
+    skin,
+  );
 });
 
 /// Vignette de bibliothèque : paysage + nom.
@@ -655,6 +672,12 @@ Future<Uint8List> renderLibrary(Scene scene, String name) => _render(800, 450, (
     name.toUpperCase(),
     center: s.center(Offset.zero),
     maxWidth: s.width * 0.9,
-    style: const TextStyle(fontFamily: fontSans, fontSize: 56, fontWeight: FontWeight.w800, letterSpacing: 10, color: Color(0xFFFFFFFF)),
+    style: const TextStyle(
+      fontFamily: fontSans,
+      fontSize: 56,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 10,
+      color: Color(0xFFFFFFFF),
+    ),
   );
 });

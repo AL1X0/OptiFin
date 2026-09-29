@@ -47,10 +47,10 @@ class AppLog extends ChangeNotifier {
   static void i(String tag, String message) => instance.add(LogLevel.info, tag, message);
   static void w(String tag, String message) => instance.add(LogLevel.warning, tag, message);
   static void e(String tag, String message, [Object? error, StackTrace? stack]) => instance.add(
-        LogLevel.error,
-        tag,
-        [message, if (error != null) '$error', if (stack != null) _shortStack(stack)].join('\n'),
-      );
+    LogLevel.error,
+    tag,
+    [message, if (error != null) '$error', if (stack != null) _shortStack(stack)].join('\n'),
+  );
 
   void add(LogLevel level, String tag, String message) {
     if (level == LogLevel.debug && !verbose) return;

@@ -46,16 +46,17 @@ String? resolutionLabel(int? width, int? height) {
 }
 
 String? channelsLabel(int channels) => switch (channels) {
-      <= 0 => null,
-      1 => null,
-      2 => null, // stéréo : pas de badge, c'est la norme
-      6 => '5.1',
-      8 => '7.1',
-      _ => null,
-    };
+  <= 0 => null,
+  1 => null,
+  2 => null, // stéréo : pas de badge, c'est la norme
+  6 => '5.1',
+  8 => '7.1',
+  _ => null,
+};
 
 String? _bestAudioLabel(List<StreamSummary> audios) {
-  int rank(String label) => const ['Atmos', 'DTS:X', 'TrueHD', 'DTS-HD MA', 'DTS', 'Dolby Digital+', 'Dolby Digital'].indexOf(label);
+  int rank(String label) =>
+      const ['Atmos', 'DTS:X', 'TrueHD', 'DTS-HD MA', 'DTS', 'Dolby Digital+', 'Dolby Digital'].indexOf(label);
 
   String? best;
   for (final a in audios) {

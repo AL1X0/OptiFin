@@ -30,7 +30,8 @@ abstract final class MediaMapper {
           )
         : null;
 
-    final logo = own(ImageKind.logo, 'Logo', blur?.logo) ??
+    final logo =
+        own(ImageKind.logo, 'Logo', blur?.logo) ??
         (dto.parentLogoItemId != null && dto.parentLogoImageTag != null
             ? ImageRef(
                 itemId: dto.parentLogoItemId!,
@@ -48,8 +49,8 @@ abstract final class MediaMapper {
             blurHash: blurOf(blur?.thumb, dto.parentThumbImageTag),
           )
         : (dto.seriesId != null && dto.seriesThumbImageTag != null
-            ? ImageRef(itemId: dto.seriesId!, type: ImageKind.thumb, tag: dto.seriesThumbImageTag!)
-            : null);
+              ? ImageRef(itemId: dto.seriesId!, type: ImageKind.thumb, tag: dto.seriesThumbImageTag!)
+              : null);
 
     final seriesPrimary = dto.seriesId != null && dto.seriesPrimaryImageTag != null
         ? ImageRef(
@@ -135,52 +136,52 @@ abstract final class MediaMapper {
   }
 
   static MediaKind kindOf(BaseItemDtoType? type) => switch (type) {
-        BaseItemDtoType.movie => MediaKind.movie,
-        BaseItemDtoType.series => MediaKind.series,
-        BaseItemDtoType.season => MediaKind.season,
-        BaseItemDtoType.episode => MediaKind.episode,
-        BaseItemDtoType.boxSet => MediaKind.boxSet,
-        BaseItemDtoType.folder || BaseItemDtoType.aggregateFolder => MediaKind.folder,
-        BaseItemDtoType.collectionFolder || BaseItemDtoType.userView => MediaKind.collectionFolder,
-        BaseItemDtoType.person => MediaKind.person,
-        BaseItemDtoType.musicAlbum => MediaKind.musicAlbum,
-        BaseItemDtoType.musicArtist => MediaKind.musicArtist,
-        BaseItemDtoType.audio || BaseItemDtoType.audioBook => MediaKind.audio,
-        BaseItemDtoType.playlist => MediaKind.playlist,
-        BaseItemDtoType.video => MediaKind.video,
-        BaseItemDtoType.musicVideo => MediaKind.musicVideo,
-        BaseItemDtoType.photo => MediaKind.photo,
-        BaseItemDtoType.photoAlbum => MediaKind.photoAlbum,
-        BaseItemDtoType.trailer => MediaKind.trailer,
-        BaseItemDtoType.tvChannel || BaseItemDtoType.liveTvChannel => MediaKind.tvChannel,
-        _ => MediaKind.other,
-      };
+    BaseItemDtoType.movie => MediaKind.movie,
+    BaseItemDtoType.series => MediaKind.series,
+    BaseItemDtoType.season => MediaKind.season,
+    BaseItemDtoType.episode => MediaKind.episode,
+    BaseItemDtoType.boxSet => MediaKind.boxSet,
+    BaseItemDtoType.folder || BaseItemDtoType.aggregateFolder => MediaKind.folder,
+    BaseItemDtoType.collectionFolder || BaseItemDtoType.userView => MediaKind.collectionFolder,
+    BaseItemDtoType.person => MediaKind.person,
+    BaseItemDtoType.musicAlbum => MediaKind.musicAlbum,
+    BaseItemDtoType.musicArtist => MediaKind.musicArtist,
+    BaseItemDtoType.audio || BaseItemDtoType.audioBook => MediaKind.audio,
+    BaseItemDtoType.playlist => MediaKind.playlist,
+    BaseItemDtoType.video => MediaKind.video,
+    BaseItemDtoType.musicVideo => MediaKind.musicVideo,
+    BaseItemDtoType.photo => MediaKind.photo,
+    BaseItemDtoType.photoAlbum => MediaKind.photoAlbum,
+    BaseItemDtoType.trailer => MediaKind.trailer,
+    BaseItemDtoType.tvChannel || BaseItemDtoType.liveTvChannel => MediaKind.tvChannel,
+    _ => MediaKind.other,
+  };
 
   static LibraryType? libraryTypeOf(BaseItemDtoCollectionType? type) => switch (type) {
-        null => null,
-        BaseItemDtoCollectionType.movies => LibraryType.movies,
-        BaseItemDtoCollectionType.tvshows => LibraryType.tvshows,
-        BaseItemDtoCollectionType.music => LibraryType.music,
-        BaseItemDtoCollectionType.musicvideos => LibraryType.musicvideos,
-        BaseItemDtoCollectionType.homevideos => LibraryType.homevideos,
-        BaseItemDtoCollectionType.boxsets => LibraryType.boxsets,
-        BaseItemDtoCollectionType.books => LibraryType.books,
-        BaseItemDtoCollectionType.photos => LibraryType.photos,
-        BaseItemDtoCollectionType.livetv => LibraryType.livetv,
-        BaseItemDtoCollectionType.playlists => LibraryType.playlists,
-        BaseItemDtoCollectionType.folders => LibraryType.folders,
-        _ => LibraryType.unknown,
-      };
+    null => null,
+    BaseItemDtoCollectionType.movies => LibraryType.movies,
+    BaseItemDtoCollectionType.tvshows => LibraryType.tvshows,
+    BaseItemDtoCollectionType.music => LibraryType.music,
+    BaseItemDtoCollectionType.musicvideos => LibraryType.musicvideos,
+    BaseItemDtoCollectionType.homevideos => LibraryType.homevideos,
+    BaseItemDtoCollectionType.boxsets => LibraryType.boxsets,
+    BaseItemDtoCollectionType.books => LibraryType.books,
+    BaseItemDtoCollectionType.photos => LibraryType.photos,
+    BaseItemDtoCollectionType.livetv => LibraryType.livetv,
+    BaseItemDtoCollectionType.playlists => LibraryType.playlists,
+    BaseItemDtoCollectionType.folders => LibraryType.folders,
+    _ => LibraryType.unknown,
+  };
 
   static PersonKind _personKind(BaseItemPersonType? t) => switch (t) {
-        BaseItemPersonType.actor => PersonKind.actor,
-        BaseItemPersonType.guestStar => PersonKind.guestStar,
-        BaseItemPersonType.director => PersonKind.director,
-        BaseItemPersonType.writer => PersonKind.writer,
-        BaseItemPersonType.producer => PersonKind.producer,
-        BaseItemPersonType.composer => PersonKind.composer,
-        _ => PersonKind.other,
-      };
+    BaseItemPersonType.actor => PersonKind.actor,
+    BaseItemPersonType.guestStar => PersonKind.guestStar,
+    BaseItemPersonType.director => PersonKind.director,
+    BaseItemPersonType.writer => PersonKind.writer,
+    BaseItemPersonType.producer => PersonKind.producer,
+    BaseItemPersonType.composer => PersonKind.composer,
+    _ => PersonKind.other,
+  };
 
   /// Flux de la première source (ou de l'élément si MediaSources n'est pas demandé).
   static List<StreamSummary> _streams(BaseItemDto dto) {
@@ -212,19 +213,18 @@ abstract final class MediaMapper {
   }
 
   static VideoRange videoRangeOf(MediaStreamVideoRangeType? t) => switch (t) {
-        MediaStreamVideoRangeType.dovi ||
-        MediaStreamVideoRangeType.doviWithHdr10 ||
-        MediaStreamVideoRangeType.doviWithHlg ||
-        MediaStreamVideoRangeType.doviWithSdr ||
-        MediaStreamVideoRangeType.doviWithEl ||
-        MediaStreamVideoRangeType.doviWithHdr10Plus ||
-        MediaStreamVideoRangeType.doviWithElhdr10Plus =>
-          VideoRange.dolbyVision,
-        MediaStreamVideoRangeType.hdr10Plus => VideoRange.hdr10Plus,
-        MediaStreamVideoRangeType.hdr10 => VideoRange.hdr10,
-        MediaStreamVideoRangeType.hlg => VideoRange.hlg,
-        _ => VideoRange.sdr,
-      };
+    MediaStreamVideoRangeType.dovi ||
+    MediaStreamVideoRangeType.doviWithHdr10 ||
+    MediaStreamVideoRangeType.doviWithHlg ||
+    MediaStreamVideoRangeType.doviWithSdr ||
+    MediaStreamVideoRangeType.doviWithEl ||
+    MediaStreamVideoRangeType.doviWithHdr10Plus ||
+    MediaStreamVideoRangeType.doviWithElhdr10Plus => VideoRange.dolbyVision,
+    MediaStreamVideoRangeType.hdr10Plus => VideoRange.hdr10Plus,
+    MediaStreamVideoRangeType.hdr10 => VideoRange.hdr10,
+    MediaStreamVideoRangeType.hlg => VideoRange.hlg,
+    _ => VideoRange.sdr,
+  };
 
   /// Retire les balises HTML parfois présentes dans les synopsis.
   static String? _clean(String? text) {

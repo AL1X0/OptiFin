@@ -334,3 +334,22 @@ les GIF et la galerie de captures sont supprimés.
    l'accueil, transition plus courte ; chronométrage de chaque étape dans les journaux (« Démarrage +N ms »).
 6. **Fiche** : bouton Lecture et boutons ronds jamais sur deux lignes d'icônes : tout sur une ligne si la largeur
    le permet, sinon Lecture sur toute la largeur et les icônes sur une seule ligne en dessous.
+
+## Android TV (2026-09-29)
+
+Même APK que les téléphones : `OFDevice.tv` est fixé au démarrage (mode d'interface TV, fonctionnalité
+`leanback` ou Fire TV) et bascule l'interface.
+
+1. **Manifeste** : entrée `LEANBACK_LAUNCHER`, bannière 320 × 180 (`demo/tv_banner_test.dart`), écran tactile et
+   leanback facultatifs. Les APK de toutes les architectures (dont 32 bits : Fire TV, Chromecast) sont publiés.
+2. **Menu en haut** : pilule de verre (Accueil, Bibliothèques, Recherche, Réglages ; pas de Téléchargements) ;
+   poser le focus sur un onglet l'ouvre. ▲ en haut d'une page remonte dans le menu, ▼ y redescend.
+3. **Focus télécommande** (`TvFocusable`, cartes) : flèches pour se déplacer, OK pour activer, surbrillance
+   (zoom, liseré, carte soulevée) uniquement quand le focus vient de la télécommande ou d'un clavier ; rangées non
+   rognées sur TV ; focus initial sur « Lecture » (accueil, fiche) ; première flèche = premier élément si rien
+   n'a le focus.
+4. **Carrousel** : ◀ sur « Lecture » / ▶ sur « Infos » changent de titre ; pas de défilement automatique.
+5. **Lecteur** : contrôles masqués, OK = lecture/pause, ◀ ▶ = ∓10 s (maintenu : ∓30 s), ▲ ▼ = contrôles ;
+   touches média ; barre de progression pilotable ; menu Réglages focalisé sur sa première ligne ; Retour
+   ferme le menu, puis masque les contrôles, puis quitte. Pas de verrou ni de Picture-in-Picture sur TV.
+6. **Rendu** vérifié à 960 × 540 (1080p) avec une télécommande simulée : `demo/tv_audit_test.dart`.

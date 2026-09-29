@@ -140,11 +140,8 @@ class _KenBurnsState extends State<_KenBurns> with SingleTickerProviderStateMixi
   Widget build(BuildContext context) => ClipRect(
     child: AnimatedBuilder(
       animation: _c,
-      builder: (context, child) => Transform.scale(
-        scale: 1.02 + _c.value * 0.1,
-        alignment: Alignment(-0.3 + _c.value * 0.6, 0),
-        child: child,
-      ),
+      builder: (context, child) =>
+          Transform.scale(scale: 1.02 + _c.value * 0.1, alignment: Alignment(-0.3 + _c.value * 0.6, 0), child: child),
       child: SizedBox.expand(
         child: Image(image: widget.image, fit: BoxFit.cover, gaplessPlayback: true),
       ),
