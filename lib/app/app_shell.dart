@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:optifin_native_player/optifin_native_player.dart' show NativeGlassView;
 
 import '../core/design_system/design_system.dart';
@@ -46,58 +46,162 @@ class AppShell extends StatelessWidget {
   }
 }
 
-/// Pilule flottante : icône au-dessus du libellé sur téléphone (portrait comme paysage),
-/// côte à côte sur tablette. L'onglet actif est posé sur une pastille claire.
-class _FloatingTabBar extends StatelessWidget {
+/// Pilule flottante façon iOS 26 : l'onglet actif est une « lentille » de verre qui glisse
+/// d'un onglet à l'autre avec un ressort, s'étire avec la vitesse et grossit ce qu'elle
+/// survole. On peut aussi la faire glisser du doigt : relâchée, elle se pose sur l'onglet
+/// le plus proche. Icône au-dessus du libellé sur téléphone, côte à côte sur tablette.
+class _FloatingTabBar extends StatefulWidget {
   const _FloatingTabBar({required this.current, required this.onSelect});
 
   final int current;
   final ValueChanged<int> onSelect;
 
   @override
+  State<_FloatingTabBar> createState() => _FloatingTabBarState();
+}
+
+class _FloatingTabBarState extends State<_FloatingTabBar> with SingleTickerProviderStateMixin {
+  /// Position de la lentille, en onglets (0 = premier onglet).
+  late final _lens = AnimationController.unbounded(vsync: this, value: widget.current.toDouble());
+  bool _dragging = false;
+
+  /// Ressort peu amorti : léger dépassement, comme une goutte qui se pose.
+  static const _spring = SpringDescription(mass: 1, stiffness: 320, damping: 21);
+  static const _pad = 5.0;
+
+  @override
+  void didUpdateWidget(_FloatingTabBar old) {
+    super.didUpdateWidget(old);
+    if (old.current != widget.current && !_dragging) _moveTo(widget.current.toDouble());
+  }
+
+  @override
+  void dispose() {
+    _lens.dispose();
+    super.dispose();
+  }
+
+  void _moveTo(double target, {double? velocity}) {
+    if (!OFMotion.of(context).enabled) {
+      _lens.value = target;
+      return;
+    }
+    _lens.animateWith(SpringSimulation(_spring, _lens.value, target, velocity ?? _lens.velocity));
+  }
+
+  void _dragStart(DragStartDetails _) {
+    _lens.stop();
+    setState(() => _dragging = true);
+    HapticFeedback.selectionClick();
+  }
+
+  void _dragUpdate(DragUpdateDetails d, double tabWidth) {
+    final last = _tabs.length - 1;
+    final next = (_lens.value + d.delta.dx / tabWidth).clamp(-0.2, last + 0.2);
+    // Petit « clic » à chaque onglet franchi.
+    if (next.round() != _lens.value.round()) HapticFeedback.selectionClick();
+    _lens.value = next;
+  }
+
+  void _dragEnd(DragEndDetails d, double tabWidth) {
+    final velocity = d.velocity.pixelsPerSecond.dx / tabWidth;
+    // L'élan prolonge un peu le geste, comme sur iOS.
+    final target = (_lens.value + velocity * 0.12).round().clamp(0, _tabs.length - 1);
+    setState(() => _dragging = false);
+    _moveTo(target.toDouble(), velocity: velocity);
+    if (target != widget.current) widget.onSelect(target);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
     final accent = Theme.of(context).colorScheme.primary;
-    final motion = OFMotion.of(context);
     final tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+    final tabWidth = tablet ? 168.0 : 90.0;
+    final height = tablet ? 46.0 : 54.0;
     final nativeGlass = NativeGlassView.supported;
 
-    // Rétrécit plutôt que de déborder (petits écrans, grandes polices).
-    final row = FittedBox(
-      fit: BoxFit.scaleDown,
+    final bar = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: _dragStart,
+      onHorizontalDragUpdate: (d) => _dragUpdate(d, tabWidth),
+      onHorizontalDragEnd: (d) => _dragEnd(d, tabWidth),
+      onHorizontalDragCancel: () => _dragEnd(DragEndDetails(), tabWidth),
       child: Padding(
-        padding: const EdgeInsets.all(5),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final (i, tab) in _tabs.indexed)
-              Semantics(
-                selected: i == current,
-                button: true,
-                label: tab.label,
-                excludeSemantics: true,
-                onTap: () => onSelect(i),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onSelect(i),
-                  child: AnimatedContainer(
-                    duration: motion.standard,
-                    curve: OFMotion.standardCurve,
-                    height: tablet ? 46 : 54,
-                    constraints: BoxConstraints(minWidth: tablet ? 0 : 88),
-                    padding: EdgeInsets.symmetric(horizontal: tablet ? OFSpacing.lg + 2 : OFSpacing.md),
-                    decoration: BoxDecoration(
-                      color: i == current ? const Color(0x24FFFFFF) : const Color(0x00FFFFFF),
-                      borderRadius: const BorderRadius.all(Radius.circular(OFRadius.pill)),
-                    ),
-                    child: _TabContent(tab: tab, selected: i == current, accent: accent, stacked: !tablet),
+        padding: const EdgeInsets.all(_pad),
+        child: SizedBox(
+          width: tabWidth * _tabs.length,
+          height: height,
+          child: AnimatedBuilder(
+            animation: _lens,
+            builder: (context, _) {
+              final x = _lens.value;
+              final moving = _lens.isAnimating ? _lens.velocity.abs() : 0.0;
+              // Soulevée pendant le glissé ou le trajet : plus grande, plus claire.
+              final lift = _dragging ? 1.0 : ((x - x.roundToDouble()).abs() * 3).clamp(0.0, 1.0);
+              // Étirement « liquide » proportionnel à la vitesse.
+              final stretch = (moving * 0.05).clamp(0.0, 0.32);
+              final lensWidth = tabWidth * (1 + stretch) * (1 + 0.06 * lift);
+              final lensHeight = height * (1 - stretch * 0.22) * (1 + 0.08 * lift);
+              final nearest = x.round().clamp(0, _tabs.length - 1);
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: x * tabWidth + (tabWidth - lensWidth) / 2,
+                    top: (height - lensHeight) / 2,
+                    width: lensWidth,
+                    height: lensHeight,
+                    child: _Lens(lift: lift),
                   ),
-                ),
-              ),
-          ],
+                  Row(
+                    children: [
+                      for (final (i, tab) in _tabs.indexed)
+                        Semantics(
+                          selected: i == widget.current,
+                          button: true,
+                          label: tab.label,
+                          excludeSemantics: true,
+                          onTap: () => widget.onSelect(i),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => widget.onSelect(i),
+                            child: SizedBox(
+                              width: tabWidth,
+                              height: height,
+                              child: Center(
+                                // Effet loupe : ce que la lentille survole grossit.
+                                child: Transform.scale(
+                                  scale: 1 + 0.14 * lift * (1 - (i - x).abs()).clamp(0.0, 1.0),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: _TabContent(
+                                        tab: tab,
+                                        selected: i == nearest,
+                                        accent: accent,
+                                        stacked: !tablet,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
+
+    // Rétrécit plutôt que de déborder (petits écrans, grandes polices).
+    final row = FittedBox(fit: BoxFit.scaleDown, child: bar);
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottom > 0 ? bottom - OFSpacing.xs : OFSpacing.md, top: OFSpacing.sm),
@@ -114,6 +218,37 @@ class _FloatingTabBar extends StatelessWidget {
                   ],
                 )
               : LiquidGlass(shade: 0.45, child: row),
+        ),
+      ),
+    );
+  }
+}
+
+/// Lentille de l'onglet actif : verre plus dense que la barre, liseré spéculaire ;
+/// plus claire quand elle est soulevée (glissé, trajet).
+class _Lens extends StatelessWidget {
+  const _Lens({required this.lift});
+
+  final double lift;
+
+  static const _radius = BorderRadius.all(Radius.circular(OFRadius.pill));
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      foregroundPainter: GlassRimPainter(_radius, strength: 0.55 + 0.45 * lift),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: _radius,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color.fromRGBO(255, 255, 255, 0.16 + 0.10 * lift),
+              Color.fromRGBO(255, 255, 255, 0.07 + 0.06 * lift),
+            ],
+          ),
+          boxShadow: [BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.18 + 0.12 * lift), blurRadius: 10 + 8 * lift)],
         ),
       ),
     );
@@ -142,11 +277,11 @@ class _TabContent extends StatelessWidget {
       duration: motion.standard,
       style: DefaultTextStyle.of(context).style.merge(
         (stacked ? OFTypography.caption.copyWith(fontSize: 10.5) : OFTypography.callout).copyWith(
-          color: selected ? OFColors.textPrimary : OFColors.textSecondary,
+          color: selected ? accent : OFColors.textSecondary,
           fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
         ),
       ),
-      child: Text(tab.label, maxLines: 1),
+      child: Text(tab.label, maxLines: 1, softWrap: false, overflow: TextOverflow.visible),
     );
     return stacked
         ? Column(

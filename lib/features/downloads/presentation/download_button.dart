@@ -70,41 +70,44 @@ class DownloadButton extends ConsumerWidget {
             unawaited(showDownloadActions(context, ref, entry));
           }
         },
-        child: SizedBox.square(
-          dimension: size,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              GlassSurface(
-                borderRadius: BorderRadius.all(Radius.circular(size / 2)),
-                child: SizedBox.square(dimension: size),
-              ),
-              if (status == DownloadStatus.running ||
-                  status == DownloadStatus.paused ||
-                  status == DownloadStatus.queued)
-                SizedBox.square(
-                  dimension: size - 6,
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(end: entry!.progress),
-                    duration: OFMotion.of(context).standard,
-                    builder: (context, v, _) => CircularProgressIndicator(
-                      value: status == DownloadStatus.queued ? null : v,
-                      strokeWidth: 2.5,
-                      color: accent,
-                      backgroundColor: const Color(0x26FFFFFF),
+        child: GlassPress(
+          scale: 1.12,
+          child: SizedBox.square(
+            dimension: size,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                GlassSurface(
+                  borderRadius: BorderRadius.all(Radius.circular(size / 2)),
+                  child: SizedBox.square(dimension: size),
+                ),
+                if (status == DownloadStatus.running ||
+                    status == DownloadStatus.paused ||
+                    status == DownloadStatus.queued)
+                  SizedBox.square(
+                    dimension: size - 6,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(end: entry!.progress),
+                      duration: OFMotion.of(context).standard,
+                      builder: (context, v, _) => CircularProgressIndicator(
+                        value: status == DownloadStatus.queued ? null : v,
+                        strokeWidth: 2.5,
+                        color: accent,
+                        backgroundColor: const Color(0x26FFFFFF),
+                      ),
                     ),
                   ),
+                AnimatedStateIcon(
+                  icon: icon,
+                  size: status == DownloadStatus.running ? 16 : 20,
+                  color: switch (status) {
+                    DownloadStatus.complete => accent,
+                    DownloadStatus.failed => OFColors.danger,
+                    _ => OFColors.textPrimary,
+                  },
                 ),
-              AnimatedStateIcon(
-                icon: icon,
-                size: status == DownloadStatus.running ? 16 : 20,
-                color: switch (status) {
-                  DownloadStatus.complete => accent,
-                  DownloadStatus.failed => OFColors.danger,
-                  _ => OFColors.textPrimary,
-                },
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

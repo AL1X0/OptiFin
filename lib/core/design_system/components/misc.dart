@@ -21,7 +21,11 @@ class QualityBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: OFTypography.caption.copyWith(fontWeight: FontWeight.w600, color: OFColors.textSecondary, letterSpacing: 0.4),
+        style: OFTypography.caption.copyWith(
+          fontWeight: FontWeight.w600,
+          color: OFColors.textSecondary,
+          letterSpacing: 0.4,
+        ),
       ),
     );
   }
@@ -55,8 +59,10 @@ class OFTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    OutlineInputBorder border(Color c) =>
-        OutlineInputBorder(borderRadius: OFRadius.mdAll, borderSide: BorderSide(color: c, width: 1));
+    OutlineInputBorder border(Color c) => OutlineInputBorder(
+      borderRadius: OFRadius.mdAll,
+      borderSide: BorderSide(color: c, width: 1),
+    );
     return TextField(
       controller: controller,
       obscureText: obscure,

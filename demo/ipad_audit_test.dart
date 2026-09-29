@@ -107,4 +107,24 @@ void main() {
     await h.screenshot('phone_details_download');
     await h.tearDown();
   }, timeout: const Timeout(Duration(minutes: 20)));
+
+  testWidgets('Barre : lentille', (tester) async {
+    final h = DemoHarness(tester);
+    await h.setUp();
+    await h.idle(const Duration(milliseconds: 1200));
+    await h.screenshot('tabbar_rest');
+    await tester.tap(find.text('Recherche').first);
+    await tester.pump(const Duration(milliseconds: 90));
+    await h.screenshot('tabbar_moving');
+    await h.idle(const Duration(milliseconds: 800));
+    final g = await tester.startGesture(tester.getCenter(find.text('Recherche').first));
+    await g.moveBy(const Offset(-20, 0));
+    await tester.pump();
+    await g.moveBy(const Offset(-70, 0));
+    await tester.pump(const Duration(milliseconds: 16));
+    await h.screenshot('tabbar_drag');
+    await g.up();
+    await h.idle(const Duration(milliseconds: 800));
+    await h.tearDown();
+  }, timeout: const Timeout(Duration(minutes: 20)));
 }

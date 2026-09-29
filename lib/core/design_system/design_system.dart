@@ -1,4 +1,5 @@
 export 'components/cards.dart';
+export 'components/glass_press.dart';
 export 'components/glass_surface.dart';
 export 'components/loader.dart';
 export 'components/media_row.dart';

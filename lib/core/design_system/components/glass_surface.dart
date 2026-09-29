@@ -97,13 +97,13 @@ class LiquidGlass extends StatelessWidget {
         scope: native,
         borderRadius: borderRadius,
         child: CustomPaint(
-          foregroundPainter: rim ? _RimPainter(borderRadius, strength: 0.5) : null,
+          foregroundPainter: rim ? GlassRimPainter(borderRadius, strength: 0.5) : null,
           child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
         ),
       );
     }
     final surface = CustomPaint(
-      foregroundPainter: rim ? _RimPainter(borderRadius) : null,
+      foregroundPainter: rim ? GlassRimPainter(borderRadius) : null,
       child: DecoratedBox(
         // Voile sombre sous le reflet : lisibilité sur une image claire. Sans flou,
         // il est plus dense pour compenser.
@@ -164,8 +164,8 @@ class GlassBlur extends InheritedWidget {
 
 /// Liseré spéculaire façon Liquid Glass : lumière forte en haut à gauche, reflet plus
 /// doux en bas à droite, presque rien sur les flancs.
-class _RimPainter extends CustomPainter {
-  const _RimPainter(this.radius, {this.strength = 1});
+class GlassRimPainter extends CustomPainter {
+  const GlassRimPainter(this.radius, {this.strength = 1});
 
   final BorderRadius radius;
   final double strength;
@@ -188,7 +188,7 @@ class _RimPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RimPainter old) => old.radius != radius || old.strength != strength;
+  bool shouldRepaint(GlassRimPainter old) => old.radius != radius || old.strength != strength;
 }
 
 /// Coins arrondis d'une image ou d'une vignette : `ClipRRect` en temps normal, simple

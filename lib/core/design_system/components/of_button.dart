@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../theme.dart';
 import '../tokens.dart';
+import 'glass_press.dart';
 import 'glass_surface.dart';
 
 enum OFButtonVariant { primary, secondary }
@@ -108,12 +109,10 @@ class _OFButtonState extends State<OFButton> {
         child: AnimatedOpacity(
           duration: motion.fast,
           opacity: _enabled || widget.loading ? 1 : 0.4,
-          child: AnimatedScale(
-            duration: motion.fast,
-            curve: OFMotion.fastCurve,
-            scale: _pressed ? 0.96 : 1,
-            child: body,
-          ),
+          child: primary
+              ? AnimatedScale(duration: motion.fast, curve: OFMotion.fastCurve, scale: _pressed ? 0.96 : 1, child: body)
+              // Bouton en verre : il gonfle et s'illumine sous le doigt.
+              : GlassPress(borderRadius: radius, enabled: _enabled, child: body),
         ),
       ),
     );
@@ -144,9 +143,13 @@ class OFIconButton extends StatelessWidget {
                 },
           child: SizedBox.square(
             dimension: 44,
-            child: GlassSurface(
-              borderRadius: const BorderRadius.all(Radius.circular(22)),
-              child: Center(child: Icon(icon, size: 20, color: OFColors.textPrimary)),
+            child: GlassPress(
+              enabled: onPressed != null,
+              scale: 1.12,
+              child: GlassSurface(
+                borderRadius: const BorderRadius.all(Radius.circular(22)),
+                child: Center(child: Icon(icon, size: 20, color: OFColors.textPrimary)),
+              ),
             ),
           ),
         ),
@@ -237,10 +240,9 @@ class _OFGlassButtonState extends State<OFGlassButton> {
                 widget.onPressed!();
               }
             : null,
-        child: AnimatedScale(
-          duration: motion.fast,
-          curve: OFMotion.fastCurve,
-          scale: _pressed ? 0.9 : 1,
+        child: GlassPress(
+          enabled: enabled,
+          scale: widget.showLabel ? 1.06 : 1.12,
           child: AnimatedOpacity(duration: motion.fast, opacity: enabled ? 1 : 0.4, child: body),
         ),
       ),

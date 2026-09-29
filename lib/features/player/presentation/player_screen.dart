@@ -1037,10 +1037,9 @@ class _BareButtonState extends State<_BareButton> {
           HapticFeedback.selectionClick();
           widget.onTap();
         },
-        child: AnimatedScale(
-          scale: _pressed ? 0.86 : 1,
-          duration: motion.fast,
-          curve: OFMotion.fastCurve,
+        // Verre interactif : le bouton gonfle et s'illumine sous le doigt.
+        child: GlassPress(
+          scale: 1.18,
           child: SizedBox.square(
             dimension: widget.size,
             child: Center(

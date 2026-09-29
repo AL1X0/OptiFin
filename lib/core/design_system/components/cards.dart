@@ -30,7 +30,14 @@ class MediaCardData {
 
 /// Carte affiche 2:3.
 class PosterCard extends StatelessWidget {
-  const PosterCard({super.key, required this.data, required this.width, this.onTap, this.showTitle = true, this.heroTag});
+  const PosterCard({
+    super.key,
+    required this.data,
+    required this.width,
+    this.onTap,
+    this.showTitle = true,
+    this.heroTag,
+  });
 
   final MediaCardData data;
 
@@ -57,7 +64,14 @@ class PosterCard extends StatelessWidget {
 
 /// Carte paysage 16:9 (Reprendre, épisodes).
 class LandscapeCard extends StatelessWidget {
-  const LandscapeCard({super.key, required this.data, required this.width, this.onTap, this.showTitle = true, this.heroTag});
+  const LandscapeCard({
+    super.key,
+    required this.data,
+    required this.width,
+    this.onTap,
+    this.showTitle = true,
+    this.heroTag,
+  });
 
   final MediaCardData data;
 
@@ -84,7 +98,14 @@ class LandscapeCard extends StatelessWidget {
 
 /// Carte carrée (albums, artistes).
 class SquareCard extends StatelessWidget {
-  const SquareCard({super.key, required this.data, required this.width, this.onTap, this.showTitle = true, this.heroTag});
+  const SquareCard({
+    super.key,
+    required this.data,
+    required this.width,
+    this.onTap,
+    this.showTitle = true,
+    this.heroTag,
+  });
 
   final MediaCardData data;
 
@@ -120,7 +141,9 @@ class SkeletonBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final box = DecoratedBox(decoration: BoxDecoration(color: OFColors.surface, borderRadius: radius));
+    final box = DecoratedBox(
+      decoration: BoxDecoration(color: OFColors.surface, borderRadius: radius),
+    );
     return SizedBox(
       width: width,
       height: height,
@@ -176,8 +199,7 @@ class _CardFrameState extends State<_CardFrame> {
           fit: StackFit.expand,
           children: [
             if (widget.heroTag != null) Hero(tag: widget.heroTag!, child: image) else image,
-            if (data.played)
-              const Positioned(top: OFSpacing.sm, right: OFSpacing.sm, child: _PlayedDot()),
+            if (data.played) const Positioned(top: OFSpacing.sm, right: OFSpacing.sm, child: _PlayedDot()),
             if (progress != null && progress > 0 && progress < 1)
               Positioned(
                 left: OFSpacing.sm,

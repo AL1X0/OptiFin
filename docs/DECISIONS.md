@@ -307,3 +307,13 @@ montage épuré : fond noir, téléphone qui « respire », une phrase par plan,
 synthétisée plus sobre (nappe qui s'ouvre, piano électrique FM, impacts sur le logo, réverbération FDN), −15 LUFS.
 Cinq captures au format App Store iPhone 6,9 pouces (1320 × 2868) dans `docs/appstore/`. README réduit à l'essentiel ;
 les GIF et la galerie de captures sont supprimés.
+
+## Verre interactif (2026-09-29)
+
+1. **Barre d'onglets façon iOS 26** : l'onglet actif est une lentille de verre qui glisse d'un onglet à l'autre
+   sur un ressort peu amorti, s'étire avec la vitesse, se soulève (plus grande, plus claire) et grossit les icônes
+   qu'elle survole. Elle se fait glisser du doigt (petit retour haptique à chaque onglet) et se pose sur l'onglet
+   le plus proche, élan compris. Onglets de largeur fixe, contenu réduit au besoin (grandes polices).
+2. **`GlassPress`** sur tous les boutons en verre (ronds, pilules, grappe du lecteur, téléchargement) : au toucher
+   le bouton gonfle avec un rebond et un reflet suit le doigt ; aucun calque de découpe (compatible avec le verre
+   natif posé sur la vidéo).

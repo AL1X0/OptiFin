@@ -20,12 +20,7 @@ abstract final class OFTheme {
     final scheme = ColorScheme.fromSeed(
       seedColor: accent,
       brightness: Brightness.dark,
-    ).copyWith(
-      primary: accent,
-      surface: OFColors.surface,
-      onSurface: OFColors.textPrimary,
-      error: OFColors.danger,
-    );
+    ).copyWith(primary: accent, surface: OFColors.surface, onSurface: OFColors.textPrimary, error: OFColors.danger);
 
     const textTheme = TextTheme(
       displaySmall: OFTypography.display,
@@ -45,10 +40,7 @@ abstract final class OFTheme {
       canvasColor: OFColors.background,
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
-      textTheme: textTheme.apply(
-        bodyColor: OFColors.textPrimary,
-        displayColor: OFColors.textPrimary,
-      ),
+      textTheme: textTheme.apply(bodyColor: OFColors.textPrimary, displayColor: OFColors.textPrimary),
       dividerTheme: const DividerThemeData(color: OFColors.stroke, thickness: 0.5, space: 0.5),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: accent, linearTrackColor: OFColors.stroke),
       snackBarTheme: const SnackBarThemeData(
