@@ -13,7 +13,7 @@ import '../../domain/playback_engine.dart';
 /// l'interface : HDR10, HLG et Dolby Vision partent tels quels vers un écran HDR, et le
 /// décodage matériel (D3D11VA) n'a aucune copie à faire. [buildView] n'est qu'une zone
 /// transparente : c'est à travers elle que la vidéo se voit.
-class WindowsMpvEngine implements PlaybackEngine {
+class WindowsMpvEngine implements PlaybackEngine, VolumeControl {
   WindowsMpvEngine._(this._mpv) {
     _subscription = _mpv.events.listen(_onEvent);
     _dropTimer = Timer.periodic(const Duration(seconds: 2), (_) => _pollDroppedFrames());
@@ -22,6 +22,8 @@ class WindowsMpvEngine implements PlaybackEngine {
   static Future<WindowsMpvEngine> create() async {
     AppLog.i('mpv', 'Création du moteur Windows (libmpv natif, gpu-next Direct3D 11)');
     final engine = WindowsMpvEngine._(await WindowsMpv.create());
+    // Volume retenu d'une lecture à l'autre (le temps de la session).
+    await engine.setVolume(_lastVolume);
     return engine;
   }
 
@@ -262,6 +264,30 @@ class WindowsMpvEngine implements PlaybackEngine {
 
   @override
   Future<bool> enterPictureInPicture() async => false;
+
+  static double _lastVolume = 1;
+  double _volume = 1;
+  bool _muted = false;
+
+  @override
+  double get volume => _volume;
+
+  @override
+  bool get muted => _muted;
+
+  @override
+  Future<void> setVolume(double volume) async {
+    _volume = volume.clamp(0.0, 1.0);
+    _lastVolume = _volume;
+    await _set('volume', (_volume * 100).toStringAsFixed(0));
+    if (_muted && _volume > 0) await setMuted(false);
+  }
+
+  @override
+  Future<void> setMuted(bool muted) async {
+    _muted = muted;
+    await _set('mute', muted ? 'yes' : 'no');
+  }
 
   /// Format de l'image : fait par mpv (la vidéo n'est pas une texture Flutter).
   void _applyFit(BoxFit fit) {

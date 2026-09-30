@@ -52,8 +52,56 @@ class OptifinNativePlayerPlugin : public flutter::Plugin {
       players_[id] = std::move(player);
       return result->Success(flutter::EncodableValue(id));
     }
+    if (call.method_name() == "setFullscreen") {
+      const auto* enabled = std::get_if<bool>(call.arguments());
+      SetFullscreen(enabled && *enabled);
+      return result->Success();
+    }
+    if (call.method_name() == "isFullscreen") {
+      return result->Success(flutter::EncodableValue(fullscreen_));
+    }
+    if (call.method_name() == "keepAwake") {
+      // Pas de mise en veille ni d'écran éteint pendant la lecture.
+      const auto* enabled = std::get_if<bool>(call.arguments());
+      SetThreadExecutionState(enabled && *enabled ? ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED
+                                                  : ES_CONTINUOUS);
+      return result->Success();
+    }
     result->NotImplemented();
   }
+
+  HWND TopLevel() {
+    HWND view = registrar_->GetView() ? registrar_->GetView()->GetNativeWindow() : nullptr;
+    return view ? GetAncestor(view, GA_ROOT) : nullptr;
+  }
+
+  // Plein écran « fenêtre sans bordure » sur l'écran courant (le HDR de Windows reste actif,
+  // pas de changement de mode d'affichage) ; la taille et la position sont restaurées ensuite.
+  void SetFullscreen(bool enabled) {
+    HWND window = TopLevel();
+    if (!window || enabled == fullscreen_) return;
+    if (enabled) {
+      saved_style_ = GetWindowLongPtr(window, GWL_STYLE);
+      saved_placement_.length = sizeof(saved_placement_);
+      GetWindowPlacement(window, &saved_placement_);
+      MONITORINFO monitor{sizeof(monitor)};
+      GetMonitorInfo(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST), &monitor);
+      SetWindowLongPtr(window, GWL_STYLE, saved_style_ & ~WS_OVERLAPPEDWINDOW);
+      const RECT& r = monitor.rcMonitor;
+      SetWindowPos(window, HWND_TOP, r.left, r.top, r.right - r.left, r.bottom - r.top,
+                   SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    } else {
+      SetWindowLongPtr(window, GWL_STYLE, saved_style_);
+      SetWindowPlacement(window, &saved_placement_);
+      SetWindowPos(window, nullptr, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    }
+    fullscreen_ = enabled;
+  }
+
+  bool fullscreen_ = false;
+  LONG_PTR saved_style_ = 0;
+  WINDOWPLACEMENT saved_placement_{};
 
   flutter::PluginRegistrarWindows* registrar_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;

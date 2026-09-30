@@ -37,4 +37,6 @@ Future<void> loadDemoFonts() async {
   await family('MaterialIcons', ['$material/materialicons-regular.otf']);
   await family('Georgia', ['$windows/georgia.ttf', '$windows/georgiab.ttf']);
   await family('Bahnschrift', ['$windows/bahnschrift.ttf']);
+  // Police système de Windows (captures « ordinateur »).
+  await family('Segoe UI', ['$windows/segoeui.ttf', '$windows/segoeuib.ttf', '$windows/segoeuisl.ttf']);
 }

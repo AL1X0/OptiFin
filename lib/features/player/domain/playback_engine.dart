@@ -237,3 +237,12 @@ abstract interface class NativeGlassHost {
   /// Formes de verre à dessiner (`{id, x, y, w, h, r, visible}`, repère de la vue vidéo).
   void setGlass(List<Map<String, Object>> items);
 }
+
+/// Moteur dont OptiFin règle lui-même le volume (ordinateur : molette, ↑ ↓, M).
+abstract interface class VolumeControl {
+  /// 0 à 1.
+  double get volume;
+  bool get muted;
+  Future<void> setVolume(double volume);
+  Future<void> setMuted(bool muted);
+}

@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:optifin_native_player/optifin_native_player.dart' show AirPlayButton;
+import 'package:flutter/gestures.dart';
+import 'package:optifin_native_player/optifin_native_player.dart' show AirPlayButton, NativePlayers;
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
 
@@ -40,6 +41,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void initState() {
     super.initState();
     unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky));
+    // Ordinateur : pas de mise en veille pendant la lecture.
+    unawaited(NativePlayers.keepAwake(true).catchError((Object _) {}));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Téléphone : paysage forcé. Tablette : l'utilisateur garde la main.
       if (mounted && MediaQuery.sizeOf(context).shortestSide < 600) {
@@ -54,6 +57,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void dispose() {
     unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     unawaited(SystemChrome.setPreferredOrientations(const []));
+    unawaited(NativePlayers.keepAwake(false).catchError((Object _) {}));
     super.dispose();
   }
 
@@ -351,6 +355,12 @@ class _PlayerControlsState extends State<PlayerControls> {
   Timer? _unlockTimer;
 
   _Level? _level;
+
+  /// Ordinateur : plein écran (F, double-clic), indicateur de volume éphémère.
+  bool _fullscreen = false;
+  Timer? _levelTimer;
+
+  VolumeControl? get _volumeControl => widget.engine is VolumeControl ? widget.engine as VolumeControl : null;
   double _brightness = 0.5;
   double _volume = 0.5;
   double _dragStartValue = 0;
@@ -414,8 +424,98 @@ class _PlayerControlsState extends State<PlayerControls> {
   ///   ▲ ▼ = afficher les contrôles, focus sur lecture/pause ;
   /// - contrôles affichés : les flèches passent d'un bouton à l'autre (chaque touche
   ///   repousse leur masquage).
+  // ------------------------------------------------------------ Ordinateur
+
+  void _toggleFullscreen() {
+    setState(() => _fullscreen = !_fullscreen);
+    unawaited(NativePlayers.setFullscreen(_fullscreen).catchError((Object _) {}));
+  }
+
+  void _changeVolume(double delta) {
+    final control = _volumeControl;
+    if (control == null) return;
+    final value = (control.volume + delta).clamp(0.0, 1.0);
+    unawaited(control.setVolume(value));
+    _flashLevel(value);
+  }
+
+  void _toggleMute() {
+    final control = _volumeControl;
+    if (control == null) return;
+    final muted = !control.muted;
+    unawaited(control.setMuted(muted));
+    _flashLevel(muted ? 0 : control.volume);
+  }
+
+  void _flashLevel(double value) {
+    _levelTimer?.cancel();
+    setState(() {
+      _level = _Level.volume;
+      _volume = value;
+    });
+    _levelTimer = Timer(const Duration(milliseconds: 900), () {
+      if (mounted) setState(() => _level = null);
+    });
+  }
+
+  /// Raccourcis du lecteur sur ordinateur (comme les lecteurs vidéo de bureau) :
+  /// Espace / K lecture-pause, ← → ∓10 s, ↑ ↓ volume, M muet, F ou F11 plein écran,
+  /// Échap sort du plein écran. null : touche non gérée ici.
+  KeyEventResult? _desktopKey(KeyEvent event) {
+    final key = event.logicalKey;
+    // Combinaisons (Ctrl+F…) : laissées à l'appli.
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isControlPressed || keyboard.isAltPressed || keyboard.isMetaPressed) return null;
+    final repeat = event is KeyRepeatEvent;
+    if (key == LogicalKeyboardKey.space || key == LogicalKeyboardKey.keyK) {
+      if (!repeat) unawaited(widget.controller.togglePlay());
+      _show();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight) {
+      _seekBy(key == LogicalKeyboardKey.arrowRight ? _skip : -_skip);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.arrowDown) {
+      _changeVolume(key == LogicalKeyboardKey.arrowUp ? 0.05 : -0.05);
+      return KeyEventResult.handled;
+    }
+    if (repeat) return null;
+    if (key == LogicalKeyboardKey.keyM) {
+      _toggleMute();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyF || key == LogicalKeyboardKey.f11) {
+      _toggleFullscreen();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape) {
+      // Échap : sort du plein écran, sinon quitte le lecteur.
+      if (_fullscreen) {
+        _toggleFullscreen();
+      } else {
+        widget.onClose();
+      }
+      return KeyEventResult.handled;
+    }
+    return null;
+  }
+
+  /// Souris : les contrôles apparaissent au moindre mouvement (et le curseur avec eux).
+  void _onHover() {
+    if (!_visible) {
+      _show();
+    } else if (!_menu) {
+      _scheduleHide();
+    }
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
+    if (OFDevice.desktop && !_menu) {
+      final handled = _desktopKey(event);
+      if (handled != null) return handled;
+    }
     final key = event.logicalKey;
     final repeat = event is KeyRepeatEvent;
     if (key == LogicalKeyboardKey.mediaPlayPause ||
@@ -472,6 +572,11 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   /// Valeurs de départ des gestes. Plugins absents (tests, plateforme) : valeurs par défaut.
   Future<void> _readLevels() async {
+    // Ordinateur : volume propre au lecteur, pas de luminosité d'écran.
+    if (OFDevice.desktop) {
+      _volume = _volumeControl?.volume ?? 1;
+      return;
+    }
     try {
       _brightness = await ScreenBrightness.instance.application;
     } catch (_) {}
@@ -486,6 +591,8 @@ class _PlayerControlsState extends State<PlayerControls> {
     if (widget.back?.handle == _handleBack) widget.back?.handle = null;
     _keys.dispose();
     _playFocus.dispose();
+    _levelTimer?.cancel();
+    if (_fullscreen) unawaited(NativePlayers.setFullscreen(false).catchError((Object _) {}));
     _hideTimer?.cancel();
     _feedbackTimer?.cancel();
     _unlockTimer?.cancel();
@@ -659,227 +766,254 @@ class _PlayerControlsState extends State<PlayerControls> {
         onPointerDown: (_) => NativeGlassScope.maybeOf(context)?.wake(),
         onPointerMove: (_) => NativeGlassScope.maybeOf(context)?.wake(),
         onPointerUp: (_) => NativeGlassScope.maybeOf(context)?.wake(),
-        child: BackdropGroup(
-          child: StreamBuilder<PlayerSnapshot>(
-            stream: widget.engine.snapshots,
-            initialData: widget.engine.snapshot,
-            builder: (context, snap) {
-              final s = snap.data ?? const PlayerSnapshot();
-              final showSpinner = s.buffering || s.status == PlaybackStatus.loading || ui.reloading;
-              final padding = MediaQuery.paddingOf(context);
-              final overlayBottom = padding.bottom + (_visible ? metrics.bottomBarClearance : OFSpacing.xxl);
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Couche gestes SOUS les contrôles : les boutons reçoivent leurs taps
-                  // immédiatement (sinon le détecteur de double-tap les retarde de 300 ms),
-                  // les zones vides laissent passer vers cette couche.
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _toggle,
-                    onDoubleTapDown: _doubleTapSeek,
-                    onDoubleTap: () {},
-                    onVerticalDragStart: _levelStart,
-                    onVerticalDragUpdate: _levelUpdate,
-                    onVerticalDragEnd: _levelEnd,
-                    onVerticalDragCancel: _levelEnd,
-                  ),
-                  if (_feedback != null) IgnorePointer(child: _SeekIndicator(feedback: _feedback!)),
-                  if (_level != null)
+        child: MouseRegion(
+          // Ordinateur : curseur masqué avec les contrôles.
+          cursor: OFDevice.desktop && !_visible ? SystemMouseCursors.none : MouseCursor.defer,
+          onHover: OFDevice.desktop ? (_) => _onHover() : null,
+          child: BackdropGroup(
+            child: StreamBuilder<PlayerSnapshot>(
+              stream: widget.engine.snapshots,
+              initialData: widget.engine.snapshot,
+              builder: (context, snap) {
+                final s = snap.data ?? const PlayerSnapshot();
+                final showSpinner = s.buffering || s.status == PlaybackStatus.loading || ui.reloading;
+                final padding = MediaQuery.paddingOf(context);
+                final overlayBottom = padding.bottom + (_visible ? metrics.bottomBarClearance : OFSpacing.xxl);
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Couche gestes SOUS les contrôles : les boutons reçoivent leurs taps
+                    // immédiatement (sinon le détecteur de double-tap les retarde de 300 ms),
+                    // les zones vides laissent passer vers cette couche.
+                    // Ordinateur : clic = lecture/pause, double-clic = plein écran, molette = volume.
+                    if (OFDevice.desktop)
+                      Listener(
+                        onPointerSignal: (e) {
+                          if (e is PointerScrollEvent) _changeVolume(e.scrollDelta.dy < 0 ? 0.05 : -0.05);
+                        },
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            if (_menu) return _closeMenu();
+                            unawaited(widget.controller.togglePlay());
+                            _show();
+                          },
+                          onDoubleTap: _toggleFullscreen,
+                        ),
+                      )
+                    else
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _toggle,
+                        onDoubleTapDown: _doubleTapSeek,
+                        onDoubleTap: () {},
+                        onVerticalDragStart: _levelStart,
+                        onVerticalDragUpdate: _levelUpdate,
+                        onVerticalDragEnd: _levelEnd,
+                        onVerticalDragCancel: _levelEnd,
+                      ),
+                    if (_feedback != null) IgnorePointer(child: _SeekIndicator(feedback: _feedback!)),
+                    if (_level != null)
+                      IgnorePointer(
+                        child: Align(
+                          alignment: const Alignment(0, -0.7),
+                          child: LevelIndicator(
+                            icon: _level == _Level.brightness
+                                ? Icons.brightness_6_rounded
+                                : (_volume == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded),
+                            value: _level == _Level.brightness ? _brightness : _volume,
+                          ),
+                        ),
+                      ),
+                    if (showSpinner && !_visible) IgnorePointer(child: Center(child: OFLoader.glass())),
                     IgnorePointer(
-                      child: Align(
-                        alignment: const Alignment(0, -0.7),
-                        child: LevelIndicator(
-                          icon: _level == _Level.brightness ? Icons.brightness_6_rounded : Icons.volume_up_rounded,
-                          value: _level == _Level.brightness ? _brightness : _volume,
-                        ),
-                      ),
-                    ),
-                  if (showSpinner && !_visible) IgnorePointer(child: Center(child: OFLoader.glass())),
-                  IgnorePointer(
-                    key: const ValueKey('controles'),
-                    ignoring: !_visible || _locked,
-                    child: AnimatedOpacity(
-                      opacity: _visible && !_locked ? 1 : 0,
-                      duration: motion.standard,
-                      curve: OFMotion.standardCurve,
-                      child: OFDevice.tv
-                          ? TvPlayerControls(
-                              snapshot: s,
-                              scrubbing: _scrubbing,
-                              showSpinner: showSpinner,
-                              debug: _debug,
-                              ui: ui,
-                              engine: widget.engine,
-                              fit: widget.fit,
-                              playFocus: _playFocus,
-                              onPlayPause: () {
-                                unawaited(widget.controller.togglePlay());
-                                _show();
-                              },
-                              onSkip: (d) {
-                                unawaited(widget.controller.seekBy(d));
-                                _show();
-                              },
-                              onScrubStart: (p) {
-                                _hideTimer?.cancel();
-                                setState(() => _scrubbing = p);
-                              },
-                              onScrub: (p) => setState(() => _scrubbing = p),
-                              onScrubEnd: (p) {
-                                setState(() => _scrubbing = null);
-                                unawaited(widget.controller.seek(p));
-                                _scheduleHide();
-                              },
-                              onMenu: _openMenu,
-                              onCycleFit: () {
-                                widget.onCycleFit();
-                                _show();
-                              },
-                            )
-                          : (_visible && !_locked) || motion.enabled
-                          ? _ControlsLayer(
-                              metrics: metrics,
-                              snapshot: s,
-                              scrubbing: _scrubbing,
-                              showSpinner: showSpinner,
-                              debug: _debug,
-                              menuOpen: _menu,
-                              ui: ui,
-                              engine: widget.engine,
-                              fit: widget.fit,
-                              onClose: widget.onClose,
-                              onPlayPause: () {
-                                unawaited(widget.controller.togglePlay());
-                                _show();
-                              },
-                              onSkip: (d) {
-                                unawaited(widget.controller.seekBy(d));
-                                _show();
-                              },
-                              onScrubStart: (p) {
-                                _hideTimer?.cancel();
-                                setState(() => _scrubbing = p);
-                              },
-                              onScrub: (p) => setState(() => _scrubbing = p),
-                              onScrubEnd: (p) {
-                                setState(() => _scrubbing = null);
-                                unawaited(widget.controller.seek(p));
-                                _scheduleHide();
-                              },
-                              onSettings: () => _menu ? _closeMenu() : _openMenu(),
-                              // TV : pas de Picture-in-Picture (lecture en plein écran).
-                              onPictureInPicture: widget.engine.capabilities.pictureInPicture && !OFDevice.tv
-                                  ? _pictureInPicture
-                                  : null,
-                              onCycleFit: () {
-                                widget.onCycleFit();
-                                _show();
-                              },
-                              onToggleDebug: () => setState(() => _debug = !_debug),
-                              playFocus: _playFocus,
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ),
-                  // Menu Réglages : ancré sous son bouton, se déploie depuis le coin.
-                  // TV : panneau latéral à droite, sur toute la hauteur.
-                  Positioned(
-                    key: const ValueKey('menu'),
-                    top: OFDevice.tv ? TvPlayerControls.safeY : padding.top + metrics.menuTop,
-                    right: OFDevice.tv ? TvPlayerControls.safeX - OFSpacing.lg : padding.right + metrics.edge,
-                    child: AnimatedSwitcher(
-                      duration: motion.standard,
-                      switchInCurve: OFMotion.emphasizedCurve,
-                      switchOutCurve: OFMotion.standardCurve,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(
-                          scale: Tween(begin: 0.85, end: 1.0).animate(animation),
-                          alignment: Alignment.topRight,
-                          child: child,
-                        ),
-                      ),
-                      child: _menu && !_locked
-                          // Portée de focus propre : les flèches restent dans le menu ouvert.
-                          ? FocusScope(
-                              key: ValueKey('menu-${_menuPage.name}'),
-                              child: PlayerSettingsMenu(
-                                initialPage: _menuPage,
-                                controller: widget.controller,
-                                engine: widget.engine,
+                      key: const ValueKey('controles'),
+                      ignoring: !_visible || _locked,
+                      child: AnimatedOpacity(
+                        opacity: _visible && !_locked ? 1 : 0,
+                        duration: motion.standard,
+                        curve: OFMotion.standardCurve,
+                        child: OFDevice.tv
+                            ? TvPlayerControls(
+                                snapshot: s,
+                                scrubbing: _scrubbing,
+                                showSpinner: showSpinner,
                                 debug: _debug,
-                                onDismiss: _closeMenu,
-                                onLock: _lock,
-                                onSearchSubtitles: _searchSubtitles,
-                                // Au-dessus de la barre de progression, qu'il ne recouvre jamais.
-                                maxHeight: OFDevice.tv
-                                    ? MediaQuery.sizeOf(context).height - 2 * TvPlayerControls.safeY
-                                    : MediaQuery.sizeOf(context).height -
-                                          padding.vertical -
-                                          metrics.menuTop -
-                                          metrics.bottomBarClearance,
+                                ui: ui,
+                                engine: widget.engine,
+                                fit: widget.fit,
+                                playFocus: _playFocus,
+                                onPlayPause: () {
+                                  unawaited(widget.controller.togglePlay());
+                                  _show();
+                                },
+                                onSkip: (d) {
+                                  unawaited(widget.controller.seekBy(d));
+                                  _show();
+                                },
+                                onScrubStart: (p) {
+                                  _hideTimer?.cancel();
+                                  setState(() => _scrubbing = p);
+                                },
+                                onScrub: (p) => setState(() => _scrubbing = p),
+                                onScrubEnd: (p) {
+                                  setState(() => _scrubbing = null);
+                                  unawaited(widget.controller.seek(p));
+                                  _scheduleHide();
+                                },
+                                onMenu: _openMenu,
+                                onCycleFit: () {
+                                  widget.onCycleFit();
+                                  _show();
+                                },
+                              )
+                            : (_visible && !_locked) || motion.enabled
+                            ? _ControlsLayer(
+                                metrics: metrics,
+                                snapshot: s,
+                                scrubbing: _scrubbing,
+                                showSpinner: showSpinner,
+                                debug: _debug,
+                                menuOpen: _menu,
+                                ui: ui,
+                                engine: widget.engine,
+                                fit: widget.fit,
+                                onClose: widget.onClose,
+                                onPlayPause: () {
+                                  unawaited(widget.controller.togglePlay());
+                                  _show();
+                                },
+                                onSkip: (d) {
+                                  unawaited(widget.controller.seekBy(d));
+                                  _show();
+                                },
+                                onScrubStart: (p) {
+                                  _hideTimer?.cancel();
+                                  setState(() => _scrubbing = p);
+                                },
+                                onScrub: (p) => setState(() => _scrubbing = p),
+                                onScrubEnd: (p) {
+                                  setState(() => _scrubbing = null);
+                                  unawaited(widget.controller.seek(p));
+                                  _scheduleHide();
+                                },
+                                onSettings: () => _menu ? _closeMenu() : _openMenu(),
+                                // TV : pas de Picture-in-Picture (lecture en plein écran).
+                                onPictureInPicture:
+                                    widget.engine.capabilities.pictureInPicture && !OFDevice.tv && !OFDevice.desktop
+                                    ? _pictureInPicture
+                                    : null,
+                                onCycleFit: () {
+                                  widget.onCycleFit();
+                                  _show();
+                                },
                                 onToggleDebug: () => setState(() => _debug = !_debug),
-                              ),
-                            )
-                          : const SizedBox.shrink(key: ValueKey('ferme')),
-                    ),
-                  ),
-                  // « Passer l'intro » : visible même contrôles masqués (mais pas verrouillé).
-                  if (ui.segment != null && !_locked && !ui.upNext && !_menu)
-                    Positioned(
-                      right: padding.right + metrics.edge,
-                      bottom: overlayBottom,
-                      child: FadeSlideIn(
-                        key: ValueKey(ui.segment),
-                        axis: Axis.horizontal,
-                        offset: 32,
-                        child: SkipSegmentButton(segment: ui.segment!, onSkip: widget.controller.skipSegment),
+                                playFocus: _playFocus,
+                                onFullscreen: OFDevice.desktop ? _toggleFullscreen : null,
+                                fullscreen: _fullscreen,
+                              )
+                            : const SizedBox.shrink(),
                       ),
                     ),
-                  if (ui.upNext && next != null && !_locked && !_menu)
+                    // Menu Réglages : ancré sous son bouton, se déploie depuis le coin.
+                    // TV : panneau latéral à droite, sur toute la hauteur.
                     Positioned(
-                      right: padding.right + metrics.edge,
-                      bottom: overlayBottom,
-                      child: FadeSlideIn(
-                        key: ValueKey('suivant-${next.id}'),
-                        axis: Axis.horizontal,
-                        offset: 48,
-                        child: UpNextCard(
-                          key: ValueKey(next.id),
-                          next: next,
-                          autoPlay: widget.autoPlayNext,
-                          onPlay: () => unawaited(widget.controller.playNext()),
-                          onDismiss: widget.controller.dismissUpNext,
+                      key: const ValueKey('menu'),
+                      top: OFDevice.tv ? TvPlayerControls.safeY : padding.top + metrics.menuTop,
+                      right: OFDevice.tv ? TvPlayerControls.safeX - OFSpacing.lg : padding.right + metrics.edge,
+                      child: AnimatedSwitcher(
+                        duration: motion.standard,
+                        switchInCurve: OFMotion.emphasizedCurve,
+                        switchOutCurve: OFMotion.standardCurve,
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: Tween(begin: 0.85, end: 1.0).animate(animation),
+                            alignment: Alignment.topRight,
+                            child: child,
+                          ),
+                        ),
+                        child: _menu && !_locked
+                            // Portée de focus propre : les flèches restent dans le menu ouvert.
+                            ? FocusScope(
+                                key: ValueKey('menu-${_menuPage.name}'),
+                                child: PlayerSettingsMenu(
+                                  initialPage: _menuPage,
+                                  controller: widget.controller,
+                                  engine: widget.engine,
+                                  debug: _debug,
+                                  onDismiss: _closeMenu,
+                                  onLock: _lock,
+                                  onSearchSubtitles: _searchSubtitles,
+                                  // Au-dessus de la barre de progression, qu'il ne recouvre jamais.
+                                  maxHeight: OFDevice.tv
+                                      ? MediaQuery.sizeOf(context).height - 2 * TvPlayerControls.safeY
+                                      : MediaQuery.sizeOf(context).height -
+                                            padding.vertical -
+                                            metrics.menuTop -
+                                            metrics.bottomBarClearance,
+                                  onToggleDebug: () => setState(() => _debug = !_debug),
+                                ),
+                              )
+                            : const SizedBox.shrink(key: ValueKey('ferme')),
+                      ),
+                    ),
+                    // « Passer l'intro » : visible même contrôles masqués (mais pas verrouillé).
+                    if (ui.segment != null && !_locked && !ui.upNext && !_menu)
+                      Positioned(
+                        right: padding.right + metrics.edge,
+                        bottom: overlayBottom,
+                        child: FadeSlideIn(
+                          key: ValueKey(ui.segment),
+                          axis: Axis.horizontal,
+                          offset: 32,
+                          child: SkipSegmentButton(segment: ui.segment!, onSkip: widget.controller.skipSegment),
                         ),
                       ),
-                    ),
-                  if (_locked)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: padding.bottom + OFSpacing.xxl,
-                      child: Center(
-                        child: AnimatedOpacity(
-                          opacity: _showUnlock ? 1 : 0,
-                          duration: motion.standard,
-                          child: IgnorePointer(
-                            ignoring: !_showUnlock,
-                            child: OFGlassButton(
-                              label: 'Déverrouiller',
-                              icon: Icons.lock_open_rounded,
-                              iconSize: 22,
-                              size: 48,
-                              showLabel: true,
-                              onPressed: _unlock,
+                    if (ui.upNext && next != null && !_locked && !_menu)
+                      Positioned(
+                        right: padding.right + metrics.edge,
+                        bottom: overlayBottom,
+                        child: FadeSlideIn(
+                          key: ValueKey('suivant-${next.id}'),
+                          axis: Axis.horizontal,
+                          offset: 48,
+                          child: UpNextCard(
+                            key: ValueKey(next.id),
+                            next: next,
+                            autoPlay: widget.autoPlayNext,
+                            onPlay: () => unawaited(widget.controller.playNext()),
+                            onDismiss: widget.controller.dismissUpNext,
+                          ),
+                        ),
+                      ),
+                    if (_locked)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: padding.bottom + OFSpacing.xxl,
+                        child: Center(
+                          child: AnimatedOpacity(
+                            opacity: _showUnlock ? 1 : 0,
+                            duration: motion.standard,
+                            child: IgnorePointer(
+                              ignoring: !_showUnlock,
+                              child: OFGlassButton(
+                                label: 'Déverrouiller',
+                                icon: Icons.lock_open_rounded,
+                                iconSize: 22,
+                                size: 48,
+                                showLabel: true,
+                                onPressed: _unlock,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -964,7 +1098,13 @@ class _ControlsLayer extends StatelessWidget {
     required this.onCycleFit,
     required this.onToggleDebug,
     required this.playFocus,
+    this.onFullscreen,
+    this.fullscreen = false,
   });
+
+  /// Ordinateur : plein écran de la fenêtre.
+  final VoidCallback? onFullscreen;
+  final bool fullscreen;
 
   /// Focus du bouton lecture/pause (télécommande).
   final FocusNode playFocus;
@@ -1069,6 +1209,13 @@ class _ControlsLayer extends StatelessWidget {
                             onTap: onPictureInPicture!,
                           ),
                         _BareButton(icon: fitIcon, label: fitLabel, size: m.button, onTap: onCycleFit),
+                        if (onFullscreen != null)
+                          _BareButton(
+                            icon: fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                            label: fullscreen ? 'Quitter le plein écran' : 'Plein écran',
+                            size: m.button,
+                            onTap: onFullscreen!,
+                          ),
                         _BareButton(
                           icon: menuOpen ? Icons.close_rounded : Icons.tune_rounded,
                           label: 'Réglages',

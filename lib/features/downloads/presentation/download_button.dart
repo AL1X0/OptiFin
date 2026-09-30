@@ -47,7 +47,7 @@ class DownloadButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Téléviseur : pas de téléchargements hors connexion.
-    if (OFDevice.tv) return const SizedBox.shrink();
+    if (OFDevice.tv || OFDevice.desktop) return const SizedBox.shrink();
     final entry = ref.watch(downloadForItemProvider(itemId)).value;
     final accent = Theme.of(context).colorScheme.primary;
     final status = entry?.status;

@@ -59,6 +59,25 @@ abstract final class NativePlayers {
     }
   }
 
+  // ------------------------------------------------------------ Fenêtre (Windows)
+
+  /// Windows : plein écran sans bordure sur l'écran courant (restauré ensuite).
+  static Future<void> setFullscreen(bool enabled) async {
+    if (defaultTargetPlatform != TargetPlatform.windows) return;
+    await _channel.invokeMethod<void>('setFullscreen', enabled);
+  }
+
+  static Future<bool> isFullscreen() async {
+    if (defaultTargetPlatform != TargetPlatform.windows) return false;
+    return await _channel.invokeMethod<bool>('isFullscreen') ?? false;
+  }
+
+  /// Windows : empêche la mise en veille et l'extinction de l'écran (lecture en cours).
+  static Future<void> keepAwake(bool enabled) async {
+    if (defaultTargetPlatform != TargetPlatform.windows) return;
+    await _channel.invokeMethod<void>('keepAwake', enabled);
+  }
+
   /// Crée un lecteur natif. Ses événements sont écoutés immédiatement (aucun
   /// état n'est perdu entre la création et l'ouverture du média).
   static Future<NativePlayer> create() async {

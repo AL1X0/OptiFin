@@ -122,8 +122,8 @@ class _EpisodeList extends ConsumerWidget {
         child: Column(
           key: ValueKey(seasonId),
           children: [
-            // Saison entière hors connexion (épisodes déjà téléchargés ignorés). Pas sur TV.
-            if (!OFDevice.tv)
+            // Saison entière hors connexion (épisodes déjà téléchargés ignorés). Ni TV ni PC.
+            if (!OFDevice.tv && !OFDevice.desktop)
               Padding(
                 padding: EdgeInsets.fromLTRB(gutter - OFSpacing.sm, 0, gutter, OFSpacing.sm),
                 child: Align(

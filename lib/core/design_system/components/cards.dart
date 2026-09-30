@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../device.dart';
 import '../theme.dart';
 import '../tokens.dart';
 import 'of_image.dart';
@@ -181,6 +182,9 @@ class _CardFrameState extends State<_CardFrame> {
   /// Focus venu de la télécommande (ou du clavier) : carte agrandie, image cerclée.
   bool _focused = false;
 
+  /// Survol à la souris (ordinateur) : carte légèrement agrandie, bouton lecture.
+  bool _hovered = false;
+
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
@@ -203,6 +207,18 @@ class _CardFrameState extends State<_CardFrame> {
           children: [
             if (widget.heroTag != null) Hero(tag: widget.heroTag!, child: image) else image,
             if (data.played) const Positioned(top: OFSpacing.sm, right: OFSpacing.sm, child: _PlayedDot()),
+            // Ordinateur : voile et bouton lecture au survol.
+            if (OFDevice.desktop)
+              IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: _hovered ? 1 : 0,
+                  duration: motion.fast,
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(color: Color(0x40000000)),
+                    child: Center(child: _HoverPlay()),
+                  ),
+                ),
+              ),
             if (progress != null && progress > 0 && progress < 1)
               Positioned(
                 left: OFSpacing.sm,
@@ -255,9 +271,13 @@ class _CardFrameState extends State<_CardFrame> {
       onTap: onTap,
       child: FocusableActionDetector(
         enabled: onTap != null,
+        mouseCursor: onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
         actions: {if (onTap != null) ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => onTap())},
         onShowFocusHighlight: (v) {
           if (v != _focused) setState(() => _focused = v);
+        },
+        onShowHoverHighlight: (v) {
+          if (OFDevice.desktop && v != _hovered) setState(() => _hovered = v);
         },
         child: GestureDetector(
           onTapDown: (_) => setState(() => _pressed = true),
@@ -265,7 +285,7 @@ class _CardFrameState extends State<_CardFrame> {
           onTapUp: (_) => setState(() => _pressed = false),
           onTap: onTap,
           child: AnimatedScale(
-            scale: _pressed ? 0.97 : (_focused ? 1.07 : 1),
+            scale: _pressed ? 0.97 : (_focused ? 1.07 : (_hovered ? 1.04 : 1)),
             duration: motion.fast,
             curve: OFMotion.fastCurve,
             child: SizedBox(
@@ -294,6 +314,23 @@ class _CardFrameState extends State<_CardFrame> {
       ),
     );
   }
+}
+
+/// Bouton lecture affiché au survol d'une carte (ordinateur).
+class _HoverPlay extends StatelessWidget {
+  const _HoverPlay();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 48,
+    height: 48,
+    decoration: const BoxDecoration(
+      color: Color(0xE6FFFFFF),
+      shape: BoxShape.circle,
+      boxShadow: [BoxShadow(color: Color(0x66000000), blurRadius: 16)],
+    ),
+    child: const Icon(Icons.play_arrow_rounded, size: 30, color: Color(0xFF000000)),
+  );
 }
 
 class _PlayedDot extends StatelessWidget {
