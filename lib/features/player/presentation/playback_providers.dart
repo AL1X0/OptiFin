@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import '../../../core/providers.dart';
 import '../../settings/presentation/settings_providers.dart';
 import '../data/engines/mpv_engine.dart';
 import '../data/engines/native_engine.dart';
+import '../data/engines/windows_mpv_engine.dart';
 import '../data/playback_extras_repository.dart';
 import '../../downloads/presentation/downloads_providers.dart';
 import '../data/playback_preparer.dart';
@@ -52,6 +54,8 @@ final deviceCapabilitiesProvider = FutureProvider<DeviceCapabilities>((ref) asyn
 final playbackEngineFactoryProvider = Provider<Future<PlaybackEngine> Function(EngineKind kind)>(
   (ref) =>
       (kind) async => switch (kind) {
+        // Windows : libmpv native (vraie sortie HDR) ; téléphones : media_kit.
+        EngineKind.mpv when Platform.isWindows => await WindowsMpvEngine.create(),
         EngineKind.mpv => await MpvEngine.create(verbose: ref.read(settingsProvider).debugMode),
         EngineKind.native => await NativeEngine.create(
           device: await ref.read(deviceCapabilitiesProvider.future),

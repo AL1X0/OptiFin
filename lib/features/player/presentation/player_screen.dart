@@ -13,6 +13,7 @@ import '../../../core/media/formatters.dart';
 import '../../../core/media/media_item.dart';
 import '../../../app/router.dart';
 import '../../settings/presentation/settings_providers.dart';
+import '../data/engines/windows_mpv_engine.dart';
 import '../domain/engine_selector.dart';
 import '../domain/playback_engine.dart';
 import 'player_controller.dart';
@@ -102,7 +103,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         if (!didPop && !(_back.handle?.call() ?? false)) _requestClose();
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        // Windows : la vidéo mpv est dessinée SOUS l'interface, qui doit rester transparente.
+        backgroundColor: engine is WindowsMpvEngine && state.phase == PlayerPhase.playing
+            ? Colors.transparent
+            : Colors.black,
         // Vue native (AVPlayer, Media3) sous les commandes : verre teinté sans flou.
         body: _withNativeGlass(
           engine,
