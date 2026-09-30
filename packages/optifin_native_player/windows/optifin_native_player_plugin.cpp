@@ -1,5 +1,7 @@
 #include "include/optifin_native_player/optifin_native_player_plugin_c_api.h"
 
+#include <flutter/event_channel.h>
+#include <flutter/event_stream_handler_functions.h>
 #include <flutter/method_channel.h>
 #include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
@@ -8,6 +10,7 @@
 #include <map>
 #include <memory>
 
+#include "media_session.h"
 #include "mpv_player.h"
 
 namespace optifin {
@@ -23,13 +26,29 @@ class OptifinNativePlayerPlugin : public flutter::Plugin {
     channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
         registrar->messenger(), "optifin_native_player", &flutter::StandardMethodCodec::GetInstance());
     channel_->SetMethodCallHandler([this](const auto& call, auto result) { HandleCall(call, std::move(result)); });
+    // Boutons multimédias (clavier, Windows, vignette de la barre des tâches) → Dart.
+    media_ = std::make_unique<MediaSession>([this](const std::string& button) {
+      if (buttons_sink_) buttons_sink_->Success(flutter::EncodableValue(button));
+    });
+    buttons_ = std::make_unique<flutter::EventChannel<flutter::EncodableValue>>(
+        registrar->messenger(), "optifin_native_player/media_buttons", &flutter::StandardMethodCodec::GetInstance());
+    buttons_->SetStreamHandler(std::make_unique<flutter::StreamHandlerFunctions<flutter::EncodableValue>>(
+        [this](const flutter::EncodableValue*, std::unique_ptr<flutter::EventSink<flutter::EncodableValue>>&& sink)
+            -> std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> {
+          buttons_sink_ = std::move(sink);
+          return nullptr;
+        },
+        [this](const flutter::EncodableValue*) -> std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> {
+          buttons_sink_ = nullptr;
+          return nullptr;
+        }));
     // Fenêtre redimensionnée : les vidéos suivent.
     window_proc_ = registrar->RegisterTopLevelWindowProcDelegate(
-        [this](HWND, UINT message, WPARAM, LPARAM) -> std::optional<LRESULT> {
+        [this](HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) -> std::optional<LRESULT> {
           if (message == WM_SIZE) {
             for (auto& [id, player] : players_) player->Layout();
           }
-          return std::nullopt;
+          return media_->HandleWindowMessage(hwnd, message, wparam, lparam);
         });
   }
 
@@ -51,6 +70,33 @@ class OptifinNativePlayerPlugin : public flutter::Plugin {
       if (!player->Initialize(&error)) return result->Error("mpv", error);
       players_[id] = std::move(player);
       return result->Success(flutter::EncodableValue(id));
+    }
+    if (call.method_name() == "mediaSession") {
+      const auto* args = std::get_if<flutter::EncodableMap>(call.arguments());
+      if (!args) return result->Error("args", "arguments manquants");
+      auto str = [&](const char* key) {
+        auto it = args->find(flutter::EncodableValue(key));
+        const auto* v = it == args->end() ? nullptr : std::get_if<std::string>(&it->second);
+        return v ? *v : std::string();
+      };
+      auto num = [&](const char* key) {
+        auto it = args->find(flutter::EncodableValue(key));
+        const auto* v = it == args->end() ? nullptr : std::get_if<double>(&it->second);
+        return v ? *v : 0.0;
+      };
+      auto flag = [&](const char* key) {
+        auto it = args->find(flutter::EncodableValue(key));
+        const auto* v = it == args->end() ? nullptr : std::get_if<bool>(&it->second);
+        return v && *v;
+      };
+      if (HWND window = TopLevel()) media_->Attach(window);
+      media_->Update(str("title"), str("subtitle"), str("artwork"), flag("playing"), num("position"),
+                     num("duration"), flag("hasNext"));
+      return result->Success();
+    }
+    if (call.method_name() == "mediaSessionClear") {
+      media_->Clear();
+      return result->Success();
     }
     if (call.method_name() == "setFullscreen") {
       const auto* enabled = std::get_if<bool>(call.arguments());
@@ -99,6 +145,9 @@ class OptifinNativePlayerPlugin : public flutter::Plugin {
     fullscreen_ = enabled;
   }
 
+  std::unique_ptr<MediaSession> media_;
+  std::unique_ptr<flutter::EventChannel<flutter::EncodableValue>> buttons_;
+  std::unique_ptr<flutter::EventSink<flutter::EncodableValue>> buttons_sink_;
   bool fullscreen_ = false;
   LONG_PTR saved_style_ = 0;
   WINDOWPLACEMENT saved_placement_{};

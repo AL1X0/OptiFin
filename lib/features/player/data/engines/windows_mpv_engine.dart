@@ -191,7 +191,9 @@ class WindowsMpvEngine implements PlaybackEngine, VolumeControl {
   Future<void> open(EngineMedia media) async {
     _media = media;
     _started = false;
-    _emit(const PlayerSnapshot(status: PlaybackStatus.loading));
+    _paused = false;
+    // mpv ne renvoie une propriété que si elle change : l'état connu est conservé.
+    _emit(PlayerSnapshot(status: PlaybackStatus.loading, playing: true, rate: _snapshot.rate));
     // En-têtes (Authorization) ajoutés un par un : aucune découpe sur les virgules, et
     // jamais de token dans l'URL ni dans les journaux.
     await _mpv.command(['change-list', 'http-header-fields', 'clr', '']);

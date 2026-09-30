@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:optifin_native_player/optifin_native_player.dart' show NativePlayers;
 import 'package:optifin/features/player/data/engines/windows_mpv_engine.dart';
 import 'package:optifin/features/player/domain/playback_engine.dart';
 
@@ -55,6 +56,33 @@ void main() {
 
     await tester.runAsync(engine.dispose);
     file.deleteSync();
+  });
+
+  testWidgets('intégrations Windows : session multimédia, plein écran, veille', (tester) async {
+    await tester.pumpWidget(const Directionality(textDirection: TextDirection.ltr, child: SizedBox.expand()));
+    await tester.runAsync(() async {
+      await NativePlayers.updateMediaSession(
+        title: 'Les Marées d’Orion',
+        subtitle: 'S1 · É2',
+        playing: true,
+        position: const Duration(minutes: 12),
+        duration: const Duration(hours: 2),
+        hasNext: true,
+      );
+      await NativePlayers.updateMediaSession(
+        title: 'Les Marées d’Orion',
+        playing: false,
+        position: const Duration(minutes: 13),
+        duration: const Duration(hours: 2),
+      );
+      await NativePlayers.clearMediaSession();
+      await NativePlayers.keepAwake(true);
+      await NativePlayers.keepAwake(false);
+      await NativePlayers.setFullscreen(true);
+      expect(await NativePlayers.isFullscreen(), isTrue);
+      await NativePlayers.setFullscreen(false);
+      expect(await NativePlayers.isFullscreen(), isFalse);
+    });
   });
 
   testWidgets('fichier introuvable : échec au démarrage (déclenche le repli)', (tester) async {

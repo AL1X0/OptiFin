@@ -19,6 +19,7 @@ import '../domain/engine_selector.dart';
 import '../domain/playback_engine.dart';
 import 'player_controller.dart';
 import 'player_overlays.dart';
+import 'player_media_session.dart';
 import 'player_menu.dart';
 import 'player_sheets.dart';
 import 'player_tv_controls.dart';
@@ -100,7 +101,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final controller = ref.read(provider.notifier);
     final engine = state.engine;
 
-    return PopScope(
+    final screen = PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         // Retour : d'abord le menu (et, sur TV, les contrôles), puis la fermeture du lecteur.
@@ -164,6 +165,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         ),
       ),
     );
+    // Ordinateur : lecture visible et pilotable par Windows (touches média, barre des tâches).
+    return OFDevice.desktop ? PlayerMediaSession(args: widget.args, child: screen) : screen;
   }
 
   final _videoKey = GlobalKey();
