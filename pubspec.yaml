@@ -62,6 +62,7 @@ dependencies:
   volume_controller: ^3.7.1
   background_downloader: ^9.6.3
   path_provider: ^2.1.6
+  crypto: ^3.0.6
 dev_dependencies:
   flutter_test:
     sdk: flutter

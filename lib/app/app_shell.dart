@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:optifin_native_player/optifin_native_player.dart' show NativeGlassView;
 
 import '../core/design_system/design_system.dart';
+import '../features/settings/presentation/app_update_button.dart';
 import 'router.dart';
 
 class _Tab {
@@ -119,6 +120,7 @@ class _DesktopShell extends StatelessWidget {
                         onTap: () => _open(branch!),
                       ),
                     const Spacer(),
+                    AppUpdateButton(wide: wide),
                     _SideItem(
                       icon: Icons.settings_outlined,
                       label: 'Réglages',
