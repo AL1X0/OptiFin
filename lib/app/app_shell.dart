@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:optifin_native_player/optifin_native_player.dart' show NativeGlassView;
 
 import '../core/design_system/design_system.dart';
+import '../features/syncplay/presentation/watch_party_sheet.dart';
 import 'router.dart';
 
 class _Tab {
@@ -67,11 +68,12 @@ class _TvShell extends StatefulWidget {
   State<_TvShell> createState() => _TvShellState();
 }
 
-/// Rubriques du menu TV : index de branche, ou null pour les Réglages (écran à part).
+/// Rubriques du menu TV : index de branche, ou null pour un écran à part (soirée, réglages).
 const _tvItems = <(int?, String, IconData, IconData)>[
   (2, 'Recherche', Icons.search_rounded, Icons.search_rounded),
   (0, 'Accueil', Icons.home_outlined, Icons.home_rounded),
   (1, 'Bibliothèques', Icons.video_library_outlined, Icons.video_library_rounded),
+  (null, 'Soirée', Icons.groups_outlined, Icons.groups_rounded),
   (null, 'Réglages', Icons.settings_outlined, Icons.settings_rounded),
 ];
 
@@ -130,7 +132,11 @@ class _TvShellState extends State<_TvShell> {
   void _select(int item) {
     final branch = _tvItems[item].$1;
     if (branch == null) {
-      unawaited(context.push(Routes.settings));
+      if (_tvItems[item].$2 == 'Soirée') {
+        showWatchParty(context);
+      } else {
+        unawaited(context.push(Routes.settings));
+      }
       return;
     }
     widget.shell.goBranch(branch, initialLocation: branch == widget.shell.currentIndex);

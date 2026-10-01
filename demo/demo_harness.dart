@@ -23,6 +23,7 @@ import 'package:optifin/core/providers.dart';
 import 'package:optifin/core/storage/app_database.dart';
 import 'package:optifin/core/storage/token_vault.dart';
 import 'package:optifin/features/auth/domain/entities.dart';
+import 'package:optifin/features/syncplay/presentation/watch_party_controller.dart';
 import 'package:optifin/features/auth/presentation/auth_providers.dart';
 import 'package:optifin/features/downloads/data/file_transfers.dart';
 import 'package:optifin/features/downloads/presentation/downloads_providers.dart';
@@ -133,6 +134,8 @@ class DemoHarness {
       pictureInPicture: true,
     );
 
+    // Démo hors ligne : pas de connexion temps réel des soirées.
+    WatchPartyController.autoConnect = false;
     await tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.ltr,

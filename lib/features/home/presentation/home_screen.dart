@@ -5,6 +5,7 @@ import '../../../app/navigation.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/network/api_failure.dart';
 import '../../auth/presentation/account_switcher.dart';
+import '../../syncplay/presentation/watch_party_sheet.dart';
 import '../../common/presentation/media_cards.dart';
 import '../domain/home_data.dart';
 import '../../downloads/presentation/downloads_providers.dart';
@@ -114,7 +115,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Positioned(
             top: MediaQuery.paddingOf(context).top + OFSpacing.sm,
             right: gutter,
-            child: const AccountButton(),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [WatchPartyButton(), SizedBox(width: OFSpacing.sm), AccountButton()],
+            ),
           ),
         ],
       ),

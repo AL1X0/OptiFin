@@ -10,6 +10,9 @@ import '../../details/presentation/details_providers.dart';
 import '../../downloads/presentation/downloads_providers.dart';
 import '../../home/presentation/home_providers.dart';
 import '../../settings/presentation/settings_providers.dart';
+import '../../syncplay/domain/syncplay_models.dart';
+import '../../syncplay/domain/syncplay_sync.dart';
+import '../../syncplay/presentation/watch_party_controller.dart';
 import '../data/playback_preparer.dart';
 import '../data/playback_repository.dart';
 import '../domain/engine_selector.dart';
@@ -45,6 +48,7 @@ class PlayerUiState {
     this.subtitleDelay = Duration.zero,
     this.audioDelay = Duration.zero,
     this.pictureInPicture = false,
+    this.party,
   });
 
   final PlayerPhase phase;
@@ -88,6 +92,9 @@ class PlayerUiState {
   /// Android : l'activité est en Picture-in-Picture (contrôles masqués).
   final bool pictureInPicture;
 
+  /// Soirée en cours : nom, participants ou attente du groupe (null hors soirée).
+  final String? party;
+
   PlayerUiState copyWith({
     PlayerPhase? phase,
     MediaItem? item,
@@ -108,6 +115,7 @@ class PlayerUiState {
     Duration? subtitleDelay,
     Duration? audioDelay,
     bool? pictureInPicture,
+    String? Function()? party,
   }) => PlayerUiState(
     phase: phase ?? this.phase,
     item: item ?? this.item,
@@ -128,6 +136,7 @@ class PlayerUiState {
     subtitleDelay: subtitleDelay ?? this.subtitleDelay,
     audioDelay: audioDelay ?? this.audioDelay,
     pictureInPicture: pictureInPicture ?? this.pictureInPicture,
+    party: party != null ? party() : this.party,
   );
 }
 
@@ -206,6 +215,7 @@ class PlayerController extends Notifier<PlayerUiState> {
       _disposing = true;
       unawaited(close());
     });
+    _setupParty();
     Future.microtask(_start);
     _subscriptionsForever.add(
       NativePlayers.pictureInPictureChanges.listen((active) {
@@ -335,7 +345,7 @@ class PlayerController extends Notifier<PlayerUiState> {
     final extras = state.extras;
     final segment = extras.skippableAt(s.position);
     if (segment != state.segment) state = state.copyWith(segment: () => segment);
-    if (segment != null && ref.read(settingsProvider).autoSkipSegments && _autoSkipped.add(segment)) {
+    if (segment != null && _sync == null && ref.read(settingsProvider).autoSkipSegments && _autoSkipped.add(segment)) {
       AppLog.i('player', 'Segment passé automatiquement : ${segment.type.name}');
       unawaited(seek(segment.end));
     }
@@ -424,9 +434,11 @@ class PlayerController extends Notifier<PlayerUiState> {
   }
 
   void _onSnapshot(PlayerSnapshot s) {
+    _sync?.onBuffering(s.buffering && !_starting);
     if (_starting && s.status == PlaybackStatus.ready) {
       _starting = false;
       _startupTimer?.cancel();
+      _onPartyLoaded();
       if (_startClock.isRunning) {
         _mark('première image');
         _startClock.stop();
@@ -517,6 +529,8 @@ class PlayerController extends Notifier<PlayerUiState> {
 
   void _onEvent(PlaybackEvent event) {
     switch (event) {
+      case PlaybackCompleted() when _sync != null:
+        unawaited(close());
       case PlaybackCompleted():
         final autoNext = ref.read(settingsProvider).autoPlayNext && !_upNextDismissed;
         unawaited(state.extras.nextEpisode != null && autoNext ? playNext() : close());
@@ -569,17 +583,96 @@ class PlayerController extends Notifier<PlayerUiState> {
     );
   }
 
+  // ------------------------------------------------------------ Soirée
+
+  SyncPlayPlayback? _sync;
+  SyncRequests? _partyRequests;
+  PartyStart? _party;
+  Timer? _syncTimer;
+  Duration? _awaitedSeek;
+
+  /// Lecture lancée par une soirée : synchronisation avec le groupe (même logique que sous Windows).
+  void _setupParty() {
+    final party = ref.read(watchPartyProvider.notifier).partyFor(args.itemId);
+    final client = ref.read(watchPartyProvider.notifier).client;
+    if (party == null || client == null) return;
+    _party = party;
+    _partyRequests = client;
+    _sync = SyncPlayPlayback(_EngineTarget(this), client, client.time, party.playlistItemId);
+    final controller = ref.read(watchPartyProvider.notifier);
+    _subscriptionsForever
+      ..add(controller.commands.listen(_onPartyCommand))
+      ..add(controller.groupStates.listen((s) {
+        _sync?.onGroupState(s);
+        _updatePartyBadge();
+      }));
+    ref.listen(watchPartyProvider, (_, _) => _updatePartyBadge());
+    _updatePartyBadge();
+  }
+
+  void _onPartyLoaded() {
+    final sync = _sync;
+    final party = _party;
+    if (sync == null || party == null) return;
+    unawaited(_engine?.pause());
+    unawaited(sync.loaded(isPlaying: party.isPlaying));
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(const Duration(milliseconds: 250), (_) => _partyTick());
+  }
+
+  void _partyTick() {
+    final sync = _sync;
+    final e = _engine;
+    if (sync == null || e == null || _closed) return;
+    final target = _awaitedSeek;
+    final snap = e.snapshot;
+    if (target != null && !snap.buffering && (snap.position - target).abs() < const Duration(milliseconds: 1500)) {
+      _awaitedSeek = null;
+      sync.onSeekCompleted();
+    }
+    sync.tick();
+  }
+
+  void _onPartyCommand(SyncCommand command) {
+    final sync = _sync;
+    if (sync == null || _closed) return;
+    if (command.kind == SyncCommandKind.stop) {
+      if (command.playlistItemId.isNotEmpty && command.playlistItemId.replaceAll('0', '').isNotEmpty) unawaited(close());
+      return;
+    }
+    if (command.kind == SyncCommandKind.seek && command.playlistItemId == sync.playlistItemId) _awaitedSeek = command.position;
+    sync.apply(command);
+    _updatePartyBadge();
+  }
+
+  void _updatePartyBadge() {
+    if (_closed || _disposing || _sync == null) return;
+    final group = ref.read(watchPartyProvider).group;
+    final count = group?.participants.length ?? 0;
+    state = state.copyWith(
+      party: () => group == null
+          ? null
+          : _sync!.waiting && group.state == GroupState.waiting
+          ? '${group.name} · en attente des autres…'
+          : '${group.name} · $count participant${count > 1 ? 's' : ''}',
+    );
+  }
+
   // ------------------------------------------------------------ Commandes
 
   Future<void> togglePlay() async {
     final e = engine;
     if (e == null) return;
+    final sync = _sync;
+    if (sync != null) return e.snapshot.playing ? _partyRequests?.pause() : _partyRequests?.unpause();
     e.snapshot.playing ? await e.pause() : await e.play();
   }
 
   Future<void> seek(Duration position) async {
     final e = engine;
     if (e == null) return;
+    // En soirée : le saut est demandé au groupe, appliqué chez tous en même temps.
+    if (_sync != null) return _sync!.requestSeek(position < Duration.zero ? Duration.zero : position);
     final duration = e.snapshot.duration;
     final target = position < Duration.zero
         ? Duration.zero
@@ -727,6 +820,7 @@ class PlayerController extends Notifier<PlayerUiState> {
     if (_closed) return;
     _closed = true;
     _startupTimer?.cancel();
+    _syncTimer?.cancel();
     unawaited(NativePlayers.setAutoPictureInPicture(false));
     for (final s in _subscriptionsForever) {
       unawaited(s.cancel());
@@ -757,4 +851,29 @@ class PlayerController extends Notifier<PlayerUiState> {
     }
     link?.close();
   }
+}
+
+
+/// Moteur de lecture vu par la synchronisation de soirée (commandes directes, sans passer par le groupe).
+class _EngineTarget implements SyncTarget {
+  _EngineTarget(this._controller);
+  final PlayerController _controller;
+
+  @override
+  Duration get position => _controller._engine?.snapshot.position ?? Duration.zero;
+
+  @override
+  bool get paused => !(_controller._engine?.snapshot.playing ?? false);
+
+  @override
+  void play() => unawaited(_controller._engine?.play());
+
+  @override
+  void pause() => unawaited(_controller._engine?.pause());
+
+  @override
+  void seek(Duration position) => unawaited(_controller._engine?.seek(position));
+
+  @override
+  void setRate(double rate) => unawaited(_controller._engine?.setRate(rate));
 }

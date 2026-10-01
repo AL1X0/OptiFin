@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/media/media_item.dart';
+import '../features/syncplay/presentation/watch_party_controller.dart';
 import 'router.dart';
 
 /// Navigation vers les contenus, en restant dans l'onglet courant
@@ -29,7 +33,15 @@ extension OFNavigation on BuildContext {
   void openItemId(String id) => push('/$_branch/item/$id');
 
   /// Lance la lecture. [start] null = reprendre où le serveur l'a enregistré.
-  void play(String itemId, {Duration? start}) => push(Routes.play(itemId, start: start));
+  /// En soirée, le titre est lancé pour tout le groupe : le lecteur s'ouvre à réception de la file.
+  void play(String itemId, {Duration? start}) {
+    final container = ProviderScope.containerOf(this, listen: false);
+    if (container.read(watchPartyProvider).inParty) {
+      unawaited(container.read(watchPartyProvider.notifier).play(itemId, start: start ?? Duration.zero));
+      return;
+    }
+    push(Routes.play(itemId, start: start));
+  }
   void openPerson(String id) => push('/$_branch/person/$id');
   void openLibrary(String id) => push('/$_branch/library/$id');
   void openGenre(NamedRef genre) =>

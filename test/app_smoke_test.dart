@@ -10,6 +10,7 @@ import 'package:optifin/core/network/jellyfin_auth.dart';
 import 'package:optifin/core/providers.dart';
 import 'package:optifin/core/storage/app_database.dart';
 import 'package:optifin/features/auth/domain/entities.dart';
+import 'package:optifin/features/syncplay/presentation/watch_party_controller.dart';
 
 import 'features/auth/account_store_test.dart' show MemoryVault;
 import 'helpers/fake_http.dart';
@@ -19,6 +20,8 @@ import 'helpers/fixtures.dart';
 /// Les fixtures n'ont pas d'images (pas d'accès réseau/plugins en test).
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+  // Pas de serveur : pas de connexion temps réel des soirées.
+  WatchPartyController.autoConnect = false;
 
   const identity = ClientIdentity(clientName: 'OptiFin', deviceName: 'Test', deviceId: 'd', version: '1');
   final session = ActiveSession(

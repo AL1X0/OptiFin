@@ -150,6 +150,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     right: 0,
                     child: IgnorePointer(child: Center(child: _NoticePill(state.notice!))),
                   ),
+                // Soirée : nom, participants ou attente du groupe.
+                if (state.party != null && state.phase == PlayerPhase.playing && !state.pictureInPicture)
+                  Positioned(
+                    top: MediaQuery.paddingOf(context).top + OFSpacing.lg + (state.notice != null ? 48 : 0),
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: Center(
+                        child: LiquidGlass(
+                          shade: 0.45,
+                          padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg, vertical: OFSpacing.sm),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.groups_rounded, size: 16, color: Theme.of(context).colorScheme.primary),
+                              const SizedBox(width: OFSpacing.sm),
+                              Text(state.party!, style: OFTypography.callout),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
