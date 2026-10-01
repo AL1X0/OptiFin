@@ -74,7 +74,7 @@ public sealed partial class PlayerWindow : Window
         };
 
         var dispatcher = DispatcherQueue.GetForCurrentThread();
-        _hideTimer = Timer(dispatcher, TimeSpan.FromSeconds(3), HideControls);
+        _hideTimer = Timer(dispatcher, TimeSpan.FromSeconds(2.5), HideControls);
         _reportTimer = Timer(dispatcher, TimeSpan.FromSeconds(10), () =>
         {
             if (_plan != null && _started) _ = AppServices.Playback!.ReportProgressAsync(_plan, _position, _paused);
@@ -417,7 +417,15 @@ public sealed partial class PlayerWindow : Window
         // Surface : clic = lecture/pause, double-clic = plein écran, molette = volume.
         Surface.Tapped += (_, _) => TogglePlay();
         Surface.DoubleTapped += (_, _) => ToggleFullscreen();
-        Root.PointerMoved += (_, _) => ShowControls(autoHide: true);
+        // Seul un vrai déplacement compte : WinUI signale aussi des « mouvements » immobiles
+        // (changement d'élément sous le curseur, fondu des commandes) qui retardaient leur masquage.
+        Root.PointerMoved += (_, e) =>
+        {
+            var p = e.GetCurrentPoint(Root).Position;
+            if (Math.Abs(p.X - _lastPointer.X) < 3 && Math.Abs(p.Y - _lastPointer.Y) < 3) return;
+            _lastPointer = p;
+            ShowControls(autoHide: true);
+        };
         Root.PointerWheelChanged += (_, e) =>
         {
             ChangeVolume(e.GetCurrentPoint(Root).Properties.MouseWheelDelta > 0 ? 0.05 : -0.05);
@@ -575,6 +583,7 @@ public sealed partial class PlayerWindow : Window
     private readonly DispatcherQueueTimer _statsTimer;
     private bool _stats;
     private bool _leaving;
+    private Windows.Foundation.Point _lastPointer = new(-100, -100);
 
     private Win32.Point _cursorWhenCloaked;
 
@@ -925,6 +934,7 @@ public sealed partial class PlayerWindow : Window
         _cursorTimer.Stop();
         _overlayTimer.Stop();
         _statsTimer.Stop();
+        Win32.SetCursorHidden(false);
         _reportTimer.Stop();
         _startupTimer.Stop();
         Win32.SetThreadExecutionState(Win32.ES_CONTINUOUS);
@@ -952,9 +962,7 @@ public sealed partial class PlayerWindow : Window
 internal static class CursorExtensions
 {
     /// <summary>Masque le curseur au-dessus de la vidéo (contrôles masqués) ; il revient au moindre mouvement.</summary>
-    public static void HideCursor(this Grid _) => Win32.SetCursor(0);
+    public static void HideCursor(this Grid _) => Win32.SetCursorHidden(true);
 
-    public static void ProtectedCursorReset(this Grid _)
-    {
-    }
+    public static void ProtectedCursorReset(this Grid _) => Win32.SetCursorHidden(false);
 }

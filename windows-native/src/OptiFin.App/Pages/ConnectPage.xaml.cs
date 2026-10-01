@@ -29,6 +29,8 @@ public sealed partial class ConnectPage : Page
     public ConnectPage()
     {
         InitializeComponent();
+        RootGrid.Children.Insert(0, new WelcomeBackdrop());
+        Column.Children.Insert(0, new WelcomeLogo());
         Unloaded += (_, _) => _cts.Cancel();
 
         var accounts = AppServices.Accounts.Accounts();

@@ -18,11 +18,13 @@ public sealed partial class LoginPage : Page
     private readonly PasswordBox _password = new() { PlaceholderText = "Mot de passe", FontSize = 16, Padding = new Thickness(14, 10, 14, 10), CornerRadius = new CornerRadius(12) };
     private readonly TextBlock _error = new() { Foreground = Ui.Res("OFDangerBrush"), TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
     private readonly Button _signIn = Ui.Primary("Se connecter");
-    private readonly StackPanel _users = new() { Orientation = Orientation.Horizontal, Spacing = 20 };
+    private readonly StackPanel _users = new() { Orientation = Orientation.Horizontal, Spacing = 20, HorizontalAlignment = HorizontalAlignment.Center };
 
     public LoginPage()
     {
         InitializeComponent();
+        RootGrid.Children.Insert(0, new WelcomeBackdrop());
+        Column.Children.Insert(0, new WelcomeLogo());
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)

@@ -152,6 +152,23 @@ internal static unsafe partial class Win32
     [LibraryImport("user32.dll")]
     public static partial nint SetCursor(nint cursor);
 
+    [LibraryImport("user32.dll")]
+    public static partial int ShowCursor([MarshalAs(UnmanagedType.Bool)] bool show);
+
+    public const uint WM_SETCURSOR = 0x0020;
+
+    /// <summary>Curseur masqué pendant la lecture (commandes cachées).</summary>
+    public static bool CursorHidden { get; private set; }
+
+    /// <summary>Masque ou rétablit le curseur (compteur d'affichage de Windows, équilibré).</summary>
+    public static void SetCursorHidden(bool hidden)
+    {
+        if (hidden == CursorHidden) return;
+        CursorHidden = hidden;
+        ShowCursor(!hidden);
+        if (hidden) SetCursor(0);
+    }
+
     public const int BLACK_BRUSH = 4;
 }
 
@@ -192,8 +209,16 @@ internal sealed unsafe class VideoHost : IDisposable
     private static nint WndProc(nint hwnd, uint msg, nint wparam, nint lparam) => msg switch
     {
         Win32.WM_MOUSEACTIVATE => Win32.MA_NOACTIVATE,
+        // Pas de curseur au-dessus de la vidéo quand les commandes sont masquées.
+        Win32.WM_SETCURSOR when Win32.CursorHidden => SetNoCursor(),
         _ => Win32.DefWindowProc(hwnd, msg, wparam, lparam),
     };
+
+    private static nint SetNoCursor()
+    {
+        Win32.SetCursor(0);
+        return 1;
+    }
 
     public void Place(int x, int y, int width, int height, bool visible) =>
         Win32.SetWindowPos(Hwnd, 0, x, y, width, height, Win32.SWP_NOACTIVATE | Win32.SWP_NOZORDER | (visible ? Win32.SWP_SHOWWINDOW : 0));

@@ -82,6 +82,8 @@ public sealed partial class ShellPage : Page
             UpdateCaptionInset();
         };
 
+        // Raccourcis sans info-bulle « Ctrl+F » qui surgissait au survol de la page.
+        KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
         KeyboardAccelerators.Add(Accelerator(VirtualKey.F, VirtualKeyModifiers.Control, () => Nav.Section(typeof(SearchPage))));
         KeyboardAccelerators.Add(Accelerator(VirtualKey.Left, VirtualKeyModifiers.Menu, () => Nav.Back()));
         KeyboardAccelerators.Add(Accelerator(VirtualKey.GoBack, VirtualKeyModifiers.None, () => Nav.Back()));
