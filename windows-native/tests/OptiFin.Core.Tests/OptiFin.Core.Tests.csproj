@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OptiFin.Core\OptiFin.Core.csproj" />
+    <ProjectReference Include="..\..\src\OptiFin.Mpv\OptiFin.Mpv.csproj" />
   </ItemGroup>
 
   <ItemGroup>

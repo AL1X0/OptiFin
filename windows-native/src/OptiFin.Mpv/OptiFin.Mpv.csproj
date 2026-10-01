@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Lecteur vidéo d'OptiFin pour Windows : libmpv (rendu gpu-next / libplacebo sur Direct3D 11,
+    décodage matériel D3D11VA, HDR10 / HLG / Dolby Vision transmis à un écran HDR).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsAotCompatible>true</IsAotCompatible>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>OptiFin.Mpv</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    libmpv : compilation shinchiro figée (date + empreinte SHA-256), téléchargée une seule fois
+    dans un cache partagé, jamais versionnée (120 Mo).
+  -->
+  <PropertyGroup>
+    <LibmpvArchive>mpv-dev-x86_64-20260928-git-e470f8986e.7z</LibmpvArchive>
+    <LibmpvUrl>https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260928/$(LibmpvArchive)</LibmpvUrl>
+    <LibmpvSha256>81795D759E01016F1550FD71651A1A5D59AB5C28EF31C0B6793224E9CFF39459</LibmpvSha256>
+    <LibmpvDir>$(LocalAppData)\OptiFin-build\libmpv-20260928</LibmpvDir>
+  </PropertyGroup>
+
+  <Target Name="FetchLibmpv" BeforeTargets="BeforeBuild;AssignTargetPaths" Condition="!Exists('$(LibmpvDir)\libmpv-2.dll')">
+    <Message Importance="high" Text="OptiFin : téléchargement de libmpv ($(LibmpvArchive))" />
+    <MakeDir Directories="$(LibmpvDir)" />
+    <DownloadFile SourceUrl="$(LibmpvUrl)" DestinationFolder="$(LibmpvDir)" Retries="3" />
+    <GetFileHash Files="$(LibmpvDir)\$(LibmpvArchive)" Algorithm="SHA256">
+      <Output TaskParameter="Hash" PropertyName="LibmpvActualSha256" />
+    </GetFileHash>
+    <Error Condition="'$(LibmpvActualSha256)' != '$(LibmpvSha256)'"
+           Text="libmpv : empreinte inattendue ($(LibmpvActualSha256)) — téléchargement refusé." />
+    <Exec Command="&quot;$(SystemRoot)\System32\tar.exe&quot; -xf &quot;$(LibmpvArchive)&quot; libmpv-2.dll" WorkingDirectory="$(LibmpvDir)" />
+    <Delete Files="$(LibmpvDir)\$(LibmpvArchive)" />
+  </Target>
+
+  <ItemGroup>
+    <None Include="$(LibmpvDir)\libmpv-2.dll" Link="libmpv-2.dll" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+</Project>

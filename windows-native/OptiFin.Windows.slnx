@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/OptiFin.App/OptiFin.App.csproj" />
     <Project Path="src/OptiFin.Core/OptiFin.Core.csproj" />
+    <Project Path="src/OptiFin.Mpv/OptiFin.Mpv.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/OptiFin.Core.Tests/OptiFin.Core.Tests.csproj" />
