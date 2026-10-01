@@ -47,7 +47,6 @@ Optifin/                              ← application Flutter (racine du dépôt
 │       │   │   └── engines/
 │       │   │       ├── mpv_engine.dart      ← MOTEUR 1 : libmpv via media_kit (chargé à la demande)
 │       │   │       ├── native_engine.dart   ← MOTEUR 2 : adaptateur vers optifin_native_player
-│       │   │       ├── windows_mpv_engine.dart ← Windows : libmpv native (fenêtre vidéo sous l'interface)
 │       │   │       └── subtitle_overlay.dart
 │       │   └── presentation/                ← UI du lecteur, agnostique du moteur
 │       ├── music/ downloads/ live_tv/ syncplay/ remote/ settings/
@@ -84,5 +83,3 @@ Fiche ouverte ──► PlaybackInfo d'analyse (profil mpv, préchargé) ──�
 | libmpv | `MediaKit.ensureInitialized()` appelé au 1er usage du moteur mpv | Exigence « chargé à la demande » ; démarrage à froid non pénalisé. |
 | Rendu natif Android | `AndroidView` (Hybrid Composition forcée quand SurfaceView) | SurfaceView requis pour HDR + PiP ; coût de composition accepté pendant la lecture uniquement. |
 | iOS | Non compilable sur cette machine (Windows) | Le code Swift est écrit ; build/test à faire sur macOS. |
-| Lecture sur Windows | libmpv pilotée en C++ (plugin `optifin_native_player`), vidéo dans une fenêtre native **sous** la vue Flutter (DirectComposition) | media_kit copie l'image dans une texture Flutter (SDR uniquement). Ici mpv affiche lui-même en gpu-next / Direct3D 11 : HDR10, HLG et Dolby Vision envoyés tels quels à un écran HDR, décodage D3D11VA sans copie. |
-| libmpv Windows | Compilation shinchiro figée (date + SHA-256), téléchargée à la compilation, chargée à l'exécution | La libmpv de media_kit (2023) n'a pas gpu-next. Aucun binaire de 120 Mo dans le dépôt ; empreinte vérifiée. |

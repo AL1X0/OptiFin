@@ -7,7 +7,6 @@ analyzer:
     - build/**
     - android/**
     - ios/**
-    - windows/**
   language:
     strict-casts: true
     strict-raw-types: true

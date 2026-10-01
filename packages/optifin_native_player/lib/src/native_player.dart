@@ -59,63 +59,6 @@ abstract final class NativePlayers {
     }
   }
 
-  // ------------------------------------------------------------ Fenêtre (Windows)
-
-  /// Windows : plein écran sans bordure sur l'écran courant (restauré ensuite).
-  static Future<void> setFullscreen(bool enabled) async {
-    if (defaultTargetPlatform != TargetPlatform.windows) return;
-    await _channel.invokeMethod<void>('setFullscreen', enabled);
-  }
-
-  static Future<bool> isFullscreen() async {
-    if (defaultTargetPlatform != TargetPlatform.windows) return false;
-    return await _channel.invokeMethod<bool>('isFullscreen') ?? false;
-  }
-
-  // ------------------------------------------------------------ Session multimédia (Windows)
-
-  static const _mediaButtons = EventChannel('optifin_native_player/media_buttons');
-  static Stream<String>? _buttons;
-
-  /// Windows : boutons multimédias (touches du clavier, encart de Windows, vignette de la
-  /// barre des tâches) : play, pause, toggle, next, back10.
-  static Stream<String> get mediaButtons => defaultTargetPlatform != TargetPlatform.windows
-      ? const Stream<String>.empty()
-      : _buttons ??= _mediaButtons.receiveBroadcastStream().map((e) => '$e').handleError((Object _) {});
-
-  /// Windows : titre, affiche, état et progression affichés par le système.
-  static Future<void> updateMediaSession({
-    required String title,
-    String subtitle = '',
-    Uri? artwork,
-    required bool playing,
-    required Duration position,
-    required Duration duration,
-    bool hasNext = false,
-  }) async {
-    if (defaultTargetPlatform != TargetPlatform.windows) return;
-    await _channel.invokeMethod<void>('mediaSession', {
-      'title': title,
-      'subtitle': subtitle,
-      'artwork': artwork?.toString() ?? '',
-      'playing': playing,
-      'position': position.inMilliseconds / 1000,
-      'duration': duration.inMilliseconds / 1000,
-      'hasNext': hasNext,
-    });
-  }
-
-  static Future<void> clearMediaSession() async {
-    if (defaultTargetPlatform != TargetPlatform.windows) return;
-    await _channel.invokeMethod<void>('mediaSessionClear');
-  }
-
-  /// Windows : empêche la mise en veille et l'extinction de l'écran (lecture en cours).
-  static Future<void> keepAwake(bool enabled) async {
-    if (defaultTargetPlatform != TargetPlatform.windows) return;
-    await _channel.invokeMethod<void>('keepAwake', enabled);
-  }
-
   /// Crée un lecteur natif. Ses événements sont écoutés immédiatement (aucun
   /// état n'est perdu entre la création et l'ouverture du média).
   static Future<NativePlayer> create() async {

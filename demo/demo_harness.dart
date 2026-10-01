@@ -56,17 +56,7 @@ class _MemoryVault implements TokenVault {
 
 /// App OptiFin réelle, branchée sur le serveur simulé et les illustrations générées.
 class DemoHarness {
-  DemoHarness(
-    this.tester, {
-    this.device = phone,
-    this.tablet = false,
-    this.tv = false,
-    this.desktop = false,
-    this.signedIn = true,
-  });
-
-  /// Ordinateur (Windows) : souris, barre latérale, 1440 × 900 logiques.
-  final bool desktop;
+  DemoHarness(this.tester, {this.device = phone, this.tablet = false, this.tv = false, this.signedIn = true});
 
   /// false : l'app démarre sur l'écran de connexion (serveur et profils simulés).
   final bool signedIn;
@@ -82,7 +72,7 @@ class DemoHarness {
   /// Téléviseur (Android TV) : 960 × 540 logiques, télécommande, interface TV.
   final bool tv;
 
-  double get _dpr => desktop ? 1 : (tv || tablet ? 2 : 3);
+  double get _dpr => tv || tablet ? 2 : 3;
   final assets = DemoAssets();
   final _boundary = GlobalKey();
   final _touches = GlobalKey<_TouchesState>();
@@ -97,11 +87,8 @@ class DemoHarness {
   final _taps = <int>[];
 
   Future<void> setUp() async {
-    debugDefaultTargetPlatformOverride = desktop
-        ? TargetPlatform.windows
-        : (tv ? TargetPlatform.android : TargetPlatform.iOS);
+    debugDefaultTargetPlatformOverride = tv ? TargetPlatform.android : TargetPlatform.iOS;
     OFDevice.tv = tv;
-    OFDevice.desktop = desktop;
     OFGlass.blur = !tv;
     if (tv) {
       // Android simulé : flux Picture-in-Picture natif absent des tests.
@@ -192,7 +179,7 @@ class DemoHarness {
                   ],
                   child: const OptiFinApp(),
                 ),
-                _StatusBar(visible: () => !landscape && !tablet && !desktop),
+                _StatusBar(visible: () => !landscape && !tablet),
               ],
             ),
           ),
@@ -222,7 +209,7 @@ class DemoHarness {
   void goLandscape() {
     landscape = true;
     tester.view.physicalSize = Size(device.height, device.width) * _dpr;
-    final pad = tv || desktop
+    final pad = tv
         ? FakeViewPadding.zero
         : tablet
         ? const FakeViewPadding(top: 24 * 2, bottom: 20 * 2)
@@ -241,7 +228,6 @@ class DemoHarness {
     await tester.runAsync(db.close);
     debugDefaultTargetPlatformOverride = null;
     OFDevice.tv = false;
-    OFDevice.desktop = false;
     OFGlass.blur = true;
     tester.view.reset();
   }
@@ -302,7 +288,7 @@ class DemoHarness {
   Future<void> screenshot(String name) async {
     await tester.runAsync(() async {
       final boundary = _boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-      final image = await boundary.toImage(pixelRatio: desktop ? 1 : (tv ? 2 : (tablet ? 1 : 3)));
+      final image = await boundary.toImage(pixelRatio: tv ? 2 : (tablet ? 1 : 3));
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
       Directory('build/demo/shots').createSync(recursive: true);

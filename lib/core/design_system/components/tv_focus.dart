@@ -1,7 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import '../device.dart';
 import '../tokens.dart';
 
 /// Élément atteignable à la télécommande (ou au clavier) : flèches pour y aller, OK pour
@@ -42,15 +41,12 @@ class TvFocusable extends StatefulWidget {
 class _TvFocusableState extends State<TvFocusable> {
   bool _highlighted = false;
 
-  /// Survol à la souris (ordinateur) : léger grossissement, sans liseré.
-  bool _hovered = false;
-
   @override
   Widget build(BuildContext context) {
     final motion = OFMotion.of(context);
     final select = widget.onSelect;
     final Widget child = AnimatedScale(
-      scale: _highlighted ? widget.scale : (_hovered ? 1 + (widget.scale - 1) * 0.5 : 1),
+      scale: _highlighted ? widget.scale : 1,
       duration: motion.fast,
       curve: OFMotion.standardCurve,
       child: widget.ring
@@ -78,10 +74,6 @@ class _TvFocusableState extends State<TvFocusable> {
       autofocus: widget.autofocus,
       focusNode: widget.focusNode,
       enabled: select != null || widget.onKeyEvent != null,
-      mouseCursor: select != null ? SystemMouseCursors.click : MouseCursor.defer,
-      onShowHoverHighlight: (v) {
-        if (OFDevice.desktop && v != _hovered) setState(() => _hovered = v);
-      },
       actions: {
         if (select != null)
           ActivateIntent: CallbackAction<ActivateIntent>(

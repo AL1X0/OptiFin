@@ -378,33 +378,3 @@ Retours d'un premier essai sur téléviseur : navigation piégée, clavier surgi
 7. **Journal persistant** : écrit ligne à ligne dans un fichier, la session précédente est relue au lancement
    (un plantage natif reste diagnosticable) ; bouton « Envoyer au serveur » (`/ClientLog/Document`), seul moyen de
    récupérer le journal depuis un téléviseur.
-
-## Windows (2026-10-01)
-
-Même base de code Flutter que les téléphones et la TV : l'interface est compilée en code machine (démarrage et
-mémoire comparables à une appli native), la partie critique — la vidéo — est écrite en C++ autour de libmpv.
-
-1. **Lecture** (`WindowsMpvEngine`, plugin `optifin_native_player/windows`) : libmpv affiche la vidéo dans une
-   fenêtre native placée **sous** la vue Flutter, transparente là où passe l'image. Rendu gpu-next (libplacebo) sur
-   Direct3D 11, décodage D3D11VA, `target-colorspace-hint` : HDR10, HLG et Dolby Vision partent tels quels vers
-   un écran HDR, sinon conversion propre en SDR. Même contrat `PlaybackEngine` que les autres moteurs : sélection,
-   replis, sous-titres (libass), pistes, reprise. En-têtes d'authentification ajoutés un par un
-   (`change-list … append`), jamais dans l'URL.
-2. **libmpv** : compilation shinchiro du 2026-09-28, téléchargée à la compilation et vérifiée par SHA-256, chargée
-   à l'exécution. Celle de media_kit (2023) n'a pas gpu-next : elle n'est plus embarquée (dépendances
-   `media_kit_libs_android_video` / `_ios_video` au lieu de `media_kit_libs_video`).
-3. **Interface bureau** (`OFDevice.desktop`) : barre latérale permanente (icônes seules sous 1100 px), pages mises
-   en page sur la zone de contenu, survol (zoom et bouton lecture sur les cartes), flèches de défilement des
-   rangées, Ctrl+F, Alt+← et bouton « précédent » de la souris. Téléchargements, verrou et PiP masqués.
-4. **Lecteur à la souris et au clavier** : clic lecture/pause, double-clic / F / F11 plein écran sans bordure,
-   Échap, ← → ±10 s, molette et ↑ ↓ volume, M muet, curseur masqué avec les contrôles, pas de mise en veille.
-5. **Intégrations Windows** : contrôles multimédias du système (touches média, encart avec titre et affiche),
-   boutons −10 s / lecture / suivant dans la vignette de la barre des tâches, progression sur l'icône ; fenêtre
-   sombre, taille et position retenues, taille minimale 960 × 600.
-6. **Distribution** : installateur Inno Setup par utilisateur (sans droits administrateur), publié par la CI dans
-   chaque Release ; mise à jour automatique (dernière Release, empreinte SHA-256 vérifiée, installation silencieuse
-   puis relance). Sans certificat de signature, SmartScreen avertit à la première installation.
-7. **Vérifications** : tests d'intégration Windows (`integration_test/windows_mpv_test.dart` : lecture, pause,
-   recherche, fin, échec au démarrage, session multimédia, plein écran) ; captures `demo/desktop_audit_test.dart`.
-   Mesuré sur une machine virtuelle sans carte graphique : ~128 Mo de mémoire au repos, fenêtre en ~2,1 s (rendu
-   logiciel). **À valider sur un vrai PC** : superposition de l'interface sur la vidéo, HDR, décodage matériel.

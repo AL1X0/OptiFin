@@ -78,8 +78,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   controller: _controller,
                   focusNode: node,
                   readOnly: readOnly,
-                  // Ordinateur : on tape directement (Ctrl+F ouvre la recherche).
-                  autofocus: OFDevice.desktop,
                   showCursor: !readOnly,
                   onSubmitted: (_) => done(),
                   onChanged: _onChanged,

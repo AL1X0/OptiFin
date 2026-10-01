@@ -195,8 +195,8 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
             onTap: () => _open(PlayerMenuPage.engine),
           ),
           const _MenuDivider(),
-          // Verrou (écran tactile) : inutile à la télécommande et à la souris.
-          if (!OFDevice.tv && !OFDevice.desktop)
+          // Verrou (écran tactile) : inutile à la télécommande.
+          if (!OFDevice.tv)
             _MenuRow(
               icon: Icons.lock_outline_rounded,
               label: 'Verrouiller l’écran',

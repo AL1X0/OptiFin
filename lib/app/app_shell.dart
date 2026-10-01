@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:optifin_native_player/optifin_native_player.dart' show NativeGlassView;
 
 import '../core/design_system/design_system.dart';
-import '../features/settings/presentation/app_update_button.dart';
 import 'router.dart';
 
 class _Tab {
@@ -42,204 +40,11 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (OFDevice.tv) return _TvShell(shell: shell);
-    if (OFDevice.desktop) return _DesktopShell(shell: shell);
     return Scaffold(
       extendBody: true,
       body: shell,
       bottomNavigationBar: _FloatingTabBar(current: shell.currentIndex, onSelect: _select),
     );
-  }
-}
-
-/// Coquille ordinateur : barre latérale permanente, comme les applis de streaming sur PC.
-/// Libellés visibles dès que la fenêtre est assez large, icônes seules sinon.
-///
-/// Raccourcis : Ctrl+F (recherche), Alt+← ou bouton « précédent » de la souris (retour).
-class _DesktopShell extends StatelessWidget {
-  const _DesktopShell({required this.shell});
-
-  final StatefulNavigationShell shell;
-
-  static const _items = <(int?, String, IconData, IconData)>[
-    (0, 'Accueil', Icons.home_outlined, Icons.home_rounded),
-    (1, 'Bibliothèques', Icons.video_library_outlined, Icons.video_library_rounded),
-    (2, 'Recherche', Icons.search_rounded, Icons.search_rounded),
-  ];
-
-  void _open(int branch) => shell.goBranch(branch, initialLocation: branch == shell.currentIndex);
-
-  void _back(BuildContext context) {
-    final router = GoRouter.of(context);
-    if (router.canPop()) router.pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= 1100;
-    final accent = Theme.of(context).colorScheme.primary;
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyF, control: true): () => _open(2),
-        const SingleActivator(LogicalKeyboardKey.arrowLeft, alt: true): () => _back(context),
-        const SingleActivator(LogicalKeyboardKey.browserBack): () => _back(context),
-      },
-      child: Listener(
-        // Bouton « précédent » des souris à 5 boutons.
-        onPointerDown: (e) {
-          if (e.buttons & kBackMouseButton != 0) _back(context);
-        },
-        child: Scaffold(
-          body: Row(
-            children: [
-              AnimatedContainer(
-                duration: OFMotion.of(context).standard,
-                curve: OFMotion.standardCurve,
-                width: wide ? 232 : 76,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF0B0B0D),
-                  border: Border(right: BorderSide(color: Color(0x14FFFFFF))),
-                ),
-                padding: const EdgeInsets.fromLTRB(OFSpacing.md, OFSpacing.lg, OFSpacing.md, OFSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 0, 0, OFSpacing.xl),
-                      child: Text(
-                        wide ? 'OptiFin' : 'O',
-                        style: OFTypography.title1.copyWith(color: accent, letterSpacing: -0.5),
-                      ),
-                    ),
-                    for (final (branch, label, icon, selectedIcon) in _items)
-                      _SideItem(
-                        icon: branch == shell.currentIndex ? selectedIcon : icon,
-                        label: label,
-                        wide: wide,
-                        selected: branch == shell.currentIndex,
-                        accent: accent,
-                        onTap: () => _open(branch!),
-                      ),
-                    const Spacer(),
-                    AppUpdateButton(wide: wide),
-                    _SideItem(
-                      icon: Icons.settings_outlined,
-                      label: 'Réglages',
-                      wide: wide,
-                      selected: false,
-                      accent: accent,
-                      onTap: () => context.push(Routes.settings),
-                    ),
-                  ],
-                ),
-              ),
-              // Les pages se mettent en page sur la zone de contenu, pas sur la fenêtre entière.
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) => MediaQuery(
-                    data: MediaQuery.of(context).copyWith(size: constraints.biggest),
-                    child: shell,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SideItem extends StatefulWidget {
-  const _SideItem({
-    required this.icon,
-    required this.label,
-    required this.wide,
-    required this.selected,
-    required this.accent,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool wide;
-  final bool selected;
-  final Color accent;
-  final VoidCallback onTap;
-
-  @override
-  State<_SideItem> createState() => _SideItemState();
-}
-
-class _SideItemState extends State<_SideItem> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = widget.selected ? OFColors.textPrimary : (_hovered ? OFColors.textPrimary : OFColors.textSecondary);
-    final item = Semantics(
-      button: true,
-      selected: widget.selected,
-      label: widget.label,
-      excludeSemantics: true,
-      child: FocusableActionDetector(
-        mouseCursor: SystemMouseCursors.click,
-        onShowHoverHighlight: (v) => setState(() => _hovered = v),
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) {
-              widget.onTap();
-              return null;
-            },
-          ),
-        },
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: OFMotion.of(context).fast,
-            height: 44,
-            margin: const EdgeInsets.only(bottom: 4),
-            decoration: BoxDecoration(
-              color: widget.selected
-                  ? const Color(0x1FFFFFFF)
-                  : (_hovered ? const Color(0x0FFFFFFF) : const Color(0x00FFFFFF)),
-              borderRadius: const BorderRadius.all(Radius.circular(12)),
-            ),
-            // Contenu à sa taille finale pendant l'animation de la barre (rogné, jamais tassé).
-            child: ClipRect(
-              child: OverflowBox(
-                alignment: widget.wide ? Alignment.centerLeft : Alignment.center,
-                minWidth: 0,
-                maxWidth: widget.wide ? 200 : 44,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: widget.wide ? 12 : 0),
-                  child: Row(
-                    mainAxisAlignment: widget.wide ? MainAxisAlignment.start : MainAxisAlignment.center,
-                    children: [
-                      Icon(widget.icon, size: 22, color: widget.selected ? widget.accent : fg),
-                      if (widget.wide) ...[
-                        const SizedBox(width: OFSpacing.md),
-                        Expanded(
-                          child: Text(
-                            widget.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: OFTypography.callout.copyWith(
-                              color: fg,
-                              fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    return widget.wide ? item : Tooltip(message: widget.label, child: item);
   }
 }
 

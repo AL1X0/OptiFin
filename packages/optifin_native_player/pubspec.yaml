@@ -24,5 +24,3 @@ flutter:
         pluginClass: OptifinNativePlayerPlugin
       ios:
         pluginClass: OptifinNativePlayerPlugin
-      windows:
-        pluginClass: OptifinNativePlayerPluginCApi
