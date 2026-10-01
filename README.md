@@ -6,11 +6,11 @@
 
 **Votre Jellyfin, en version cinéma.**
 
-Client [Jellyfin](https://jellyfin.org) pour iPhone, iPad, Android et Android TV.
+Client [Jellyfin](https://jellyfin.org) pour iPhone, iPad, Android, Android TV et Windows.
 
 [![CI](https://github.com/AL1X0/OptiFin/actions/workflows/ci.yml/badge.svg)](https://github.com/AL1X0/OptiFin/actions/workflows/ci.yml)
 [![Dernière build](https://img.shields.io/github/v/release/AL1X0/OptiFin?label=build&color=4DA3FF)](https://github.com/AL1X0/OptiFin/releases/latest)
-![Plateformes](https://img.shields.io/badge/iOS%2015%2B%20·%20Android%207%2B-111?logo=flutter)
+![Plateformes](https://img.shields.io/badge/iOS%2015%2B%20·%20Android%207%2B%20·%20Windows%2010%2B-111)
 
 <a href="https://github.com/AL1X0/OptiFin/blob/main/docs/media/optifin-demo.mp4">
   <img src="docs/media/optifin-demo.jpg" width="820" alt="Vidéo de présentation d'OptiFin" />
@@ -29,6 +29,7 @@ Client [Jellyfin](https://jellyfin.org) pour iPhone, iPad, Android et Android TV
 - **Pensé pour les séries** : reprise synchronisée, « Passer l'intro », épisode suivant préparé pendant le générique.
 - **Hors connexion** : films et saisons téléchargés en arrière-plan, lus sans réseau.
 - **iPhone, iPad, Android et Android TV** (télécommande), mode sombre soigné, Picture-in-Picture, AirPlay.
+- **Windows** : appli native (C# / WinUI 3, compilée en NativeAOT), lecteur mpv avec HDR, souris et clavier, mises à jour automatiques.
 
 ## Installer
 
@@ -40,12 +41,21 @@ https://raw.githubusercontent.com/AL1X0/OptiFin/sidestore/source.json
 
 **Android et Android TV** : `OptiFin-android-arm64-v8a.apk` (ou `armeabi-v7a` pour les box et Fire TV plus anciens) dans la [dernière Release](https://github.com/AL1X0/OptiFin/releases/latest).
 
+**Windows 10 / 11** : `OptiFin-windows-setup.exe` dans la [dernière Release](https://github.com/AL1X0/OptiFin/releases/latest) (installation sans droits administrateur) ; l'appli se met ensuite à jour toute seule.
+
 Serveur Jellyfin 10.9 ou plus récent.
 
 ## Développement
 
 ```bash
 flutter pub get && flutter analyze && flutter test
+```
+
+Windows (dossier [`windows-native`](windows-native), .NET 10) :
+
+```bash
+cd windows-native && dotnet test --project tests/OptiFin.Core.Tests
+dotnet publish src/OptiFin.App/OptiFin.App.csproj -c Release -r win-x64 -p:Platform=x64 -o out/x64
 ```
 
 Vidéo et captures App Store (`docs/appstore/`, 1320 × 2868) : `bash demo/make_demo.sh`.

@@ -378,3 +378,32 @@ Retours d'un premier essai sur téléviseur : navigation piégée, clavier surgi
 7. **Journal persistant** : écrit ligne à ligne dans un fichier, la session précédente est relue au lancement
    (un plantage natif reste diagnosticable) ; bouton « Envoyer au serveur » (`/ClientLog/Document`), seul moyen de
    récupérer le journal depuis un téléviseur.
+
+## Windows natif (2026-10-01)
+
+La version Windows en Flutter est abandonnée (deux bases de code de toute façon, et la vidéo de mpv ne se composait
+pas sous l'interface Flutter : écran noir avec le son). Elle est remplacée par une appli native dans `windows-native/`.
+
+1. **C# / .NET 10 + WinUI 3, compilé en NativeAOT** (pas de JIT ni de runtime .NET à installer) : fenêtre affichée
+   en ~0,6 s. Paquets Windows App SDK séparés (WinUI, Foundation…) plutôt que le méta-paquet : 80 Mo de moins.
+   Appli non empaquetée, autonome. Rust écarté : pas d'interface native Windows mûre, WinUI depuis Rust reste expérimental.
+2. **Trois projets** : `OptiFin.Core` (client Jellyfin, comptes, accueil, bibliothèques, lecture, réglages — sans
+   interface, testé), `OptiFin.Mpv` (libmpv en appels natifs générés), `OptiFin.App` (interface). Les règles métier
+   (lignes de l'accueil, badges, libellés, choix des pistes, segments, épisode suivant) reprennent celles du mobile.
+3. **Compatible AOT de bout en bout** : JSON par générateurs de source, `LibraryImport`, aucune réflexion.
+   Piège rencontré : en AOT, un `Style` lu dans les ressources peut revenir comme simple `DependencyObject` ;
+   `Ui.StyleOf` / `Ui.Res` demandent alors explicitement l'interface WinRT.
+4. **Lecteur** : libmpv (gpu-next, Direct3D 11, décodage matériel, HDR transmis à l'écran) dans une fenêtre Win32 à
+   elle ; les commandes WinUI sont dans une seconde fenêtre transparente posée au-dessus et synchronisée (une fenêtre
+   enfant serait toujours dessinée par-dessus le XAML). libmpv (build shinchiro) est téléchargée à la compilation et
+   vérifiée par SHA-256. Repli automatique sur le transcodage si la lecture directe échoue au démarrage.
+5. **Jetons** chiffrés par DPAPI (liés à la session Windows), jamais dans les URL d'images ni dans le journal.
+6. **Intégrations** : contrôles multimédias de Windows (touches média, écran de verrouillage), identité d'appli
+   `OptiFin.Windows`, placement de fenêtre mémorisé, Ctrl+F, Alt+←, bouton « précédent » de la souris.
+7. **Installateur Inno Setup** par utilisateur (même AppId que l'ancienne version Flutter, qu'il remplace) ;
+   la CI le joint à chaque Release. **Mise à jour automatique** : l'appli consulte la dernière Release, vérifie
+   l'empreinte SHA-256 publiée par GitHub et relance l'installateur en silencieux.
+8. **Vérification visuelle** sans écran : `OptiFin.exe --capture dossier étape=action…` capture la fenêtre ;
+   `tools/OptiFin.DemoServer` simule un serveur Jellyfin (catalogue et images générées).
+9. **Non vérifiable ici** (machine virtuelle sans GPU) : rendu HDR réel et superposition des commandes au-dessus de
+   la vidéo.
