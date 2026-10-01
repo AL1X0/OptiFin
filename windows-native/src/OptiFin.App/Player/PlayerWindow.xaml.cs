@@ -127,9 +127,12 @@ public sealed partial class PlayerWindow : Window
     public void ShowOver(AppWindow main)
     {
         var area = DisplayArea.GetFromWindowId(main.Id, DisplayAreaFallback.Primary);
-        AppWindow.MoveAndResize(main.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized }
+        var mainMaximized = main.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized };
+        AppWindow.MoveAndResize(mainMaximized
             ? area.WorkArea
             : new Windows.Graphics.RectInt32(main.Position.X, main.Position.Y, main.Size.Width, main.Size.Height));
+        // Fenêtre principale agrandie : le lecteur l'est aussi (et le redevient en sortie de plein écran).
+        if (mainMaximized && AppWindow.Presenter is OverlappedPresenter overlapped) overlapped.Maximize();
         // Entrée en fondu (le rideau « Préparation » noir apparaît sur la fenêtre principale), puis
         // la fenêtre vidéo une fois le fondu fini.
         Root.Opacity = 0;
@@ -688,11 +691,20 @@ public sealed partial class PlayerWindow : Window
         _levelTimer.Start();
     }
 
+    /// <summary>État de la fenêtre avant le plein écran (agrandie ou non), rétabli en sortie.</summary>
+    private bool _maximizedBeforeFullscreen;
+
     private void ToggleFullscreen()
     {
         var full = AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen;
+        if (!full) _maximizedBeforeFullscreen = AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized };
         AppWindow.SetPresenter(full ? AppWindowPresenterKind.Overlapped : AppWindowPresenterKind.FullScreen);
-        if (full && AppWindow.Presenter is OverlappedPresenter p) p.SetBorderAndTitleBar(false, false);
+        if (full && AppWindow.Presenter is OverlappedPresenter p)
+        {
+            p.SetBorderAndTitleBar(false, false);
+            // Retour à l'état d'avant : agrandie si elle l'était (et non une petite fenêtre).
+            if (_maximizedBeforeFullscreen) p.Maximize();
+        }
         FullscreenIcon.Glyph = full ? "" : "";
         SyncVideo();
     }
