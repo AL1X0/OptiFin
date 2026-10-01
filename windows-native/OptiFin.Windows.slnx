@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OptiFin.App/OptiFin.App.csproj" />
+    <Project Path="src/OptiFin.Core/OptiFin.Core.csproj" />
+  </Folder>
+</Solution>
