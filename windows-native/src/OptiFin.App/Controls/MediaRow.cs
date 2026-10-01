@@ -66,7 +66,9 @@ public sealed partial class MediaRow : Grid
         {
             Content = panel,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
-            HorizontalScrollMode = ScrollMode.Enabled,
+            // Molette : la page défile verticalement, sans être « happée » par la rangée. Défilement
+            // horizontal par les flèches, Maj + molette ou la molette horizontale (voir plus bas).
+            HorizontalScrollMode = ScrollMode.Disabled,
             VerticalScrollMode = ScrollMode.Disabled,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
         };
@@ -79,6 +81,16 @@ public sealed partial class MediaRow : Grid
         SetRow(body, 1);
         Children.Add(body);
 
+        body.PointerWheelChanged += (_, e) =>
+        {
+            var point = e.GetCurrentPoint(body);
+            var shift = (e.KeyModifiers & Windows.System.VirtualKeyModifiers.Shift) != 0;
+            if (!point.Properties.IsHorizontalMouseWheel && !shift) return; // laissé à la page
+            var delta = point.Properties.MouseWheelDelta;
+            if (!point.Properties.IsHorizontalMouseWheel) delta = -delta;
+            _scroll.ChangeView(_scroll.HorizontalOffset + delta * 1.5, null, null);
+            e.Handled = true;
+        };
         body.PointerEntered += (_, _) => UpdateArrows(true);
         body.PointerExited += (_, _) => UpdateArrows(false);
         _scroll.ViewChanged += (_, _) => UpdateArrows(_hovered);
@@ -107,10 +119,15 @@ public sealed partial class MediaRow : Grid
             OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(150) },
         };
         ToolTipService.SetToolTip(button, direction < 0 ? "Précédents" : "Suivants");
-        button.Click += (_, _) =>
-            _scroll.ChangeView(_scroll.HorizontalOffset + direction * _scroll.ViewportWidth * 0.85, null, null);
+        button.Click += (_, _) => Page(direction);
         return button;
     }
+
+    public double Offset => _scroll.HorizontalOffset;
+
+    /// <summary>Avance ou recule d'une page de cartes.</summary>
+    public void Page(int direction) =>
+        _scroll.ChangeView(_scroll.HorizontalOffset + direction * _scroll.ViewportWidth * 0.85, null, null);
 
     private void UpdateArrows(bool hovered)
     {

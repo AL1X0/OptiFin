@@ -32,6 +32,13 @@ public sealed partial class DetailsPage : Page
     {
         InitializeComponent();
         Nav.TrackScroll(Scroll);
+        // Retour du lecteur : bouton « Reprendre », progression et « vu » à jour.
+        void Refresh()
+        {
+            if (_item != null) _ = LoadAsync();
+        }
+        Loaded += (_, _) => Player.PlayerLauncher.Closed += Refresh;
+        Unloaded += (_, _) => Player.PlayerLauncher.Closed -= Refresh;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)

@@ -64,6 +64,9 @@ public sealed partial class PlayerWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "OptiFin.ico"));
         Title = item.Name;
         _video.Own(_hwnd);
+        // Fenêtre « possédée » par la fenêtre vidéo (pour rester au-dessus d'elle) : sans ce style,
+        // Windows ne lui donne pas de bouton dans la barre des tâches.
+        Win32.SetWindowLongPtr(_hwnd, Win32.GWL_EXSTYLE, Win32.GetWindowLongPtr(_hwnd, Win32.GWL_EXSTYLE) | Win32.WS_EX_APPWINDOW);
         // Commandes posées sur la vidéo : la fenêtre doit être réellement transparente pour Windows
         // (sinon écran noir, son seul). Et par sécurité, commandes masquées, elle est « voilée » (DWM) :
         // la vidéo est alors visible quoi qu'il arrive ; elle garde le focus et reçoit le clavier.
@@ -1054,6 +1057,11 @@ public sealed partial class PlayerWindow : Window
         await SwitchTrackAsync(TrackType.Subtitle, added);
     }
 
+    /// <summary>Outil de capture : saut et fermeture comme le ferait l'utilisateur.</summary>
+    internal void DevSeek(TimeSpan position) => UserSeek(position);
+
+    internal void DevClose() => RequestClose();
+
     private void ShowSettingsMenu()
     {
         var menu = new MenuFlyout();
@@ -1231,16 +1239,38 @@ public sealed partial class PlayerWindow : Window
         _mpv = null;
         mpv?.Pause();
         _video.Show(false);
-        // Rapport final et libération de mpv en arrière-plan : la fenêtre se ferme tout de suite.
+        // La fenêtre principale revient tout de suite, quoi qu'il arrive ensuite.
+        try
+        {
+            PlayerLauncher.OnClosed();
+        }
+        catch (Exception e)
+        {
+            AppLog.Error("player", "Retour à la fenêtre principale impossible", e);
+        }
+        // Rapport final (position où l'on s'arrête) et libération de mpv en arrière-plan.
+        var started = _started;
         _ = Task.Run(async () =>
         {
-            if (plan != null && _started) await AppServices.Playback!.ReportStoppedAsync(plan, position);
-            mpv?.Dispose();
-            Nav.Ui(() =>
+            try
             {
-                _video.Dispose();
-                PlayerLauncher.OnClosed();
-            });
+                if (plan != null && started) await AppServices.Playback!.ReportStoppedAsync(plan, position);
+                Nav.Ui(PlayerLauncher.OnProgressSaved);
+            }
+            catch (Exception e)
+            {
+                AppLog.Warn("player", $"Rapport de fin impossible : {e.Message}");
+            }
+            try
+            {
+                // mpv peut tarder à se libérer (pilote vidéo) : on n'attend pas indéfiniment.
+                if (mpv != null) await Task.Run(mpv.Dispose).WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (Exception e)
+            {
+                AppLog.Warn("player", $"Libération de mpv : {e.Message}");
+            }
+            Nav.Ui(() => _video.Dispose());
         });
     }
 }

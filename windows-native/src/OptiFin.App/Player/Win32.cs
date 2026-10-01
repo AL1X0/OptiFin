@@ -13,6 +13,8 @@ internal static unsafe partial class Win32
     public const int WS_EX_NOACTIVATE = 0x08000000;
     public const int GWLP_HWNDPARENT = -8;
     public const int DWMWA_CLOAK = 13;
+    public const int GWL_EXSTYLE = -20;
+    public const int WS_EX_APPWINDOW = 0x00040000;
     public const uint DWM_BB_ENABLE = 0x1;
     public const uint DWM_BB_BLURREGION = 0x2;
     public const int SW_HIDE = 0;
@@ -79,6 +81,9 @@ internal static unsafe partial class Win32
 
     [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     public static partial nint SetWindowLongPtr(nint hwnd, int index, nint value);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    public static partial nint GetWindowLongPtr(nint hwnd, int index);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct BlurBehind

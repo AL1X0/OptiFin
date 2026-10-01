@@ -43,6 +43,21 @@ public static class DevActions
                     AppServices.SignIn(await AppServices.Auth.LoginAsync(jf, user.GetProperty("name").GetString()!, user.GetProperty("password").GetString()!));
                 }
                 break;
+            case "saut":
+                Player.PlayerLauncher.Current?.DevSeek(TimeSpan.FromSeconds(double.Parse(arg, System.Globalization.CultureInfo.InvariantCulture)));
+                break;
+            case "rangee":
+                if (Nav.ContentFrame?.Content is HomePage home)
+                {
+                    var rows = FindRows(home).ToList();
+                    foreach (var row in rows) row.Page(1);
+                    await Task.Delay(800);
+                    OptiFin.Core.Logging.AppLog.Info("dev", "Défilement des rangées : " + string.Join(", ", rows.Select(r => r.Offset.ToString("0"))));
+                }
+                break;
+            case "fermer":
+                Player.PlayerLauncher.Current?.DevClose();
+                break;
             case "soiree":
                 for (var i = 0; i < 50 && WatchParty.Client?.Connected != true; i++) await Task.Delay(100);
                 if ((await WatchParty.ListAsync()).FirstOrDefault() is { } g) await WatchParty.JoinAsync(g.Id);
@@ -57,6 +72,16 @@ public static class DevActions
             case "lecture" when AppServices.Media is { } media:
                 Player.PlayerLauncher.Play(await media.ItemAsync(arg));
                 break;
+        }
+    }
+
+    private static IEnumerable<Controls.MediaRow> FindRows(Microsoft.UI.Xaml.DependencyObject root)
+    {
+        for (var i = 0; i < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is Controls.MediaRow row) yield return row;
+            else foreach (var r in FindRows(child)) yield return r;
         }
     }
 }

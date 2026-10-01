@@ -22,6 +22,10 @@ public sealed partial class HomePage : Page
         InitializeComponent();
         RetryButton.Click += (_, _) => _ = LoadAsync();
         Nav.TrackScroll(Scroll);
+        // Retour du lecteur : « Reprendre » et progression mis à jour une fois la position enregistrée.
+        void Refresh() => _ = LoadAsync(quiet: _loaded);
+        Loaded += (_, _) => Player.PlayerLauncher.Closed += Refresh;
+        Unloaded += (_, _) => Player.PlayerLauncher.Closed -= Refresh;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)

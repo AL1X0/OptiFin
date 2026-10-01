@@ -13,6 +13,9 @@ public static class PlayerLauncher
     /// <summary>Contenu du lecteur ouvert (outil de capture).</summary>
     internal static Microsoft.UI.Xaml.FrameworkElement? CurrentRoot => _current?.Content as Microsoft.UI.Xaml.FrameworkElement;
 
+    /// <summary>Lecteur ouvert (outil de capture).</summary>
+    internal static PlayerWindow? Current => _current;
+
     /// <summary>Lecteur fermé : les pages rafraîchissent progression et « Reprendre ».</summary>
     public static event Action? Closed;
 
@@ -73,6 +76,8 @@ public static class PlayerLauncher
         Nav.Window.PlayEntrance();
         main.Show();
         Nav.Window.Activate();
-        Closed?.Invoke();
     }
+
+    /// <summary>Position finale enregistrée par le serveur : les pages rafraîchissent « Reprendre ».</summary>
+    internal static void OnProgressSaved() => Closed?.Invoke();
 }
