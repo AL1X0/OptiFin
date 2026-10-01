@@ -3,7 +3,7 @@
     x:Class="OptiFin.App.Pages.LogsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Padding="104,56,48,24" RowSpacing="12">
+    <Grid Padding="48,96,48,24" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

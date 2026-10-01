@@ -31,6 +31,7 @@ public sealed partial class DetailsPage : Page
     public DetailsPage()
     {
         InitializeComponent();
+        Nav.TrackScroll(Scroll);
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)

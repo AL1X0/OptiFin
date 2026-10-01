@@ -5,52 +5,73 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Background="{StaticResource OFBackgroundBrush}">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+        <!-- Contenu plein cadre : l'image à la une passe sous la barre du haut. -->
+        <Frame x:Name="ContentFrame" />
 
-        <!-- Barre latérale permanente (icônes seules quand la fenêtre est étroite). -->
-        <Grid x:Name="Sidebar" Width="232" Background="{StaticResource OFSidebarBrush}"
-              BorderBrush="{StaticResource OFStrokeBrush}" BorderThickness="0,0,1,0" Padding="12,48,12,16">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <!-- Logo OptiFin et serveur connecté (logo seul en mode réduit). -->
-            <Grid x:Name="Brand" Margin="4,0,0,28" ColumnSpacing="12">
+        <!-- Barre du haut, intégrée à la barre de titre de la fenêtre. -->
+        <Grid x:Name="TopBar" Height="72" VerticalAlignment="Top">
+            <!-- Fond : voile dégradé sur l'image, opaque une fois la page défilée. -->
+            <Border IsHitTestVisible="False">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                        <GradientStop Color="#B3000000" Offset="0" />
+                        <GradientStop Color="#00000000" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+            <Border x:Name="SolidBar" Background="#F2060607" BorderBrush="{StaticResource OFStrokeBrush}" BorderThickness="0,0,0,1"
+                    Opacity="0" IsHitTestVisible="False">
+                <Border.OpacityTransition>
+                    <ScalarTransition Duration="0:0:0.25" />
+                </Border.OpacityTransition>
+            </Border>
+
+            <Grid x:Name="BarContent" Padding="20,0,0,0" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition x:Name="CaptionColumn" Width="140" />
                 </Grid.ColumnDefinitions>
-                <Border Width="42" Height="42" CornerRadius="12" BorderThickness="1"
-                        BorderBrush="{StaticResource OFStrokeBrush}">
-                    <Border.Background>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="#FF26262A" Offset="0" />
-                            <GradientStop Color="#FF0A0A0C" Offset="1" />
-                        </LinearGradientBrush>
-                    </Border.Background>
-                    <Image x:Name="Logo" Width="26" Height="26" />
-                </Border>
-                <StackPanel x:Name="BrandText" Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-                    <TextBlock x:Name="ServerName" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                               Foreground="{StaticResource OFTextPrimaryBrush}" />
-                    <TextBlock x:Name="UserName" Style="{StaticResource OFCaption}" />
-                </StackPanel>
-            </Grid>
-            <StackPanel x:Name="MainItems" Grid.Row="1" Spacing="4" />
-            <StackPanel x:Name="BottomItems" Grid.Row="2" Spacing="4" />
-        </Grid>
 
-        <Grid Grid.Column="1">
-            <Frame x:Name="ContentFrame" />
-            <Button x:Name="BackButton" Style="{StaticResource OFIconButton}" Margin="16,48,0,0"
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed"
-                    Background="{StaticResource OFGlassBrush}" ToolTipService.ToolTip="Retour (Alt+←)">
-                <FontIcon Glyph="&#xE72B;" FontSize="16" />
-            </Button>
+                <Button x:Name="BackButton" Style="{StaticResource OFIconButton}" Width="40" Height="40" Visibility="Collapsed"
+                        Background="{StaticResource OFGlassBrush}" VerticalAlignment="Center" ToolTipService.ToolTip="Retour (Alt+←)">
+                    <FontIcon Glyph="&#xE72B;" FontSize="15" />
+                </Button>
+
+                <!-- Logo OptiFin et serveur connecté. -->
+                <StackPanel x:Name="Brand" Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center" Margin="4,0,20,0">
+                    <Border Width="38" Height="38" CornerRadius="11" BorderThickness="1" BorderBrush="{StaticResource OFStrokeBrush}">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#FF26262A" Offset="0" />
+                                <GradientStop Color="#FF0A0A0C" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <Image x:Name="Logo" Width="23" Height="23" />
+                    </Border>
+                    <TextBlock x:Name="ServerName" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"
+                               MaxWidth="220" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <!-- Rubriques -->
+                <StackPanel x:Name="Tabs" Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" />
+
+                <!-- Zone de déplacement de la fenêtre -->
+                <Grid x:Name="DragArea" Grid.Column="3" Background="Transparent" />
+
+                <!-- Profil : réglages, changement de compte, déconnexion. -->
+                <Button x:Name="ProfileButton" Grid.Column="4" Padding="4,4,12,4" CornerRadius="22" VerticalAlignment="Center"
+                        Background="{StaticResource OFGlassBrush}" BorderThickness="0">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Border x:Name="AvatarHost" Width="32" Height="32" />
+                        <TextBlock x:Name="UserName" VerticalAlignment="Center" FontSize="14" />
+                        <FontIcon Glyph="&#xE70D;" FontSize="10" VerticalAlignment="Center" Foreground="{StaticResource OFTextSecondaryBrush}" />
+                    </StackPanel>
+                </Button>
+            </Grid>
         </Grid>
     </Grid>
 </Page>

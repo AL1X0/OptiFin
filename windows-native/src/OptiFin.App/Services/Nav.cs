@@ -18,6 +18,15 @@ public static class Nav
 
     public static event Action? ContentNavigated;
 
+    /// <summary>Défilement vertical de la page affichée (la barre du haut devient opaque).</summary>
+    public static event Action<double>? Scrolled;
+
+    public static void ReportScroll(double offset) => Scrolled?.Invoke(offset);
+
+    /// <summary>Signale le défilement d'une zone de page à la barre du haut.</summary>
+    public static void TrackScroll(ScrollViewer scroll) =>
+        scroll.ViewChanged += (_, _) => ReportScroll(scroll.VerticalOffset);
+
     public static void Attach(MainWindow window, Frame root)
     {
         Window = window;

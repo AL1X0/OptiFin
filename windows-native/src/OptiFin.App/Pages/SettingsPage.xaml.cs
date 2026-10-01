@@ -15,6 +15,7 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         InitializeComponent();
+        Nav.TrackScroll(Scroll);
         BuildAccount();
         BuildPlayback();
         BuildAdvanced();
@@ -117,7 +118,7 @@ public sealed partial class SettingsPage : Page
     private void BuildAdvanced()
     {
         Panel.Children.Add(Ui.Section("Avancé"));
-        Panel.Children.Add(Row("Mode debug", "Informations techniques dans le lecteur, journaux détaillés.",
+        Panel.Children.Add(Row("Mode debug", "Infos de lecture affichées dès le lancement d’une vidéo (aussi via le bouton ⓘ ou la touche I du lecteur), journaux détaillés.",
             Toggle(S.DebugMode, v => { S.DebugMode = v; AppLog.Verbose = v; Save(); })));
         var logs = Ui.Secondary("Ouvrir");
         logs.Click += (_, _) => Nav.Go(typeof(LogsPage));

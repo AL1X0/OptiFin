@@ -34,7 +34,7 @@ public static class DevCapture
                         await DevActions.RunAsync(action);
                         await Task.Delay(2500);
                     }
-                    await Capture.SaveAsync(root, Path.Combine(folder, name + ".png"));
+                    await Capture.SaveAsync(Player.PlayerLauncher.CurrentRoot ?? root, Path.Combine(folder, name + ".png"));
                 }
                 catch (Exception e)
                 {

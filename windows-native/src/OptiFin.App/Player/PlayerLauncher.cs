@@ -10,6 +10,9 @@ public static class PlayerLauncher
 {
     private static PlayerWindow? _current;
 
+    /// <summary>Contenu du lecteur ouvert (outil de capture).</summary>
+    internal static Microsoft.UI.Xaml.FrameworkElement? CurrentRoot => _current?.Content as Microsoft.UI.Xaml.FrameworkElement;
+
     /// <summary>Lecteur fermé : les pages rafraîchissent progression et « Reprendre ».</summary>
     public static event Action? Closed;
 
@@ -23,7 +26,15 @@ public static class PlayerLauncher
             var player = new PlayerWindow(item, fromStart);
             _current = player;
             player.ShowOver(main);
-            main.Hide();
+            // La fenêtre principale disparaît une fois le lecteur apparu en fondu par-dessus.
+            var hide = Nav.Dispatcher.CreateTimer();
+            hide.Interval = TimeSpan.FromMilliseconds(300);
+            hide.IsRepeating = false;
+            hide.Tick += (_, _) =>
+            {
+                if (_current == player) main.Hide();
+            };
+            hide.Start();
         }
         catch (Exception e)
         {
@@ -36,6 +47,7 @@ public static class PlayerLauncher
     {
         _current = null;
         var main = Nav.Window.AppWindow;
+        Nav.Window.PlayEntrance();
         main.Show();
         Nav.Window.Activate();
         Closed?.Invoke();

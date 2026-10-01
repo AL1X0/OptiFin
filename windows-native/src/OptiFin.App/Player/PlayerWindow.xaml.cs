@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using OptiFin.App.Controls;
 using OptiFin.App.Services;
 using OptiFin.Core.Api;
 using OptiFin.Core.Logging;
@@ -81,7 +82,7 @@ public sealed partial class PlayerWindow : Window
         _startupTimer = Timer(dispatcher, TimeSpan.FromSeconds(30), () => _ = OnStartupFailureAsync("aucune image après 30 s"));
         _overlayTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(300), () =>
         {
-            if (Controls.Opacity == 0 && Preparing.Visibility == Visibility.Collapsed && ErrorPanel.Visibility == Visibility.Collapsed)
+            if (Controls.Opacity == 0 && !_stats && Preparing.Visibility == Visibility.Collapsed && ErrorPanel.Visibility == Visibility.Collapsed)
                 SetOverlayVisible(false);
         });
         _cursorTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(100), () =>
@@ -91,7 +92,9 @@ public sealed partial class PlayerWindow : Window
         }, repeating: true);
         _levelTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(900), () => Level.Opacity = 0);
 
+        _statsTimer = Timer(dispatcher, TimeSpan.FromSeconds(1), UpdateStats, repeating: true);
         WireControls();
+        if (AppServices.Settings.DebugMode) ToggleStats(true);
         MediaSession.Attach(_hwnd);
         MediaSession.ButtonPressed += OnMediaButton;
         Closed += (_, _) => Shutdown();
@@ -118,10 +121,22 @@ public sealed partial class PlayerWindow : Window
         AppWindow.MoveAndResize(main.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized }
             ? area.WorkArea
             : new Windows.Graphics.RectInt32(main.Position.X, main.Position.Y, main.Size.Width, main.Size.Height));
+        // Entrée en fondu (le rideau « Préparation » noir apparaît sur la fenêtre principale), puis
+        // la fenêtre vidéo une fois le fondu fini.
+        Root.Opacity = 0;
+        Root.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(260) };
         Activate();
-        SyncVideo();
-        _video.Show(true);
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => Root.Opacity = 1);
+        var reveal = Timer(DispatcherQueue.GetForCurrentThread(), TimeSpan.FromMilliseconds(280), () =>
+        {
+            if (_closing) return;
+            _videoShown = true;
+            SyncVideo();
+        });
+        reveal.Start();
     }
+
+    private bool _videoShown;
 
     private void SyncVideo()
     {
@@ -132,7 +147,7 @@ public sealed partial class PlayerWindow : Window
         }
         var pos = AppWindow.Position;
         var size = AppWindow.Size;
-        _video.Place(pos.X, pos.Y, size.Width, size.Height, visible: true);
+        _video.Place(pos.X, pos.Y, size.Width, size.Height, visible: _videoShown);
     }
 
     // ------------------------------------------------------------ Démarrage
@@ -285,7 +300,7 @@ public sealed partial class PlayerWindow : Window
             _ = PlayNextAsync(next);
             return;
         }
-        Close();
+        RequestClose();
     }
 
     private async Task OnStartupFailureAsync(string reason)
@@ -375,8 +390,9 @@ public sealed partial class PlayerWindow : Window
 
     private void WireControls()
     {
-        CloseButton.Click += (_, _) => Close();
-        ErrorClose.Click += (_, _) => Close();
+        CloseButton.Click += (_, _) => RequestClose();
+        ErrorClose.Click += (_, _) => RequestClose();
+        InfoButton.Click += (_, _) => ToggleStats(!_stats);
         PlayButton.Click += (_, _) => TogglePlay();
         BackButton.Click += (_, _) => SeekBy(-10);
         ForwardButton.Click += (_, _) => SeekBy(10);
@@ -486,7 +502,10 @@ public sealed partial class PlayerWindow : Window
                 break;
             case VirtualKey.Escape:
                 if (AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen) ToggleFullscreen();
-                else Close();
+                else RequestClose();
+                break;
+            case VirtualKey.I:
+                ToggleStats(!_stats);
                 break;
             case VirtualKey.S when SkipButton.Visibility == Visibility.Visible && SkipButton.Tag is MediaSegment s:
                 _mpv?.Seek(s.End);
@@ -553,6 +572,9 @@ public sealed partial class PlayerWindow : Window
     private bool _overlayVisible = true;
     private readonly DispatcherQueueTimer _overlayTimer;
     private readonly DispatcherQueueTimer _cursorTimer;
+    private readonly DispatcherQueueTimer _statsTimer;
+    private bool _stats;
+    private bool _leaving;
 
     private Win32.Point _cursorWhenCloaked;
 
@@ -659,6 +681,118 @@ public sealed partial class PlayerWindow : Window
         }
     }
 
+    /// <summary>
+    /// Sortie en douceur : le son baisse, l'image s'assombrit jusqu'au noir, puis la fenêtre se
+    /// ferme et la fenêtre principale réapparaît en fondu.
+    /// </summary>
+    private void RequestClose()
+    {
+        if (_leaving || _closing) return;
+        _leaving = true;
+        SetOverlayVisible(true);
+        Controls.Opacity = 0;
+        StatsPanel.Visibility = Visibility.Collapsed;
+        Curtain.Opacity = 1;
+        var volume = AppServices.Settings.Volume;
+        var step = 0;
+        var fade = DispatcherQueue.GetForCurrentThread().CreateTimer();
+        fade.Interval = TimeSpan.FromMilliseconds(35);
+        fade.Tick += (_, _) =>
+        {
+            step++;
+            _mpv?.SetVolume(volume * Math.Max(0, 1 - step / 8.0));
+            if (step < 9) return;
+            fade.Stop();
+            Close();
+        };
+        fade.Start();
+    }
+
+    // ------------------------------------------------------------ Infos de lecture
+
+    private void ToggleStats(bool on)
+    {
+        _stats = on;
+        StatsPanel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        InfoButton.Background = on ? OptiFin.App.Controls.Ui.Res("OFGlassBrush") : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        InfoIcon.Foreground = on ? OptiFin.App.Controls.Ui.Res("OFAccentBrush") : OptiFin.App.Controls.Ui.Res("OFTextPrimaryBrush");
+        if (on)
+        {
+            SetOverlayVisible(true);
+            UpdateStats();
+            _statsTimer.Start();
+        }
+        else
+        {
+            _statsTimer.Stop();
+            ScheduleHide();
+        }
+    }
+
+    /// <summary>Tableau technique mis à jour chaque seconde : flux, décodage, HDR, débit, cache, images perdues.</summary>
+    private void UpdateStats()
+    {
+        if (!_stats) return;
+        var rows = new List<(string Label, string Value)>();
+        var mpv = _mpv;
+        var plan = _plan;
+        if (plan != null)
+            rows.Add(("Lecture", $"{plan.Method.Label()}{(plan.Container is { } c ? $" · {c}" : "")}{(plan.Bitrate is { } b ? $" · {b / 1e6:0.#} Mb/s" : "")}"));
+        if (mpv != null)
+        {
+            string? G(string name) => mpv.Get(name) is { Length: > 0 } v ? v : null;
+            double? D(string name) => mpv.GetDouble(name);
+            var fr = CultureInfo.GetCultureInfo("fr-FR");
+            var w = G("video-params/w");
+            var h = G("video-params/h");
+            var fps = D("container-fps") ?? D("estimated-vf-fps");
+            rows.Add(("Vidéo", string.Join(" · ", new[]
+            {
+                G("video-codec-name") ?? G("video-format"),
+                w != null && h != null ? $"{w}×{h}" : null,
+                fps is { } f ? $"{f.ToString("0.###", fr)} i/s" : null,
+                G("video-params/pixelformat"),
+            }.Where(x => x != null))));
+            rows.Add(("Couleurs", $"{G("video-params/gamma") ?? "?"} · {G("video-params/primaries") ?? "?"}{(G("video-params/max-luma") is { } luma ? $" · {luma} nits" : "")}"));
+            var hw = G("hwdec-current");
+            rows.Add(("Décodage", hw is null or "no" ? "logiciel (processeur)" : $"matériel ({hw})"));
+            rows.Add(("Sortie", $"{G("current-vo") ?? "?"} · {G("video-target-params/gamma") ?? "?"} · {G("video-target-params/primaries") ?? "?"}"));
+            var display = D("display-fps");
+            rows.Add(("Écran", $"{G("osd-width")}×{G("osd-height")}{(display is { } d ? $" · {d.ToString("0.##", fr)} Hz" : "")}"));
+            var channels = G("audio-params/channel-count");
+            var rate = D("audio-params/samplerate");
+            rows.Add(("Audio", string.Join(" · ", new[]
+            {
+                G("audio-codec-name"),
+                channels != null ? $"{channels} canaux" : null,
+                rate is { } r ? $"{r / 1000:0.#} kHz" : null,
+                G("current-ao"),
+            }.Where(x => x != null))));
+            var vbr = D("video-bitrate");
+            var abr = D("audio-bitrate");
+            rows.Add(("Débit", $"vidéo {(vbr is { } v ? $"{v / 1e6:0.0} Mb/s" : "?")} · audio {(abr is { } a ? $"{a / 1e3:0} kb/s" : "?")}"));
+            var cache = D("demuxer-cache-duration");
+            var speed = D("cache-speed");
+            rows.Add(("Cache", $"{(cache is { } cd ? $"{cd:0} s" : "?")}{(speed is { } sp ? $" · {sp * 8 / 1e6:0.0} Mb/s" : "")}"));
+            var avsync = D("avsync");
+            rows.Add(("Images perdues", $"{mpv.DroppedFrames}{(D("vo-delayed-frame-count") is { } late ? $" · {late:0} en retard" : "")}{(avsync is { } av ? $" · synchro A/V {av * 1000:0} ms" : "")}"));
+        }
+        StatsGrid.Children.Clear();
+        StatsGrid.RowDefinitions.Clear();
+        for (var i = 0; i < rows.Count; i++)
+        {
+            StatsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            if (string.IsNullOrWhiteSpace(rows[i].Value)) rows[i] = (rows[i].Label, "—");
+            var label = new TextBlock { Text = rows[i].Label, FontSize = 12, Foreground = OptiFin.App.Controls.Ui.Res("OFTextTertiaryBrush") };
+            var value = new TextBlock { Text = rows[i].Value, FontSize = 12, FontFamily = new FontFamily("Cascadia Mono, Consolas"), TextWrapping = TextWrapping.Wrap, MaxWidth = 460 };
+            Grid.SetRow(label, i);
+            Grid.SetRow(value, i);
+            Grid.SetColumn(value, 1);
+            StatsGrid.Children.Add(label);
+            StatsGrid.Children.Add(value);
+        }
+    }
+
     private void ShowSettingsMenu()
     {
         var menu = new MenuFlyout();
@@ -702,14 +836,9 @@ public sealed partial class PlayerWindow : Window
             _ = StartAsync(_item, _position, forceTranscode: true);
         };
         menu.Items.Add(transcode);
-        if (AppServices.Settings.DebugMode && _mpv != null && _plan != null)
-        {
-            menu.Items.Add(new MenuFlyoutItem
-            {
-                Text = $"{_plan.Method.Label()} · {MpvInfo.Describe(_mpv)} · {_mpv.DroppedFrames} images perdues",
-                IsEnabled = false,
-            });
-        }
+        var stats = new ToggleMenuFlyoutItem { Text = "Infos de lecture", IsChecked = _stats };
+        stats.Click += (_, _) => ToggleStats(stats.IsChecked);
+        menu.Items.Add(stats);
         menu.ShowAt(SettingsButton);
         ShowControls(autoHide: false);
         menu.Closed += (_, _) => ScheduleHide();
@@ -795,6 +924,7 @@ public sealed partial class PlayerWindow : Window
         _hideTimer.Stop();
         _cursorTimer.Stop();
         _overlayTimer.Stop();
+        _statsTimer.Stop();
         _reportTimer.Stop();
         _startupTimer.Stop();
         Win32.SetThreadExecutionState(Win32.ES_CONTINUOUS);

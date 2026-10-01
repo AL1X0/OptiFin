@@ -43,7 +43,11 @@ public sealed partial class LibraryPage : Page
         Items.Loaded += (_, _) =>
         {
             _scroll = FindScrollViewer(Items);
-            if (_scroll != null) _scroll.ViewChanged += (_, _) => MaybeLoadMore();
+            if (_scroll != null)
+            {
+                _scroll.ViewChanged += (_, _) => MaybeLoadMore();
+                Nav.TrackScroll(_scroll);
+            }
         };
     }
 

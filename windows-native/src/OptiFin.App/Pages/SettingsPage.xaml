@@ -3,8 +3,8 @@
     x:Class="OptiFin.App.Pages.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel x:Name="Panel" Spacing="8" Padding="104,56,48,48" MaxWidth="860" HorizontalAlignment="Left">
+    <ScrollViewer x:Name="Scroll" VerticalScrollBarVisibility="Auto">
+        <StackPanel x:Name="Panel" Spacing="8" Padding="48,96,48,48" MaxWidth="860" HorizontalAlignment="Left">
             <TextBlock Text="Réglages" Style="{StaticResource OFTitle1}" Margin="0,0,0,16" />
         </StackPanel>
     </ScrollViewer>

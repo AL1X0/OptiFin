@@ -21,6 +21,7 @@ public sealed partial class HomePage : Page
     {
         InitializeComponent();
         RetryButton.Click += (_, _) => _ = LoadAsync();
+        Nav.TrackScroll(Scroll);
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)

@@ -31,6 +31,16 @@ static void Handle(HttpListenerContext context, Catalog catalog)
     var q = request.QueryString;
     try
     {
+        if (path.StartsWith("Videos/") && path.EndsWith("/stream"))
+        {
+            // Vidéo de test non compressée (Y4M), générée une fois : lue par mpv comme un vrai fichier.
+            var video = TestVideo.Bytes.Value;
+            context.Response.ContentType = "video/x-yuv4mpeg";
+            context.Response.ContentLength64 = video.Length;
+            try { context.Response.OutputStream.Write(video); } catch (HttpListenerException) { }
+            context.Response.Close();
+            return;
+        }
         if (path.Contains("/Images/"))
         {
             var bytes = Art.Render(path, q["maxWidth"]);
@@ -394,6 +404,37 @@ static class Art
     {
         using var ms = new MemoryStream();
         bmp.Save(ms, ImageFormat.Png);
+        return ms.ToArray();
+    }
+}
+
+
+static class TestVideo
+{
+    public static readonly Lazy<byte[]> Bytes = new(Build);
+
+    private static byte[] Build()
+    {
+        const int w = 320, h = 180, fps = 24, seconds = 40;
+        using var ms = new MemoryStream();
+        var header = Encoding.ASCII.GetBytes($"YUV4MPEG2 W{w} H{h} F{fps}:1 Ip A1:1 C420jpeg\n");
+        ms.Write(header);
+        var frame = new byte[w * h * 3 / 2];
+        for (var n = 0; n < fps * seconds; n++)
+        {
+            ms.Write(Encoding.ASCII.GetBytes("FRAME\n"));
+            for (var y = 0; y < h; y++)
+                for (var x = 0; x < w; x++)
+                    frame[y * w + x] = (byte)(40 + (x + n * 3) % 160 * y / h);
+            var u = w * h;
+            for (var y = 0; y < h / 2; y++)
+                for (var x = 0; x < w / 2; x++)
+                {
+                    frame[u + y * (w / 2) + x] = (byte)(128 + 40 * Math.Sin((x + n) / 20.0));
+                    frame[u + w * h / 4 + y * (w / 2) + x] = (byte)(128 + 40 * Math.Cos((y + n) / 15.0));
+                }
+            ms.Write(frame);
+        }
         return ms.ToArray();
     }
 }

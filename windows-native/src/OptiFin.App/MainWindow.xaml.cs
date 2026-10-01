@@ -35,11 +35,42 @@ public sealed partial class MainWindow : Window
         }
         WindowPlacement.Restore(AppWindow);
         AppWindow.Closing += (_, _) => WindowPlacement.Save(AppWindow);
+        Closed += (_, _) => _closed = true;
 
         AppServices.SessionChanged += ShowStart;
         AppServices.SessionLost += () => DispatcherQueue.TryEnqueue(ShowStart);
         ShowStart();
         DevCapture.AttachIfRequested(this, Root);
+    }
+
+    /// <summary>
+    /// Zone de déplacement de la fenêtre : celle d'une page (la barre du haut de la coquille) ou,
+    /// par défaut, la bande du haut de la fenêtre.
+    /// </summary>
+    private bool _closed;
+
+    /// <summary>Retour du lecteur : la fenêtre réapparaît en fondu avec un léger recul.</summary>
+    public void PlayEntrance()
+    {
+        Root.OpacityTransition = null;
+        Root.ScaleTransition = null;
+        Root.Opacity = 0;
+        Root.CenterPoint = new System.Numerics.Vector3((float)Root.ActualWidth / 2, (float)Root.ActualHeight / 2, 0);
+        Root.Scale = new System.Numerics.Vector3(1.03f, 1.03f, 1);
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            Root.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(320) };
+            Root.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(380) };
+            Root.Opacity = 1;
+            Root.Scale = System.Numerics.Vector3.One;
+        });
+    }
+
+    public void UseTitleBar(UIElement? element)
+    {
+        if (_closed) return;
+        TitleBar.Visibility = element is null ? Visibility.Visible : Visibility.Collapsed;
+        SetTitleBar(element ?? TitleBar);
     }
 
     /// <summary>Accueil si une session existe, sinon l'écran de connexion.</summary>

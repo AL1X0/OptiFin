@@ -14,6 +14,7 @@ public sealed partial class LibrariesPage : Page
     public LibrariesPage()
     {
         InitializeComponent();
+        Nav.TrackScroll(Scroll);
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)

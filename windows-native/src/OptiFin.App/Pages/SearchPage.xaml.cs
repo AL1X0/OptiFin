@@ -18,6 +18,7 @@ public sealed partial class SearchPage : Page
     public SearchPage()
     {
         InitializeComponent();
+        Nav.TrackScroll(Scroll);
         _debounce = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _debounce.Interval = TimeSpan.FromMilliseconds(300);
         _debounce.IsRepeating = false;
