@@ -184,12 +184,12 @@ public sealed class MediaRepository(JellyfinClient api, string userId)
 
     public async Task<SearchResults> SearchAsync(string term, CancellationToken ct = default)
     {
-        Task<IReadOnlyList<MediaItem>> ByKind(string kinds) => Items(
+        async Task<IReadOnlyList<MediaItem>> ByKind(string kinds) => Map((await Items(
         [
             new("SearchTerm", term), new("Recursive", "true"), new("IncludeItemTypes", kinds), new("Limit", "24"),
             new("Fields", CardFields), new("EnableImageTypes", CardImages), new("ImageTypeLimit", "1"),
             new("EnableTotalRecordCount", "false"),
-        ], ct).ContinueWith(t => Map(t.Result.Items), ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+        ], ct)).Items);
 
         var people = api.GetAsync("Persons", JellyfinJson.Default.BaseItemDtoQueryResult,
             [new("SearchTerm", term), new("UserId", userId), new("Limit", "20"), new("EnableImageTypes", "Primary")], ct);

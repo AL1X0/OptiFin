@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="OptiFin.App.Pages.LogsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Padding="104,56,48,24" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <TextBlock Text="Journaux" Style="{StaticResource OFTitle1}" />
+            <Button x:Name="CopyButton" Content="Tout copier" Style="{StaticResource OFSecondaryButton}" />
+            <Button x:Name="SendButton" Content="Envoyer au serveur" Style="{StaticResource OFSecondaryButton}" />
+            <Button x:Name="FolderButton" Content="Ouvrir le dossier" Style="{StaticResource OFSecondaryButton}" />
+            <TextBlock x:Name="Status" Style="{StaticResource OFCaption}" VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBox x:Name="Text" Grid.Row="1" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                 FontFamily="Cascadia Mono, Consolas" FontSize="12"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+    </Grid>
+</Page>

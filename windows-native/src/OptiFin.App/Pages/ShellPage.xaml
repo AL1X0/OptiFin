@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="OptiFin.App.Pages.ShellPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{StaticResource OFBackgroundBrush}">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Barre latérale permanente (icônes seules quand la fenêtre est étroite). -->
+        <Grid x:Name="Sidebar" Width="232" Background="{StaticResource OFSidebarBrush}"
+              BorderBrush="{StaticResource OFStrokeBrush}" BorderThickness="0,0,1,0" Padding="12,48,12,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock x:Name="Brand" Text="OptiFin" FontSize="26" FontWeight="Bold"
+                       Foreground="{StaticResource OFAccentBrush}" Margin="10,0,0,24" />
+            <StackPanel x:Name="MainItems" Grid.Row="1" Spacing="4" />
+            <StackPanel x:Name="BottomItems" Grid.Row="2" Spacing="4" />
+        </Grid>
+
+        <Grid Grid.Column="1">
+            <Frame x:Name="ContentFrame" />
+            <Button x:Name="BackButton" Style="{StaticResource OFIconButton}" Margin="16,48,0,0"
+                    HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed"
+                    Background="{StaticResource OFGlassBrush}" ToolTipService.ToolTip="Retour (Alt+←)">
+                <FontIcon Glyph="&#xE72B;" FontSize="16" />
+            </Button>
+        </Grid>
+    </Grid>
+</Page>

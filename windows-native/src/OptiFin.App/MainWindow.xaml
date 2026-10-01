@@ -4,7 +4,9 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="OptiFin">
-    <Grid Background="{StaticResource OFBackgroundBrush}">
-        <TextBlock Text="OptiFin" Style="{StaticResource OFDisplay}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    <Grid x:Name="Root" Background="{StaticResource OFBackgroundBrush}">
+        <Frame x:Name="RootFrame" />
+        <!-- Barre de titre intégrée : zone de déplacement de la fenêtre (les boutons de Windows restent à droite). -->
+        <Grid x:Name="TitleBar" Height="40" VerticalAlignment="Top" Background="Transparent" />
     </Grid>
 </Window>

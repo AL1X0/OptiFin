@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="OptiFin.App.Pages.ConnectPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.Background>
+            <RadialGradientBrush Center="0.05,0.1" RadiusX="1.2" RadiusY="1.2" GradientOrigin="0.05,0.1">
+                <GradientStop Color="#3A4DA3FF" Offset="0" />
+                <GradientStop Color="#FF000000" Offset="1" />
+            </RadialGradientBrush>
+        </Grid.Background>
+        <Grid MaxWidth="1100" Padding="56,64,56,40">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="5*" />
+                <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="6*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center" Spacing="12">
+                <TextBlock x:Name="Title" Text="OptiFin" Style="{StaticResource OFDisplay}" FontSize="52" />
+                <TextBlock x:Name="Subtitle" Text="Connectez-vous à votre serveur Jellyfin." FontSize="20"
+                           Foreground="{StaticResource OFTextSecondaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+            <ScrollViewer Grid.Column="2" VerticalAlignment="Center" VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="Choices" Spacing="8" Padding="0,8,8,8" />
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Page>

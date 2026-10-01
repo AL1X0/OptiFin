@@ -21,6 +21,7 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <DefaultLanguage>fr-FR</DefaultLanguage>
@@ -47,6 +48,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OptiFin.Core\OptiFin.Core.csproj" />
+    <ProjectReference Include="..\OptiFin.Mpv\OptiFin.Mpv.csproj" />
   </ItemGroup>
 
   <ItemGroup>
