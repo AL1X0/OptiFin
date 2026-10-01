@@ -70,6 +70,7 @@ public sealed partial class DetailsPage : Page
             if (!accent.IsCompleted) _ = accent.ContinueWith(t => DispatcherQueue.TryEnqueue(() => ApplyAccent(t.Result)),
                 ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
             Render(item);
+            _rendered = true;
             Spinner.IsActive = false;
             await LoadExtrasAsync(item, media, ct);
         }
@@ -79,15 +80,20 @@ public sealed partial class DetailsPage : Page
         catch (Exception e)
         {
             Spinner.IsActive = false;
+            AppLog.Error("details", "Fiche indisponible", e);
+            // Rafraîchissement (retour du lecteur…) en échec : la fiche déjà affichée reste visible.
+            if (_rendered) return;
             ErrorText.Text = e is ApiException api ? api.UserMessage : "Cette fiche n’a pas pu être chargée.";
             ErrorText.Visibility = Visibility.Visible;
-            AppLog.Error("details", "Fiche indisponible", e);
         }
     }
 
     // ------------------------------------------------------------ En-tête
 
     private readonly StackPanel _actions = new() { Orientation = Orientation.Horizontal, Spacing = 12 };
+    /// <summary>Panneau qui contient les boutons d'action (gardé ici : en NativeAOT, Parent n'est pas fiable).</summary>
+    private Panel? _actionsHost;
+    private bool _rendered;
     // Saisons, distribution, similaires : chaque section glisse en place à son arrivée.
     private readonly StackPanel _extras = new() { Spacing = 32, ChildrenTransitions = Ui.Entrance() };
 
@@ -99,8 +105,9 @@ public sealed partial class DetailsPage : Page
         var body = new StackPanel { Spacing = 20, Padding = new Thickness(Gutter, 0, Gutter, 0), MaxWidth = 1400, HorizontalAlignment = HorizontalAlignment.Left };
         BuildActions(item);
         // Nouveau rendu (retour du lecteur…) : les boutons quittent l'ancienne mise en page d'abord.
-        (_actions.Parent as Panel)?.Children.Remove(_actions);
+        _actionsHost?.Children.Remove(_actions);
         body.Children.Add(_actions);
+        _actionsHost = body;
         if (item.Kind == MediaKind.Person)
         {
             if (item.Overview is { } bio) body.Children.Add(new TextBlock { Text = bio, Style = Ui.StyleOf("OFBody"), MaxWidth = 900 });
@@ -121,7 +128,7 @@ public sealed partial class DetailsPage : Page
         }
         Body.Children.Add(body);
         _extras.Children.Clear();
-        (_extras.Parent as Panel)?.Children.Remove(_extras);
+        Body.Children.Remove(_extras);
         Body.Children.Add(_extras);
     }
 

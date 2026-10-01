@@ -1,13 +1,9 @@
 name: Windows
 
-# Appli PC native (C# / WinUI 3, NativeAOT), indépendante du mobile : ne se lance que si
-# windows-native/ change, et ne compile que l'installateur PC (pas d'APK ni d'IPA).
+# Appli PC native (C# / WinUI 3, NativeAOT). Les versions PC sont publiées depuis le poste de
+# développement (windows-native/publish.sh) ; ce workflow reste disponible à la main (onglet
+# Actions › Windows › Run workflow) et vérifie les pull requests.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'windows-native/**'
-      - '.github/workflows/windows.yml'
   pull_request:
     paths:
       - 'windows-native/**'
