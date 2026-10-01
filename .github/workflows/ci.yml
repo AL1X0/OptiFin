@@ -1,9 +1,17 @@
 name: CI
 
+# Applis mobiles (iPhone, iPad, Android, Android TV). L'appli PC a son propre workflow
+# (windows.yml) : une modification limitée à windows-native/ ne relance pas ces compilations.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'windows-native/**'
+      - '.github/workflows/windows.yml'
   pull_request:
+    paths-ignore:
+      - 'windows-native/**'
+      - '.github/workflows/windows.yml'
   workflow_dispatch:
 
 concurrency:
@@ -100,48 +108,14 @@ jobs:
           name: optifin-ios-unsigned
           path: build/ipa/OptiFin-unsigned.ipa
 
-  # Appli Windows native (C# / WinUI 3, NativeAOT) : tests, compilation, installateur.
-  windows:
-    name: Windows (natif)
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
-        working-directory: windows-native
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-      # libmpv (rendu gpu-next, HDR) est téléchargée et vérifiée par SHA-256 à la compilation.
-      - name: Tests
-        run: dotnet test --project tests/OptiFin.Core.Tests -c Release
-      - name: Compiler (NativeAOT)
-        run: |
-          VERSION=$(cd .. && ./.github/scripts/build_name.sh)
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          dotnet publish src/OptiFin.App/OptiFin.App.csproj -c Release -r win-x64 -p:Platform=x64 -p:Version="$VERSION" -o out/x64
-      - name: Installateur (Inno Setup)
-        run: |
-          choco install innosetup -y --no-progress
-          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" //Q //DAppVersion="$VERSION" installer/optifin.iss
-          ls -la out/installer
-      - uses: actions/upload-artifact@v4
-        with:
-          name: optifin-windows
-          path: windows-native/out/installer/OptiFin-windows-setup.exe
-
   # Publication SideStore : une Release par build de main, avec l'IPA et la source.
   # Source à ajouter dans SideStore :
   #   https://raw.githubusercontent.com/AL1X0/OptiFin/sidestore/source.json
   # (l'ancienne adresse releases/latest/download/source.json reste valide)
   release:
     name: Publication SideStore
-    needs: [ios, android, windows]
-    # Les versions téléphone sont publiées même si l'installateur Windows a échoué.
-    if: >-
-      always() && github.event_name == 'push' && github.ref == 'refs/heads/main' &&
-      needs.ios.result == 'success' && needs.android.result == 'success'
+    needs: [ios, android]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -157,11 +131,14 @@ jobs:
         with:
           name: optifin-android
           path: dist/apk
-      - uses: actions/download-artifact@v4
+      # Installateur PC de la dernière version publiée par le workflow Windows : la « dernière
+      # Release » contient toujours tout.
+      - name: Reprendre l'installateur PC
         continue-on-error: true
-        with:
-          name: optifin-windows
-          path: dist
+        run: |
+          PC=$(gh release list --limit 50 --json tagName --jq '.[].tagName' | grep '^windows-' | sort -t- -k2 -n -r | head -1)
+          echo "Version PC reprise : ${PC:-aucune}"
+          [ -n "$PC" ] && gh release download "$PC" --dir dist --pattern 'OptiFin-windows-setup.exe'
       - name: Préparer l'IPA et la source
         run: |
           mv dist/OptiFin-unsigned.ipa dist/OptiFin.ipa

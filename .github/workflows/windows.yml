@@ -1,0 +1,97 @@
+name: Windows
+
+# Appli PC native (C# / WinUI 3, NativeAOT), indépendante du mobile : ne se lance que si
+# windows-native/ change, et ne compile que l'installateur PC (pas d'APK ni d'IPA).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'windows-native/**'
+      - '.github/workflows/windows.yml'
+  pull_request:
+    paths:
+      - 'windows-native/**'
+      - '.github/workflows/windows.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Version de l'appli PC : 1.1.N (N = numéro d'exécution de ce workflow), toujours croissante.
+  WINDOWS_VERSION: 1.1.${{ github.run_number }}
+
+jobs:
+  build:
+    name: Tests, compilation NativeAOT, installateur
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: windows-native
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      # Paquets NuGet et libmpv (vérifiée par SHA-256) gardés d'une exécution à l'autre.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('windows-native/**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/OptiFin-build
+          key: libmpv-${{ hashFiles('windows-native/src/OptiFin.Mpv/OptiFin.Mpv.csproj') }}
+      - name: Tests
+        run: dotnet test --project tests/OptiFin.Core.Tests -c Release
+      - name: Compiler (NativeAOT)
+        run: dotnet publish src/OptiFin.App/OptiFin.App.csproj -c Release -r win-x64 -p:Platform=x64 -p:Version="$WINDOWS_VERSION" -o out/x64
+      - name: Installateur (Inno Setup)
+        run: |
+          ISCC="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+          [ -f "$ISCC" ] || choco install innosetup -y --no-progress
+          "$ISCC" //Q //DAppVersion="$WINDOWS_VERSION" installer/optifin.iss
+          ls -la out/installer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: optifin-windows
+          path: windows-native/out/installer/OptiFin-windows-setup.exe
+
+  # Release de l'appli PC : la mise à jour automatique la trouve dans la liste des releases.
+  # Les fichiers mobiles de la dernière build (APK, IPA) y sont repris pour que la « dernière
+  # Release » contienne toujours tout.
+  release:
+    name: Publication de l'appli PC
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: optifin-windows
+          path: dist
+      - name: Reprendre les fichiers mobiles de la dernière build
+        continue-on-error: true
+        run: |
+          MOBILE=$(gh release list --limit 50 --json tagName --jq '.[].tagName' | grep '^build-' | sort -t- -k2 -n -r | head -1)
+          echo "Build mobile reprise : ${MOBILE:-aucune}"
+          [ -n "$MOBILE" ] && gh release download "$MOBILE" --dir dist --pattern 'OptiFin.ipa' --pattern 'OptiFin-android-*.apk' --pattern 'source.json'
+          ls -la dist
+      - name: Créer la Release
+        run: |
+          TAG="windows-${{ github.run_number }}"
+          gh release create "$TAG" dist/* --draft --target "$GITHUB_SHA" \
+            --title "OptiFin Windows $WINDOWS_VERSION" --notes "$(git log -1 --pretty=%B)"
+          gh release edit "$TAG" --draft=false --latest
+      - name: Ne garder que les 5 dernières versions PC
+        run: |
+          gh release list --limit 100 --json tagName --jq '.[].tagName' | grep '^windows-' | sort -t- -k2 -n -r | tail -n +6 | \
+            xargs -r -I{} gh release delete {} --yes --cleanup-tag

@@ -429,3 +429,13 @@ techniques ; décalage sous-titres / son, fond des sous-titres et recherche de s
 filtre par années, réinitialisation, affichage en liste et index alphabétique dans les bibliothèques ; vider le cache,
 capacités de l'appareil, licences ; comptes enregistrés dans le menu du profil. Non repris : téléchargements hors
 connexion, choix du moteur (un seul moteur sous Windows), réglages propres au réseau mobile.
+
+## CI séparée : appli PC et applis mobiles (2026-10-01)
+
+- **`windows.yml`** ne se lance que si `windows-native/` change : tests, NativeAOT, installateur (≈ quelques minutes,
+  paquets NuGet et libmpv en cache), puis une release `windows-N` nommée « OptiFin Windows 1.1.N ». Elle reprend les
+  fichiers mobiles de la dernière build (APK, IPA) : la « dernière Release » contient toujours tout.
+- **`ci.yml`** (iPhone, iPad, Android, TV) ignore les changements limités à `windows-native/` ; sa release reprend
+  l'installateur PC le plus récent.
+- La mise à jour automatique de l'appli PC parcourt la liste des releases et retient la version la plus élevée qui
+  contient `OptiFin-windows-setup.exe` (l'appli PC est en 1.1.N, le mobile en 1.0.N).

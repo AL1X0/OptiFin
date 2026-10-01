@@ -19,7 +19,8 @@ public sealed record AppUpdate(string Version, Uri Url, long Size, string? Sha25
 public static partial class AppUpdater
 {
     public const string AssetName = "OptiFin-windows-setup.exe";
-    private const string LatestRelease = "https://api.github.com/repos/AL1X0/OptiFin/releases/latest";
+    /// <summary>Releases récentes : celles de l'appli PC (« OptiFin Windows 1.1.N ») et celles du mobile.</summary>
+    private const string Releases = "https://api.github.com/repos/AL1X0/OptiFin/releases?per_page=30";
 
     private static readonly HttpClient Http = CreateHttp();
 
@@ -38,21 +39,28 @@ public static partial class AppUpdater
     {
         try
         {
-            using var doc = JsonDocument.Parse(await Http.GetStringAsync(LatestRelease));
-            var root = doc.RootElement;
-            var name = root.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
-            var match = VersionPattern().Match(name);
-            if (!match.Success || Compare(match.Value, AppServices.Version) <= 0) return null;
-            foreach (var asset in root.GetProperty("assets").EnumerateArray())
+            // La plus récente des versions publiées avec l'installateur PC (l'appli PC a ses propres
+            // releases, « latest » peut être une version mobile).
+            using var doc = JsonDocument.Parse(await Http.GetStringAsync(Releases));
+            AppUpdate? best = null;
+            foreach (var release in doc.RootElement.EnumerateArray())
             {
-                if (asset.GetProperty("name").GetString() != AssetName) continue;
-                var digest = asset.TryGetProperty("digest", out var d) ? d.GetString() : null;
-                AppLog.Info("update", $"Nouvelle version disponible : {match.Value} (installée : {AppServices.Version})");
-                return new AppUpdate(match.Value, new Uri(asset.GetProperty("browser_download_url").GetString()!),
-                    asset.GetProperty("size").GetInt64(),
-                    digest is not null && digest.StartsWith("sha256:", StringComparison.Ordinal) ? digest[7..] : null);
+                if (release.TryGetProperty("draft", out var draft) && draft.GetBoolean()) continue;
+                if (release.TryGetProperty("prerelease", out var pre) && pre.GetBoolean()) continue;
+                var name = release.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+                var match = VersionPattern().Match(name);
+                if (!match.Success || Compare(match.Value, best?.Version ?? AppServices.Version) <= 0) continue;
+                foreach (var asset in release.GetProperty("assets").EnumerateArray())
+                {
+                    if (asset.GetProperty("name").GetString() != AssetName) continue;
+                    var digest = asset.TryGetProperty("digest", out var d) ? d.GetString() : null;
+                    best = new AppUpdate(match.Value, new Uri(asset.GetProperty("browser_download_url").GetString()!),
+                        asset.GetProperty("size").GetInt64(),
+                        digest is not null && digest.StartsWith("sha256:", StringComparison.Ordinal) ? digest[7..] : null);
+                }
             }
-            return null;
+            if (best != null) AppLog.Info("update", $"Nouvelle version disponible : {best.Version} (installée : {AppServices.Version})");
+            return best;
         }
         catch (Exception e)
         {
