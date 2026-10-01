@@ -10,7 +10,13 @@
         </Grid.RowDefinitions>
         <TextBlock Text="Bibliothèques" Style="{StaticResource OFTitle1}" Margin="0,0,0,24" />
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <VariableSizedWrapGrid x:Name="Grid" Orientation="Horizontal" ItemWidth="336" ItemHeight="236" />
+            <VariableSizedWrapGrid x:Name="Grid" Orientation="Horizontal" ItemWidth="336" ItemHeight="236">
+                <VariableSizedWrapGrid.ChildrenTransitions>
+                    <TransitionCollection>
+                        <EntranceThemeTransition IsStaggeringEnabled="True" FromVerticalOffset="40" />
+                    </TransitionCollection>
+                </VariableSizedWrapGrid.ChildrenTransitions>
+            </VariableSizedWrapGrid>
         </ScrollViewer>
         <ProgressRing x:Name="Spinner" Grid.Row="1" IsActive="True" Width="40" Height="40" />
     </Grid>

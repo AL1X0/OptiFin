@@ -69,10 +69,12 @@ public sealed partial class DetailsPage : Page
     // ------------------------------------------------------------ En-tête
 
     private readonly StackPanel _actions = new() { Orientation = Orientation.Horizontal, Spacing = 12 };
-    private readonly StackPanel _extras = new() { Spacing = 32 };
+    // Saisons, distribution, similaires : chaque section glisse en place à son arrivée.
+    private readonly StackPanel _extras = new() { Spacing = 32, ChildrenTransitions = Ui.Entrance() };
 
     private void Render(MediaItem item)
     {
+        Body.ChildrenTransitions ??= Ui.Entrance(vertical: 50);
         Body.Children.Clear();
         Body.Children.Add(Hero(item));
         var body = new StackPanel { Spacing = 20, Padding = new Thickness(Gutter, 0, Gutter, 0), MaxWidth = 1400, HorizontalAlignment = HorizontalAlignment.Left };
@@ -99,7 +101,7 @@ public sealed partial class DetailsPage : Page
     {
         var hero = new Grid { Height = 560 };
         if (AppServices.Images?.Maybe(item.Backdrop, 1920, 1, 80) is { } backdrop)
-            hero.Children.Add(new Image { Source = new BitmapImage(backdrop) { DecodePixelWidth = 1920 }, Stretch = Stretch.UniformToFill, VerticalAlignment = VerticalAlignment.Top });
+            hero.Children.Add(Ui.FadeIn(new Image { Source = new BitmapImage(backdrop) { DecodePixelWidth = 1920 }, Stretch = Stretch.UniformToFill, VerticalAlignment = VerticalAlignment.Top }, 700));
         hero.Children.Add(new Border
         {
             Background = Gradient(new(0.5, 0), new(0.5, 1),
@@ -119,14 +121,15 @@ public sealed partial class DetailsPage : Page
             row.Children.Add(new Border
             {
                 Width = posterWidth, Height = posterHeight, CornerRadius = new CornerRadius(12),
-                Child = new Image { Source = new BitmapImage(poster) { DecodePixelWidth = (int)(posterWidth * 1.5) }, Stretch = Stretch.UniformToFill },
+                Background = Ui.Res("OFSurfaceBrush"),
+                Child = Ui.FadeIn(new Image { Source = new BitmapImage(poster) { DecodePixelWidth = (int)(posterWidth * 1.5) }, Stretch = Stretch.UniformToFill }),
             });
         }
         var info = new StackPanel { Spacing = 12, VerticalAlignment = VerticalAlignment.Bottom, MaxWidth = 760 };
         if (item.Kind == MediaKind.Episode && item.SeriesName != null)
             info.Children.Add(new TextBlock { Text = item.SeriesName, FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = Ui.Res("OFTextSecondaryBrush") });
         if (item.Kind != MediaKind.Episode && AppServices.Images?.Maybe(item.Logo, 460, 1.5) is { } logo)
-            info.Children.Add(new Image { Source = new BitmapImage(logo), MaxHeight = 140, MaxWidth = 460, HorizontalAlignment = HorizontalAlignment.Left });
+            info.Children.Add(Ui.FadeIn(new Image { Source = new BitmapImage(logo), MaxHeight = 140, MaxWidth = 460, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 6) }));
         else
             info.Children.Add(new TextBlock { Text = item.Kind == MediaKind.Episode ? $"{item.EpisodeLabel} · {item.Name}" : item.Name, Style = Ui.StyleOf("OFDisplay"), MaxLines = 2 });
         var meta = MediaFormat.MetadataLine(item);
@@ -357,7 +360,7 @@ public sealed partial class DetailsPage : Page
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         var thumb = new Grid { Height = 146, Width = 260, CornerRadius = new CornerRadius(10), Background = Ui.Res("OFSurfaceBrush") };
         if (AppServices.Images?.Maybe(e.Landscape, 260, 1.5) is { } url)
-            thumb.Children.Add(new Image { Source = new BitmapImage(url) { DecodePixelWidth = 390 }, Stretch = Stretch.UniformToFill });
+            thumb.Children.Add(Ui.FadeIn(new Image { Source = new BitmapImage(url) { DecodePixelWidth = 390 }, Stretch = Stretch.UniformToFill }));
         if (e.User.Progress is { } progress)
             thumb.Children.Add(new ProgressBar { Value = progress * 100, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(8, 0, 8, 8) });
         var playIcon = new Border

@@ -23,6 +23,9 @@ public sealed partial class MediaCard : Grid
     public event Action<MediaItem>? Activated;
 
     private readonly Border _hover;
+    private readonly Border _frame;
+    private static readonly SolidColorBrush NoStroke = new(Windows.UI.Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
+    private static readonly SolidColorBrush HoverStroke = new(Windows.UI.Color.FromArgb(0x8C, 0xFF, 0xFF, 0xFF));
 
     public MediaCard(MediaItem item, CardStyle style, double width)
     {
@@ -44,11 +47,11 @@ public sealed partial class MediaCard : Grid
         var artwork = new Grid { Height = height, Background = Brush("OFSurfaceBrush") };
         if (AppServices.Images?.Maybe(imageRef, width, 1.5) is { } url)
         {
-            artwork.Children.Add(new Image
+            artwork.Children.Add(Ui.FadeIn(new Image
             {
                 Source = new BitmapImage(url) { DecodePixelWidth = (int)Math.Ceiling(width * 1.5), DecodePixelType = DecodePixelType.Physical },
                 Stretch = Stretch.UniformToFill,
-            });
+            }));
         }
         else
         {
@@ -108,7 +111,8 @@ public sealed partial class MediaCard : Grid
         };
         artwork.Children.Add(_hover);
 
-        var frame = new Border { CornerRadius = new CornerRadius(12), Child = artwork };
+        _frame = new Border { CornerRadius = new CornerRadius(12), Child = artwork, BorderThickness = new Thickness(1), BorderBrush = NoStroke };
+        var frame = _frame;
         Children.Add(frame);
 
         var text = new StackPanel { Margin = new Thickness(2, 8, 2, 0), Spacing = 1 };
@@ -128,7 +132,7 @@ public sealed partial class MediaCard : Grid
         SetRow(text, 1);
         Children.Add(text);
 
-        ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(150) };
+        ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(200) };
         SizeChanged += (_, e) => CenterPoint = new Vector3((float)e.NewSize.Width / 2, (float)height / 2, 0);
         PointerEntered += (_, _) => SetHover(true);
         PointerExited += (_, _) => SetHover(false);
@@ -143,8 +147,9 @@ public sealed partial class MediaCard : Grid
 
     private void SetHover(bool on)
     {
-        Scale = on ? new Vector3(1.04f, 1.04f, 1) : Vector3.One;
+        Scale = on ? new Vector3(1.05f, 1.05f, 1) : Vector3.One;
         _hover.Opacity = on ? 1 : 0;
+        _frame.BorderBrush = on ? HoverStroke : NoStroke;
     }
 
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)

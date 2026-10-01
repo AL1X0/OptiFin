@@ -8,7 +8,6 @@
         <ScrollViewer x:Name="Scroll" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="Body" Spacing="28" Padding="0,0,0,48" />
         </ScrollViewer>
-        <ProgressRing x:Name="Spinner" IsActive="True" Width="40" Height="40" />
         <StackPanel x:Name="ErrorPanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
             <TextBlock x:Name="ErrorText" Style="{StaticResource OFBody}" TextAlignment="Center" MaxWidth="420" />
             <Button x:Name="RetryButton" Content="Réessayer" Style="{StaticResource OFPrimaryButton}" HorizontalAlignment="Center" />

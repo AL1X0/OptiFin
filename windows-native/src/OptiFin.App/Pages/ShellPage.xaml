@@ -18,8 +18,28 @@
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <TextBlock x:Name="Brand" Text="OptiFin" FontSize="26" FontWeight="Bold"
-                       Foreground="{StaticResource OFAccentBrush}" Margin="10,0,0,24" />
+            <!-- Logo OptiFin et serveur connecté (logo seul en mode réduit). -->
+            <Grid x:Name="Brand" Margin="4,0,0,28" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Width="42" Height="42" CornerRadius="12" BorderThickness="1"
+                        BorderBrush="{StaticResource OFStrokeBrush}">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#FF26262A" Offset="0" />
+                            <GradientStop Color="#FF0A0A0C" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Image x:Name="Logo" Width="26" Height="26" />
+                </Border>
+                <StackPanel x:Name="BrandText" Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                    <TextBlock x:Name="ServerName" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                               Foreground="{StaticResource OFTextPrimaryBrush}" />
+                    <TextBlock x:Name="UserName" Style="{StaticResource OFCaption}" />
+                </StackPanel>
+            </Grid>
             <StackPanel x:Name="MainItems" Grid.Row="1" Spacing="4" />
             <StackPanel x:Name="BottomItems" Grid.Row="2" Spacing="4" />
         </Grid>

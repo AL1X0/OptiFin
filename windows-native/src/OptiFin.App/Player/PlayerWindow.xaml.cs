@@ -62,6 +62,11 @@ public sealed partial class PlayerWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "OptiFin.ico"));
         Title = item.Name;
         _video.Own(_hwnd);
+        // Opacité de la fenêtre au niveau de Windows : sur certains PC, le fond « transparent » du XAML
+        // reste opaque et masque la vidéo (écran noir, son seul). Commandes masquées, la fenêtre devient
+        // quasi invisible (1/255, elle reçoit toujours souris et clavier) : la vidéo est toujours visible.
+        Win32.SetWindowLongPtr(_hwnd, Win32.GWL_EXSTYLE, Win32.GetWindowLongPtr(_hwnd, Win32.GWL_EXSTYLE) | Win32.WS_EX_LAYERED);
+        SetOverlayVisible(true);
         AppWindow.Changed += (_, e) =>
         {
             if (e.DidPositionChange || e.DidSizeChange || e.DidVisibilityChange) SyncVideo();
@@ -74,6 +79,11 @@ public sealed partial class PlayerWindow : Window
             if (_plan != null && _started) _ = AppServices.Playback!.ReportProgressAsync(_plan, _position, _paused);
         }, repeating: true);
         _startupTimer = Timer(dispatcher, TimeSpan.FromSeconds(30), () => _ = OnStartupFailureAsync("aucune image après 30 s"));
+        _overlayTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(300), () =>
+        {
+            if (Controls.Opacity == 0 && Preparing.Visibility == Visibility.Collapsed && ErrorPanel.Visibility == Visibility.Collapsed)
+                SetOverlayVisible(false);
+        });
         _levelTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(900), () => Level.Opacity = 0);
 
         WireControls();
@@ -535,8 +545,18 @@ public sealed partial class PlayerWindow : Window
         SyncVideo();
     }
 
+    private bool _overlayVisible = true;
+    private readonly DispatcherQueueTimer _overlayTimer;
+
+    private void SetOverlayVisible(bool visible)
+    {
+        _overlayVisible = visible;
+        Win32.SetLayeredWindowAttributes(_hwnd, 0, visible ? (byte)255 : (byte)1, Win32.LWA_ALPHA);
+    }
+
     private void ShowControls(bool autoHide)
     {
+        if (!_overlayVisible) SetOverlayVisible(true);
         Controls.Opacity = 1;
         Controls.IsHitTestVisible = true;
         Root.ProtectedCursorReset();
@@ -556,6 +576,9 @@ public sealed partial class PlayerWindow : Window
         Controls.Opacity = 0;
         Controls.IsHitTestVisible = false;
         Root.HideCursor();
+        // Après le fondu des commandes.
+        _overlayTimer.Stop();
+        _overlayTimer.Start();
     }
 
     // ------------------------------------------------------------ Menus
@@ -716,6 +739,7 @@ public sealed partial class PlayerWindow : Window
 
     private void ShowPreparing(string? notice)
     {
+        SetOverlayVisible(true);
         Preparing.Visibility = Visibility.Visible;
         ErrorPanel.Visibility = Visibility.Collapsed;
         Notice.Text = notice ?? "";
@@ -725,6 +749,7 @@ public sealed partial class PlayerWindow : Window
     {
         _startupTimer.Stop();
         Preparing.Visibility = Visibility.Collapsed;
+        SetOverlayVisible(true);
         ErrorText.Text = message;
         ErrorDetail.Text = AppServices.Settings.DebugMode ? detail ?? "" : "";
         ErrorPanel.Visibility = Visibility.Visible;

@@ -12,7 +12,13 @@
         <TextBox x:Name="Query" Margin="48,56,48,16" PlaceholderText="Films, séries, épisodes, personnes…"
                  FontSize="18" Padding="16,12,16,12" CornerRadius="14" />
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel x:Name="Results" Spacing="28" Padding="0,8,0,48" />
+            <StackPanel x:Name="Results" Spacing="28" Padding="0,8,0,48">
+                <StackPanel.ChildrenTransitions>
+                    <TransitionCollection>
+                        <EntranceThemeTransition IsStaggeringEnabled="True" FromVerticalOffset="40" />
+                    </TransitionCollection>
+                </StackPanel.ChildrenTransitions>
+            </StackPanel>
         </ScrollViewer>
         <ProgressRing x:Name="Spinner" Grid.Row="1" IsActive="False" Width="36" Height="36" />
         <StackPanel x:Name="Hint" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">

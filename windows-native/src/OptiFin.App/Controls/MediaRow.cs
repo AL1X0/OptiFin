@@ -53,6 +53,8 @@ public sealed partial class MediaRow : Grid
             Spacing = 16,
             Padding = new Thickness(gutter, 8, gutter, 12),
             XYFocusKeyboardNavigation = Microsoft.UI.Xaml.Input.XYFocusKeyboardNavigationMode.Enabled,
+            // Les cartes arrivent en cascade, de droite à gauche.
+            ChildrenTransitions = Ui.Entrance(vertical: 0, horizontal: 60),
         };
         foreach (var item in items)
         {

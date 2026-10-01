@@ -20,6 +20,13 @@ public sealed partial class ShellPage : Page
     {
         InitializeComponent();
         Nav.ContentFrame = ContentFrame;
+        Logo.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "Logo.png")));
+        if (AppServices.Session is { } session)
+        {
+            ServerName.Text = session.Server.Name;
+            UserName.Text = session.Account.UserName;
+            ToolTipService.SetToolTip(Brand, $"{session.Server.Name} · {session.Account.UserName}");
+        }
 
         AddItem(MainItems, "", "Accueil", typeof(HomePage));
         AddItem(MainItems, "", "Bibliothèques", typeof(LibrariesPage));
@@ -31,6 +38,10 @@ public sealed partial class ShellPage : Page
         Nav.ContentNavigated += UpdateBackButton;
         Loaded += (_, _) =>
         {
+            // Focus initial sur la page elle-même : pas de cadre de focus sur « Accueil » au lancement.
+            IsTabStop = true;
+            UseSystemFocusVisuals = false;
+            Focus(FocusState.Programmatic);
             Nav.ContentNavigated -= UpdateBackButton;
             Nav.ContentNavigated += UpdateBackButton;
         };
@@ -38,7 +49,9 @@ public sealed partial class ShellPage : Page
         ContentFrame.Navigated += (_, e) =>
         {
             UpdateBackButton();
-            foreach (var (item, page) in _items) item.Selected = page == e.SourcePageType;
+            // Fiche, bibliothèque… : la rubrique d'origine reste en surbrillance.
+            if (_items.Any(i => i.Page == e.SourcePageType))
+                foreach (var (item, page) in _items) item.Selected = page == e.SourcePageType;
         };
         SizeChanged += (_, e) => SetWide(e.NewSize.Width >= 1100);
 
@@ -83,9 +96,9 @@ public sealed partial class ShellPage : Page
     private void SetWide(bool wide)
     {
         Sidebar.Width = wide ? 232 : 72;
-        Brand.Text = wide ? "OptiFin" : "O";
-        Brand.Margin = new Thickness(wide ? 10 : 0, 0, 0, 24);
-        Brand.HorizontalAlignment = wide ? HorizontalAlignment.Left : HorizontalAlignment.Center;
+        BrandText.Visibility = wide ? Visibility.Visible : Visibility.Collapsed;
+        Brand.Margin = new Thickness(wide ? 4 : 0, 0, 0, 28);
+        Brand.HorizontalAlignment = wide ? HorizontalAlignment.Stretch : HorizontalAlignment.Center;
         foreach (var (item, _) in _items) item.Wide = wide;
     }
 }
@@ -95,6 +108,7 @@ public sealed partial class SidebarItem : Grid
 {
     private readonly TextBlock _label;
     private readonly FontIcon _icon;
+    private readonly Border _indicator;
     private bool _selected;
     private bool _hovered;
 
@@ -114,6 +128,15 @@ public sealed partial class SidebarItem : Grid
         row.Children.Add(_icon);
         row.Children.Add(_label);
         Children.Add(row);
+        // Repère de la rubrique active, à gauche.
+        _indicator = new Border
+        {
+            Width = 3, Height = 18, CornerRadius = new CornerRadius(2), Background = Controls.Ui.Res("OFAccentBrush"),
+            HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(-10, 0, 0, 0), Opacity = 0,
+            OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(200) },
+        };
+        Children.Add(_indicator);
+        BackgroundTransition = new BrushTransition { Duration = TimeSpan.FromMilliseconds(150) };
         ToolTipService.SetToolTip(this, label);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(this, label);
         PointerEntered += (_, _) => { _hovered = true; Refresh(); };
@@ -147,17 +170,18 @@ public sealed partial class SidebarItem : Grid
             _label.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
             Padding = new Thickness(value ? 12 : 0, 0, value ? 12 : 0, 0);
             ((StackPanel)Children[0]).HorizontalAlignment = value ? HorizontalAlignment.Left : HorizontalAlignment.Center;
+            _indicator.Margin = new Thickness(value ? -10 : 2, 0, 0, 0);
         }
     }
 
     private void Refresh()
     {
-        var res = Application.Current.Resources;
         Background = new SolidColorBrush(_selected
             ? Windows.UI.Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF)
             : _hovered ? Windows.UI.Color.FromArgb(0x0F, 0xFF, 0xFF, 0xFF) : Windows.UI.Color.FromArgb(0, 0, 0, 0));
-        _icon.Foreground = (Brush)res[_selected ? "OFAccentBrush" : _hovered ? "OFTextPrimaryBrush" : "OFTextSecondaryBrush"];
-        _label.Foreground = (Brush)res[_selected || _hovered ? "OFTextPrimaryBrush" : "OFTextSecondaryBrush"];
+        _icon.Foreground = Controls.Ui.Res(_selected ? "OFAccentBrush" : _hovered ? "OFTextPrimaryBrush" : "OFTextSecondaryBrush");
+        _label.Foreground = Controls.Ui.Res(_selected || _hovered ? "OFTextPrimaryBrush" : "OFTextSecondaryBrush");
+        _indicator.Opacity = _selected ? 1 : 0;
         _label.FontWeight = _selected ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
     }
 }

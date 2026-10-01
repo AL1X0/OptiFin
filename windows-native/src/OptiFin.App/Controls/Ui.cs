@@ -1,7 +1,10 @@
+using Microsoft.UI.Composition;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.System;
 
@@ -10,6 +13,44 @@ namespace OptiFin.App.Controls;
 /// <summary>Petits éléments d'interface réutilisés (style OptiFin), construits en code.</summary>
 public static class Ui
 {
+    // ---------------------------------------------------------------- Animations
+
+    /// <summary>Image qui apparaît en fondu une fois décodée, au lieu de surgir d'un coup.</summary>
+    public static Image FadeIn(Image image, double ms = 420)
+    {
+        image.Opacity = 0;
+        image.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(ms) };
+        image.ImageOpened += (_, _) => image.Opacity = 1;
+        return image;
+    }
+
+    /// <summary>Bloc d'attente (« squelette ») qui pulse doucement à la place du contenu à venir.</summary>
+    public static Border Skeleton(double width, double height, double radius = 12)
+    {
+        var block = new Border { Width = width, Height = height, CornerRadius = new CornerRadius(radius), Background = Res("OFSurfaceRaisedBrush") };
+        block.Loaded += (_, _) => Pulse(block);
+        return block;
+    }
+
+    /// <summary>Pulsation d'opacité infinie, jouée par le compositeur (sans coût pour le fil d'interface).</summary>
+    public static void Pulse(UIElement element)
+    {
+        var visual = ElementCompositionPreview.GetElementVisual(element);
+        var pulse = visual.Compositor.CreateScalarKeyFrameAnimation();
+        pulse.InsertKeyFrame(0f, 0.4f);
+        pulse.InsertKeyFrame(0.5f, 1f);
+        pulse.InsertKeyFrame(1f, 0.4f);
+        pulse.Duration = TimeSpan.FromMilliseconds(1500);
+        pulse.IterationBehavior = AnimationIterationBehavior.Forever;
+        visual.StartAnimation("Opacity", pulse);
+    }
+
+    /// <summary>Les enfants ajoutés au panneau glissent et apparaissent en cascade.</summary>
+    public static TransitionCollection Entrance(double vertical = 40, double horizontal = 0) =>
+    [
+        new EntranceThemeTransition { IsStaggeringEnabled = true, FromVerticalOffset = vertical, FromHorizontalOffset = horizontal },
+    ];
+
     public static Brush Res(string key) => Application.Current.Resources[key] switch
     {
         Brush b => b,
@@ -91,11 +132,11 @@ public static class Ui
         });
         if (image != null)
         {
-            grid.Children.Add(new Image
+            grid.Children.Add(FadeIn(new Image
             {
                 Source = new BitmapImage(image) { DecodePixelWidth = (int)(size * 2) },
                 Stretch = Stretch.UniformToFill,
-            });
+            }));
         }
         return grid;
     }

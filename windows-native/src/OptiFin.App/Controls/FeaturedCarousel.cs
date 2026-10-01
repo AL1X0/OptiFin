@@ -31,11 +31,21 @@ public sealed partial class FeaturedCarousel : Grid
     {
         _items = items;
         Height = 620;
+        // Le zoom lent du fond ne déborde pas du carrousel.
+        SizeChanged += (_, e) => Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height) };
         foreach (var layer in _layers)
         {
-            layer.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(600) };
+            layer.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(900) };
+            // Fondu enchaîné seulement une fois l'image décodée : jamais de fond vide entre deux titres.
+            layer.ImageOpened += (_, _) =>
+            {
+                if (layer == _layers[_front]) Reveal(layer);
+            };
             Children.Add(layer);
         }
+        _layers[0].Opacity = 0;
+        // Texte : chaque élément glisse et apparaît en cascade à chaque changement de titre.
+        _info.ChildrenTransitions = Ui.Entrance(vertical: 0, horizontal: 48);
         // Voiles : lisibilité du texte à gauche, fondu vers le noir en bas.
         Children.Add(new Border
         {
@@ -87,6 +97,30 @@ public sealed partial class FeaturedCarousel : Grid
         Show(0);
     }
 
+    /// <summary>Affiche le calque et lance un lent zoom « cinéma » (effet Ken Burns).</summary>
+    private void Reveal(Image layer)
+    {
+        var other = _layers[0] == layer ? _layers[1] : _layers[0];
+        layer.Opacity = 1;
+        // (Propriétés XAML et non visuel de composition : l'image utilise déjà OpacityTransition.)
+        layer.CenterPoint = new System.Numerics.Vector3((float)ActualWidth * 0.6f, (float)Height * 0.4f, 0);
+        layer.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromSeconds(12) };
+        layer.Scale = new System.Numerics.Vector3(1.07f, 1.07f, 1f);
+        // L'ancien calque s'efface une fois recouvert.
+        var hide = DispatcherQueue.CreateTimer();
+        hide.Interval = TimeSpan.FromMilliseconds(950);
+        hide.IsRepeating = false;
+        hide.Tick += (_, _) =>
+        {
+            if (other == _layers[_front]) return;
+            other.Opacity = 0;
+            // Zoom remis à zéro hors de la vue, prêt pour le prochain passage.
+            other.ScaleTransition = null;
+            other.Scale = System.Numerics.Vector3.One;
+        };
+        hide.Start();
+    }
+
     private static LinearGradientBrush Gradient(Windows.Foundation.Point start, Windows.Foundation.Point end, params (double Offset, Color Color)[] stops)
     {
         var brush = new LinearGradientBrush { StartPoint = start, EndPoint = end };
@@ -105,27 +139,26 @@ public sealed partial class FeaturedCarousel : Grid
             _timer.Start();
         }
 
-        // Fondu enchaîné entre deux calques d'image.
+        // Fondu enchaîné entre deux calques d'image : le nouveau calque passe au-dessus et apparaît
+        // dès que son image est décodée (Reveal), l'ancien reste affiché dessous en attendant.
         var back = _layers[1 - _front];
+        back.Opacity = 0;
+        _front = 1 - _front;
+        Children.Move((uint)Children.IndexOf(back), 1);
         if (AppServices.Images?.Maybe(item.Backdrop, 1920, 1, 80) is { } url)
             back.Source = new BitmapImage(url) { DecodePixelWidth = 1920 };
-        back.Opacity = 1;
-        _layers[_front].Opacity = 0;
-        _front = 1 - _front;
-        // Le calque visible passe au-dessus (ordre des enfants : 0 et 1).
-        Children.Move((uint)Children.IndexOf(_layers[_front]), 1);
 
         _info.Children.Clear();
         if (AppServices.Images?.Maybe(item.Logo, 460, 1.5) is { } logo)
         {
-            _info.Children.Add(new Image
+            _info.Children.Add(Ui.FadeIn(new Image
             {
                 Source = new BitmapImage(logo),
                 MaxHeight = 150,
                 MaxWidth = 460,
                 HorizontalAlignment = HorizontalAlignment.Left,
                 Stretch = Stretch.Uniform,
-            });
+            }));
         }
         else
         {

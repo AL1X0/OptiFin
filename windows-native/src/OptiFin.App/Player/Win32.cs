@@ -12,6 +12,9 @@ internal static unsafe partial class Win32
     public const int WS_EX_TOOLWINDOW = 0x00000080;
     public const int WS_EX_NOACTIVATE = 0x08000000;
     public const int GWLP_HWNDPARENT = -8;
+    public const int GWL_EXSTYLE = -20;
+    public const int WS_EX_LAYERED = 0x00080000;
+    public const uint LWA_ALPHA = 0x2;
     public const int SW_HIDE = 0;
     public const int SW_SHOWNOACTIVATE = 4;
     public const uint SWP_NOACTIVATE = 0x0010;
@@ -76,6 +79,13 @@ internal static unsafe partial class Win32
 
     [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     public static partial nint SetWindowLongPtr(nint hwnd, int index, nint value);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    public static partial nint GetWindowLongPtr(nint hwnd, int index);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetLayeredWindowAttributes(nint hwnd, uint colorKey, byte alpha, uint flags);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
