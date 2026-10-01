@@ -2,7 +2,7 @@ name: Windows
 
 # Appli PC native (C# / WinUI 3, NativeAOT). Les versions PC sont publiées depuis le poste de
 # développement (windows-native/publish.sh) ; ce workflow reste disponible à la main (onglet
-# Actions › Windows › Run workflow) et vérifie les pull requests.
+# Actions › Windows › Run workflow, qui publie aussi) et vérifie les pull requests.
 on:
   pull_request:
     paths:
@@ -14,14 +14,12 @@ concurrency:
   group: windows-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # Version de l'appli PC : 1.1.N (N = numéro d'exécution de ce workflow), toujours croissante.
-  WINDOWS_VERSION: 1.1.${{ github.run_number }}
-
 jobs:
   build:
     name: Tests, compilation NativeAOT, installateur
     runs-on: windows-latest
+    outputs:
+      n: ${{ steps.version.outputs.n }}
     defaults:
       run:
         shell: bash
@@ -41,6 +39,17 @@ jobs:
         with:
           path: ~/AppData/Local/OptiFin-build
           key: libmpv-${{ hashFiles('windows-native/src/OptiFin.Mpv/OptiFin.Mpv.csproj') }}
+      # Version 1.1.N : N = dernière version PC publiée + 1 (même règle que publish.sh).
+      - name: Version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LAST=$(gh release list --limit 100 --json tagName --jq '.[].tagName' | grep '^windows-' | sed 's/windows-//' | sort -n | tail -1 || true)
+          N=$(( ${LAST:-0} + 1 ))
+          echo "n=$N" >> "$GITHUB_OUTPUT"
+          echo "WINDOWS_VERSION=1.1.$N" >> "$GITHUB_ENV"
+          echo "Version 1.1.$N"
       - name: Tests
         run: dotnet test --project tests/OptiFin.Core.Tests -c Release
       - name: Compiler (NativeAOT)
@@ -56,18 +65,19 @@ jobs:
           name: optifin-windows
           path: windows-native/out/installer/OptiFin-windows-setup.exe
 
-  # Release de l'appli PC : la mise à jour automatique la trouve dans la liste des releases.
-  # Les fichiers mobiles de la dernière build (APK, IPA) y sont repris pour que la « dernière
-  # Release » contienne toujours tout.
+  # Release de l'appli PC (lancement manuel) : la mise à jour automatique la trouve dans la liste
+  # des releases. Les fichiers mobiles de la dernière build (APK, IPA) y sont repris pour que la
+  # « dernière Release » contienne toujours tout.
   release:
     name: Publication de l'appli PC
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      WINDOWS_N: ${{ needs.build.outputs.n }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -83,9 +93,9 @@ jobs:
           ls -la dist
       - name: Créer la Release
         run: |
-          TAG="windows-${{ github.run_number }}"
+          TAG="windows-$WINDOWS_N"
           gh release create "$TAG" dist/* --draft --target "$GITHUB_SHA" \
-            --title "OptiFin Windows $WINDOWS_VERSION" --notes "$(git log -1 --pretty=%B)"
+            --title "OptiFin Windows 1.1.$WINDOWS_N" --notes "$(git log -1 --pretty=%B)"
           gh release edit "$TAG" --draft=false --latest
       - name: Ne garder que les 5 dernières versions PC
         run: |
