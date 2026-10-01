@@ -19,7 +19,7 @@ public sealed class ImageUrls(Uri baseUrl)
         return WidthBuckets[^1];
     }
 
-    public Uri Image(ImageRef r, double logicalWidth, double scale = 1, int quality = 90)
+    public Uri Image(ImageRef r, double logicalWidth, double scale = 1, int quality = 90, string format = "Webp")
     {
         var type = r.Type.ToString();
         var path = r.Type == ImageKind.Backdrop ? $"Items/{r.ItemId}/Images/{type}/{r.Index}" : $"Items/{r.ItemId}/Images/{type}";
@@ -27,7 +27,7 @@ public sealed class ImageUrls(Uri baseUrl)
         [
             new("maxWidth", BucketFor(logicalWidth, scale).ToString()),
             new("quality", quality.ToString()),
-            new("format", "Webp"),
+            new("format", format),
             new("tag", r.Tag),
         ]);
     }

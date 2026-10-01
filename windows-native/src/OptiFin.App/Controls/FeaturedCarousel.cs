@@ -190,11 +190,25 @@ public sealed partial class FeaturedCarousel : Grid
         buttons.Children.Add(info);
         _info.Children.Add(buttons);
 
+        // Point actif aux couleurs du titre affiché (comme sur mobile), blanc en attendant.
+        var accent = FilmAccent.Cached(item);
+        PaintDots(index, accent);
+        if (accent is null)
+        {
+            _ = FilmAccent.ForAsync(item).ContinueWith(t => DispatcherQueue.TryEnqueue(() =>
+            {
+                if (_index == index && t.Result is { } c) PaintDots(index, c);
+            }), TaskScheduler.Default);
+        }
+    }
+
+    private void PaintDots(int index, Color? accent)
+    {
         for (var i = 0; i < _dots.Children.Count; i++)
         {
             var dot = (Border)((Grid)_dots.Children[i]).Children[0];
             dot.Width = i == index ? 22 : 6;
-            dot.Background = new SolidColorBrush(i == index ? Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
+            dot.Background = new SolidColorBrush(i == index ? accent ?? Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
         }
     }
 }

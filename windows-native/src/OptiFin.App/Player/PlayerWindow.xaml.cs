@@ -62,11 +62,11 @@ public sealed partial class PlayerWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "OptiFin.ico"));
         Title = item.Name;
         _video.Own(_hwnd);
-        // Opacité de la fenêtre au niveau de Windows : sur certains PC, le fond « transparent » du XAML
-        // reste opaque et masque la vidéo (écran noir, son seul). Commandes masquées, la fenêtre devient
-        // quasi invisible (1/255, elle reçoit toujours souris et clavier) : la vidéo est toujours visible.
-        Win32.SetWindowLongPtr(_hwnd, Win32.GWL_EXSTYLE, Win32.GetWindowLongPtr(_hwnd, Win32.GWL_EXSTYLE) | Win32.WS_EX_LAYERED);
-        SetOverlayVisible(true);
+        // Commandes posées sur la vidéo : la fenêtre doit être réellement transparente pour Windows
+        // (sinon écran noir, son seul). Et par sécurité, commandes masquées, elle est « voilée » (DWM) :
+        // la vidéo est alors visible quoi qu'il arrive ; elle garde le focus et reçoit le clavier.
+        var hr = Win32.EnableTransparency(_hwnd);
+        AppLog.Info("player", $"Commandes superposées : transparence DWM {(hr >= 0 ? "active" : $"refusée (0x{hr:X8})")}");
         AppWindow.Changed += (_, e) =>
         {
             if (e.DidPositionChange || e.DidSizeChange || e.DidVisibilityChange) SyncVideo();
@@ -84,6 +84,11 @@ public sealed partial class PlayerWindow : Window
             if (Controls.Opacity == 0 && Preparing.Visibility == Visibility.Collapsed && ErrorPanel.Visibility == Visibility.Collapsed)
                 SetOverlayVisible(false);
         });
+        _cursorTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(100), () =>
+        {
+            if (Win32.GetCursorPos(out var p) && (Math.Abs(p.X - _cursorWhenCloaked.X) > 2 || Math.Abs(p.Y - _cursorWhenCloaked.Y) > 2))
+                ShowControls(autoHide: true);
+        }, repeating: true);
         _levelTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(900), () => Level.Opacity = 0);
 
         WireControls();
@@ -547,11 +552,25 @@ public sealed partial class PlayerWindow : Window
 
     private bool _overlayVisible = true;
     private readonly DispatcherQueueTimer _overlayTimer;
+    private readonly DispatcherQueueTimer _cursorTimer;
+
+    private Win32.Point _cursorWhenCloaked;
 
     private void SetOverlayVisible(bool visible)
     {
+        if (_overlayVisible == visible) return;
         _overlayVisible = visible;
-        Win32.SetLayeredWindowAttributes(_hwnd, 0, visible ? (byte)255 : (byte)1, Win32.LWA_ALPHA);
+        Win32.Cloak(_hwnd, !visible);
+        if (visible)
+        {
+            _cursorTimer.Stop();
+        }
+        else
+        {
+            // Voilée, la fenêtre ne voit plus la souris (elle passe sur la vidéo) : on surveille le curseur.
+            Win32.GetCursorPos(out _cursorWhenCloaked);
+            _cursorTimer.Start();
+        }
     }
 
     private void ShowControls(bool autoHide)
@@ -774,6 +793,8 @@ public sealed partial class PlayerWindow : Window
         _closing = true;
         MediaSession.ButtonPressed -= OnMediaButton;
         _hideTimer.Stop();
+        _cursorTimer.Stop();
+        _overlayTimer.Stop();
         _reportTimer.Stop();
         _startupTimer.Stop();
         Win32.SetThreadExecutionState(Win32.ES_CONTINUOUS);

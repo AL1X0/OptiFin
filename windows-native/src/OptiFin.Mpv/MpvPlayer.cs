@@ -71,7 +71,8 @@ public sealed unsafe class MpvPlayer : IDisposable
         Set("input-default-bindings", "no");
         Set("input-vo-keyboard", "no");
         Set("input-cursor", "no");
-        Set("cursor-autohide", "no");
+        // Curseur masqué sur la vidéo : il reparaît sur les commandes dès que la souris bouge.
+        Set("cursor-autohide", "always");
         Set("osc", "no");
         Set("osd-level", "0");
         Set("idle", "yes");

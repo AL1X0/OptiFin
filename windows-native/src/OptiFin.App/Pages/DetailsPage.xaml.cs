@@ -24,6 +24,10 @@ public sealed partial class DetailsPage : Page
     private MediaItem _item = null!;
     private CancellationTokenSource? _cts;
 
+    // Accent du film (comme sur mobile) : couleur vive dominante de son illustration.
+    private Color _accent = FilmAccent.Default;
+    private readonly LinearGradientBrush _glow = new() { StartPoint = new(0, 0.85), EndPoint = new(0.8, 0) };
+
     public DetailsPage()
     {
         InitializeComponent();
@@ -48,8 +52,14 @@ public sealed partial class DetailsPage : Page
         var ct = _cts.Token;
         try
         {
+            var accent = FilmAccent.ForAsync(_item);
             var item = _item.Kind == MediaKind.Person ? await media.PersonAsync(_item.Id, ct) : await media.ItemAsync(_item.Id, ct);
             _item = item;
+            // L'accent (image de 24 px) arrive en général avant la fiche ; on l'attend au plus 0,6 s.
+            await Task.WhenAny(accent, Task.Delay(600, ct));
+            ApplyAccent(accent.IsCompletedSuccessfully ? accent.Result : null);
+            if (!accent.IsCompleted) _ = accent.ContinueWith(t => DispatcherQueue.TryEnqueue(() => ApplyAccent(t.Result)),
+                ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
             Render(item);
             Spinner.IsActive = false;
             await LoadExtrasAsync(item, media, ct);
@@ -97,11 +107,38 @@ public sealed partial class DetailsPage : Page
         Body.Children.Add(_extras);
     }
 
-    private static FrameworkElement Hero(MediaItem item)
+    /// <summary>
+    /// Teinte la fiche : halo coloré sous l'image de fond, onglets de saison, barres de progression,
+    /// bouton « vu » (ressources redéfinies pour cette page uniquement).
+    /// </summary>
+    private void ApplyAccent(Color? color)
+    {
+        _accent = color ?? FilmAccent.Default;
+        Brush Solid(Color c) => new SolidColorBrush(c);
+        var hover = Color.FromArgb(0xFF, (byte)Math.Min(255, _accent.R + 24), (byte)Math.Min(255, _accent.G + 24), (byte)Math.Min(255, _accent.B + 24));
+        var pressed = Color.FromArgb(0xFF, (byte)(_accent.R * 0.85), (byte)(_accent.G * 0.85), (byte)(_accent.B * 0.85));
+        Resources["OFAccentBrush"] = Solid(_accent);
+        Resources["AccentFillColorDefaultBrush"] = Solid(_accent);
+        Resources["ProgressBarForeground"] = Solid(_accent);
+        Resources["ToggleButtonBackgroundChecked"] = Solid(_accent);
+        Resources["ToggleButtonBackgroundCheckedPointerOver"] = Solid(hover);
+        Resources["ToggleButtonBackgroundCheckedPressed"] = Solid(pressed);
+        Resources["ToggleButtonBorderBrushChecked"] = Solid(_accent);
+        _glow.GradientStops.Clear();
+        _glow.GradientStops.Add(new GradientStop { Offset = 0, Color = _accent.WithAlpha(color is null ? (byte)0 : (byte)0x8C) });
+        _glow.GradientStops.Add(new GradientStop { Offset = 0.55, Color = _accent.WithAlpha(color is null ? (byte)0 : (byte)0x26) });
+        _glow.GradientStops.Add(new GradientStop { Offset = 1, Color = _accent.WithAlpha(0) });
+    }
+
+    private Brush AccentBrush => new SolidColorBrush(_accent);
+
+    private FrameworkElement Hero(MediaItem item)
     {
         var hero = new Grid { Height = 560 };
         if (AppServices.Images?.Maybe(item.Backdrop, 1920, 1, 80) is { } backdrop)
             hero.Children.Add(Ui.FadeIn(new Image { Source = new BitmapImage(backdrop) { DecodePixelWidth = 1920 }, Stretch = Stretch.UniformToFill, VerticalAlignment = VerticalAlignment.Top }, 700));
+        // Halo aux couleurs du film, sous les voiles : il se fond dans le noir en bas de l'en-tête.
+        hero.Children.Add(new Border { Background = _glow, IsHitTestVisible = false });
         hero.Children.Add(new Border
         {
             Background = Gradient(new(0.5, 0), new(0.5, 1),
@@ -182,7 +219,7 @@ public sealed partial class DetailsPage : Page
         if (item.Kind is not (MediaKind.Person or MediaKind.BoxSet))
         {
             var played = Ui.Round(item.User.Played ? "" : "", item.User.Played ? "Marquer comme non vu" : "Marquer comme vu");
-            if (item.User.Played) played.Background = Ui.Res("OFAccentBrush");
+            if (item.User.Played) played.Background = AccentBrush;
             played.Click += async (_, _) => await Toggle(() => AppServices.Media!.SetPlayedAsync(item.Id, !_item.User.Played));
             _actions.Children.Add(played);
         }
@@ -196,7 +233,7 @@ public sealed partial class DetailsPage : Page
         if (item.Kind.IsPlayableVideo() && MediaFormat.Remaining(item) is { } remaining && item.User.Progress is { } progress)
         {
             var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
-            bar.Children.Add(new ProgressBar { Width = 120, Value = progress * 100, VerticalAlignment = VerticalAlignment.Center });
+            bar.Children.Add(new ProgressBar { Width = 120, Value = progress * 100, VerticalAlignment = VerticalAlignment.Center, Foreground = AccentBrush });
             bar.Children.Add(new TextBlock { Text = remaining, Style = Ui.StyleOf("OFCaption"), VerticalAlignment = VerticalAlignment.Center });
             _actions.Children.Add(bar);
         }
@@ -353,7 +390,7 @@ public sealed partial class DetailsPage : Page
     }
 
     /// <summary>Épisode : vignette (lecture au clic), titre, durée, synopsis, progression.</summary>
-    private static FrameworkElement EpisodeRow(MediaItem e)
+    private FrameworkElement EpisodeRow(MediaItem e)
     {
         var row = new HandGrid { Padding = new Thickness(12), CornerRadius = new CornerRadius(14), ColumnSpacing = 20, IsTabStop = true, UseSystemFocusVisuals = true };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(260) });
@@ -362,7 +399,7 @@ public sealed partial class DetailsPage : Page
         if (AppServices.Images?.Maybe(e.Landscape, 260, 1.5) is { } url)
             thumb.Children.Add(Ui.FadeIn(new Image { Source = new BitmapImage(url) { DecodePixelWidth = 390 }, Stretch = Stretch.UniformToFill }));
         if (e.User.Progress is { } progress)
-            thumb.Children.Add(new ProgressBar { Value = progress * 100, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(8, 0, 8, 8) });
+            thumb.Children.Add(new ProgressBar { Value = progress * 100, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(8, 0, 8, 8), Foreground = AccentBrush });
         var playIcon = new Border
         {
             Width = 44, Height = 44, CornerRadius = new CornerRadius(22), Opacity = 0,

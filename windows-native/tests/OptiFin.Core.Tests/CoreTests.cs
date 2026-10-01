@@ -313,3 +313,38 @@ public class PlaybackTests
         Assert.Contains("\"Protocol\":\"hls\"", profile);
     }
 }
+
+public class AccentTests
+{
+    private static byte[] Image(params (byte R, byte G, byte B, int Count)[] parts)
+    {
+        var data = new List<byte>();
+        foreach (var (r, g, b, count) in parts)
+            for (var i = 0; i < count; i++) data.AddRange([r, g, b, 255]);
+        return [.. data];
+    }
+
+    [Fact]
+    public void TeinteViveDominante_plutotQueMoyenne()
+    {
+        // Beaucoup de gris, un peu d'orange vif et moins de bleu : l'orange l'emporte.
+        var accent = Accent.Dominant(Image((128, 128, 128, 400), (230, 120, 30, 120), (40, 80, 200, 60)));
+        Assert.NotNull(accent);
+        var (h, s, l) = Accent.ToHsl(accent.Value.R, accent.Value.G, accent.Value.B);
+        Assert.InRange(h, 15, 45);
+        Assert.InRange(l, 0.549, 0.721);
+        Assert.InRange(s, 0.349, 0.851);
+    }
+
+    [Fact]
+    public void ImageNeutre_pasDAccent() =>
+        Assert.Null(Accent.Dominant(Image((20, 20, 20, 300), (200, 200, 200, 276))));
+
+    [Fact]
+    public void ConversionHsl_allerRetour()
+    {
+        var (h, s, l) = Accent.ToHsl(77, 163, 255);
+        var back = Accent.FromHsl(h, s, l);
+        Assert.Equal(new Rgb(77, 163, 255), back);
+    }
+}

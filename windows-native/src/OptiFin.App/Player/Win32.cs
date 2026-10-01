@@ -12,9 +12,9 @@ internal static unsafe partial class Win32
     public const int WS_EX_TOOLWINDOW = 0x00000080;
     public const int WS_EX_NOACTIVATE = 0x08000000;
     public const int GWLP_HWNDPARENT = -8;
-    public const int GWL_EXSTYLE = -20;
-    public const int WS_EX_LAYERED = 0x00080000;
-    public const uint LWA_ALPHA = 0x2;
+    public const int DWMWA_CLOAK = 13;
+    public const uint DWM_BB_ENABLE = 0x1;
+    public const uint DWM_BB_BLURREGION = 0x2;
     public const int SW_HIDE = 0;
     public const int SW_SHOWNOACTIVATE = 4;
     public const uint SWP_NOACTIVATE = 0x0010;
@@ -80,12 +80,58 @@ internal static unsafe partial class Win32
     [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     public static partial nint SetWindowLongPtr(nint hwnd, int index, nint value);
 
-    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
-    public static partial nint GetWindowLongPtr(nint hwnd, int index);
+    [StructLayout(LayoutKind.Sequential)]
+    public struct BlurBehind
+    {
+        public uint Flags;
+        public int Enable;
+        public nint Region;
+        public int TransitionOnMaximized;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Point
+    {
+        public int X;
+        public int Y;
+    }
+
+    /// <summary>
+    /// Transparence réelle de la fenêtre : sans cela, Windows compose la fenêtre comme opaque même si
+    /// son contenu est transparent. Une région de flou vide n'ajoute aucun flou, seulement l'alpha.
+    /// </summary>
+    [LibraryImport("dwmapi.dll")]
+    public static partial int DwmEnableBlurBehindWindow(nint hwnd, BlurBehind* blur);
+
+    /// <summary>Masque (« voile ») une fenêtre sans la fermer : elle garde le focus et le clavier.</summary>
+    [LibraryImport("dwmapi.dll")]
+    public static partial int DwmSetWindowAttribute(nint hwnd, int attribute, int* value, int size);
+
+    [LibraryImport("gdi32.dll")]
+    public static partial nint CreateRectRgn(int left, int top, int right, int bottom);
+
+    [LibraryImport("gdi32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool DeleteObject(nint obj);
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool SetLayeredWindowAttributes(nint hwnd, uint colorKey, byte alpha, uint flags);
+    public static partial bool GetCursorPos(out Point point);
+
+    public static int EnableTransparency(nint hwnd)
+    {
+        var region = CreateRectRgn(-2, -2, -1, -1);
+        var blur = new BlurBehind { Flags = DWM_BB_ENABLE | DWM_BB_BLURREGION, Enable = 1, Region = region };
+        var hr = DwmEnableBlurBehindWindow(hwnd, &blur);
+        DeleteObject(region);
+        return hr;
+    }
+
+    public static void Cloak(nint hwnd, bool cloaked)
+    {
+        var value = cloaked ? 1 : 0;
+        DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &value, sizeof(int));
+    }
 
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

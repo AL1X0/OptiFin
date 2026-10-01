@@ -70,7 +70,7 @@ public sealed partial class MediaCard : Grid
 
         if (item.User.Progress is { } progress)
         {
-            artwork.Children.Add(new ProgressBar
+            var bar = new ProgressBar
             {
                 Value = progress * 100,
                 Maximum = 100,
@@ -80,7 +80,17 @@ public sealed partial class MediaCard : Grid
                 Margin = new Thickness(10, 0, 10, 10),
                 CornerRadius = new CornerRadius(2),
                 Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
-            });
+            };
+            artwork.Children.Add(bar);
+            // Barre aux couleurs du film (comme sur mobile).
+            if (FilmAccent.Cached(item) is { } cached) bar.Foreground = new SolidColorBrush(cached);
+            else
+            {
+                _ = FilmAccent.ForAsync(item).ContinueWith(t => bar.DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (t.Result is { } c) bar.Foreground = new SolidColorBrush(c);
+                }), TaskScheduler.Default);
+            }
         }
         if (item.User.Played && item.Kind is not (MediaKind.Series or MediaKind.Season))
         {
