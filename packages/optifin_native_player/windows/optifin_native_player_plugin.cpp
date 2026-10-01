@@ -10,6 +10,7 @@
 #include <map>
 #include <memory>
 
+#include "capabilities_probe.h"
 #include "media_session.h"
 #include "mpv_player.h"
 
@@ -70,6 +71,10 @@ class OptifinNativePlayerPlugin : public flutter::Plugin {
       if (!player->Initialize(&error)) return result->Error("mpv", error);
       players_[id] = std::move(player);
       return result->Success(flutter::EncodableValue(id));
+    }
+    if (call.method_name() == "capabilities") {
+      // Mesuré à la première lecture (quelques millisecondes), puis gardé côté Dart.
+      return result->Success(flutter::EncodableValue(ProbeCapabilities()));
     }
     if (call.method_name() == "mediaSession") {
       const auto* args = std::get_if<flutter::EncodableMap>(call.arguments());

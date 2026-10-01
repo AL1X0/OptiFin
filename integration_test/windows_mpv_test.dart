@@ -85,6 +85,15 @@ void main() {
     });
   });
 
+  testWidgets('capacités mesurées (carte graphique, écran)', (tester) async {
+    await tester.pumpWidget(const Directionality(textDirection: TextDirection.ltr, child: SizedBox.expand()));
+    final raw = await tester.runAsync(NativePlayers.capabilities);
+    debugPrint('Capacités Windows : $raw');
+    expect(raw?['platform'], 'windows');
+    expect(raw?['nativeAvailable'], isFalse);
+    expect(raw?['videoCodecs'], contains('h264'));
+  });
+
   testWidgets('fichier introuvable : échec au démarrage (déclenche le repli)', (tester) async {
     await tester.pumpWidget(const Directionality(textDirection: TextDirection.ltr, child: SizedBox.expand()));
     final engine = await WindowsMpvEngine.create();

@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'source_profile.dart';
 
-enum DevicePlatform { ios, android, other }
+/// windows : pas de lecteur natif (tout passe par libmpv), mais décodeurs matériels mesurés
+/// (D3D11VA) : ils décident si mpv lit le fichier tel quel ou si le serveur doit transcoder.
+enum DevicePlatform { ios, android, windows, other }
 
 /// Ce que le lecteur **natif** de l'appareil sait décoder et afficher.
 ///
@@ -85,6 +87,13 @@ class DeviceCapabilities {
       audioCodecs: {'aac', 'mp3', 'flac', 'opus', 'vorbis'},
       containers: {'mp4', 'm4v', 'mov', 'mkv', 'webm', 'ts', 'mpegts'},
     ),
+    DevicePlatform.windows => const DeviceCapabilities(
+      platform: DevicePlatform.windows,
+      nativeAvailable: false,
+      videoCodecs: {'h264', 'hevc'},
+      hevcMain10: true,
+      maxWidth: 3840,
+    ),
     DevicePlatform.other => const DeviceCapabilities(platform: DevicePlatform.other, nativeAvailable: false),
   };
 
@@ -103,6 +112,7 @@ class DeviceCapabilities {
     final platform = switch (json['platform']) {
       'ios' => DevicePlatform.ios,
       'android' => DevicePlatform.android,
+      'windows' => DevicePlatform.windows,
       _ => DevicePlatform.other,
     };
     final base = DeviceCapabilities.fallback(platform);
@@ -111,7 +121,8 @@ class DeviceCapabilities {
     final containers = json['containers'];
     return DeviceCapabilities(
       platform: platform,
-      nativeAvailable: json['nativeAvailable'] != false && platform != DevicePlatform.other,
+      nativeAvailable:
+          json['nativeAvailable'] != false && platform != DevicePlatform.other && platform != DevicePlatform.windows,
       model: json['model'] as String?,
       osVersion: json['osVersion'] as String?,
       videoCodecs: strings('videoCodecs', base.videoCodecs),

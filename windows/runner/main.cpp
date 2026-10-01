@@ -2,6 +2,7 @@
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
 
+#include "crash_report.h"
 #include "flutter_window.h"
 #include "utils.h"
 
@@ -12,6 +13,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
     CreateAndAttachConsole();
   }
+
+  // Plantage natif : module fautif consigné dans le journal (voir crash_report.h).
+  InstallCrashReport();
 
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.

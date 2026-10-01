@@ -28,6 +28,7 @@ add_library(${PLUGIN_NAME} SHARED
   "optifin_native_player_plugin.cpp"
   "mpv_player.cpp"
   "media_session.cpp"
+  "capabilities_probe.cpp"
 )
 
 apply_standard_settings(${PLUGIN_NAME})

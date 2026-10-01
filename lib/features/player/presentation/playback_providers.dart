@@ -45,7 +45,8 @@ final deviceCapabilitiesProvider = FutureProvider<DeviceCapabilities>((ref) asyn
   } catch (e) {
     AppLog.w('player', 'Détection des capacités impossible : $e');
   }
-  final caps = raw == null ? DeviceCapabilities.fallback(DevicePlatform.other) : DeviceCapabilities.fromJson(raw);
+  final fallback = DeviceCapabilities.fallback(Platform.isWindows ? DevicePlatform.windows : DevicePlatform.other);
+  final caps = raw == null ? fallback : DeviceCapabilities.fromJson(raw);
   AppLog.i('player', 'Capacités de l’appareil : ${caps.summary}');
   return caps;
 });
