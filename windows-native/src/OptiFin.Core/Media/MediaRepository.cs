@@ -166,6 +166,16 @@ public sealed class MediaRepository(JellyfinClient api, string userId)
         return new PageResult<MediaItem>(Map(r.Items), r.TotalRecordCount ?? r.Items?.Count ?? 0);
     }
 
+    /// <summary>Position du premier titre commençant par cette lettre (tri par titre croissant) ; « # » = début.</summary>
+    public async Task<int> IndexOfLetterAsync(LibraryQuery q, string letter, CancellationToken ct = default)
+    {
+        if (letter == "#") return 0;
+        var query = Filters(q);
+        query.AddRange([new("NameLessThan", letter), new("Limit", "0"), new("EnableImages", "false"), new("EnableTotalRecordCount", "true")]);
+        var r = await Items(query, ct);
+        return r.TotalRecordCount ?? 0;
+    }
+
     public async Task<LibraryFilterOptions> FilterOptionsAsync(LibraryQuery q, CancellationToken ct = default)
     {
         var kinds = q.Kinds.Count > 0 ? string.Join(',', q.Kinds.Select(k => k.ApiName()).OfType<string>()) : null;

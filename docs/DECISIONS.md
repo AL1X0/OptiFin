@@ -407,3 +407,25 @@ pas sous l'interface Flutter : écran noir avec le son). Elle est remplacée par
    `tools/OptiFin.DemoServer` simule un serveur Jellyfin (catalogue et images générées).
 9. **Non vérifiable ici** (machine virtuelle sans GPU) : rendu HDR réel et superposition des commandes au-dessus de
    la vidéo.
+
+## Soirées (SyncPlay) sur toutes les versions (2026-10-01)
+
+1. **Protocole SyncPlay de Jellyfin** (identique au client web), relevé sur un vrai serveur 12.1 : connexion temps réel
+   `/socket` authentifiée par l'en-tête `Authorization` (Jellyfin 12 refuse l'ancien `api_key` dans l'URL), maintien
+   `KeepAlive`, groupes (`/SyncPlay/New`, `Join`, `Leave`, `List`), file partagée (`SetNewQueue`), ordres horodatés
+   (`Unpause`, `Pause`, `Seek`, `Stop`) et états du groupe.
+2. **Même logique sur Windows (C#) et mobile/TV (Dart)** : horloge du serveur façon NTP (meilleur aller-retour), ordres
+   appliqués à l'heure du serveur, rattrapage de dérive (vitesse ±5 % au-delà de 120 ms, saut au-delà de 800 ms, mesure
+   suspendue 2 s après un départ ou un saut), coupures de moins de 0,7 s non signalées au groupe.
+3. **En soirée**, « Lecture » lance le titre pour tout le groupe ; lecture, pause et saut deviennent des demandes au
+   groupe ; le saut automatique des intros est désactivé (chacun le demanderait).
+4. **Tests** : messages réels, horloge, synchronisation, et bout en bout à deux comptes contre un serveur Jellyfin réel
+   (facultatifs, variable `OPTIFIN_TEST_SERVER`), en C# comme en Dart.
+
+## Windows : parité avec le mobile
+
+Barre de recherche dans la barre du haut ; bande-annonce, « Voir la série », synopsis repliable, informations
+techniques ; décalage sous-titres / son, fond des sous-titres et recherche de sous-titres en ligne dans le lecteur ;
+filtre par années, réinitialisation, affichage en liste et index alphabétique dans les bibliothèques ; vider le cache,
+capacités de l'appareil, licences ; comptes enregistrés dans le menu du profil. Non repris : téléchargements hors
+connexion, choix du moteur (un seul moteur sous Windows), réglages propres au réseau mobile.

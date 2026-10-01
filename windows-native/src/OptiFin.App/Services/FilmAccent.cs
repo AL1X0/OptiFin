@@ -28,6 +28,8 @@ public static class FilmAccent
         return Cache.GetOrAdd(url.ToString(), _ => ComputeAsync(url));
     }
 
+    public static void Clear() => Cache.Clear();
+
     /// <summary>Accent déjà calculé (sans attendre), sinon null.</summary>
     public static Color? Cached(MediaItem item)
     {

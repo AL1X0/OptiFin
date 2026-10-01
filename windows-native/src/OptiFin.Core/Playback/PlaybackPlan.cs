@@ -129,3 +129,38 @@ public sealed record PlaybackExtras(
         return at < duration / 2 ? duration / 2 : at;
     }
 }
+
+/// <summary>Sous-titre trouvé en ligne par un fournisseur du serveur (OpenSubtitles…).</summary>
+public sealed record RemoteSubtitle(string Id, string Name, string? Provider, string? Format, int? Downloads, double? Rating, bool HashMatch, bool HearingImpaired, bool Forced)
+{
+    public string Details => string.Join(" · ", new[]
+    {
+        Provider,
+        Format?.ToUpperInvariant(),
+        Downloads is > 0 and var d ? $"{d} téléchargements" : null,
+        HashMatch ? "correspond au fichier" : null,
+        HearingImpaired ? "malentendants" : null,
+        Forced ? "forcés" : null,
+    }.Where(x => !string.IsNullOrEmpty(x)));
+
+    /// <summary>Résultats du serveur, les plus sûrs d'abord (correspondance exacte, puis popularité).</summary>
+    public static IReadOnlyList<RemoteSubtitle> FromJson(System.Text.Json.JsonElement list)
+    {
+        if (list.ValueKind != System.Text.Json.JsonValueKind.Array) return [];
+        string? S(System.Text.Json.JsonElement e, string n) =>
+            e.TryGetProperty(n, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : null;
+        double? D(System.Text.Json.JsonElement e, string n) =>
+            e.TryGetProperty(n, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number ? v.GetDouble() : null;
+        bool B(System.Text.Json.JsonElement e, string n) =>
+            e.TryGetProperty(n, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.True;
+        return [.. list.EnumerateArray()
+            .Where(e => !string.IsNullOrEmpty(S(e, "Id")))
+            .Select(e => new RemoteSubtitle(
+                S(e, "Id")!,
+                S(e, "Name")?.Trim() is { Length: > 0 } name ? name : $"Sous-titre {S(e, "Id")}",
+                S(e, "ProviderName"), S(e, "Format"), (int?)D(e, "DownloadCount"), D(e, "CommunityRating"),
+                B(e, "IsHashMatch"), B(e, "HearingImpaired"), B(e, "Forced")))
+            .OrderByDescending(r => r.HashMatch)
+            .ThenByDescending(r => r.Downloads ?? 0)];
+    }
+}

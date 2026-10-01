@@ -172,6 +172,17 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
 
     // ------------------------------------------------------------ Compléments
 
+    /// <summary>Sous-titres proposés par les fournisseurs du serveur (langue ISO 639-2, ex. « fre »).</summary>
+    public async Task<IReadOnlyList<RemoteSubtitle>> SearchSubtitlesAsync(string itemId, string language, CancellationToken ct = default)
+    {
+        var list = await api.GetAsync($"Items/{itemId}/RemoteSearch/Subtitles/{language}", JellyfinJson.Default.JsonElement, ct: ct);
+        return RemoteSubtitle.FromJson(list);
+    }
+
+    /// <summary>Télécharge un sous-titre sur le serveur (il rejoint ensuite les pistes de l'élément).</summary>
+    public Task DownloadSubtitleAsync(string itemId, string subtitleId, CancellationToken ct = default) =>
+        api.PostAsync($"Items/{itemId}/RemoteSearch/Subtitles/{Uri.EscapeDataString(subtitleId)}", ct: ct);
+
     public async Task<PlaybackExtras> ExtrasAsync(MediaItem item, MediaRepository media, CancellationToken ct = default)
     {
         async Task<T?> Safe<T>(string what, Func<Task<T?>> call) where T : class

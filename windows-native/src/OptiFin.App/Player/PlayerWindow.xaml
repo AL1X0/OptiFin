@@ -151,7 +151,7 @@
             </StackPanel>
             <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
                 <Button x:Name="UpNextPlay" Style="{StaticResource OFPrimaryButton}" Content="Lire" />
-                <Button x:Name="UpNextDismiss" Style="{StaticResource OFSecondaryButton}" Content="Masquer" />
+                <Button x:Name="UpNextDismiss" Style="{StaticResource OFSecondaryButton}" Content="Continuer le générique" />
             </StackPanel>
         </Grid>
 

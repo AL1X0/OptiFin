@@ -123,6 +123,56 @@ public sealed partial class SettingsPage : Page
         var logs = Ui.Secondary("Ouvrir");
         logs.Click += (_, _) => Nav.Go(typeof(LogsPage));
         Panel.Children.Add(Row("Journaux", "Pour diagnostiquer un problème (les secrets sont masqués).", logs));
+
+        var clear = Ui.Secondary("Vider");
+        var cacheStatus = new TextBlock { Style = Ui.StyleOf("OFCaption"), VerticalAlignment = VerticalAlignment.Center };
+        var cacheRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        cacheRow.Children.Add(cacheStatus);
+        cacheRow.Children.Add(clear);
+        clear.Click += (_, _) =>
+        {
+            var freed = ClearCache();
+            cacheStatus.Text = freed > 0 ? $"{freed / 1024.0 / 1024.0:0.#} Mo libérés" : "Cache vidé";
+        };
+        Panel.Children.Add(Row("Vider le cache", "Accueil enregistré pour l’affichage instantané et couleurs des films (recalculés au besoin).", cacheRow));
+
+        Panel.Children.Add(Row("Capacités de l’appareil", DeviceSummary(), new Border()));
+    }
+
+    /// <summary>Supprime le cache disque (accueil) et vide les couleurs mémorisées ; renvoie les octets libérés.</summary>
+    private static long ClearCache()
+    {
+        long freed = 0;
+        var dir = Path.Combine(AppLog.Directory, "cache");
+        try
+        {
+            if (Directory.Exists(dir))
+            {
+                foreach (var file in Directory.EnumerateFiles(dir))
+                {
+                    freed += new FileInfo(file).Length;
+                    File.Delete(file);
+                }
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        FilmAccent.Clear();
+        AppLog.Info("app", $"Cache vidé ({freed} octets)");
+        return freed;
+    }
+
+    private static string DeviceSummary()
+    {
+        var os = Environment.OSVersion.Version;
+        var windows = os.Build >= 22000 ? "Windows 11" : "Windows 10";
+        var memory = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024.0 / 1024 / 1024;
+        return $"{windows} (build {os.Build}) · {Environment.ProcessorCount} cœurs · {memory:0} Go de mémoire · " +
+               "lecture mpv (gpu-next, Direct3D 11, décodage matériel, HDR transmis à l’écran quand Windows l’active)";
     }
 
     // ------------------------------------------------------------ À propos
@@ -148,5 +198,36 @@ public sealed partial class SettingsPage : Page
             await UpdateDialog.ShowAsync(XamlRoot, update);
         };
         Panel.Children.Add(Row($"OptiFin {AppServices.Version}", "Lecteur Jellyfin pour Windows · mises à jour automatiques.", stack));
+        var licences = Ui.Secondary("Afficher");
+        licences.Click += async (_, _) => await ShowLicencesAsync();
+        Panel.Children.Add(Row("Licences", "Composants libres utilisés par OptiFin.", licences));
+    }
+
+    private async Task ShowLicencesAsync()
+    {
+        var list = new StackPanel { Spacing = 10 };
+        foreach (var (name, licence) in new[]
+        {
+            ("mpv / libmpv (mpv.io, build shinchiro)", "GPL v2 ou ultérieure / LGPL v2.1 ou ultérieure selon la compilation ; inclut FFmpeg (LGPL / GPL)"),
+            ("Windows App SDK et WinUI 3 (Microsoft)", "Licence MIT"),
+            (".NET (Microsoft)", "Licence MIT"),
+            ("Inno Setup (installateur)", "Licence Inno Setup"),
+            ("Jellyfin (serveur, API)", "GPL v2 ; OptiFin est un client indépendant"),
+        })
+        {
+            var item = new StackPanel { Spacing = 2 };
+            item.Children.Add(new TextBlock { Text = name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
+            item.Children.Add(Ui.Text(licence, "OFCaption"));
+            list.Children.Add(item);
+        }
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Licences",
+            CloseButtonText = "Fermer",
+            RequestedTheme = ElementTheme.Dark,
+            Content = new ScrollViewer { Content = list, MaxHeight = 420, Width = 480 },
+        };
+        await dialog.ShowAsync();
     }
 }

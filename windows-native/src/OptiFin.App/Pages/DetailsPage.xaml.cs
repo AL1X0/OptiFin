@@ -99,9 +99,15 @@ public sealed partial class DetailsPage : Page
         {
             if (item.Tagline is { } tagline)
                 body.Children.Add(new TextBlock { Text = tagline, FontSize = 17, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = Ui.Res("OFTextSecondaryBrush") });
-            if (item.Overview is { } overview)
-                body.Children.Add(new TextBlock { Text = overview, Style = Ui.StyleOf("OFBody"), MaxWidth = 900, FontSize = 16, LineHeight = 24 });
+            if (item.Overview is { } overview) body.Children.Add(Overview(overview));
+            if (item.Kind == MediaKind.Episode && item.SeriesId is { } seriesId)
+            {
+                var series = Ui.Secondary("Voir la série", "\uE7F4");
+                series.Click += (_, _) => Nav.Go(typeof(DetailsPage), new MediaItem { Id = seriesId, Name = item.SeriesName ?? "", Kind = MediaKind.Series });
+                body.Children.Add(series);
+            }
             if (Credits(item) is { } credits) body.Children.Add(credits);
+            if (TechnicalInfo(item) is { } tech) body.Children.Add(tech);
         }
         Body.Children.Add(body);
         _extras.Children.Clear();
@@ -192,6 +198,79 @@ public sealed partial class DetailsPage : Page
         return hero;
     }
 
+    /// <summary>Synopsis : 4 lignes, « Plus » pour tout lire (comme sur mobile).</summary>
+    private static FrameworkElement Overview(string text)
+    {
+        var panel = new StackPanel { Spacing = 4, MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Left };
+        var block = new TextBlock
+        {
+            Text = text, Style = Ui.StyleOf("OFBody"), FontSize = 16, LineHeight = 24,
+            MaxLines = 4, TextTrimming = TextTrimming.WordEllipsis, TextWrapping = TextWrapping.Wrap,
+        };
+        panel.Children.Add(block);
+        if (text.Length > 320)
+        {
+            var more = new HyperlinkButton { Content = "Plus", Padding = new Thickness(0), Foreground = Ui.Res("OFTextPrimaryBrush") };
+            more.Click += (_, _) =>
+            {
+                var expanded = block.MaxLines == 0;
+                block.MaxLines = expanded ? 4 : 0;
+                more.Content = expanded ? "Plus" : "Moins";
+            };
+            panel.Children.Add(more);
+        }
+        return panel;
+    }
+
+    /// <summary>Informations techniques : vidéo (codec, définition, HDR) et pistes audio.</summary>
+    private static FrameworkElement? TechnicalInfo(MediaItem item)
+    {
+        var video = item.Streams.FirstOrDefault(s => s.IsVideo);
+        var audios = item.Streams.Where(s => !s.IsVideo).ToList();
+        if (video is null && audios.Count == 0) return null;
+        var grid = new Grid { ColumnSpacing = 16, RowSpacing = 4, Margin = new Thickness(0, 8, 0, 0) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var row = 0;
+        void Add(string label, string value)
+        {
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var l = new TextBlock { Text = label, Style = Ui.StyleOf("OFCaption"), Foreground = Ui.Res("OFTextTertiaryBrush") };
+            var v = new TextBlock { Text = value, Style = Ui.StyleOf("OFCaption"), TextWrapping = TextWrapping.Wrap };
+            Grid.SetRow(l, row);
+            Grid.SetRow(v, row);
+            Grid.SetColumn(v, 1);
+            grid.Children.Add(l);
+            grid.Children.Add(v);
+            row++;
+        }
+        if (video != null)
+        {
+            Add("Vidéo", string.Join(" · ", new[]
+            {
+                video.Codec.ToUpperInvariant(),
+                QualityBadges.ResolutionLabel(video.Width, video.Height),
+                video.Width != null && video.Height != null ? $"{video.Width}×{video.Height}" : null,
+                video.BitDepth != null ? $"{video.BitDepth} bits" : null,
+                video.VideoRange switch
+                {
+                    VideoRange.DolbyVision => "Dolby Vision",
+                    VideoRange.Hdr10Plus => "HDR10+",
+                    VideoRange.Hdr10 => "HDR10",
+                    VideoRange.Hlg => "HLG",
+                    _ => "SDR",
+                },
+            }.Where(x => !string.IsNullOrEmpty(x))));
+        }
+        foreach (var (a, i) in audios.Take(6).Select((a, i) => (a, i)))
+            Add(i == 0 ? "Audio" : "", a.Title ?? string.Join(" · ", new[] { a.Codec.ToUpperInvariant(), a.Language }.Where(x => !string.IsNullOrEmpty(x))));
+        if (audios.Count > 6) Add("", $"+ {audios.Count - 6} autres pistes");
+        var section = new StackPanel { Spacing = 8, Margin = new Thickness(0, 12, 0, 0) };
+        section.Children.Add(new TextBlock { Text = "Informations techniques", Style = Ui.StyleOf("OFTitle2") });
+        section.Children.Add(grid);
+        return section;
+    }
+
     private static LinearGradientBrush Gradient(Windows.Foundation.Point start, Windows.Foundation.Point end, params (double Offset, Color Color)[] stops)
     {
         var brush = new LinearGradientBrush { StartPoint = start, EndPoint = end };
@@ -230,6 +309,12 @@ public sealed partial class DetailsPage : Page
             if (item.User.Favorite) ((FontIcon)fav.Content).Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0x45, 0x3A));
             fav.Click += async (_, _) => await Toggle(() => AppServices.Media!.SetFavoriteAsync(item.Id, !_item.User.Favorite));
             _actions.Children.Add(fav);
+        }
+        if (item.Trailers.Count > 0)
+        {
+            var trailer = Ui.Round("\uE8B2", "Bande-annonce");
+            trailer.Click += async (_, _) => await Windows.System.Launcher.LaunchUriAsync(item.Trailers[0].Url);
+            _actions.Children.Add(trailer);
         }
         if (item.Kind.IsPlayableVideo() && MediaFormat.Remaining(item) is { } remaining && item.User.Progress is { } progress)
         {

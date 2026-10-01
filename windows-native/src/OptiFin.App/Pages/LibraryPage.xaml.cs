@@ -27,6 +27,7 @@ public sealed partial class LibraryPage : Page
     private int _generation;
     private ScrollViewer? _scroll;
     private CardStyle _style = CardStyle.Poster;
+    private bool _listView;
 
     public LibraryPage()
     {
@@ -35,11 +36,34 @@ public sealed partial class LibraryPage : Page
         Items.ContainerContentChanging += (_, args) =>
         {
             if (args.InRecycleQueue || args.Item is not MediaItem item) return;
-            var card = new MediaCard(item, _style, MediaRow.CardWidth(_style));
-            card.Activated += HomePage.Open;
+            FrameworkElement card;
+            if (_listView)
+            {
+                var row = ListRow(item);
+                card = row;
+            }
+            else
+            {
+                var media = new MediaCard(item, _style, MediaRow.CardWidth(_style));
+                media.Activated += HomePage.Open;
+                card = media;
+            }
             if (args.ItemContainer.ContentTemplateRoot is ContentControl host) host.Content = card;
             args.Handled = true;
         };
+        foreach (var letter in Letters)
+        {
+            var b = new TextBlock
+            {
+                Text = letter, FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center,
+                Foreground = Ui.Res("OFTextSecondaryBrush"), Padding = new Thickness(4, 1, 4, 1),
+            };
+            var hit = new HandGrid { Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
+            hit.Children.Add(b);
+            hit.Tapped += (_, _) => _ = JumpToLetterAsync(letter);
+            ToolTipService.SetToolTip(hit, letter == "#" ? "Début" : letter);
+            AlphaIndex.Children.Add(hit);
+        }
         Items.Loaded += (_, _) =>
         {
             _scroll = FindScrollViewer(Items);
@@ -187,6 +211,122 @@ public sealed partial class LibraryPage : Page
         };
         genres.Click += async (_, _) => await ShowGenresAsync(genres);
         Toolbar.Children.Add(genres);
+
+        var years = new DropDownButton
+        {
+            Content = _query.Years.Count == 0 ? "Années" : $"Années ({_query.Years.Count})",
+            CornerRadius = new CornerRadius(18),
+        };
+        years.Click += async (_, _) => await ShowYearsAsync(years);
+        Toolbar.Children.Add(years);
+
+        if (_query.ActiveFilterCount > 0)
+        {
+            var reset = Ui.Secondary("Réinitialiser", "\uE72C");
+            reset.Click += (_, _) =>
+            {
+                _query = LibraryQuery.For(_library) with { Sort = _query.Sort, Descending = _query.Descending };
+                BuildToolbar();
+                _ = ReloadAsync();
+            };
+            Toolbar.Children.Add(reset);
+        }
+
+        var view = Ui.Round(_listView ? "E8A9" : "E8FD", _listView ? "Affichage grille" : "Affichage liste", 36);
+        view.Click += (_, _) =>
+        {
+            _listView = !_listView;
+            BuildToolbar();
+            _ = ReloadAsync();
+        };
+        Toolbar.Children.Add(view);
+        // Index alphabétique : utile seulement en tri par titre croissant.
+        AlphaIndex.Visibility = _query.Sort == LibrarySort.Title && !_query.Descending ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private static readonly string[] Letters = ["#", .. Enumerable.Range('A', 26).Select(c => ((char)c).ToString())];
+
+    /// <summary>Saut à la première lettre : position calculée par le serveur, pages chargées jusque-là.</summary>
+    private async Task JumpToLetterAsync(string letter)
+    {
+        if (AppServices.Media is not { } media) return;
+        try
+        {
+            var index = await media.IndexOfLetterAsync(_query, letter);
+            var generation = _generation;
+            while (_items.Count <= index && _items.Count < _total && generation == _generation)
+            {
+                var before = _items.Count;
+                await LoadPageAsync(generation);
+                if (_items.Count == before) break;
+            }
+            if (_items.Count == 0) return;
+            Items.ScrollIntoView(_items[Math.Min(index, _items.Count - 1)], ScrollIntoViewAlignment.Leading);
+        }
+        catch (ApiException)
+        {
+            // Saut non critique.
+        }
+    }
+
+    /// <summary>Ligne de l'affichage en liste : affiche, titre, informations, synopsis.</summary>
+    private FrameworkElement ListRow(MediaItem item)
+    {
+        var row = new HandGrid
+        {
+            Width = Math.Max(400, Items.ActualWidth - 40),
+            ColumnSpacing = 16,
+            Padding = new Thickness(8),
+            CornerRadius = new CornerRadius(12),
+            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+        };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(64) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var art = new Border { Width = 64, Height = 96, CornerRadius = new CornerRadius(8), Background = Ui.Res("OFSurfaceBrush") };
+        if (AppServices.Images?.Maybe(item.Poster ?? item.Primary, 64, 1.5) is { } url)
+            art.Child = Ui.FadeIn(new Image { Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(url) { DecodePixelWidth = 96 }, Stretch = Stretch.UniformToFill });
+        row.Children.Add(art);
+        var texts = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
+        texts.Children.Add(new TextBlock { Text = item.Name, FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
+        var meta = MediaFormat.MetadataLine(item);
+        if (meta.Count > 0) texts.Children.Add(Ui.Text(string.Join("  ·  ", meta), "OFCaption"));
+        if (item.Overview is { } overview)
+            texts.Children.Add(new TextBlock { Text = overview, Style = Ui.StyleOf("OFCaption"), MaxLines = 2, TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.WordEllipsis, Foreground = Ui.Res("OFTextSecondaryBrush") });
+        Grid.SetColumn(texts, 1);
+        row.Children.Add(texts);
+        Ui.Clickable(row, () => HomePage.Open(item), new SolidColorBrush(Microsoft.UI.Colors.Transparent), Ui.Res("OFSurfaceBrush"));
+        return row;
+    }
+
+    private async Task ShowYearsAsync(DropDownButton anchor)
+    {
+        if (AppServices.Media is not { } media) return;
+        LibraryFilterOptions options;
+        try
+        {
+            options = await media.FilterOptionsAsync(_query);
+        }
+        catch (ApiException)
+        {
+            return;
+        }
+        var flyout = new MenuFlyout();
+        foreach (var year in options.Years)
+        {
+            var item = new ToggleMenuFlyoutItem { Text = year.ToString(), IsChecked = _query.Years.Contains(year) };
+            item.Click += (_, _) =>
+            {
+                var list = _query.Years.ToList();
+                if (item.IsChecked) list.Add(year);
+                else list.Remove(year);
+                _query = _query with { Years = list };
+                BuildToolbar();
+                _ = ReloadAsync();
+            };
+            flyout.Items.Add(item);
+        }
+        if (options.Years.Count == 0) flyout.Items.Add(new MenuFlyoutItem { Text = "Aucune année", IsEnabled = false });
+        flyout.ShowAt(anchor);
     }
 
     private async Task ShowGenresAsync(DropDownButton anchor)

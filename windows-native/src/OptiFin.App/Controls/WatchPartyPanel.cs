@@ -63,7 +63,7 @@ public sealed partial class WatchPartyPanel : StackPanel
             row.Children.Add(new TextBlock { Text = name, VerticalAlignment = VerticalAlignment.Center, FontSize = 14 });
             _body.Children.Add(row);
         }
-        var leave = Ui.Secondary("Quitter la soirée", "");
+        var leave = Ui.Secondary("Quitter la soirée", "\uE711");
         leave.HorizontalAlignment = HorizontalAlignment.Stretch;
         leave.Margin = new Thickness(0, 6, 0, 0);
         leave.Click += async (_, _) =>
@@ -83,7 +83,7 @@ public sealed partial class WatchPartyPanel : StackPanel
             Text = $"Soirée de {AppServices.Session?.Account.UserName}",
             CornerRadius = new CornerRadius(10),
         };
-        var create = Ui.Primary("Créer une soirée", "");
+        var create = Ui.Primary("Créer une soirée", "\uE710");
         create.HorizontalAlignment = HorizontalAlignment.Stretch;
         create.IsEnabled = connected;
         create.Click += async (_, _) =>

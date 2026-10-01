@@ -35,8 +35,8 @@ public sealed partial class ShellPage : Page
             ToolTipService.SetToolTip(Brand, $"{session.Server.Name} · {session.Server.BaseUrl}");
         }
 
-        AddTab("Accueil", "", typeof(HomePage));
-        AddTab("Bibliothèques", "", typeof(LibrariesPage));
+        AddTab("Accueil", "\uE80F", typeof(HomePage));
+        AddTab("Bibliothèques", "\uE8F1", typeof(LibrariesPage));
         ProfileButton.Flyout = ProfileMenu();
         SetupSearch();
         PartyButton.Flyout = new Flyout
@@ -134,20 +134,45 @@ public sealed partial class ShellPage : Page
         _tabs.Add((tab, page));
     }
 
+    /// <summary>Menu du profil : réglages, autres comptes enregistrés (bascule rapide), ajout, déconnexion.</summary>
     private static MenuFlyout ProfileMenu()
     {
         var menu = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedRight };
-        var settings = new MenuFlyoutItem { Text = "Réglages", Icon = new FontIcon { Glyph = "" } };
-        settings.Click += (_, _) => Nav.Go(typeof(SettingsPage));
-        var change = new MenuFlyoutItem { Text = "Changer de compte", Icon = new FontIcon { Glyph = "" } };
-        change.Click += (_, _) => Nav.PushRoot(typeof(ConnectPage));
-        var signOut = new MenuFlyoutItem { Text = "Se déconnecter", Icon = new FontIcon { Glyph = "" } };
-        signOut.Click += async (_, _) => await AppServices.SignOutAsync();
-        menu.Items.Add(settings);
-        menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(change);
-        menu.Items.Add(signOut);
+        menu.Opening += (_, _) => FillProfileMenu(menu);
         return menu;
+    }
+
+    private static void FillProfileMenu(MenuFlyout menu)
+    {
+        menu.Items.Clear();
+        var settings = new MenuFlyoutItem { Text = "Réglages", Icon = new FontIcon { Glyph = "\uE713" } };
+        settings.Click += (_, _) => Nav.Go(typeof(SettingsPage));
+        menu.Items.Add(settings);
+        var current = AppServices.Session?.Account.Id;
+        var others = AppServices.Accounts.Accounts().Where(a => a.Id != current).ToList();
+        if (others.Count > 0)
+        {
+            menu.Items.Add(new MenuFlyoutSeparator());
+            foreach (var account in others)
+            {
+                var item = new MenuFlyoutItem { Text = $"{account.UserName} · {account.ServerName}", Icon = new FontIcon { Glyph = "\uE77B" } };
+                item.Click += (_, _) =>
+                {
+                    AppServices.SwitchTo(account.Id);
+                    // Jeton perdu : reconnexion à ce serveur, identifiant prérempli.
+                    if (AppServices.Session?.Account.Id != account.Id)
+                        Nav.PushRoot(typeof(LoginPage), new LoginRequest(account.Server, account.UserName));
+                };
+                menu.Items.Add(item);
+            }
+        }
+        menu.Items.Add(new MenuFlyoutSeparator());
+        var add = new MenuFlyoutItem { Text = "Ajouter un compte", Icon = new FontIcon { Glyph = "\uE8FA" } };
+        add.Click += (_, _) => Nav.PushRoot(typeof(ConnectPage));
+        var signOut = new MenuFlyoutItem { Text = "Se déconnecter", Icon = new FontIcon { Glyph = "\uE7E8" } };
+        signOut.Click += async (_, _) => await AppServices.SignOutAsync();
+        menu.Items.Add(add);
+        menu.Items.Add(signOut);
     }
 
     // ------------------------------------------------------------ Recherche
@@ -213,7 +238,7 @@ public sealed partial class ShellPage : Page
                 Spacing = 10,
                 Children =
                 {
-                    new FontIcon { Glyph = "", FontSize = 15, Foreground = Ui.Res("OFAccentBrush") },
+                    new FontIcon { Glyph = "\uE716", FontSize = 15, Foreground = Ui.Res("OFAccentBrush") },
                     new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 14, MaxWidth = 320 },
                 },
             },

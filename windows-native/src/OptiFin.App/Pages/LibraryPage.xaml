@@ -30,6 +30,8 @@
                 </Style>
             </GridView.ItemContainerStyle>
         </GridView>
+        <!-- Index alphabétique (tri par titre) -->
+        <StackPanel x:Name="AlphaIndex" Grid.Row="2" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,-24,0" Spacing="0" />
         <ProgressRing x:Name="Spinner" Grid.Row="2" IsActive="True" Width="40" Height="40" />
         <TextBlock x:Name="Empty" Grid.Row="2" Visibility="Collapsed" Style="{StaticResource OFBody}"
                    Foreground="{StaticResource OFTextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />

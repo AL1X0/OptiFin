@@ -919,6 +919,141 @@ public sealed partial class PlayerWindow : Window
         }
     }
 
+    private double _subtitleDelay;
+    private double _audioDelay;
+
+    private static string Seconds(double value) =>
+        value == 0 ? "aucun" : (value > 0 ? "+" : "−") + Math.Abs(value).ToString("0.0", CultureInfo.GetCultureInfo("fr-FR")) + " s";
+
+    private static MenuFlyoutSubItem DelayMenu(string title, string hint, Func<double> current, Action<double> set)
+    {
+        var menu = new MenuFlyoutSubItem { Text = $"{title} ({Seconds(current())})" };
+        menu.Items.Add(new MenuFlyoutItem { Text = hint, IsEnabled = false });
+        menu.Items.Add(new MenuFlyoutSeparator());
+        foreach (var step in new[] { -1.0, -0.5, -0.1, 0.1, 0.5, 1.0 })
+        {
+            var item = new MenuFlyoutItem { Text = (step > 0 ? "+" : "−") + Math.Abs(step).ToString("0.0", CultureInfo.GetCultureInfo("fr-FR")) + " s" };
+            item.Click += (_, _) => set(Math.Round(current() + step, 2));
+            menu.Items.Add(item);
+        }
+        var reset = new MenuFlyoutItem { Text = "Aucun décalage" };
+        reset.Click += (_, _) => set(0);
+        menu.Items.Add(reset);
+        return menu;
+    }
+
+    private static readonly (string Code, string Name)[] SubtitleLanguages =
+    [
+        ("fre", "Français"), ("eng", "Anglais"), ("spa", "Espagnol"), ("ger", "Allemand"), ("ita", "Italien"),
+        ("por", "Portugais"), ("dut", "Néerlandais"), ("jpn", "Japonais"), ("ara", "Arabe"),
+    ];
+
+    /// <summary>Recherche de sous-titres par les fournisseurs du serveur, puis affichage immédiat.</summary>
+    private async Task SearchSubtitlesAsync()
+    {
+        if (_plan is not { } plan || Content.XamlRoot is not { } root) return;
+        ShowControls(autoHide: false);
+        var language = new ComboBox { MinWidth = 180 };
+        foreach (var (code, name) in SubtitleLanguages) language.Items.Add(name);
+        var preferred = Array.FindIndex(SubtitleLanguages, l => l.Code == (AppServices.Settings.SubtitleLanguage ?? "fre"));
+        language.SelectedIndex = preferred < 0 ? 0 : preferred;
+        var results = new StackPanel { Spacing = 6 };
+        var status = new TextBlock { Style = OptiFin.App.Controls.Ui.StyleOf("OFCaption"), TextWrapping = TextWrapping.Wrap };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = root,
+            Title = "Rechercher des sous-titres",
+            CloseButtonText = "Fermer",
+            RequestedTheme = ElementTheme.Dark,
+            Content = new StackPanel
+            {
+                Width = 520,
+                Spacing = 12,
+                Children =
+                {
+                    language,
+                    status,
+                    new ScrollViewer { Content = results, MaxHeight = 360, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
+                },
+            },
+        };
+
+        async Task SearchAsync()
+        {
+            results.Children.Clear();
+            status.Text = "Recherche…";
+            try
+            {
+                var found = await AppServices.Playback!.SearchSubtitlesAsync(plan.ItemId, SubtitleLanguages[language.SelectedIndex].Code);
+                status.Text = found.Count == 0 ? "Aucun sous-titre trouvé dans cette langue." : $"{found.Count} résultat{(found.Count > 1 ? "s" : "")}";
+                foreach (var subtitle in found.Take(40))
+                {
+                    var row = new Button
+                    {
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
+                        HorizontalContentAlignment = HorizontalAlignment.Left,
+                        CornerRadius = new CornerRadius(10),
+                        Padding = new Thickness(12, 8, 12, 8),
+                        Content = new StackPanel
+                        {
+                            Children =
+                            {
+                                new TextBlock { Text = subtitle.Name, TextWrapping = TextWrapping.Wrap, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
+                                new TextBlock { Text = subtitle.Details, Style = OptiFin.App.Controls.Ui.StyleOf("OFCaption") },
+                            },
+                        },
+                    };
+                    row.Click += async (_, _) =>
+                    {
+                        status.Text = $"Téléchargement de « {subtitle.Name} »…";
+                        results.IsHitTestVisible = false;
+                        try
+                        {
+                            await DownloadSubtitleAsync(subtitle);
+                            dialog.Hide();
+                        }
+                        catch (Exception e)
+                        {
+                            status.Text = e is ApiException api ? api.UserMessage : e.Message;
+                            results.IsHitTestVisible = true;
+                        }
+                    };
+                    results.Children.Add(row);
+                }
+            }
+            catch (ApiException e)
+            {
+                status.Text = e.UserMessage;
+            }
+        }
+
+        language.SelectionChanged += (_, _) => _ = SearchAsync();
+        _ = SearchAsync();
+        await dialog.ShowAsync();
+        ScheduleHide();
+    }
+
+    private async Task DownloadSubtitleAsync(RemoteSubtitle subtitle)
+    {
+        if (_plan is not { } plan) return;
+        await AppServices.Playback!.DownloadSubtitleAsync(plan.ItemId, subtitle.Id);
+        var known = plan.SubtitleTracks.Select(t => t.Index).ToHashSet();
+        MediaTrack? added = null;
+        PlaybackPlan? refreshed = null;
+        // Le serveur enregistre le fichier puis rafraîchit l'élément : quelques essais.
+        for (var attempt = 0; attempt < 3 && added is null; attempt++)
+        {
+            if (attempt > 0) await Task.Delay(2000);
+            refreshed = await AppServices.Playback!.PrepareAsync(plan.ItemId, _position, plan.AudioIndex, plan.SubtitleIndex,
+                plan.Method == PlayMethod.Transcode, AppServices.Settings.EffectiveMaxBitrate, plan.MediaSourceId);
+            added = refreshed.SubtitleTracks.FirstOrDefault(t => !known.Contains(t.Index));
+        }
+        if (added is null || refreshed is null) throw new InvalidOperationException("Le serveur n’a pas encore ajouté ce sous-titre. Réessayez.");
+        AppLog.Info("player", $"Sous-titre téléchargé : {added.Label}");
+        _plan = _plan! with { SubtitleTracks = refreshed.SubtitleTracks };
+        await SwitchTrackAsync(TrackType.Subtitle, added);
+    }
+
     private void ShowSettingsMenu()
     {
         var menu = new MenuFlyout();
@@ -954,6 +1089,36 @@ public sealed partial class PlayerWindow : Window
             size.Items.Add(item);
         }
         menu.Items.Add(size);
+        var background = new MenuFlyoutSubItem { Text = "Fond des sous-titres" };
+        foreach (var (mode, label) in new[] { (SubtitleBackground.None, "Contour"), (SubtitleBackground.Shadow, "Ombre"), (SubtitleBackground.Box, "Bandeau") })
+        {
+            var item = new ToggleMenuFlyoutItem { Text = label, IsChecked = AppServices.Settings.SubtitleBackground == mode };
+            item.Click += (_, _) =>
+            {
+                AppServices.Settings.SubtitleBackground = mode;
+                AppServices.SaveSettings();
+                ApplySubtitleStyle();
+            };
+            background.Items.Add(item);
+        }
+        menu.Items.Add(background);
+
+        // Synchronisation : décalage des sous-titres et du son (comme sur mobile).
+        var sync = new MenuFlyoutSubItem { Text = "Synchronisation" };
+        sync.Items.Add(DelayMenu("Décalage des sous-titres", "Positif : les sous-titres apparaissent plus tard.", () => _subtitleDelay, d =>
+        {
+            _subtitleDelay = d;
+            _mpv?.TrySet("sub-delay", d.ToString("0.###", CultureInfo.InvariantCulture));
+        }));
+        sync.Items.Add(DelayMenu("Décalage du son", "Positif : le son est retardé.", () => _audioDelay, d =>
+        {
+            _audioDelay = d;
+            _mpv?.TrySet("audio-delay", d.ToString("0.###", CultureInfo.InvariantCulture));
+        }));
+        menu.Items.Add(sync);
+        var online = new MenuFlyoutItem { Text = "Rechercher des sous-titres en ligne…", IsEnabled = _plan != null };
+        online.Click += (_, _) => _ = SearchSubtitlesAsync();
+        menu.Items.Add(online);
         menu.Items.Add(new MenuFlyoutSeparator());
         var transcode = new MenuFlyoutItem { Text = "Lire via le serveur (transcodage)", IsEnabled = _plan?.Method == PlayMethod.DirectPlay };
         transcode.Click += (_, _) =>
