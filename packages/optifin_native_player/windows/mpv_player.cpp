@@ -3,6 +3,8 @@
 #include <flutter/event_stream_handler_functions.h>
 #include <flutter/standard_method_codec.h>
 
+#include <dwmapi.h>
+
 #include <iterator>
 
 // libmpv chargée à l'exécution : les fonctions mpv_* deviennent des pointeurs (pfn_mpv_*),
@@ -15,6 +17,23 @@ namespace optifin {
 namespace {
 
 constexpr wchar_t kVideoClass[] = L"OptiFinVideo";
+constexpr wchar_t kSettingsKey[] = L"Software\\OptiFin";
+constexpr wchar_t kLayoutValue[] = L"VideoLayout";
+
+int ReadLayoutMode() {
+  DWORD value = 1;
+  DWORD size = sizeof(value);
+  if (RegGetValueW(HKEY_CURRENT_USER, kSettingsKey, kLayoutValue, RRF_RT_REG_DWORD, nullptr, &value, &size) !=
+      ERROR_SUCCESS) {
+    return 1;
+  }
+  return value < 3 ? static_cast<int>(value) : 1;
+}
+
+void WriteLayoutMode(int mode) {
+  const DWORD value = static_cast<DWORD>(mode);
+  RegSetKeyValueW(HKEY_CURRENT_USER, kSettingsKey, kLayoutValue, REG_DWORD, &value, sizeof(value));
+}
 constexpr UINT kWakeup = WM_APP + 0x4F;
 
 HMODULE g_libmpv = nullptr;
@@ -97,14 +116,15 @@ bool MpvPlayer::Initialize(std::string* error) {
     registered = true;
   }
   // Fenêtre enfant masquée jusqu'à la première image, sous toutes ses sœurs (la vue Flutter).
-  hwnd_ = CreateWindowExW(WS_EX_NOPARENTNOTIFY, kVideoClass, L"", WS_CHILD | WS_CLIPSIBLINGS, 0, 0, 0, 0,
-                          parent_, nullptr, GetModuleHandle(nullptr), nullptr);
+  mode_ = ReadLayoutMode();
+  hwnd_ = CreateWindowExW(WS_EX_NOPARENTNOTIFY, kVideoClass, L"", WS_CHILD, 0, 0, 0, 0, parent_, nullptr,
+                          GetModuleHandle(nullptr), nullptr);
   if (!hwnd_) {
     *error = "fenêtre vidéo impossible à créer";
     return false;
   }
   SetWindowLongPtr(hwnd_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-  Layout();
+  ApplyMode();
 
   mpv_ = mpv_create();
   if (!mpv_) {
@@ -197,13 +217,71 @@ void MpvPlayer::Destroy() {
     DestroyWindow(hwnd_);
     hwnd_ = nullptr;
   }
+  if (popup_) {
+    DestroyWindow(popup_);
+    popup_ = nullptr;
+  }
+  SetMainTransparent(false);
+}
+
+void MpvPlayer::SetMainTransparent(bool transparent) {
+  // Cadre DWM étendu à toute la fenêtre : là où Flutter ne peint rien, on voit ce qui est dessous.
+  const int m = transparent ? -1 : 0;
+  MARGINS margins{m, m, m, m};
+  DwmExtendFrameIntoClientArea(parent_, &margins);
+}
+
+void MpvPlayer::SetLayoutMode(int mode) {
+  mode_ = ((mode % kLayoutModes) + kLayoutModes) % kLayoutModes;
+  WriteLayoutMode(mode_);
+  ApplyMode();
+}
+
+void MpvPlayer::ApplyMode() {
+  if (!hwnd_) return;
+  LONG_PTR style = GetWindowLongPtr(hwnd_, GWL_STYLE);
+  style = mode_ == 0 ? (style | WS_CLIPSIBLINGS) : (style & ~WS_CLIPSIBLINGS);
+  SetWindowLongPtr(hwnd_, GWL_STYLE, style);
+  if (mode_ == 2) {
+    if (!popup_) {
+      // Fenêtre sans bordure, hors barre des tâches, jamais active : la fenêtre principale garde
+      // le clavier et la souris.
+      popup_ = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kVideoClass, L"OptiFin vidéo", WS_POPUP, 0, 0,
+                               0, 0, nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
+    }
+    SetParent(hwnd_, popup_);
+  } else {
+    SetParent(hwnd_, parent_);
+    if (popup_) {
+      DestroyWindow(popup_);
+      popup_ = nullptr;
+    }
+  }
+  SetMainTransparent(mode_ != 0);
+  Layout();
+  if (visible_) {
+    ShowWindow(hwnd_, SW_SHOWNOACTIVATE);
+    if (popup_) ShowWindow(popup_, SW_SHOWNOACTIVATE);
+  }
 }
 
 void MpvPlayer::Layout() {
   if (!hwnd_) return;
   RECT rc;
   GetClientRect(parent_, &rc);
-  SetWindowPos(hwnd_, HWND_BOTTOM, 0, 0, rc.right - rc.left, rc.bottom - rc.top, SWP_NOACTIVATE);
+  const int w = rc.right - rc.left;
+  const int h = rc.bottom - rc.top;
+  if (mode_ == 2 && popup_) {
+    // Juste derrière la fenêtre principale, sur sa zone cliente ; masquée si elle est réduite.
+    POINT origin{0, 0};
+    ClientToScreen(parent_, &origin);
+    const bool shown = visible_ && !IsIconic(parent_);
+    SetWindowPos(popup_, parent_, origin.x, origin.y, w, h,
+                 SWP_NOACTIVATE | (shown ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
+    SetWindowPos(hwnd_, nullptr, 0, 0, w, h, SWP_NOACTIVATE | SWP_NOZORDER);
+  } else {
+    SetWindowPos(hwnd_, HWND_BOTTOM, 0, 0, w, h, SWP_NOACTIVATE);
+  }
 }
 
 void MpvPlayer::Show(bool visible) {
@@ -211,6 +289,7 @@ void MpvPlayer::Show(bool visible) {
   visible_ = visible;
   Layout();
   ShowWindow(hwnd_, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
+  if (popup_) ShowWindow(popup_, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
 }
 
 // ------------------------------------------------------------------ Événements
@@ -345,6 +424,13 @@ void MpvPlayer::HandleCall(const flutter::MethodCall<flutter::EncodableValue>& c
     mpv_free(value);
     return result->Success(flutter::EncodableValue(out));
   }
+  if (method == "setLayoutMode" && args) {
+    auto it = args->find(flutter::EncodableValue("mode"));
+    const auto* m = it == args->end() ? nullptr : std::get_if<int>(&it->second);
+    SetLayoutMode(m ? *m : mode_ + 1);
+    return result->Success(flutter::EncodableValue(mode_));
+  }
+  if (method == "getLayoutMode") return result->Success(flutter::EncodableValue(mode_));
   if (method == "setVisible" && args) {
     auto it = args->find(flutter::EncodableValue("visible"));
     const auto* v = it == args->end() ? nullptr : std::get_if<bool>(&it->second);

@@ -34,6 +34,15 @@ class MpvPlayer {
 
   // Ajuste la fenêtre vidéo à la zone cliente de la fenêtre principale.
   void Layout();
+
+  // Assemblage de la vidéo et de l'interface (dépend du pilote graphique) :
+  // 0 : fenêtre enfant sous la vue Flutter ;
+  // 1 : idem, sans découpe par la vue et fenêtre principale « transparente » (DWM) ;
+  // 2 : fenêtre vidéo séparée, juste derrière la fenêtre principale transparente.
+  // Le mode retenu est mémorisé (registre) pour les lectures suivantes.
+  void SetLayoutMode(int mode);
+  int layout_mode() const { return mode_; }
+  static constexpr int kLayoutModes = 3;
   HWND hwnd() const { return hwnd_; }
 
  private:
@@ -46,6 +55,8 @@ class MpvPlayer {
                   std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
   void Show(bool visible);
   void Destroy();
+  void ApplyMode();
+  void SetMainTransparent(bool transparent);
 
   flutter::PluginRegistrarWindows* registrar_;
   const int id_;
@@ -53,6 +64,8 @@ class MpvPlayer {
   HWND hwnd_ = nullptr;
   mpv_handle* mpv_ = nullptr;
   bool visible_ = false;
+  int mode_ = 1;
+  HWND popup_ = nullptr;
 
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
   std::unique_ptr<flutter::EventChannel<flutter::EncodableValue>> events_;

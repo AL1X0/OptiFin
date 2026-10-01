@@ -46,7 +46,7 @@ class OptifinNativePlayerPlugin : public flutter::Plugin {
     // Fenêtre redimensionnée : les vidéos suivent.
     window_proc_ = registrar->RegisterTopLevelWindowProcDelegate(
         [this](HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) -> std::optional<LRESULT> {
-          if (message == WM_SIZE) {
+          if (message == WM_SIZE || message == WM_MOVE || message == WM_WINDOWPOSCHANGED) {
             for (auto& [id, player] : players_) player->Layout();
           }
           return media_->HandleWindowMessage(hwnd, message, wparam, lparam);

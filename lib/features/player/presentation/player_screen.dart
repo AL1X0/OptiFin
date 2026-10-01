@@ -488,6 +488,10 @@ class _PlayerControlsState extends State<PlayerControls> {
       _toggleMute();
       return KeyEventResult.handled;
     }
+    if (key == LogicalKeyboardKey.keyV && widget.engine is WindowsMpvEngine) {
+      unawaited(_cycleVideoLayout());
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.keyF || key == LogicalKeyboardKey.f11) {
       _toggleFullscreen();
       return KeyEventResult.handled;
@@ -502,6 +506,21 @@ class _PlayerControlsState extends State<PlayerControls> {
       return KeyEventResult.handled;
     }
     return null;
+  }
+
+  /// Windows : l'image reste noire avec certains pilotes graphiques ; V essaie l'assemblage
+  /// suivant (retenu ensuite pour toutes les lectures).
+  Future<void> _cycleVideoLayout() async {
+    final mode = await (widget.engine as WindowsMpvEngine).cycleVideoLayout();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Affichage vidéo : mode ${mode + 1} sur 3 (V pour essayer le suivant)'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
   }
 
   /// Souris : les contrôles apparaissent au moindre mouvement (et le curseur avec eux).

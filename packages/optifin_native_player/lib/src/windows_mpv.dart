@@ -50,6 +50,18 @@ class WindowsMpv {
     return _channel.invokeMethod<String>('getProperty', {'name': name});
   }
 
+  /// Assemblage vidéo / interface suivant (0 → 1 → 2 → 0), mémorisé pour les lectures
+  /// suivantes ; renvoie le mode actif. Voir `MpvPlayer::SetLayoutMode` côté C++.
+  Future<int> cycleLayoutMode() async {
+    if (_disposed) return 0;
+    return await _channel.invokeMethod<int>('setLayoutMode', <String, Object?>{}) ?? 0;
+  }
+
+  Future<int> layoutMode() async {
+    if (_disposed) return 0;
+    return await _channel.invokeMethod<int>('getLayoutMode') ?? 0;
+  }
+
   /// Affiche ou masque la fenêtre vidéo (affichée d'elle-même à la première image).
   Future<void> setVisible(bool visible) async {
     if (_disposed) return;

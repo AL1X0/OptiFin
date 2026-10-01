@@ -20,8 +20,9 @@ class WindowsMpvEngine implements PlaybackEngine, VolumeControl {
   }
 
   static Future<WindowsMpvEngine> create() async {
-    AppLog.i('mpv', 'Création du moteur Windows (libmpv natif, gpu-next Direct3D 11)');
     final engine = WindowsMpvEngine._(await WindowsMpv.create());
+    final mode = await engine._mpv.layoutMode();
+    AppLog.i('mpv', 'Création du moteur Windows (libmpv natif, gpu-next Direct3D 11, assemblage mode $mode)');
     // Volume retenu d'une lecture à l'autre (le temps de la session).
     await engine.setVolume(_lastVolume);
     return engine;
@@ -289,6 +290,14 @@ class WindowsMpvEngine implements PlaybackEngine, VolumeControl {
   Future<void> setMuted(bool muted) async {
     _muted = muted;
     await _set('mute', muted ? 'yes' : 'no');
+  }
+
+  /// Assemblage de la vidéo et de l'interface suivant (touche V) : selon le pilote graphique,
+  /// un seul des modes affiche l'image ; il est retenu pour les lectures suivantes.
+  Future<int> cycleVideoLayout() async {
+    final mode = await _mpv.cycleLayoutMode();
+    AppLog.i('mpv', 'Assemblage vidéo : mode $mode');
+    return mode;
   }
 
   /// Format de l'image : fait par mpv (la vidéo n'est pas une texture Flutter).
