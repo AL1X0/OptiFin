@@ -22,21 +22,17 @@ public sealed partial class SearchPage : Page
         _debounce = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _debounce.Interval = TimeSpan.FromMilliseconds(300);
         _debounce.IsRepeating = false;
-        _debounce.Tick += (_, _) => _ = SearchAsync(Query.Text.Trim());
-        Query.TextChanged += (_, _) =>
-        {
-            _debounce.Stop();
-            _debounce.Start();
-        };
+        _debounce.Tick += (_, _) => _ = SearchAsync(_term);
     }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e) => Query.Focus(FocusState.Programmatic);
+    private string _term = "";
 
+    /// <summary>Texte de la barre de recherche (en haut de la fenêtre) : recherche 300 ms après la dernière frappe.</summary>
     public void SetQuery(string text)
     {
-        Query.Text = text;
+        _term = text.Trim();
         _debounce.Stop();
-        _ = SearchAsync(text.Trim());
+        _debounce.Start();
     }
 
     private async Task SearchAsync(string term)

@@ -70,7 +70,7 @@ public static class Ui
 
     public static TextBlock Text(string text, string style = "OFBody", Brush? color = null)
     {
-        var t = new TextBlock { Text = text, Style = StyleOf(style) };
+        var t = new TextBlock { Text = text, Style = StyleOf(style), TextWrapping = TextWrapping.Wrap };
         if (color != null) t.Foreground = color;
         return t;
     }

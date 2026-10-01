@@ -37,8 +37,16 @@ public sealed partial class ShellPage : Page
 
         AddTab("Accueil", "", typeof(HomePage));
         AddTab("Bibliothèques", "", typeof(LibrariesPage));
-        AddTab("Recherche", "", typeof(SearchPage));
         ProfileButton.Flyout = ProfileMenu();
+        SetupSearch();
+        PartyButton.Flyout = new Flyout
+        {
+            Content = new WatchPartyPanel(),
+            Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedRight,
+        };
+        WatchParty.Changed += UpdatePartyButton;
+        WatchParty.Notice += ShowNotice;
+        UpdatePartyButton();
 
         BackButton.Click += (_, _) => Nav.Back();
         // Nav.Section vide l'historique après la navigation : on remet le bouton à jour ensuite.
@@ -62,14 +70,23 @@ public sealed partial class ShellPage : Page
         {
             Nav.ContentNavigated -= UpdateBackButton;
             Nav.Scrolled -= OnScrolled;
+            WatchParty.Changed -= UpdatePartyButton;
+            WatchParty.Notice -= ShowNotice;
             Nav.Window.UseTitleBar(null);
         };
         ContentFrame.Navigated += (_, e) =>
         {
             UpdateBackButton();
             OnScrolled(0);
+            // En quittant la recherche, la barre se vide.
+            if (e.SourcePageType != typeof(SearchPage) && SearchInput.Text.Length > 0)
+            {
+                _leavingSearch = true;
+                SearchInput.Text = "";
+                _leavingSearch = false;
+            }
             // Fiche, bibliothèque… : la rubrique d'origine reste en surbrillance.
-            if (_tabs.Any(t => t.Page == e.SourcePageType))
+            if (_tabs.Any(t => t.Page == e.SourcePageType) || e.SourcePageType == typeof(SearchPage))
                 foreach (var (tab, page) in _tabs) tab.Selected = page == e.SourcePageType;
         };
         SizeChanged += (_, e) =>
@@ -77,6 +94,8 @@ public sealed partial class ShellPage : Page
             // Fenêtre étroite : nom du serveur masqué, puis rubriques réduites à leur icône.
             var compact = e.NewSize.Width < 1100;
             ServerName.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+            SearchBox.Width = e.NewSize.Width < 1100 ? 200 : 280;
+            PartyLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
             UserName.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
             foreach (var (tab, _) in _tabs) tab.Compact = e.NewSize.Width < 860;
             UpdateCaptionInset();
@@ -84,7 +103,7 @@ public sealed partial class ShellPage : Page
 
         // Raccourcis sans info-bulle « Ctrl+F » qui surgissait au survol de la page.
         KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
-        KeyboardAccelerators.Add(Accelerator(VirtualKey.F, VirtualKeyModifiers.Control, () => Nav.Section(typeof(SearchPage))));
+        KeyboardAccelerators.Add(Accelerator(VirtualKey.F, VirtualKeyModifiers.Control, () => SearchInput.Focus(FocusState.Keyboard)));
         KeyboardAccelerators.Add(Accelerator(VirtualKey.Left, VirtualKeyModifiers.Menu, () => Nav.Back()));
         KeyboardAccelerators.Add(Accelerator(VirtualKey.GoBack, VirtualKeyModifiers.None, () => Nav.Back()));
         // Bouton « précédent » des souris à 5 boutons.
@@ -129,6 +148,83 @@ public sealed partial class ShellPage : Page
         menu.Items.Add(change);
         menu.Items.Add(signOut);
         return menu;
+    }
+
+    // ------------------------------------------------------------ Recherche
+
+    private bool _leavingSearch;
+
+    private void SetupSearch()
+    {
+        SearchInput.TextChanged += (_, _) =>
+        {
+            var text = SearchInput.Text;
+            SearchClear.Visibility = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (_leavingSearch) return;
+            if (ContentFrame.Content is not SearchPage)
+            {
+                if (text.Trim().Length == 0) return;
+                Nav.Section(typeof(SearchPage));
+            }
+            (ContentFrame.Content as SearchPage)?.SetQuery(text);
+        };
+        SearchInput.GotFocus += (_, _) => SearchBox.Width = Math.Max(SearchBox.Width, ActualWidth < 1100 ? 260 : 360);
+        SearchInput.LostFocus += (_, _) => SearchBox.Width = ActualWidth < 1100 ? 200 : 280;
+        SearchInput.KeyDown += (_, e) =>
+        {
+            if (e.Key != VirtualKey.Escape) return;
+            SearchInput.Text = "";
+            if (ContentFrame.Content is SearchPage) Nav.Back();
+            e.Handled = true;
+        };
+        SearchClear.Click += (_, _) =>
+        {
+            SearchInput.Text = "";
+            SearchInput.Focus(FocusState.Programmatic);
+        };
+    }
+
+    // ------------------------------------------------------------ Soirée
+
+    private void UpdatePartyButton()
+    {
+        var group = WatchParty.Group;
+        PartyLabel.Text = group is null ? "Soirée" : $"{group.Name} · {group.Participants.Count}";
+        PartyIcon.Foreground = Ui.Res(group is null ? "OFTextPrimaryBrush" : "OFAccentBrush");
+        PartyButton.BorderBrush = group is null
+            ? new SolidColorBrush(Microsoft.UI.Colors.Transparent)
+            : Ui.Res("OFAccentBrush");
+    }
+
+    /// <summary>Petite annonce en bas à droite, effacée après 4 s.</summary>
+    private void ShowNotice(string text)
+    {
+        var notice = new Border
+        {
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0xF2, 0x1C, 0x1C, 0x20)),
+            BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(14),
+            Padding = new Thickness(14, 10, 16, 10),
+            MaxWidth = 380,
+            Child = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 10,
+                Children =
+                {
+                    new FontIcon { Glyph = "", FontSize = 15, Foreground = Ui.Res("OFAccentBrush") },
+                    new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 14, MaxWidth = 320 },
+                },
+            },
+        };
+        Notices.Children.Add(notice);
+        while (Notices.Children.Count > 3) Notices.Children.RemoveAt(0);
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(4);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => Notices.Children.Remove(notice);
+        timer.Start();
     }
 
     private void UpdateBackButton() =>

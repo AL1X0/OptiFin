@@ -181,13 +181,17 @@ public class SyncPlayPlaybackTests
     [Fact]
     public void IgnoreUnAutreElementEtTransmetLesActions()
     {
-        var (sync, player, requests, _) = Make();
+        var (sync, player, requests, setNow) = Make();
         sync.Apply(Cmd(SyncCommandKind.Unpause, T0.AddSeconds(2), 0, id: "autre"));
         Assert.True(player.Paused);
         _ = sync.RequestTogglePlayAsync();
         _ = sync.RequestSeekAsync(TimeSpan.FromSeconds(90));
         Assert.Equal(["unpause", "seek 90"], requests.Sent);
         sync.OnBuffering(true);
+        sync.Tick();
+        Assert.DoesNotContain(requests.Sent, x => x.StartsWith("buffering")); // coupure trop courte
+        setNow(T0.AddSeconds(1));
+        sync.Tick();
         sync.OnBuffering(false);
         Assert.Equal("buffering False", requests.Sent[^2]);
     }

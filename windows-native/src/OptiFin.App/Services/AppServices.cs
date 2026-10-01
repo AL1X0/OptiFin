@@ -73,6 +73,7 @@ public static class AppServices
         Home = null;
         Playback = null;
         Images = null;
+        WatchParty.Attach(null);
         SessionChanged?.Invoke();
     }
 
@@ -93,6 +94,7 @@ public static class AppServices
         Home = new HomeRepository(Media, session.Account.Id);
         Playback = new PlaybackService(Client, session.Account.UserId);
         Images = new ImageUrls(session.Server.BaseUrl);
+        WatchParty.Attach(Client);
         AppLog.Info("app", $"Session : {session.Account.UserName} sur {session.Server.Name} (Jellyfin {session.Server.Version})");
     }
 }

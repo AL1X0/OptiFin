@@ -34,6 +34,8 @@ public sealed unsafe class MpvPlayer : IDisposable
     public event Action<TimeSpan>? DurationChanged;
     public event Action<bool>? PauseChanged;
     public event Action<bool>? BufferingChanged;
+    /// <summary>Lecture arrêtée faute de données (mémoire tampon vide), hors sauts.</summary>
+    public event Action<bool>? CacheStallChanged;
     public event Action<TimeSpan>? BufferedChanged;
     public event Action<int, int>? VideoSizeChanged;
     public event Action? FileLoaded;
@@ -270,6 +272,7 @@ public sealed unsafe class MpvPlayer : IDisposable
             case "pause": PauseChanged?.Invoke(F()); break;
             case "paused-for-cache":
                 _cache = F();
+                CacheStallChanged?.Invoke(_cache);
                 BufferingChanged?.Invoke(_cache || _seeking);
                 break;
             case "seeking":

@@ -38,6 +38,13 @@ public sealed class SyncPlayPlayback(ISyncTarget target, ISyncRequests requests,
     private DateTime? _pendingUnpause;
     private bool _speedAdjusted;
     private bool _buffering;
+    private DateTime? _stallSince;
+    private DateTime _settleUntil;
+
+    /// <summary>Une coupure plus courte n'est pas signalée au groupe.</summary>
+    public static readonly TimeSpan StallThreshold = TimeSpan.FromMilliseconds(700);
+    /// <summary>Temps laissé au lecteur après un départ ou un saut avant de mesurer la dérive.</summary>
+    public static readonly TimeSpan SettleTime = TimeSpan.FromSeconds(2);
     private bool _waitingForSeek;
     private bool _readyAfterSeekPlaying;
 
@@ -74,6 +81,7 @@ public sealed class SyncPlayPlayback(ISyncTarget target, ISyncRequests requests,
                     // En retard : on part directement là où en est le groupe.
                     SeekIfFar(command.Position + (now - start), TimeSpan.FromMilliseconds(250));
                     target.Play();
+                    _settleUntil = now + SettleTime;
                     _pendingUnpause = null;
                 }
                 break;
@@ -111,26 +119,41 @@ public sealed class SyncPlayPlayback(ISyncTarget target, ISyncRequests requests,
         _ = requests.ReadyAsync(target.Position, _readyAfterSeekPlaying, PlaylistItemId);
     }
 
-    /// <summary>Mémoire tampon : le groupe attend ce participant, puis repart ensemble.</summary>
-    public void OnBuffering(bool buffering)
+    /// <summary>
+    /// Lecture arrêtée faute de données : au-delà de <see cref="StallThreshold"/>, le groupe attend ce
+    /// participant (signalé par <see cref="Tick"/>), puis repart ensemble.
+    /// </summary>
+    public void OnBuffering(bool stalled)
     {
-        if (buffering == _buffering) return;
-        _buffering = buffering;
-        var playing = _playingFrom != null;
-        if (buffering) _ = requests.BufferingAsync(target.Position, playing, PlaylistItemId);
-        else _ = requests.ReadyAsync(target.Position, playing, PlaylistItemId);
+        if (stalled)
+        {
+            _stallSince ??= time.LocalNow;
+            return;
+        }
+        _stallSince = null;
+        if (!_buffering) return;
+        _buffering = false;
+        _settleUntil = time.LocalNow + SettleTime;
+        _ = requests.ReadyAsync(target.Position, _playingFrom != null, PlaylistItemId);
     }
 
     /// <summary>À appeler régulièrement (≈ 4 fois par seconde) : départ programmé et rattrapage de dérive.</summary>
     public void Tick()
     {
-        if (_pendingUnpause is { } at && time.LocalNow >= at)
+        var now = time.LocalNow;
+        if (_stallSince is { } since && !_buffering && now - since >= StallThreshold)
+        {
+            _buffering = true;
+            _ = requests.BufferingAsync(target.Position, _playingFrom != null, PlaylistItemId);
+        }
+        if (_pendingUnpause is { } at && now >= at)
         {
             _pendingUnpause = null;
             target.Play();
+            _settleUntil = now + SettleTime;
             return;
         }
-        if (_playingFrom is not { } from || _buffering || target.Paused || _pendingUnpause != null) return;
+        if (_playingFrom is not { } from || _buffering || target.Paused || _pendingUnpause != null || now < _settleUntil) return;
         var expected = from.Position + (time.ServerNow - from.When);
         Drift = target.Position - expected;
         var gap = Drift.Duration();
@@ -138,6 +161,7 @@ public sealed class SyncPlayPlayback(ISyncTarget target, ISyncRequests requests,
         {
             ResetSpeed();
             target.Seek(expected);
+            _settleUntil = now + SettleTime;
         }
         else if (gap > SpeedThreshold)
         {

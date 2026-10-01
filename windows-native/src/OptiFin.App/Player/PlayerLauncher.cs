@@ -19,11 +19,34 @@ public static class PlayerLauncher
     public static void Play(MediaItem item, bool fromStart = false)
     {
         if (AppServices.Playback is null) return;
+        // En soirée : le titre est lancé pour tout le groupe, le lecteur s'ouvre à réception de la file.
+        if (WatchParty.InParty)
+        {
+            _ = WatchParty.PlayAsync(item, fromStart ? TimeSpan.Zero : item.ResumePosition);
+            return;
+        }
+        Open(item, fromStart, null);
+    }
+
+    /// <summary>Titre lancé par la soirée : lecteur ouvert (ou réutilisé) et synchronisé avec le groupe.</summary>
+    public static void PlayInParty(MediaItem item, PartyStart party)
+    {
+        if (AppServices.Playback is null) return;
+        if (_current != null)
+        {
+            _current.JoinParty(item, party);
+            return;
+        }
+        Open(item, false, party);
+    }
+
+    private static void Open(MediaItem item, bool fromStart, PartyStart? party)
+    {
         try
         {
             _current?.Close();
             var main = Nav.Window.AppWindow;
-            var player = new PlayerWindow(item, fromStart);
+            var player = new PlayerWindow(item, fromStart, party);
             _current = player;
             player.ShowOver(main);
             // La fenêtre principale disparaît une fois le lecteur apparu en fondu par-dessus.

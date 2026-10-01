@@ -14,6 +14,7 @@ using OptiFin.Core.Logging;
 using OptiFin.Core.Media;
 using OptiFin.Core.Playback;
 using OptiFin.Core.Settings;
+using OptiFin.Core.SyncPlay;
 using OptiFin.Mpv;
 using Windows.System;
 using WinRT.Interop;
@@ -52,7 +53,7 @@ public sealed partial class PlayerWindow : Window
     private TimeSpan _startPosition;
     private readonly IntPtr _hwnd;
 
-    public PlayerWindow(MediaItem item, bool fromStart)
+    public PlayerWindow(MediaItem item, bool fromStart, PartyStart? party = null)
     {
         InitializeComponent();
         _item = item;
@@ -98,7 +99,12 @@ public sealed partial class PlayerWindow : Window
         MediaSession.Attach(_hwnd);
         MediaSession.ButtonPressed += OnMediaButton;
         Closed += (_, _) => Shutdown();
-        _startPosition = fromStart ? TimeSpan.Zero : item.ResumePosition;
+        _startPosition = party?.Start ?? (fromStart ? TimeSpan.Zero : item.ResumePosition);
+        _syncTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(250), () => _sync?.Tick(), repeating: true);
+        WatchParty.CommandReceived += OnPartyCommand;
+        WatchParty.StateReceived += OnPartyState;
+        WatchParty.Changed += UpdatePartyBadge;
+        if (party != null) SetupParty(party);
         PreparingTitle.Text = item.Kind == MediaKind.Episode ? $"{item.SeriesName} · {item.EpisodeLabel}" : item.Name;
         SetTitles(item);
         Win32.SetThreadExecutionState(Win32.ES_CONTINUOUS | Win32.ES_DISPLAY_REQUIRED | Win32.ES_SYSTEM_REQUIRED);
@@ -180,6 +186,8 @@ public sealed partial class PlayerWindow : Window
             _startupTimer.Start();
             var headers = new Dictionary<string, string> { ["Authorization"] = AppServices.Client!.AuthorizationHeader };
             _mpv.Load(plan.StreamUrl, headers, start, full.Name);
+            // En soirée : chargé en pause, le groupe donne le départ.
+            if (_sync != null) _mpv.Pause();
             ApplySubtitleStyle();
         }
         catch (ApiException e)
@@ -212,7 +220,15 @@ public sealed partial class PlayerWindow : Window
             if (_plan != null && _started) _ = AppServices.Playback!.ReportProgressAsync(_plan, _position, paused);
             MediaSession.Update(_item, !paused, _position, _duration);
         });
-        mpv.BufferingChanged += b => Ui(() => Buffering.IsActive = b && _started);
+        mpv.BufferingChanged += b => Ui(() =>
+        {
+            Buffering.IsActive = b && _started;
+        });
+        mpv.CacheStallChanged += stalled => Ui(() =>
+        {
+            if (_started) _sync?.OnBuffering(stalled);
+        });
+        mpv.PlaybackRestarted += () => Ui(() => _sync?.OnSeekCompleted());
         mpv.BufferedChanged += b => Ui(() =>
         {
             _buffered = b;
@@ -249,6 +265,12 @@ public sealed partial class PlayerWindow : Window
             if (_mpv != null) AppLog.Info("player", $"Première image — {MpvInfo.Describe(_mpv)}");
         }
         MediaSession.Update(_item, true, _position, _duration);
+        if (_sync != null && _party != null)
+        {
+            _mpv?.Pause();
+            _ = _sync.LoadedAsync(_party.IsPlaying);
+            _syncTimer.Start();
+        }
     }
 
     private void SelectInitialTracks()
@@ -295,6 +317,11 @@ public sealed partial class PlayerWindow : Window
             return;
         }
         if (reason != EndReason.Eof) return;
+        if (_sync != null)
+        {
+            RequestClose();
+            return;
+        }
         if (_extras.NextEpisode is { } next && AppServices.Settings.AutoPlayNext && !_upNextDismissed)
         {
             _ = PlayNextAsync(next);
@@ -348,7 +375,7 @@ public sealed partial class PlayerWindow : Window
         _position = position;
         if (!_scrubbing) UpdateTimes();
         var segment = _extras.SkippableAt(position);
-        if (segment != null && AppServices.Settings.AutoSkipSegments && _autoSkipped.Add(segment))
+        if (segment != null && _sync is null && AppServices.Settings.AutoSkipSegments && _autoSkipped.Add(segment))
         {
             AppLog.Info("player", $"Segment passé automatiquement : {segment.Type}");
             _mpv?.Seek(segment.End);
@@ -399,7 +426,7 @@ public sealed partial class PlayerWindow : Window
         FullscreenButton.Click += (_, _) => ToggleFullscreen();
         SkipButton.Click += (_, _) =>
         {
-            if (SkipButton.Tag is MediaSegment s) _mpv?.Seek(s.End);
+            if (SkipButton.Tag is MediaSegment s) UserSeek(s.End);
         };
         UpNextPlay.Click += (_, _) =>
         {
@@ -453,7 +480,7 @@ public sealed partial class PlayerWindow : Window
             if (!_scrubbing) return;
             _scrubbing = false;
             Scrubber.ReleasePointerCapture(e.Pointer);
-            _mpv?.Seek(At(e.GetCurrentPoint(Scrubber).Position.X));
+            UserSeek(At(e.GetCurrentPoint(Scrubber).Position.X));
         };
         Scrubber.PointerExited += (_, _) => HoverLabel.Visibility = Visibility.Collapsed;
         Scrubber.SizeChanged += (_, _) => UpdateTimes();
@@ -516,7 +543,7 @@ public sealed partial class PlayerWindow : Window
                 ToggleStats(!_stats);
                 break;
             case VirtualKey.S when SkipButton.Visibility == Visibility.Visible && SkipButton.Tag is MediaSegment s:
-                _mpv?.Seek(s.End);
+                UserSeek(s.End);
                 break;
             default:
                 return;
@@ -528,6 +555,11 @@ public sealed partial class PlayerWindow : Window
     private void TogglePlay()
     {
         if (_mpv is null) return;
+        if (_sync != null)
+        {
+            _ = _paused ? _sync.RequestUnpauseAsync() : _sync.RequestPauseAsync();
+            return;
+        }
         if (_paused) _mpv.Play();
         else _mpv.Pause();
     }
@@ -536,8 +568,93 @@ public sealed partial class PlayerWindow : Window
     {
         if (_mpv is null) return;
         var target = _position + TimeSpan.FromSeconds(seconds);
-        _mpv.Seek(target < TimeSpan.Zero ? TimeSpan.Zero : target);
+        UserSeek(target < TimeSpan.Zero ? TimeSpan.Zero : target);
         ShowControls(autoHide: true);
+    }
+
+    /// <summary>Saut demandé par l'utilisateur : direct, ou demandé au groupe en soirée.</summary>
+    private void UserSeek(TimeSpan target)
+    {
+        if (_sync != null) _ = _sync.RequestSeekAsync(target);
+        else _mpv?.Seek(target);
+    }
+
+    // ------------------------------------------------------------ Soirée
+
+    private SyncPlayPlayback? _sync;
+    private PartyStart? _party;
+    private readonly DispatcherQueueTimer _syncTimer;
+
+    private void SetupParty(PartyStart party)
+    {
+        _party = party;
+        if (WatchParty.Client is not { } client) return;
+        if (_sync is null) _sync = new SyncPlayPlayback(new MpvTarget(this), new WatchParty.Requests(client), client.Time, party.PlaylistItemId);
+        else _sync.ChangeItem(party.PlaylistItemId);
+        UpdatePartyBadge();
+    }
+
+    /// <summary>La soirée lance un autre titre alors que le lecteur est ouvert.</summary>
+    public void JoinParty(MediaItem item, PartyStart party)
+    {
+        _syncTimer.Stop();
+        SetupParty(party);
+        _startPosition = party.Start;
+        _transcodeTried = false;
+        _reported = false;
+        _upNextDismissed = false;
+        _autoSkipped.Clear();
+        UpNext.Visibility = Visibility.Collapsed;
+        SkipButton.Visibility = Visibility.Collapsed;
+        PreparingTitle.Text = item.Kind == MediaKind.Episode ? $"{item.SeriesName} · {item.EpisodeLabel}" : item.Name;
+        _ = StartAsync(item, party.Start);
+    }
+
+    private void OnPartyCommand(SyncCommand command)
+    {
+        if (_sync is null || _closing) return;
+        if (command.Kind == SyncCommandKind.Stop && command.PlaylistItemId is "" or "00000000000000000000000000000000") return;
+        if (command.Kind == SyncCommandKind.Stop)
+        {
+            RequestClose();
+            return;
+        }
+        _sync.Apply(command);
+        UpdatePartyBadge();
+        if (command.Kind is SyncCommandKind.Pause or SyncCommandKind.Seek) ShowControls(autoHide: false);
+    }
+
+    private void OnPartyState(GroupState state)
+    {
+        _sync?.OnGroupState(state);
+        UpdatePartyBadge();
+    }
+
+    private void UpdatePartyBadge()
+    {
+        if (_closing) return;
+        var group = WatchParty.Group;
+        if (_sync is null || group is null)
+        {
+            PartyBadge.Visibility = Visibility.Collapsed;
+            return;
+        }
+        PartyBadge.Visibility = Visibility.Visible;
+        PartyText.Text = _sync.Waiting && group.State == GroupState.Waiting
+            ? $"{group.Name} · en attente des autres…"
+            : $"{group.Name} · {group.Participants.Count} participant{(group.Participants.Count > 1 ? "s" : "")}";
+        ToolTipService.SetToolTip(PartyBadge, string.Join(", ", group.Participants));
+    }
+
+    /// <summary>mpv vu par la synchronisation de soirée.</summary>
+    private sealed class MpvTarget(PlayerWindow w) : ISyncTarget
+    {
+        public TimeSpan Position => w._position;
+        public bool Paused => w._paused;
+        public void Play() => w._mpv?.Play();
+        public void Pause() => w._mpv?.Pause();
+        public void Seek(TimeSpan position) => w._mpv?.Seek(position);
+        public void SetSpeed(double speed) => w._mpv?.SetSpeed(speed);
     }
 
     private bool _muted;
@@ -819,7 +936,7 @@ public sealed partial class PlayerWindow : Window
             foreach (var c in _extras.Chapters)
             {
                 var item = new MenuFlyoutItem { Text = $"{MediaFormat.Clock(c.Start)}  {c.Name}" };
-                item.Click += (_, _) => _mpv?.Seek(c.Start);
+                item.Click += (_, _) => UserSeek(c.Start);
                 chapters.Items.Add(item);
             }
             menu.Items.Add(chapters);
@@ -918,8 +1035,8 @@ public sealed partial class PlayerWindow : Window
     {
         switch (button)
         {
-            case Windows.Media.SystemMediaTransportControlsButton.Play: _mpv?.Play(); break;
-            case Windows.Media.SystemMediaTransportControlsButton.Pause: _mpv?.Pause(); break;
+            case Windows.Media.SystemMediaTransportControlsButton.Play: if (_paused) TogglePlay(); break;
+            case Windows.Media.SystemMediaTransportControlsButton.Pause: if (!_paused) TogglePlay(); break;
             case Windows.Media.SystemMediaTransportControlsButton.Next when _extras.NextEpisode is { } next: _ = PlayNextAsync(next); break;
             case Windows.Media.SystemMediaTransportControlsButton.Previous: SeekBy(-10); break;
         }
@@ -930,6 +1047,10 @@ public sealed partial class PlayerWindow : Window
         if (_closing) return;
         _closing = true;
         MediaSession.ButtonPressed -= OnMediaButton;
+        WatchParty.CommandReceived -= OnPartyCommand;
+        WatchParty.StateReceived -= OnPartyState;
+        WatchParty.Changed -= UpdatePartyBadge;
+        _syncTimer.Stop();
         _hideTimer.Stop();
         _cursorTimer.Stop();
         _overlayTimer.Stop();

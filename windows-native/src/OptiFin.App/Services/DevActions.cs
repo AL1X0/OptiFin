@@ -33,6 +33,20 @@ public static class DevActions
                 var server = await AppServices.Auth.ProbeAsync(arg);
                 AppServices.SignIn(await AppServices.Auth.LoginAsync(server, "Léa", ""));
                 break;
+            case "jellyfin":
+                // Serveur Jellyfin de test local : fichier JSON {url, users:[{name,password}]} (hors dépôt).
+                using (var doc = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(arg)))
+                {
+                    var root = doc.RootElement;
+                    var user = root.GetProperty("users")[0];
+                    var jf = await AppServices.Auth.ProbeAsync(root.GetProperty("url").GetString()!);
+                    AppServices.SignIn(await AppServices.Auth.LoginAsync(jf, user.GetProperty("name").GetString()!, user.GetProperty("password").GetString()!));
+                }
+                break;
+            case "soiree":
+                for (var i = 0; i < 50 && WatchParty.Client?.Connected != true; i++) await Task.Delay(100);
+                if ((await WatchParty.ListAsync()).FirstOrDefault() is { } g) await WatchParty.JoinAsync(g.Id);
+                break;
             case "fiche" when AppServices.Media is { } media:
                 Nav.Go(typeof(DetailsPage), await media.ItemAsync(arg));
                 break;
