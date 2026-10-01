@@ -114,8 +114,9 @@ class SyncPlayPlayback {
 
   void apply(SyncCommand command) {
     if (command.kind != SyncCommandKind.stop &&
-        command.playlistItemId != playlistItemId)
+        command.playlistItemId != playlistItemId) {
       return;
+    }
     switch (command.kind) {
       case SyncCommandKind.unpause:
         waiting = false;
@@ -220,8 +221,9 @@ class SyncPlayPlayback {
         _buffering ||
         target.paused ||
         _pendingUnpause != null ||
-        now.isBefore(_settleUntil))
+        now.isBefore(_settleUntil)) {
       return;
+    }
     final expected = from.$2 + time.serverNow.difference(from.$1);
     drift = target.position - expected;
     final gap = drift.abs();

@@ -134,8 +134,9 @@ class SyncPlayClient implements SyncRequests {
         parseServerTime(data['ResponseTransmissionTime']),
         t3,
       );
-      if (i + 1 < samples)
+      if (i + 1 < samples) {
         await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
     }
   }
 

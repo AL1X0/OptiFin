@@ -147,15 +147,17 @@ class WatchPartyController extends Notifier<WatchPartyState> {
 
   void _onQueue(PlayQueue queue) {
     final current = queue.current;
-    if (current == null || current.playlistItemId == _openedPlaylistItem)
+    if (current == null || current.playlistItemId == _openedPlaylistItem) {
       return;
+    }
     if (!const {
       'NewPlaylist',
       'SetCurrentItem',
       'NextItem',
       'PreviousItem',
-    }.contains(queue.reason))
+    }.contains(queue.reason)) {
       return;
+    }
     _openedPlaylistItem = current.playlistItemId;
     pending = PartyStart(
       itemId: current.itemId,
@@ -209,12 +211,13 @@ class WatchPartyController extends Notifier<WatchPartyState> {
     _openedPlaylistItem = null;
     pending = null;
     final client = _client;
-    if (client != null)
+    if (client != null) {
       state = WatchPartyState(
         group: client.group,
         connected: client.connected,
         available: true,
       );
+    }
   }
 
   /// Lance un titre pour toute la soirée (chacun l'ouvre à cette position).
