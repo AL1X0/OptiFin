@@ -55,6 +55,11 @@ public static class DevActions
                     OptiFin.Core.Logging.AppLog.Info("dev", "Défilement des rangées : " + string.Join(", ", rows.Select(r => r.Offset.ToString("0"))));
                 }
                 break;
+            case "carte":
+                // Clic simulé sur la première carte de l'accueil : « play » au centre (lecture), sinon en haut (fiche).
+                if (Nav.ContentFrame?.Content is HomePage h && Find<Controls.MediaCard>(h).FirstOrDefault(c => c.Item.Kind.IsPlayableVideo()) is { } card)
+                    card.DevClick(arg == "play");
+                break;
             case "fermer":
                 Player.PlayerLauncher.Current?.DevClose();
                 break;
@@ -75,13 +80,15 @@ public static class DevActions
         }
     }
 
-    private static IEnumerable<Controls.MediaRow> FindRows(Microsoft.UI.Xaml.DependencyObject root)
+    private static IEnumerable<Controls.MediaRow> FindRows(Microsoft.UI.Xaml.DependencyObject root) => Find<Controls.MediaRow>(root);
+
+    private static IEnumerable<T> Find<T>(Microsoft.UI.Xaml.DependencyObject root) where T : class
     {
         for (var i = 0; i < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root); i++)
         {
             var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
-            if (child is Controls.MediaRow row) yield return row;
-            else foreach (var r in FindRows(child)) yield return r;
+            if (child is T match) yield return match;
+            else foreach (var r in Find<T>(child)) yield return r;
         }
     }
 }

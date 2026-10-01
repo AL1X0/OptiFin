@@ -15,7 +15,8 @@ public enum CardStyle { Poster, Landscape, Square }
 
 /// <summary>
 /// Carte d'un élément : image (affiche 2:3, paysage 16:9 ou carré), titre, sous-titre, progression,
-/// pastille « vu ». Au survol : léger zoom, voile et bouton lecture. Activable au clavier.
+/// pastille « vu ». Au survol : léger zoom, voile et bouton lecture (lecture directe ; le reste de la
+/// carte ouvre la fiche). Activable au clavier.
 /// </summary>
 public sealed partial class MediaCard : Grid
 {
@@ -24,6 +25,10 @@ public sealed partial class MediaCard : Grid
 
     private readonly Border _hover;
     private readonly Border _frame;
+    private readonly Border? _play;
+    private bool _starting;
+    private static readonly SolidColorBrush PlayIdle = new(Windows.UI.Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF));
+    private static readonly SolidColorBrush PlayHover = new(Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush NoStroke = new(Windows.UI.Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush HoverStroke = new(Windows.UI.Color.FromArgb(0x8C, 0xFF, 0xFF, 0xFF));
 
@@ -104,22 +109,40 @@ public sealed partial class MediaCard : Grid
             });
         }
 
-        // Survol : voile et bouton lecture.
+        // Survol : voile, et bouton lecture qui lance directement la lecture (le reste de la carte
+        // ouvre la fiche). Série : prochain épisode à voir.
         _hover = new Border
         {
             Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x40, 0, 0, 0)),
             Opacity = 0,
             OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(150) },
             IsHitTestVisible = false,
-            Child = new Border
-            {
-                Width = 48, Height = 48, CornerRadius = new CornerRadius(24),
-                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF)),
-                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-                Child = new FontIcon { Glyph = "", FontSize = 18, Foreground = new SolidColorBrush(Colors.Black) },
-            },
         };
         artwork.Children.Add(_hover);
+        if (item.Kind.IsPlayableVideo() || item.Kind == MediaKind.Series)
+        {
+            var playIcon = new FontIcon { Glyph = "", FontSize = 18, Foreground = new SolidColorBrush(Colors.Black) };
+            _play = new Border
+            {
+                Width = 48, Height = 48, CornerRadius = new CornerRadius(24),
+                Background = PlayIdle,
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                Opacity = 0,
+                OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(150) },
+                ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(120) },
+                CenterPoint = new Vector3(24, 24, 0),
+                Child = playIcon,
+            };
+            _play.PointerEntered += (_, _) => { _play.Background = PlayHover; _play.Scale = new Vector3(1.12f, 1.12f, 1); };
+            _play.PointerExited += (_, _) => { _play.Background = PlayIdle; _play.Scale = Vector3.One; };
+            _play.Tapped += (_, e) =>
+            {
+                e.Handled = true;
+                _ = PlayAsync();
+            };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_play, "Lecture");
+            artwork.Children.Add(_play);
+        }
 
         _frame = new Border { CornerRadius = new CornerRadius(12), Child = artwork, BorderThickness = new Thickness(1), BorderBrush = NoStroke };
         var frame = _frame;
@@ -147,7 +170,10 @@ public sealed partial class MediaCard : Grid
         PointerEntered += (_, _) => SetHover(true);
         PointerExited += (_, _) => SetHover(false);
         PointerCanceled += (_, _) => SetHover(false);
-        Tapped += (_, _) => Activated?.Invoke(Item);
+        Tapped += (_, e) =>
+        {
+            if (!e.Handled) Activated?.Invoke(Item);
+        };
         KeyDown += OnKeyDown;
         GotFocus += (_, _) => SetHover(true);
         LostFocus += (_, _) => SetHover(false);
@@ -159,7 +185,54 @@ public sealed partial class MediaCard : Grid
     {
         Scale = on ? new Vector3(1.05f, 1.05f, 1) : Vector3.One;
         _hover.Opacity = on ? 1 : 0;
+        if (_play != null) _play.Opacity = on ? 1 : 0;
         _frame.BorderBrush = on ? HoverStroke : NoStroke;
+    }
+
+    /// <summary>Bouton lecture de la carte : film ou épisode lancé tel quel, série au prochain épisode.</summary>
+    private async Task PlayAsync()
+    {
+        if (_starting) return;
+        if (Item.Kind.IsPlayableVideo())
+        {
+            Player.PlayerLauncher.Play(Item);
+            return;
+        }
+        if (AppServices.Media is not { } media) return;
+        _starting = true;
+        try
+        {
+            if (await media.NextUpForAsync(Item.Id) is { } next) Player.PlayerLauncher.Play(next);
+            else Activated?.Invoke(Item);
+        }
+        catch (Exception e)
+        {
+            OptiFin.Core.Logging.AppLog.Error("card", "Lecture impossible", e);
+            Activated?.Invoke(Item);
+        }
+        finally
+        {
+            _starting = false;
+        }
+    }
+
+    /// <summary>Outil de capture : survol puis « clic » (test de l'élément touché) au centre ou en haut de l'affiche.</summary>
+    internal void DevClick(bool center)
+    {
+        SetHover(true);
+        var local = new Windows.Foundation.Point(ActualWidth / 2, center ? _frame.ActualHeight / 2 : 16);
+        var point = TransformToVisual(null).TransformPoint(local);
+        UIElement? hit = null;
+        foreach (var e in VisualTreeHelper.FindElementsInHostCoordinates(point, XamlRoot.Content)) { hit = e; break; }
+        OptiFin.Core.Logging.AppLog.Info("dev", $"Clic carte {(center ? "centre" : "haut")} : {(ReferenceEquals(hit, _play) || IsChild(hit, _play) ? "bouton lecture" : "carte")}");
+        if (_play != null && (ReferenceEquals(hit, _play) || IsChild(hit, _play))) _ = PlayAsync();
+        else Activated?.Invoke(Item);
+    }
+
+    private static bool IsChild(DependencyObject? e, DependencyObject? parent)
+    {
+        for (; e != null && parent != null; e = VisualTreeHelper.GetParent(e)) if (ReferenceEquals(e, parent)) return true;
+        return false;
     }
 
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
