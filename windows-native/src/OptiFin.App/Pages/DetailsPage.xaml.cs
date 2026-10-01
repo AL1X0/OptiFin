@@ -58,6 +58,7 @@ public sealed partial class DetailsPage : Page
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
+        ErrorText.Visibility = Visibility.Collapsed;
         try
         {
             var accent = FilmAccent.ForAsync(_item);
@@ -97,6 +98,8 @@ public sealed partial class DetailsPage : Page
         Body.Children.Add(Hero(item));
         var body = new StackPanel { Spacing = 20, Padding = new Thickness(Gutter, 0, Gutter, 0), MaxWidth = 1400, HorizontalAlignment = HorizontalAlignment.Left };
         BuildActions(item);
+        // Nouveau rendu (retour du lecteur…) : les boutons quittent l'ancienne mise en page d'abord.
+        (_actions.Parent as Panel)?.Children.Remove(_actions);
         body.Children.Add(_actions);
         if (item.Kind == MediaKind.Person)
         {
@@ -118,6 +121,7 @@ public sealed partial class DetailsPage : Page
         }
         Body.Children.Add(body);
         _extras.Children.Clear();
+        (_extras.Parent as Panel)?.Children.Remove(_extras);
         Body.Children.Add(_extras);
     }
 
