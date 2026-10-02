@@ -616,12 +616,15 @@ public sealed partial class PlayerWindow : Window
         _ = StartAsync(item, party.Start);
     }
 
+    private bool _stoppedByParty;
+
     private void OnPartyCommand(SyncCommand command)
     {
         if (_sync is null || _closing) return;
         if (command.Kind == SyncCommandKind.Stop && command.PlaylistItemId is "" or "00000000000000000000000000000000") return;
         if (command.Kind == SyncCommandKind.Stop)
         {
+            _stoppedByParty = true;
             RequestClose();
             return;
         }
@@ -1234,6 +1237,8 @@ public sealed partial class PlayerWindow : Window
         MediaSession.ButtonPressed -= OnMediaButton;
         WatchParty.CommandReceived -= OnPartyCommand;
         WatchParty.StateReceived -= OnPartyState;
+        // L'hôte quitte : la lecture s'arrête chez tous les participants.
+        if (_sync != null && !_stoppedByParty) _ = WatchParty.StopForAllAsync();
         WatchParty.Changed -= UpdatePartyBadge;
         _syncTimer.Stop();
         _hideTimer.Stop();

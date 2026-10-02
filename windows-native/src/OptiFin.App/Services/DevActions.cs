@@ -65,7 +65,8 @@ public static class DevActions
                 break;
             case "soiree":
                 for (var i = 0; i < 50 && WatchParty.Client?.Connected != true; i++) await Task.Delay(100);
-                if ((await WatchParty.ListAsync()).FirstOrDefault() is { } g) await WatchParty.JoinAsync(g.Id);
+                if (arg == "creer") await WatchParty.CreateAsync("Soirée test");
+                else if ((await WatchParty.ListAsync()).FirstOrDefault() is { } g) await WatchParty.JoinAsync(g.Id);
                 break;
             case "fiche" when AppServices.Media is { } media:
                 Nav.Go(typeof(DetailsPage), await media.ItemAsync(arg));

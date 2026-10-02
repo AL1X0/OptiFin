@@ -600,6 +600,7 @@ class PlayerController extends Notifier<PlayerUiState> {
     _partyRequests = client;
     _sync = SyncPlayPlayback(_EngineTarget(this), client, client.time, party.playlistItemId);
     final controller = ref.read(watchPartyProvider.notifier);
+    _partyController = controller;
     _subscriptionsForever
       ..add(controller.commands.listen(_onPartyCommand))
       ..add(controller.groupStates.listen((s) {
@@ -607,7 +608,8 @@ class PlayerController extends Notifier<PlayerUiState> {
         _updatePartyBadge();
       }));
     ref.listen(watchPartyProvider, (_, _) => _updatePartyBadge());
-    _updatePartyBadge();
+    // Appelé depuis build() : l'état n'existe pas encore, le badge est posé juste après.
+    Future.microtask(_updatePartyBadge);
   }
 
   void _onPartyLoaded() {
@@ -633,11 +635,17 @@ class PlayerController extends Notifier<PlayerUiState> {
     sync.tick();
   }
 
+  bool _stoppedByParty = false;
+  WatchPartyController? _partyController;
+
   void _onPartyCommand(SyncCommand command) {
     final sync = _sync;
     if (sync == null || _closed) return;
     if (command.kind == SyncCommandKind.stop) {
-      if (command.playlistItemId.isNotEmpty && command.playlistItemId.replaceAll('0', '').isNotEmpty) unawaited(close());
+      if (command.playlistItemId.isNotEmpty && command.playlistItemId.replaceAll('0', '').isNotEmpty) {
+        _stoppedByParty = true;
+        unawaited(close());
+      }
       return;
     }
     if (command.kind == SyncCommandKind.seek && command.playlistItemId == sync.playlistItemId) _awaitedSeek = command.position;
@@ -821,6 +829,10 @@ class PlayerController extends Notifier<PlayerUiState> {
     _closed = true;
     _startupTimer?.cancel();
     _syncTimer?.cancel();
+    // L'hôte quitte : la lecture s'arrête chez tous les participants.
+    if (_sync != null && !_stoppedByParty) {
+      unawaited(_partyController?.stopForAll());
+    }
     unawaited(NativePlayers.setAutoPictureInPicture(false));
     for (final s in _subscriptionsForever) {
       unawaited(s.cancel());

@@ -82,6 +82,9 @@ class SyncPlayClient implements SyncRequests {
   @override
   Future<void> unpause() => _post('/SyncPlay/Unpause');
 
+  /// Arrêt de la lecture pour tout le groupe.
+  Future<void> stop() => _post('/SyncPlay/Stop');
+
   @override
   Future<void> seek(Duration position) =>
       _post('/SyncPlay/Seek', {'PositionTicks': durationToTicks(position)});

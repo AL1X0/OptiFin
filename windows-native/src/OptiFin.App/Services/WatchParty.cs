@@ -17,10 +17,17 @@ public static class WatchParty
     private static SyncPlayClient? _client;
     private static DispatcherQueue? _ui;
     private static string? _openedPlaylistItem;
+    private static bool _creating, _created, _launching, _launched, _stopping;
 
     public static SyncPlayClient? Client => _client;
     public static GroupInfo? Group => _client?.Group;
     public static bool InParty => Group != null;
+
+    /// <summary>
+    /// Hôte de la soirée : celui qui l'a créée ou qui a lancé le titre en cours. Quand il quitte le
+    /// lecteur, la lecture s'arrête pour tout le monde.
+    /// </summary>
+    public static bool IsHost => InParty && (_created || _launched);
 
     /// <summary>Groupe, participants ou connexion modifiés.</summary>
     public static event Action? Changed;
@@ -37,6 +44,7 @@ public static class WatchParty
         var old = _client;
         _client = null;
         _openedPlaylistItem = null;
+        _created = _launching = _launched = false;
         if (old != null) _ = old.DisposeAsync().AsTask();
         if (api is null)
         {
@@ -59,10 +67,13 @@ public static class WatchParty
         switch (message)
         {
             case GroupJoinedMessage g:
+                _created = _creating;
+                _creating = false;
                 Notice?.Invoke($"Vous avez rejoint « {g.Group.Name} »");
                 break;
             case GroupLeftMessage:
                 _openedPlaylistItem = null;
+                _created = _launching = _launched = false;
                 Notice?.Invoke("Vous avez quitté la soirée");
                 break;
             case UserJoinedMessage u:
@@ -78,7 +89,13 @@ public static class WatchParty
                 StateReceived?.Invoke(s.State);
                 break;
             case CommandMessage c:
-                if (c.Command.Kind == SyncCommandKind.Stop) _openedPlaylistItem = null;
+                if (c.Command.Kind == SyncCommandKind.Stop)
+                {
+                    _openedPlaylistItem = null;
+                    if (!_stopping && !string.IsNullOrEmpty(c.Command.PlaylistItemId) && PlayerLauncher.Current != null)
+                        Notice?.Invoke("L’hôte a arrêté la lecture");
+                    _stopping = false;
+                }
                 CommandReceived?.Invoke(c.Command);
                 break;
             case QueueMessage q:
@@ -90,6 +107,12 @@ public static class WatchParty
 
     private static void OnQueue(PlayQueue queue)
     {
+        // Nouveau titre : lancé par nous (hôte de ce titre) ou par un autre participant.
+        if (queue.Reason == "NewPlaylist")
+        {
+            _launched = _launching;
+            _launching = false;
+        }
         QueueReceived?.Invoke(queue);
         if (queue.Current is not { } current || current.PlaylistItemId == _openedPlaylistItem) return;
         if (queue.Reason is not ("NewPlaylist" or "SetCurrentItem" or "NextItem" or "PreviousItem")) return;
@@ -118,6 +141,7 @@ public static class WatchParty
     public static async Task CreateAsync(string name)
     {
         if (_client is not { } c) return;
+        _creating = true;
         await Safe(() => c.CreateAsync(name));
     }
 
@@ -132,6 +156,7 @@ public static class WatchParty
         if (_client is not { } c) return;
         await Safe(() => c.LeaveAsync());
         _openedPlaylistItem = null;
+        _created = _launching = _launched = false;
         Changed?.Invoke();
     }
 
@@ -140,7 +165,17 @@ public static class WatchParty
     {
         if (_client is not { } c) return;
         AppLog.Info("syncplay", $"Lancement pour la soirée : « {item.Name} »");
+        _launching = true;
         await Safe(() => c.SetQueueAsync([item.Id], 0, start));
+    }
+
+    /// <summary>L'hôte quitte le lecteur : arrêt de la lecture pour toute la soirée.</summary>
+    public static async Task StopForAllAsync()
+    {
+        if (_client is not { } c || !IsHost) return;
+        AppLog.Info("syncplay", "L’hôte quitte la lecture : arrêt pour la soirée");
+        _stopping = true;
+        await Safe(() => c.StopAsync());
     }
 
     private static async Task Safe(Func<Task> action)

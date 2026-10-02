@@ -64,6 +64,12 @@ class WatchPartyController extends Notifier<WatchPartyState> {
   final _commands = StreamController<SyncCommand>.broadcast();
   final _states = StreamController<GroupState>.broadcast();
   String? _openedPlaylistItem;
+  bool _creating = false, _created = false, _launching = false;
+  bool _launched = false, _stopping = false;
+
+  /// Hôte de la soirée : celui qui l'a créée ou qui a lancé le titre en cours. Quand il quitte le
+  /// lecteur, la lecture s'arrête pour tout le monde.
+  bool get isHost => state.inParty && (_created || _launched);
 
   /// Dernière file reçue : le lecteur s'en sert pour se synchroniser.
   PartyStart? pending;
@@ -110,17 +116,23 @@ class WatchPartyController extends Notifier<WatchPartyState> {
     _client = null;
     _openedPlaylistItem = null;
     pending = null;
+    _resetHost();
   }
+
+  void _resetHost() => _creating = _created = _launching = _launched = false;
 
   void _onMessage(SyncPlayMessage message) {
     final client = _client;
     if (client == null) return;
     switch (message) {
       case GroupJoined(:final group):
+        _created = _creating;
+        _creating = false;
         _notice('Vous avez rejoint « ${group.name} »');
       case GroupLeft():
         _openedPlaylistItem = null;
         pending = null;
+        _resetHost();
         _notice('Vous avez quitté la soirée');
       case UserJoined(:final userName):
         _notice('$userName a rejoint la soirée');
@@ -131,7 +143,16 @@ class WatchPartyController extends Notifier<WatchPartyState> {
       case StateChanged(state: final s):
         _states.add(s);
       case CommandReceived(:final command):
-        if (command.kind == SyncCommandKind.stop) _openedPlaylistItem = null;
+        if (command.kind == SyncCommandKind.stop) {
+          _openedPlaylistItem = null;
+          final id = command.playlistItemId;
+          if (!_stopping &&
+              id.replaceAll('0', '').isNotEmpty &&
+              pending != null) {
+            _notice('L’hôte a arrêté la lecture');
+          }
+          _stopping = false;
+        }
         _commands.add(command);
       case QueueChanged(:final queue):
         _onQueue(queue);
@@ -146,6 +167,11 @@ class WatchPartyController extends Notifier<WatchPartyState> {
   }
 
   void _onQueue(PlayQueue queue) {
+    // Nouveau titre : lancé par nous (hôte de ce titre) ou par un autre participant.
+    if (queue.reason == 'NewPlaylist') {
+      _launched = _launching;
+      _launching = false;
+    }
     final current = queue.current;
     if (current == null || current.playlistItemId == _openedPlaylistItem) {
       return;
@@ -203,13 +229,18 @@ class WatchPartyController extends Notifier<WatchPartyState> {
 
   Future<List<GroupInfo>> list() async => await _client?.list() ?? const [];
 
-  Future<void> create(String name) => _safe(() => _client!.create(name));
+  Future<void> create(String name) {
+    _creating = true;
+    return _safe(() => _client!.create(name));
+  }
+
   Future<void> join(String groupId) => _safe(() => _client!.join(groupId));
 
   Future<void> leave() async {
     await _safe(() => _client!.leave());
     _openedPlaylistItem = null;
     pending = null;
+    _resetHost();
     final client = _client;
     if (client != null) {
       state = WatchPartyState(
@@ -223,7 +254,16 @@ class WatchPartyController extends Notifier<WatchPartyState> {
   /// Lance un titre pour toute la soirée (chacun l'ouvre à cette position).
   Future<void> play(String itemId, {Duration start = Duration.zero}) {
     AppLog.i('syncplay', 'Lancement pour la soirée : $itemId');
+    _launching = true;
     return _safe(() => _client!.setQueue([itemId], start: start));
+  }
+
+  /// L'hôte quitte le lecteur : arrêt de la lecture pour toute la soirée.
+  Future<void> stopForAll() async {
+    if (!isHost) return;
+    AppLog.i('syncplay', 'L’hôte quitte la lecture : arrêt pour la soirée');
+    _stopping = true;
+    await _safe(() => _client!.stop());
   }
 
   Future<void> _safe(Future<void> Function() action) async {
