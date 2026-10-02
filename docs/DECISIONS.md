@@ -439,3 +439,16 @@ connexion, choix du moteur (un seul moteur sous Windows), réglages propres au r
   l'installateur PC le plus récent.
 - La mise à jour automatique de l'appli PC parcourt la liste des releases et retient la version la plus élevée qui
   contient `OptiFin-windows-setup.exe` (l'appli PC est en 1.1.N, le mobile en 1.0.N).
+
+## Signature de code de l'appli PC (2026-10-02)
+
+- L'avertissement « Windows a protégé votre ordinateur / Éditeur inconnu » (SmartScreen) ne peut
+  être supprimé que par une signature Authenticode avec un certificat reconnu par Windows
+  (certificat auto-signé : aucun effet chez les autres, et installer une autorité racine chez
+  l'utilisateur est exclu).
+- `publish.sh` signe `OptiFin.exe` puis l'installateur (SHA-256, horodatage) dès qu'un certificat
+  est désigné par son empreinte (`OPTIFIN_SIGN_SHA1` ou `windows-native/.sign`, hors dépôt). La clé
+  reste dans le magasin Windows du poste : jamais dans le dépôt ni dans la CI.
+- Les mises à jour automatiques (téléchargées par l'appli) ne passent pas par SmartScreen ; seul
+  le premier téléchargement depuis le navigateur est concerné. La réputation SmartScreen d'un
+  certificat se construit avec les téléchargements.
