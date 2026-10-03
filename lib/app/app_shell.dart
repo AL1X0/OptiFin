@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:optifin_native_player/optifin_native_player.dart' show NativeGlassView;
 
 import '../core/design_system/design_system.dart';
+import '../features/auth/presentation/account_switcher.dart';
 import '../features/syncplay/presentation/watch_party_sheet.dart';
 import 'router.dart';
 
@@ -68,12 +69,14 @@ class _TvShell extends StatefulWidget {
   State<_TvShell> createState() => _TvShellState();
 }
 
-/// Rubriques du menu TV : index de branche, ou null pour un écran à part (soirée, réglages).
+/// Rubriques du menu TV : index de branche, ou null pour un écran à part (soirée, compte,
+/// réglages). Le compte est ici (et non en haut à droite) : atteignable à la télécommande.
 const _tvItems = <(int?, String, IconData, IconData)>[
   (2, 'Recherche', Icons.search_rounded, Icons.search_rounded),
   (0, 'Accueil', Icons.home_outlined, Icons.home_rounded),
   (1, 'Bibliothèques', Icons.video_library_outlined, Icons.video_library_rounded),
   (null, 'Soirée', Icons.groups_outlined, Icons.groups_rounded),
+  (null, 'Compte', Icons.account_circle_outlined, Icons.account_circle_rounded),
   (null, 'Réglages', Icons.settings_outlined, Icons.settings_rounded),
 ];
 
@@ -134,6 +137,8 @@ class _TvShellState extends State<_TvShell> {
     if (branch == null) {
       if (_tvItems[item].$2 == 'Soirée') {
         showWatchParty(context);
+      } else if (_tvItems[item].$2 == 'Compte') {
+        unawaited(showOFSheet<void>(context, builder: (_) => const AccountSwitcherSheet()));
       } else {
         unawaited(context.push(Routes.settings));
       }
@@ -200,22 +205,37 @@ class _TvShellState extends State<_TvShell> {
     return Scaffold(
       body: Stack(
         children: [
-          Focus(
-            canRequestFocus: false,
-            skipTraversal: true,
-            onKeyEvent: _fromContent,
-            child: FocusScope(
-              node: _content,
-              child: MediaQuery(
-                // Les pages s'écartent du menu réduit (et des bords rognés des téléviseurs).
-                data: mq.copyWith(
-                  padding: mq.padding.copyWith(left: mq.padding.left + collapsed, top: mq.padding.top + OFSpacing.md),
-                  viewPadding: mq.viewPadding.copyWith(
-                    left: mq.viewPadding.left + collapsed,
-                    top: mq.viewPadding.top + OFSpacing.md,
+          // Colonne du menu réduit : fond opaque, la page commence à sa droite et y est rognée
+          // (les rangées qui défilent ne passent plus sous les icônes du menu).
+          const Positioned(
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: collapsed,
+            child: ColoredBox(color: OFColors.background),
+          ),
+          Positioned(
+            top: 0,
+            bottom: 0,
+            right: 0,
+            left: collapsed,
+            child: ClipRect(
+              child: Focus(
+                canRequestFocus: false,
+                skipTraversal: true,
+                onKeyEvent: _fromContent,
+                child: FocusScope(
+                  node: _content,
+                  child: MediaQuery(
+                    // Marge haute : bords rognés des téléviseurs.
+                    data: mq.copyWith(
+                      padding: mq.padding.copyWith(top: mq.padding.top + OFSpacing.md),
+                      viewPadding: mq.viewPadding.copyWith(top: mq.viewPadding.top + OFSpacing.md),
+                      size: Size(mq.size.width - collapsed, mq.size.height),
+                    ),
+                    child: widget.shell,
                   ),
                 ),
-                child: widget.shell,
               ),
             ),
           ),
@@ -251,10 +271,8 @@ class _TvShellState extends State<_TvShell> {
                   curve: OFMotion.standardCurve,
                   width: _open ? expanded : collapsed,
                   padding: EdgeInsets.fromLTRB(OFSpacing.md, mq.padding.top + OFSpacing.xl, OFSpacing.md, OFSpacing.xl),
-                  // Réduit : fine bande sombre, les icônes restent lisibles sur l'image.
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [Color(_open ? 0x00000000 : 0x8C000000), const Color(0x00000000)]),
-                  ),
+                  // Déployé : posé sur le voile ; réduit : colonne opaque (voir plus haut).
+                  decoration: const BoxDecoration(),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

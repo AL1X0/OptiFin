@@ -24,10 +24,21 @@ class MpvEngine implements PlaybackEngine {
       _player.stream.buffer.listen((v) => _emit(_snapshot.copyWith(buffered: v))),
       _player.stream.rate.listen((v) => _emit(_snapshot.copyWith(rate: v))),
       _player.stream.duration.listen((v) {
-        if (v > Duration.zero) {
-          _started = true;
-          _emit(_snapshot.copyWith(duration: v, status: PlaybackStatus.ready));
+        if (v <= Duration.zero) return;
+        if (_started || _checkingOutput) {
+          _emit(_snapshot.copyWith(duration: v));
+          return;
         }
+        // Téléviseurs : « prêt » seulement une fois la sortie vidéo réellement ouverte. Sur
+        // certaines box, mpv lit le son mais n'affiche rien (écran noir) : la lecture échoue
+        // alors au démarrage et le lecteur bascule sur l'autre moteur au lieu de rester noir.
+        if (OFDevice.tv && Platform.isAndroid) {
+          _emit(_snapshot.copyWith(duration: v));
+          unawaited(_checkVideoOutput());
+          return;
+        }
+        _started = true;
+        _emit(_snapshot.copyWith(duration: v, status: PlaybackStatus.ready));
       }),
       _player.stream.width.listen((_) => _updateSize()),
       _player.stream.height.listen((_) => _updateSize()),
@@ -61,6 +72,58 @@ class MpvEngine implements PlaybackEngine {
   }
 
   Timer? _dropTimer;
+  bool _checkingOutput = false;
+
+  /// Vérifie que mpv affiche bien la vidéo (sortie configurée) avant de déclarer la lecture
+  /// prête ; sinon échec au démarrage (repli automatique). Fichier sans vidéo : prêt aussitôt.
+  Future<void> _checkVideoOutput() async {
+    final native = _native;
+    if (native == null) {
+      _ready();
+      return;
+    }
+    _checkingOutput = true;
+    Future<String> get(String name) async {
+      try {
+        return await native.getProperty(name);
+      } catch (_) {
+        return '';
+      }
+    }
+
+    final deadline = DateTime.now().add(const Duration(seconds: 10));
+    while (!_events.isClosed && DateTime.now().isBefore(deadline)) {
+      final vid = await get('vid');
+      if (vid == 'no' || vid == '' && (await get('track-list/count')) == '0') {
+        _checkingOutput = false;
+        _ready();
+        return;
+      }
+      if (await get('vo-configured') == 'yes') {
+        AppLog.i(
+          'mpv',
+          'Sortie vidéo prête : décodage ${await get('hwdec-current')}, '
+              'format ${await get('video-params/pixelformat')}, ${await get('video-params/gamma')}',
+        );
+        _checkingOutput = false;
+        _ready();
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+    _checkingOutput = false;
+    if (_events.isClosed || _started) return;
+    final detail = 'décodage ${await get('hwdec-current')}, format ${await get('video-params/pixelformat')}';
+    AppLog.w('mpv', 'Aucune image affichée après 10 s (sortie vidéo non configurée ; $detail)');
+    _emit(_snapshot.copyWith(status: PlaybackStatus.error, error: 'mpv n’affiche pas la vidéo sur cet appareil'));
+    _events.add(const PlaybackFailed('mpv n’affiche pas la vidéo sur cet appareil', duringStartup: true));
+  }
+
+  void _ready() {
+    if (_started || _events.isClosed) return;
+    _started = true;
+    _emit(_snapshot.copyWith(status: PlaybackStatus.ready));
+  }
 
   Future<void> _pollDroppedFrames() async {
     final native = _native;
@@ -183,6 +246,7 @@ class MpvEngine implements PlaybackEngine {
   @override
   Future<void> open(EngineMedia media) async {
     _started = false;
+    _checkingOutput = false;
     _emit(const PlayerSnapshot(status: PlaybackStatus.loading));
     final tracksReady = _player.stream.tracks
         .firstWhere((t) => t.audio.length > 2 || t.video.length > 2)
@@ -287,13 +351,15 @@ class MpvEngine implements PlaybackEngine {
   Future<void> setAudioDelay(Duration delay) => _set('audio-delay', (delay.inMilliseconds / 1000).toStringAsFixed(3));
 
   @override
-  Widget buildView({BoxFit fit = BoxFit.contain}) => Video(
-    controller: _video,
-    controls: (_) => const SizedBox.shrink(),
-    fit: fit,
-    fill: Colors.black,
-    // Rendu des sous-titres délégué à libass (dans l'image).
-    subtitleViewConfiguration: const SubtitleViewConfiguration(visible: false),
+  Widget buildView({BoxFit fit = BoxFit.contain}) => ExcludeFocus(
+    child: Video(
+      controller: _video,
+      controls: (_) => const SizedBox.shrink(),
+      fit: fit,
+      fill: Colors.black,
+      // Rendu des sous-titres délégué à libass (dans l'image).
+      subtitleViewConfiguration: const SubtitleViewConfiguration(visible: false),
+    ),
   );
 
   @override

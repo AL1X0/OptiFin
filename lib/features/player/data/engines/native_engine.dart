@@ -227,7 +227,9 @@ class NativeEngine implements PlaybackEngine, NativeGlassHost {
       fit: StackFit.expand,
       children: [
         const ColoredBox(color: Color(0xFF000000)),
-        NativePlayerView(key: ValueKey(_hdr), playerId: _player.id, hdr: _hdr),
+        // Vue native (Android) : jamais focalisable. Sinon, plein écran, elle « aspirait » le
+        // focus de la télécommande et les boutons de droite du lecteur TV devenaient inatteignables.
+        ExcludeFocus(child: NativePlayerView(key: ValueKey(_hdr), playerId: _player.id, hdr: _hdr)),
         SubtitleOverlay(track: _cues, clock: _clock, style: _style, delay: _subtitleDelay),
       ],
     );

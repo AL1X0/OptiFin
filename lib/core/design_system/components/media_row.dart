@@ -28,6 +28,29 @@ class MediaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final row = _build(context);
+    if (!OFDevice.tv) return row;
+    // TV : la rangée qui reçoit le focus se place en haut de l'écran, titre compris (sinon
+    // seule la carte est ramenée à l'écran, titre coupé), comme sur l'Apple TV.
+    return Builder(
+      builder: (context) => Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        onFocusChange: (focused) {
+          if (!focused) return;
+          Scrollable.ensureVisible(
+            context,
+            alignment: 0.12,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+          );
+        },
+        child: row,
+      ),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final gutter = OFSpacing.gutterOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

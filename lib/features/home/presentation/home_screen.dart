@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,6 +24,21 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// TV : le focus revient sur le carrousel (▲ depuis la première rangée) → la page remonte
+  /// tout en haut, pas seulement jusqu'au bouton Lecture.
+  void _toTop(bool focused) {
+    if (!focused || !_scroll.hasClients || _scroll.offset <= 0) return;
+    unawaited(_scroll.animateTo(0, duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -69,10 +86,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             await ref.read(homeProvider.future);
           },
           child: CustomScrollView(
+            controller: _scroll,
             slivers: [
               if (data.featured.isNotEmpty)
                 SliverToBoxAdapter(
-                  child: FeaturedCarousel(items: data.featured, upcoming: data.upcoming),
+                  child: Focus(
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    onFocusChange: OFDevice.tv ? _toTop : null,
+                    child: FeaturedCarousel(items: data.featured, upcoming: data.upcoming),
+                  ),
                 )
               else
                 SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).top + 72)),
@@ -112,14 +135,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           // Squelette → contenu : fondu enchaîné plutôt qu'un remplacement sec.
           Positioned.fill(child: FadeThroughSwitcher(child: content)),
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + OFSpacing.sm,
-            right: gutter,
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [WatchPartyButton(), SizedBox(width: OFSpacing.sm), AccountButton()],
+          // TV : soirée et compte sont dans le menu latéral (atteignables à la télécommande).
+          if (!OFDevice.tv)
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + OFSpacing.sm,
+              right: gutter,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [WatchPartyButton(), SizedBox(width: OFSpacing.sm), AccountButton()],
+              ),
             ),
-          ),
         ],
       ),
     );
