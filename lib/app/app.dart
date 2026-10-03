@@ -21,7 +21,14 @@ class OptiFinApp extends ConsumerWidget {
       darkTheme: OFTheme.dark(),
       themeMode: ThemeMode.dark,
       routerConfig: ref.watch(routerProvider),
-      builder: (context, child) => OFDevice.tv ? _TvFocusRescue(child: child!) : child!,
+      builder: (context, child) => OFDevice.tv
+          // Box TV livrées avec les animations système coupées (« Supprimer les animations ») :
+          // l'interface restait figée et brute. Sur téléviseur, OptiFin garde ses animations.
+          ? MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: false),
+              child: _TvFocusRescue(child: child!),
+            )
+          : child!,
     );
   }
 }

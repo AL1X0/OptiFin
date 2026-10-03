@@ -239,6 +239,23 @@ class _TvShellState extends State<_TvShell> {
               ),
             ),
           ),
+          // Fondu entre la colonne du menu et la page : pas de délimitation franche sur les images.
+          const Positioned(
+            top: 0,
+            bottom: 0,
+            left: collapsed,
+            width: 72,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [OFColors.background, Color(0x99000000), Color(0x00000000)],
+                    stops: [0, 0.45, 1],
+                  ),
+                ),
+              ),
+            ),
+          ),
           // Voile derrière le menu déployé.
           Positioned.fill(
             child: IgnorePointer(

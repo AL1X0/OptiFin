@@ -248,6 +248,14 @@ class MpvEngine implements PlaybackEngine {
     if (Platform.isAndroid) {
       await _set('sub-fonts-dir', '/system/fonts');
       await _set('sub-font', 'Roboto');
+      // Même sortie audio que le lecteur natif : les formats que Media3 envoie tels quels à la TV
+      // ou à l'ampli (Dolby, DTS) sont transmis de la même façon par mpv. Sinon mpv les décodait
+      // lui-même et le volume différait d'un moteur à l'autre.
+      final passthrough = await _passthrough();
+      if (passthrough.isNotEmpty) {
+        await _set('audio-spdif', passthrough.join(','));
+        AppLog.i('mpv', 'Audio transmis tel quel : ${passthrough.join(', ')}');
+      }
     }
     await _set('sub-ass-override', 'scale'); // garde les styles ASS, applique la taille choisie
     await _set('demuxer-readahead-secs', '30');
@@ -256,6 +264,23 @@ class MpvEngine implements PlaybackEngine {
       // Box TV (1,5 à 2 Go de mémoire) : tampons bornés.
       await _set('demuxer-max-back-bytes', '${16 * 1024 * 1024}');
       await _set('demuxer-readahead-secs', '15');
+    }
+  }
+
+  static List<String>? _passthroughCache;
+
+  /// Formats audio transmis tels quels par Media3 sur cet appareil (sondé une fois).
+  static Future<List<String>> _passthrough() async {
+    final cached = _passthroughCache;
+    if (cached != null) return cached;
+    try {
+      final caps = await NativePlayers.capabilities();
+      return _passthroughCache = [
+        for (final c in (caps?['passthrough'] as List<Object?>?) ?? const <Object?>[])
+          if (c is String) c,
+      ];
+    } catch (_) {
+      return _passthroughCache = const [];
     }
   }
 
