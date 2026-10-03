@@ -83,6 +83,7 @@ class OptifinNativePlayerPlugin :
         pipChannel = EventChannel(messenger, "optifin_native_player/pip")
         pipChannel.setStreamHandler(this)
         binding.platformViewRegistry.registerViewFactory("optifin_native_player/view", PlayerViewFactory(this))
+        binding.platformViewRegistry.registerViewFactory("optifin_native_player/mpv_surface", MpvSurfaceViewFactory(messenger))
         instances.add(this)
     }
 

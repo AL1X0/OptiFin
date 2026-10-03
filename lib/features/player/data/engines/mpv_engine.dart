@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:optifin_native_player/optifin_native_player.dart' show NativePlayers;
+import 'package:optifin_native_player/optifin_native_player.dart' show MpvSurfaceView, NativePlayers;
 
 import '../../../../core/design_system/device.dart';
 import '../../../../core/logging/app_log.dart';
@@ -16,7 +16,7 @@ import '../../domain/playback_engine.dart';
 /// libmpv n'est chargé qu'à la première création d'un [MpvEngine] (jamais au
 /// démarrage de l'app) : voir [MpvEngine.create].
 class MpvEngine implements PlaybackEngine {
-  MpvEngine._(this._player, this._video) {
+  MpvEngine._(this._player, this._video, {this.surfaceHwdec}) {
     _subscriptions.addAll([
       _player.stream.playing.listen((v) => _emit(_snapshot.copyWith(playing: v))),
       _player.stream.buffering.listen((v) => _emit(_snapshot.copyWith(buffering: v))),
@@ -161,6 +161,14 @@ class MpvEngine implements PlaybackEngine {
         logLevel: verbose ? MPVLogLevel.info : MPVLogLevel.warn,
       ),
     );
+    // Téléviseurs Android : mpv dessine dans sa propre SurfaceView (comme mpv-android). La
+    // texture de media_kit reste noire sur certains modèles alors que la vidéo est décodée.
+    if (OFDevice.tv && Platform.isAndroid) {
+      final engine = MpvEngine._(player, null, surfaceHwdec: hwdec);
+      await engine._configureSurfaceOutput();
+      await engine._configure();
+      return engine;
+    }
     final video = VideoController(
       player,
       configuration: VideoControllerConfiguration(enableHardwareAcceleration: true, hwdec: hwdec),
@@ -171,7 +179,53 @@ class MpvEngine implements PlaybackEngine {
   }
 
   final Player _player;
-  final VideoController _video;
+  /// Texture media_kit (null : sortie sur [MpvSurfaceView], téléviseurs Android).
+  final VideoController? _video;
+
+  /// Décodage matériel de la sortie sur surface (null : texture media_kit).
+  final String? surfaceHwdec;
+
+  /// Surface reçue de [MpvSurfaceView] (0 : aucune).
+  int _wid = 0;
+  BoxFit _surfaceFit = BoxFit.contain;
+
+  /// Mêmes réglages que le VideoController Android de media_kit, sans sa texture.
+  Future<void> _configureSurfaceOutput() async {
+    await _set('vo', 'null');
+    await _set('hwdec', surfaceHwdec!);
+    await _set('vid', 'auto');
+    await _set('opengl-es', 'yes');
+    await _set('force-window', 'yes');
+    await _set('gpu-context', 'android');
+    await _set('sub-use-margins', 'no');
+    await _set('sub-font-provider', 'none');
+    await _set('sub-scale-with-window', 'yes');
+    await _set('hwdec-codecs', 'h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1');
+  }
+
+  /// Surface créée, redimensionnée ou détruite (wid 0) : ordre imposé par mpv
+  /// (vo=null, taille, wid, puis vo=gpu), comme media_kit.
+  Future<void> _onSurface(int wid, int width, int height) async {
+    if (_events.isClosed) return;
+    _wid = wid;
+    await _set('vo', 'null');
+    if (wid == 0) {
+      await _set('wid', '0');
+      AppLog.i('mpv', 'Surface vidéo retirée');
+      return;
+    }
+    await _set('android-surface-size', '${width}x$height');
+    await _set('wid', '$wid');
+    await _set('vo', 'gpu');
+    AppLog.i('mpv', 'Surface vidéo Android : $width×$height');
+  }
+
+  Future<void> _applySurfaceFit(BoxFit fit) async {
+    if (fit == _surfaceFit) return;
+    _surfaceFit = fit;
+    await _set('keepaspect', fit == BoxFit.fill ? 'no' : 'yes');
+    await _set('panscan', fit == BoxFit.cover ? '1.0' : '0.0');
+  }
   final _subscriptions = <StreamSubscription<Object?>>[];
   final _snapshots = StreamController<PlayerSnapshot>.broadcast();
   final _events = StreamController<PlaybackEvent>.broadcast();
@@ -351,9 +405,22 @@ class MpvEngine implements PlaybackEngine {
   Future<void> setAudioDelay(Duration delay) => _set('audio-delay', (delay.inMilliseconds / 1000).toStringAsFixed(3));
 
   @override
-  Widget buildView({BoxFit fit = BoxFit.contain}) => ExcludeFocus(
+  Widget buildView({BoxFit fit = BoxFit.contain}) {
+    if (_video == null) {
+      unawaited(_applySurfaceFit(fit));
+      return ExcludeFocus(
+        child: ColoredBox(
+          color: Colors.black,
+          child: MpvSurfaceView(onSurface: (wid, w, h) => unawaited(_onSurface(wid, w, h))),
+        ),
+      );
+    }
+    return _textureView(_video, fit);
+  }
+
+  Widget _textureView(VideoController video, BoxFit fit) => ExcludeFocus(
     child: Video(
-      controller: _video,
+      controller: video,
       controls: (_) => const SizedBox.shrink(),
       fit: fit,
       fill: Colors.black,
@@ -364,6 +431,11 @@ class MpvEngine implements PlaybackEngine {
 
   @override
   Future<void> dispose() async {
+    // Sortie sur surface : mpv lâche la surface avant la destruction du lecteur.
+    if (_video == null && _wid != 0) {
+      _wid = 0;
+      await _set('vo', 'null');
+    }
     _dropTimer?.cancel();
     for (final s in _subscriptions) {
       await s.cancel();
