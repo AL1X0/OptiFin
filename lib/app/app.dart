@@ -42,6 +42,7 @@ class _TvFocusRescue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    TvScrollToTop.install();
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,

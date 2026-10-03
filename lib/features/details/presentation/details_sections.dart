@@ -321,32 +321,42 @@ class CastSection extends ConsumerWidget {
                 label: [p.name, ?p.role].join(', '),
                 excludeSemantics: true,
                 onTap: () => context.openPerson(p.id),
-                child: GestureDetector(
-                  onTap: () => context.openPerson(p.id),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      AvatarChip(
-                        name: p.name,
-                        size: size,
-                        imageUrl: images.maybe(p.image, logicalWidth: size, devicePixelRatio: dpr),
-                      ),
-                      const SizedBox(height: OFSpacing.sm),
-                      SizedBox(
-                        width: size,
-                        child: Text(p.name, style: OFTypography.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                      if (p.role != null)
+                // Télécommande : chaque acteur est atteignable (OK ouvre sa page).
+                child: TvFocusable(
+                  onSelect: () => context.openPerson(p.id),
+                  borderRadius: const BorderRadius.all(Radius.circular(size / 2)),
+                  child: GestureDetector(
+                    onTap: () => context.openPerson(p.id),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AvatarChip(
+                          name: p.name,
+                          size: size,
+                          imageUrl: images.maybe(p.image, logicalWidth: size, devicePixelRatio: dpr),
+                        ),
+                        const SizedBox(height: OFSpacing.sm),
                         SizedBox(
                           width: size,
                           child: Text(
-                            p.role!,
-                            style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
+                            p.name,
+                            style: OFTypography.caption,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                    ],
+                        if (p.role != null)
+                          SizedBox(
+                            width: size,
+                            child: Text(
+                              p.role!,
+                              style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               );

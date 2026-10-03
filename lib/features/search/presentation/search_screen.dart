@@ -209,27 +209,31 @@ class _PeopleRow extends ConsumerWidget {
           label: p.name,
           excludeSemantics: true,
           onTap: () => context.openPerson(p.id),
-          child: GestureDetector(
-            onTap: () => context.openPerson(p.id),
-            child: Column(
-              children: [
-                AvatarChip(
-                  name: p.name,
-                  size: size,
-                  imageUrl: images.maybe(p.primary, logicalWidth: size, devicePixelRatio: dpr),
-                ),
-                const SizedBox(height: OFSpacing.sm),
-                SizedBox(
-                  width: size,
-                  child: Text(
-                    p.name,
-                    textAlign: TextAlign.center,
-                    style: OFTypography.caption,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+          child: TvFocusable(
+            onSelect: () => context.openPerson(p.id),
+            borderRadius: const BorderRadius.all(Radius.circular(OFRadius.md)),
+            child: GestureDetector(
+              onTap: () => context.openPerson(p.id),
+              child: Column(
+                children: [
+                  AvatarChip(
+                    name: p.name,
+                    size: size,
+                    imageUrl: images.maybe(p.primary, logicalWidth: size, devicePixelRatio: dpr),
                   ),
-                ),
-              ],
+                  const SizedBox(height: OFSpacing.sm),
+                  SizedBox(
+                    width: size,
+                    child: Text(
+                      p.name,
+                      textAlign: TextAlign.center,
+                      style: OFTypography.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

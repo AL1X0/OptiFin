@@ -626,9 +626,14 @@ class _InfoLine extends StatelessWidget {
             child: Wrap(
               children: [
                 for (final (i, r) in refs.indexed)
-                  GestureDetector(
-                    onTap: () => isPeople ? context.openPerson(r.id) : onTap?.call(r),
-                    child: Text('${r.name}${i < refs.length - 1 ? ', ' : ''}', style: OFTypography.callout),
+                  TvFocusable(
+                    onSelect: () => isPeople ? context.openPerson(r.id) : onTap?.call(r),
+                    borderRadius: const BorderRadius.all(Radius.circular(OFRadius.md)),
+                    scale: 1.03,
+                    child: GestureDetector(
+                      onTap: () => isPeople ? context.openPerson(r.id) : onTap?.call(r),
+                      child: Text('${r.name}${i < refs.length - 1 ? ', ' : ''}', style: OFTypography.callout),
+                    ),
                   ),
               ],
             ),
@@ -666,30 +671,36 @@ class _ExpandableTextState extends State<ExpandableText> {
         )..layout(maxWidth: constraints.maxWidth);
         final overflows = painter.didExceedMaxLines;
         painter.dispose();
-        return GestureDetector(
-          onTap: overflows ? () => setState(() => _expanded = !_expanded) : null,
-          child: AnimatedSize(
-            duration: OFMotion.of(context).standard,
-            curve: OFMotion.standardCurve,
-            alignment: Alignment.topCenter,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.text,
-                  style: style.copyWith(color: OFColors.textPrimary.withValues(alpha: 0.85)),
-                  maxLines: _expanded ? null : widget.maxLines,
-                  overflow: _expanded ? TextOverflow.visible : TextOverflow.fade,
-                ),
-                if (overflows)
-                  Padding(
-                    padding: const EdgeInsets.only(top: OFSpacing.xs),
-                    child: Text(
-                      _expanded ? 'Moins' : 'Plus',
-                      style: OFTypography.callout.copyWith(color: Theme.of(context).colorScheme.primary),
-                    ),
+        final toggle = overflows ? () => setState(() => _expanded = !_expanded) : null;
+        return TvFocusable(
+          onSelect: toggle,
+          borderRadius: const BorderRadius.all(Radius.circular(OFRadius.md)),
+          scale: 1.01,
+          child: GestureDetector(
+            onTap: toggle,
+            child: AnimatedSize(
+              duration: OFMotion.of(context).standard,
+              curve: OFMotion.standardCurve,
+              alignment: Alignment.topCenter,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.text,
+                    style: style.copyWith(color: OFColors.textPrimary.withValues(alpha: 0.85)),
+                    maxLines: _expanded ? null : widget.maxLines,
+                    overflow: _expanded ? TextOverflow.visible : TextOverflow.fade,
                   ),
-              ],
+                  if (overflows)
+                    Padding(
+                      padding: const EdgeInsets.only(top: OFSpacing.xs),
+                      child: Text(
+                        _expanded ? 'Moins' : 'Plus',
+                        style: OFTypography.callout.copyWith(color: Theme.of(context).colorScheme.primary),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );

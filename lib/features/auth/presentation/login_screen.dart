@@ -211,48 +211,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           itemBuilder: (context, i) {
                             final u = users[i];
                             final selected = _username.text == u.name;
-                            return GestureDetector(
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                setState(() => _username.text = u.name);
-                              },
-                              child: Column(
-                                children: [
-                                  AnimatedContainer(
-                                    duration: OFMotion.of(context).fast,
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: selected ? Theme.of(context).colorScheme.primary : Colors.transparent,
-                                        width: 2,
+                            void pick() {
+                              HapticFeedback.selectionClick();
+                              setState(() => _username.text = u.name);
+                            }
+
+                            return TvFocusable(
+                              onSelect: pick,
+                              borderRadius: const BorderRadius.all(Radius.circular(OFRadius.md)),
+                              child: GestureDetector(
+                                onTap: pick,
+                                child: Column(
+                                  children: [
+                                    AnimatedContainer(
+                                      duration: OFMotion.of(context).fast,
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: selected ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: AvatarChip(
+                                        name: u.name,
+                                        size: 60,
+                                        imageUrl: u.avatarTag == null
+                                            ? null
+                                            : images.userAvatar(
+                                                userId: u.id,
+                                                tag: u.avatarTag,
+                                                logicalWidth: 60,
+                                                devicePixelRatio: dpr,
+                                              ),
                                       ),
                                     ),
-                                    child: AvatarChip(
-                                      name: u.name,
-                                      size: 60,
-                                      imageUrl: u.avatarTag == null
-                                          ? null
-                                          : images.userAvatar(
-                                              userId: u.id,
-                                              tag: u.avatarTag,
-                                              logicalWidth: 60,
-                                              devicePixelRatio: dpr,
-                                            ),
+                                    const SizedBox(height: OFSpacing.xs),
+                                    SizedBox(
+                                      width: 72,
+                                      child: Text(
+                                        u.name,
+                                        textAlign: TextAlign.center,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: OFTypography.caption,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: OFSpacing.xs),
-                                  SizedBox(
-                                    width: 72,
-                                    child: Text(
-                                      u.name,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: OFTypography.caption,
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             );
                           },

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../device.dart';
 import '../tokens.dart';
 
 /// Élément atteignable à la télécommande (ou au clavier) : flèches pour y aller, OK pour
@@ -195,5 +198,52 @@ class _TvTextEntryState extends State<TvTextEntry> {
         child: widget.builder(context, _node, !_editing, _done),
       ),
     );
+  }
+}
+
+/// Télécommande : quand le focus remonte sur un élément du haut d'une page (boutons d'une fiche,
+/// carrousel de l'accueil, filtres d'une bibliothèque…), la page revient tout en haut au lieu de
+/// s'arrêter juste au niveau de l'élément (titre, image de fond coupés). Valable pour toutes les
+/// pages : un seul écouteur sur le focus, installé au démarrage sur téléviseur.
+abstract final class TvScrollToTop {
+  static FocusManager? _manager;
+  static FocusNode? _last;
+
+  static void install() {
+    final manager = FocusManager.instance;
+    if (identical(manager, _manager)) return;
+    _manager?.removeListener(_onFocus);
+    _manager = manager..addListener(_onFocus);
+  }
+
+  static void _onFocus() {
+    final node = FocusManager.instance.primaryFocus;
+    if (!OFDevice.tv || node == null || identical(node, _last)) return;
+    _last = node;
+    // Après le défilement par défaut (élément ramené à l'écran) : correction éventuelle.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(node));
+  }
+
+  static void _reveal(FocusNode node) {
+    final context = node.context;
+    if (context == null || !context.mounted || FocusManager.instance.primaryFocus != node) return;
+    final scrollable = Scrollable.maybeOf(context, axis: Axis.vertical);
+    final box = context.findRenderObject();
+    final page = scrollable?.context.findRenderObject();
+    if (scrollable == null || box is! RenderBox || !box.attached || page is! RenderBox || !page.attached) return;
+    final position = scrollable.position;
+    if (position.pixels <= position.minScrollExtent) return;
+    // Bas de l'élément dans la page (et non dans une rangée horizontale) : s'il tient dans le
+    // premier écran, on remonte tout en haut, titre et image de fond compris.
+    final top = box.localToGlobal(Offset.zero, ancestor: page).dy + position.pixels - position.minScrollExtent;
+    if (top + box.size.height <= position.viewportDimension) {
+      unawaited(
+        position.animateTo(
+          position.minScrollExtent,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
   }
 }

@@ -54,6 +54,10 @@ void main() {
             extra: {
               'BackdropImageTags': ['b'],
               'Overview': 'Sur Arrakis.',
+              'People': [
+                for (final n in ['Denis Villeneuve', 'Amy Adams', 'Jeremy Renner'])
+                  {'Id': 'p${n.length}', 'Name': n, 'Type': 'Actor', 'Role': 'Rôle'},
+              ],
             },
           )
         : dune;
@@ -67,7 +71,8 @@ void main() {
       'GET http://s/UserItems/Resume': FakeResponse(200, queryResult([dune])),
       'GET http://s/Shows/NextUp': FakeResponse(200, queryResult(const [])),
       'GET http://s/Items/Latest': FakeResponse(200, [dune]),
-      'GET http://s/Items/m1/Similar': FakeResponse(200, queryResult(const [])),
+      'GET http://s/Items/m1/Similar': FakeResponse(200, queryResult(featured ? [dune, items] : const [])),
+      'GET http://s/Items/m2/Similar': FakeResponse(200, queryResult([dune, items])),
     });
 
     await tester.pumpWidget(
@@ -204,6 +209,44 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
       }
       expect(find.byType(ItemDetailsScreen), findsNothing, reason: 'Retour quitte la fiche');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('fiche : distribution atteignable, ▼ jusqu’aux similaires puis ▲ : retour tout en haut', (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpApp(tester, featured: true);
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await press(tester, LogicalKeyboardKey.arrowDown);
+      await press(tester, LogicalKeyboardKey.select);
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(find.byType(ItemDetailsScreen), findsOneWidget);
+      ScrollPosition page() => tester
+          .stateList<ScrollableState>(find.byType(Scrollable))
+          .firstWhere(
+            (s) =>
+                s.position.axis == Axis.vertical &&
+                s.context.findAncestorWidgetOfExactType<ItemDetailsScreen>() != null,
+          )
+          .position;
+      final path = <String>[focusLabel()];
+      for (var i = 0; i < 12; i++) {
+        await press(tester, LogicalKeyboardKey.arrowDown);
+        path.add(focusLabel());
+      }
+      expect(path.any((l) => l.contains('Denis Villeneuve')), isTrue, reason: 'acteur atteint : $path');
+      expect(page().pixels, greaterThan(0), reason: 'la fiche descend : $path');
+      for (var i = 0; i < 14; i++) {
+        await press(tester, LogicalKeyboardKey.arrowUp);
+      }
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(page().pixels, 0, reason: 'retour en haut de la fiche : ${focusLabel()}');
+      expect(FocusManager.instance.primaryFocus, isNot(isA<FocusScopeNode>()));
       expect(tester.takeException(), isNull);
     });
   });
