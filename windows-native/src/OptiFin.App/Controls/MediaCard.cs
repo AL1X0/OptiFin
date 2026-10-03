@@ -20,13 +20,17 @@ public enum CardStyle { Poster, Landscape, Square }
 /// </summary>
 public sealed partial class MediaCard : Grid
 {
-    public MediaItem Item { get; }
+    public MediaItem Item { get; private set; }
     public event Action<MediaItem>? Activated;
 
     private readonly Border _hover;
     private readonly Border _frame;
     private readonly Border? _play;
     private bool _starting;
+    private readonly ProgressBar _progress;
+    private readonly Border _playedBadge;
+    private readonly Border _check;
+    private readonly FontIcon _checkIcon;
     private static readonly SolidColorBrush PlayIdle = new(Windows.UI.Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush PlayHover = new(Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush NoStroke = new(Windows.UI.Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
@@ -73,41 +77,28 @@ public sealed partial class MediaCard : Grid
             });
         }
 
-        if (item.User.Progress is { } progress)
+        // Progression (aux couleurs du film, comme sur mobile) et pastille « vu » : mises à jour
+        // quand l'état change (menu du clic droit, sélection).
+        _progress = new ProgressBar
         {
-            var bar = new ProgressBar
-            {
-                Value = progress * 100,
-                Maximum = 100,
-                Height = 3,
-                MinHeight = 3,
-                VerticalAlignment = VerticalAlignment.Bottom,
-                Margin = new Thickness(10, 0, 10, 10),
-                CornerRadius = new CornerRadius(2),
-                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
-            };
-            artwork.Children.Add(bar);
-            // Barre aux couleurs du film (comme sur mobile).
-            if (FilmAccent.Cached(item) is { } cached) bar.Foreground = new SolidColorBrush(cached);
-            else
-            {
-                _ = FilmAccent.ForAsync(item).ContinueWith(t => bar.DispatcherQueue.TryEnqueue(() =>
-                {
-                    if (t.Result is { } c) bar.Foreground = new SolidColorBrush(c);
-                }), TaskScheduler.Default);
-            }
-        }
-        if (item.User.Played && item.Kind is not (MediaKind.Series or MediaKind.Season))
+            Maximum = 100,
+            Height = 3,
+            MinHeight = 3,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(10, 0, 10, 10),
+            CornerRadius = new CornerRadius(2),
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
+        };
+        artwork.Children.Add(_progress);
+        _playedBadge = new Border
         {
-            artwork.Children.Add(new Border
-            {
-                Width = 24, Height = 24, CornerRadius = new CornerRadius(12),
-                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0xCC, 0, 0, 0)),
-                HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(8),
-                Child = new FontIcon { Glyph = "", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) },
-            });
-        }
+            Width = 24, Height = 24, CornerRadius = new CornerRadius(12),
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0xCC, 0, 0, 0)),
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(8),
+            Child = new FontIcon { Glyph = "\uE73E", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) },
+        };
+        artwork.Children.Add(_playedBadge);
 
         // Survol : voile, et bouton lecture qui lance directement la lecture (le reste de la carte
         // ouvre la fiche). Série : prochain épisode à voir.
@@ -138,11 +129,28 @@ public sealed partial class MediaCard : Grid
             _play.Tapped += (_, e) =>
             {
                 e.Handled = true;
-                _ = PlayAsync();
+                if (MediaActions.Selecting) MediaActions.Toggle(Item);
+                else _ = PlayAsync();
             };
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_play, "Lecture");
             artwork.Children.Add(_play);
         }
+
+        // Sélection multiple : rond coché en haut à gauche.
+        _checkIcon = new FontIcon { Glyph = "\uE73E", FontSize = 13, Foreground = new SolidColorBrush(Colors.White), Opacity = 0 };
+        _check = new Border
+        {
+            Width = 26, Height = 26, CornerRadius = new CornerRadius(13),
+            HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(8),
+            BorderThickness = new Thickness(2),
+            BorderBrush = new SolidColorBrush(Colors.White),
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x66, 0, 0, 0)),
+            Visibility = Visibility.Collapsed,
+            IsHitTestVisible = false,
+            Child = _checkIcon,
+        };
+        artwork.Children.Add(_check);
 
         _frame = new Border { CornerRadius = new CornerRadius(12), Child = artwork, BorderThickness = new Thickness(1), BorderBrush = NoStroke };
         var frame = _frame;
@@ -172,7 +180,25 @@ public sealed partial class MediaCard : Grid
         PointerCanceled += (_, _) => SetHover(false);
         Tapped += (_, e) =>
         {
-            if (!e.Handled) Activated?.Invoke(Item);
+            if (e.Handled) return;
+            if (MediaActions.Selecting) MediaActions.Toggle(Item);
+            else Activated?.Invoke(Item);
+        };
+        ApplyUserState();
+        // Clic droit (ou touche Menu / Maj+F10) : actions sur l'élément ou sur la sélection.
+        var menu = new MenuFlyout();
+        menu.Opening += (_, _) => FillMenu(menu);
+        ContextFlyout = menu;
+        Loaded += (_, _) =>
+        {
+            MediaActions.UserStateChanged += OnUserStateChanged;
+            MediaActions.SelectionChanged += ApplySelection;
+            ApplySelection();
+        };
+        Unloaded += (_, _) =>
+        {
+            MediaActions.UserStateChanged -= OnUserStateChanged;
+            MediaActions.SelectionChanged -= ApplySelection;
         };
         KeyDown += OnKeyDown;
         GotFocus += (_, _) => SetHover(true);
@@ -181,12 +207,147 @@ public sealed partial class MediaCard : Grid
         ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.Hand);
     }
 
+    private void OnUserStateChanged(string id, UserState state)
+    {
+        if (id != Item.Id) return;
+        Item = Item with { User = state };
+        ApplyUserState();
+    }
+
+    private void ApplyUserState()
+    {
+        var item = Item;
+        if (item.User.Progress is { } progress)
+        {
+            _progress.Value = progress * 100;
+            _progress.Visibility = Visibility.Visible;
+            if (FilmAccent.Cached(item) is { } cached) _progress.Foreground = new SolidColorBrush(cached);
+            else
+            {
+                var bar = _progress;
+                _ = FilmAccent.ForAsync(item).ContinueWith(t => bar.DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (t.Result is { } c) bar.Foreground = new SolidColorBrush(c);
+                }), TaskScheduler.Default);
+            }
+        }
+        else _progress.Visibility = Visibility.Collapsed;
+        _playedBadge.Visibility = item.User.Played && item.Kind is not (MediaKind.Series or MediaKind.Season)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void ApplySelection()
+    {
+        var selected = MediaActions.Selecting && MediaActions.IsSelected(Item);
+        _check.Visibility = MediaActions.Selecting ? Visibility.Visible : Visibility.Collapsed;
+        _check.Background = selected ? Brush("OFAccentBrush") : new SolidColorBrush(Windows.UI.Color.FromArgb(0x66, 0, 0, 0));
+        _check.BorderBrush = selected ? Brush("OFAccentBrush") : new SolidColorBrush(Colors.White);
+        _checkIcon.Opacity = selected ? 1 : 0;
+        _frame.BorderThickness = new Thickness(selected ? 2 : 1);
+        _frame.BorderBrush = selected ? Brush("OFAccentBrush") : NoStroke;
+    }
+
+    // ------------------------------------------------------------ Menu du clic droit
+
+    private static MenuFlyoutItem MenuItem(string text, string glyph, Action action)
+    {
+        var item = new MenuFlyoutItem { Text = text, Icon = new FontIcon { Glyph = glyph } };
+        item.Click += (_, _) => action();
+        return item;
+    }
+
+    private void FillMenu(MenuFlyout menu)
+    {
+        menu.Items.Clear();
+        var item = Item;
+        // En sélection, sur une carte cochée : actions groupées.
+        if (MediaActions.Selecting && MediaActions.IsSelected(item))
+        {
+            var selection = MediaActions.Selected.ToList();
+            var n = selection.Count;
+            menu.Items.Add(new MenuFlyoutItem { Text = $"{n} élément{(n > 1 ? "s" : "")} sélectionné{(n > 1 ? "s" : "")}", IsEnabled = false });
+            menu.Items.Add(new MenuFlyoutSeparator());
+            if (selection.Any(MediaActions.CanMarkPlayed))
+            {
+                menu.Items.Add(MenuItem("Marquer comme vus", "\uE73E", () => _ = MediaActions.SetPlayedAsync(selection, true)));
+                menu.Items.Add(MenuItem("Marquer comme non vus", "\uE711", () => _ = MediaActions.SetPlayedAsync(selection, false)));
+            }
+            if (selection.Any(MediaActions.CanFavorite))
+            {
+                menu.Items.Add(MenuItem("Ajouter aux favoris", "\uEB51", () => _ = MediaActions.SetFavoriteAsync(selection, true)));
+                menu.Items.Add(MenuItem("Retirer des favoris", "\uEA92", () => _ = MediaActions.SetFavoriteAsync(selection, false)));
+            }
+            menu.Items.Add(new MenuFlyoutSeparator());
+            menu.Items.Add(MenuItem("Quitter la sélection", "\uE8E6", MediaActions.EndSelection));
+            return;
+        }
+
+        if (item.Kind.IsPlayableVideo())
+        {
+            var resume = item.User.PositionTicks > 0;
+            menu.Items.Add(MenuItem(resume ? "Reprendre" : "Lecture", "\uE768", () => Player.PlayerLauncher.Play(item)));
+            if (resume) menu.Items.Add(MenuItem("Lire depuis le début", "\uE72C", () => Player.PlayerLauncher.Play(item, fromStart: true)));
+        }
+        else if (item.Kind == MediaKind.Series)
+        {
+            menu.Items.Add(MenuItem("Lire l’épisode suivant", "\uE768", () => _ = PlayAsync()));
+        }
+        menu.Items.Add(MenuItem("Afficher la fiche", "\uE946", () => Activated?.Invoke(item)));
+        if (item.Kind is MediaKind.Episode or MediaKind.Season && item.SeriesId is { } seriesId)
+            menu.Items.Add(MenuItem("Voir la série", "\uE7F4", () => _ = OpenAsync(seriesId)));
+
+        var played = MediaActions.CanMarkPlayed(item);
+        var favorite = MediaActions.CanFavorite(item);
+        if (played || favorite) menu.Items.Add(new MenuFlyoutSeparator());
+        if (played)
+        {
+            menu.Items.Add(item.User.Played
+                ? MenuItem("Marquer comme non vu", "\uE711", () => _ = MediaActions.SetPlayedAsync([item], false))
+                : MenuItem("Marquer comme vu", "\uE73E", () => _ = MediaActions.SetPlayedAsync([item], true)));
+        }
+        if (favorite)
+        {
+            menu.Items.Add(item.User.Favorite
+                ? MenuItem("Retirer des favoris", "\uEA92", () => _ = MediaActions.SetFavoriteAsync([item], false))
+                : MenuItem("Ajouter aux favoris", "\uEB51", () => _ = MediaActions.SetFavoriteAsync([item], true)));
+        }
+        if (played || favorite)
+        {
+            menu.Items.Add(new MenuFlyoutSeparator());
+            menu.Items.Add(MediaActions.Selecting
+                ? MenuItem("Ajouter à la sélection", "\uE762", () => MediaActions.Toggle(item))
+                : MenuItem("Sélectionner", "\uE762", () => MediaActions.StartSelection(item)));
+        }
+    }
+
+    /// <summary>Outil de capture : libellés du menu du clic droit.</summary>
+    internal string DevMenu()
+    {
+        var menu = new MenuFlyout();
+        FillMenu(menu);
+        return string.Join(" | ", menu.Items.Select(i => i is MenuFlyoutItem m ? m.Text : "—"));
+    }
+
+    private static async Task OpenAsync(string id)
+    {
+        if (AppServices.Media is not { } media) return;
+        try
+        {
+            Nav.Go(typeof(Pages.DetailsPage), await media.ItemAsync(id));
+        }
+        catch (Exception e)
+        {
+            OptiFin.Core.Logging.AppLog.Warn("card", $"Série introuvable : {e.Message}");
+        }
+    }
+
     private void SetHover(bool on)
     {
         Scale = on ? new Vector3(1.05f, 1.05f, 1) : Vector3.One;
         _hover.Opacity = on ? 1 : 0;
         if (_play != null) _play.Opacity = on ? 1 : 0;
-        _frame.BorderBrush = on ? HoverStroke : NoStroke;
+        if (!(MediaActions.Selecting && MediaActions.IsSelected(Item))) _frame.BorderBrush = on ? HoverStroke : NoStroke;
     }
 
     /// <summary>Bouton lecture de la carte : film ou épisode lancé tel quel, série au prochain épisode.</summary>
@@ -239,7 +400,8 @@ public sealed partial class MediaCard : Grid
     {
         if (e.Key is Windows.System.VirtualKey.Enter or Windows.System.VirtualKey.Space)
         {
-            Activated?.Invoke(Item);
+            if (MediaActions.Selecting) MediaActions.Toggle(Item);
+            else Activated?.Invoke(Item);
             e.Handled = true;
         }
     }

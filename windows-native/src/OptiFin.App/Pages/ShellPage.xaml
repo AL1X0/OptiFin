@@ -98,6 +98,42 @@
             </Grid>
         </Grid>
 
+        <!-- Sélection multiple (clic droit › Sélectionner) : actions groupées. -->
+        <Border x:Name="SelectionBar" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,28"
+                Padding="20,8,8,8" CornerRadius="26" Background="#F21C1C20" BorderBrush="#33FFFFFF" BorderThickness="1"
+                Visibility="Collapsed" Opacity="0">
+            <Border.OpacityTransition>
+                <ScalarTransition Duration="0:0:0.18" />
+            </Border.OpacityTransition>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock x:Name="SelectionCount" VerticalAlignment="Center" FontSize="14" FontWeight="SemiBold" Margin="0,0,10,0" />
+                <Button x:Name="SelectionPlayed" Style="{StaticResource OFSecondaryButton}" Height="36" Padding="14,0" CornerRadius="18">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE73E;" FontSize="13" />
+                        <TextBlock Text="Vu" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="SelectionUnplayed" Style="{StaticResource OFSecondaryButton}" Height="36" Padding="14,0" CornerRadius="18">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE711;" FontSize="12" />
+                        <TextBlock Text="Non vu" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="SelectionFavorite" Style="{StaticResource OFSecondaryButton}" Height="36" Padding="14,0" CornerRadius="18">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xEB51;" FontSize="13" />
+                        <TextBlock Text="Favoris" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="SelectionMore" Style="{StaticResource OFIconButton}" Width="36" Height="36" ToolTipService.ToolTip="Plus d’actions">
+                    <FontIcon Glyph="&#xE712;" FontSize="14" />
+                </Button>
+                <Button x:Name="SelectionClose" Style="{StaticResource OFIconButton}" Width="36" Height="36" ToolTipService.ToolTip="Quitter la sélection (Échap)">
+                    <FontIcon Glyph="&#xE711;" FontSize="12" />
+                </Button>
+            </StackPanel>
+        </Border>
+
         <!-- Annonces (soirée…) en bas à droite. -->
         <StackPanel x:Name="Notices" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,24" Spacing="8">
             <StackPanel.ChildrenTransitions>

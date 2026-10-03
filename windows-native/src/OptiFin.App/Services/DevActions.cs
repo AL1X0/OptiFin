@@ -60,6 +60,19 @@ public static class DevActions
                 if (Nav.ContentFrame?.Content is HomePage h && Find<Controls.MediaCard>(h).FirstOrDefault(c => c.Item.Kind.IsPlayableVideo()) is { } card)
                     card.DevClick(arg == "play");
                 break;
+            case "menu" when Nav.ContentFrame?.Content is HomePage hm:
+                // Menu du clic droit des premières cartes, puis sélection / vu / non vu (arg) sur les deux premières.
+                var cards = Find<Controls.MediaCard>(hm).Where(c => c.Item.Kind.IsPlayableVideo()).Take(2).ToList();
+                foreach (var c in cards) OptiFin.Core.Logging.AppLog.Info("dev", $"Menu « {c.Item.Name} » : {c.DevMenu()}");
+                if (arg is "selection" or "vu" or "nonvu")
+                {
+                    MediaActions.StartSelection(cards[0].Item);
+                    foreach (var c in cards.Skip(1)) MediaActions.Toggle(c.Item);
+                    OptiFin.Core.Logging.AppLog.Info("dev", $"Menu groupé : {cards[0].DevMenu()}");
+                }
+                cards[0].StartBringIntoView();
+                if (arg is "vu" or "nonvu") await MediaActions.SetPlayedAsync([.. MediaActions.Selected], arg == "vu");
+                break;
             case "fermer":
                 Player.PlayerLauncher.Current?.DevClose();
                 break;

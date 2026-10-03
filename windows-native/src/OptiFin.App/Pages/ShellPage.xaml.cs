@@ -47,6 +47,7 @@ public sealed partial class ShellPage : Page
         WatchParty.Changed += UpdatePartyButton;
         WatchParty.Notice += ShowNotice;
         UpdatePartyButton();
+        SetupSelection();
 
         BackButton.Click += (_, _) => Nav.Back();
         // Nav.Section vide l'historique après la navigation : on remet le bouton à jour ensuite.
@@ -72,12 +73,17 @@ public sealed partial class ShellPage : Page
             Nav.Scrolled -= OnScrolled;
             WatchParty.Changed -= UpdatePartyButton;
             WatchParty.Notice -= ShowNotice;
+            MediaActions.Notice -= ShowActionNotice;
+            MediaActions.SelectionChanged -= UpdateSelectionBar;
+            MediaActions.EndSelection();
             Nav.Window.UseTitleBar(null);
         };
         ContentFrame.Navigated += (_, e) =>
         {
             UpdateBackButton();
             OnScrolled(0);
+            // La sélection ne survit pas au changement de page.
+            MediaActions.EndSelection();
             // En quittant la recherche, la barre se vide.
             if (e.SourcePageType != typeof(SearchPage) && SearchInput.Text.Length > 0)
             {
@@ -221,8 +227,67 @@ public sealed partial class ShellPage : Page
             : Ui.Res("OFAccentBrush");
     }
 
+    // ------------------------------------------------------------ Sélection multiple
+
+    private void SetupSelection()
+    {
+        MediaActions.Notice += ShowActionNotice;
+        MediaActions.SelectionChanged += UpdateSelectionBar;
+        SelectionPlayed.Click += (_, _) => _ = MediaActions.SetPlayedAsync([.. MediaActions.Selected], true);
+        SelectionUnplayed.Click += (_, _) => _ = MediaActions.SetPlayedAsync([.. MediaActions.Selected], false);
+        SelectionFavorite.Click += (_, _) => _ = MediaActions.SetFavoriteAsync([.. MediaActions.Selected], true);
+        var more = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Top };
+        var unfavorite = new MenuFlyoutItem { Text = "Retirer des favoris", Icon = new FontIcon { Glyph = "" } };
+        unfavorite.Click += (_, _) => _ = MediaActions.SetFavoriteAsync([.. MediaActions.Selected], false);
+        var clear = new MenuFlyoutItem { Text = "Tout désélectionner", Icon = new FontIcon { Glyph = "" } };
+        clear.Click += (_, _) =>
+        {
+            foreach (var item in MediaActions.Selected.ToList()) MediaActions.Toggle(item);
+        };
+        more.Items.Add(unfavorite);
+        more.Items.Add(clear);
+        SelectionMore.Flyout = more;
+        SelectionClose.Click += (_, _) => MediaActions.EndSelection();
+        // Échap quitte la sélection (et seulement elle : sinon la touche suit son cours).
+        var escape = new KeyboardAccelerator { Key = VirtualKey.Escape };
+        escape.Invoked += (_, e) =>
+        {
+            if (!MediaActions.Selecting) return;
+            MediaActions.EndSelection();
+            e.Handled = true;
+        };
+        KeyboardAccelerators.Add(escape);
+    }
+
+    private void UpdateSelectionBar()
+    {
+        var n = MediaActions.Selected.Count;
+        SelectionCount.Text = n == 0 ? "Sélectionnez des éléments" : $"{n} sélectionné{(n > 1 ? "s" : "")}";
+        SelectionPlayed.IsEnabled = SelectionUnplayed.IsEnabled = MediaActions.Selected.Any(MediaActions.CanMarkPlayed);
+        SelectionFavorite.IsEnabled = SelectionMore.IsEnabled = n > 0;
+        if (MediaActions.Selecting) SelectionBar.Visibility = Visibility.Visible;
+        SelectionBar.Opacity = MediaActions.Selecting ? 1 : 0;
+        // Annonces au-dessus de la barre tant qu'elle est affichée.
+        Notices.Margin = new Thickness(0, 0, 24, MediaActions.Selecting ? 96 : 24);
+        if (!MediaActions.Selecting)
+        {
+            var hide = DispatcherQueue.CreateTimer();
+            hide.Interval = TimeSpan.FromMilliseconds(200);
+            hide.IsRepeating = false;
+            hide.Tick += (_, _) =>
+            {
+                if (!MediaActions.Selecting) SelectionBar.Visibility = Visibility.Collapsed;
+            };
+            hide.Start();
+        }
+    }
+
     /// <summary>Petite annonce en bas à droite, effacée après 4 s.</summary>
-    private void ShowNotice(string text)
+    private void ShowNotice(string text) => ShowNotice(text, "");
+
+    private void ShowActionNotice(string text) => ShowNotice(text, "");
+
+    private void ShowNotice(string text, string glyph)
     {
         var notice = new Border
         {
@@ -238,7 +303,7 @@ public sealed partial class ShellPage : Page
                 Spacing = 10,
                 Children =
                 {
-                    new FontIcon { Glyph = "\uE716", FontSize = 15, Foreground = Ui.Res("OFAccentBrush") },
+                    new FontIcon { Glyph = glyph, FontSize = 15, Foreground = Ui.Res("OFAccentBrush") },
                     new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 14, MaxWidth = 320 },
                 },
             },
