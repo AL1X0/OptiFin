@@ -86,7 +86,7 @@ public sealed partial class PlayerWindow : Window
         _startupTimer = Timer(dispatcher, TimeSpan.FromSeconds(30), () => _ = OnStartupFailureAsync("aucune image après 30 s"));
         _overlayTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(300), () =>
         {
-            if (Controls.Opacity == 0 && !_stats && Preparing.Visibility == Visibility.Collapsed && ErrorPanel.Visibility == Visibility.Collapsed)
+            if (_active && Controls.Opacity == 0 && !_stats && Preparing.Visibility == Visibility.Collapsed && ErrorPanel.Visibility == Visibility.Collapsed)
                 SetOverlayVisible(false);
         });
         _cursorTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(100), () =>
@@ -101,6 +101,14 @@ public sealed partial class PlayerWindow : Window
         if (AppServices.Settings.DebugMode) ToggleStats(true);
         MediaSession.Attach(_hwnd);
         MediaSession.ButtonPressed += OnMediaButton;
+        // Fenêtre voilée = absente d'Alt+Tab et de la barre des tâches : jamais voilée quand elle
+        // n'est pas active (sinon, après Alt+Tab, plus moyen de la retrouver).
+        Activated += (_, e) =>
+        {
+            _active = e.WindowActivationState != WindowActivationState.Deactivated;
+            if (!_active) SetOverlayVisible(true);
+            else Root.Focus(FocusState.Programmatic);
+        };
         Closed += (_, _) => Shutdown();
         _startPosition = party?.Start ?? (fromStart ? TimeSpan.Zero : item.ResumePosition);
         _syncTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(250), () => _sync?.Tick(), repeating: true);
@@ -466,7 +474,8 @@ public sealed partial class PlayerWindow : Window
             ChangeVolume(e.GetCurrentPoint(Root).Properties.MouseWheelDelta > 0 ? 0.05 : -0.05);
             e.Handled = true;
         };
-        Root.KeyDown += OnKey;
+        // Avant les boutons : Espace ne « clique » pas le bouton focalisé, les flèches ne passent pas d'un bouton à l'autre.
+        Root.PreviewKeyDown += OnKey;
         Root.Loaded += (_, _) => Root.Focus(FocusState.Programmatic);
         Root.IsTabStop = true;
 
@@ -526,10 +535,43 @@ public sealed partial class PlayerWindow : Window
                 TogglePlay();
                 break;
             case VirtualKey.Left or VirtualKey.J:
-                SeekBy(-10);
+                SeekBy(Shift ? -60 : -10);
                 break;
             case VirtualKey.Right or VirtualKey.L:
-                SeekBy(10);
+                SeekBy(Shift ? 60 : 10);
+                break;
+            case VirtualKey.PageUp:
+                SeekBy(300);
+                break;
+            case VirtualKey.PageDown:
+                SeekBy(-300);
+                break;
+            case VirtualKey.Home:
+                UserSeek(TimeSpan.Zero);
+                break;
+            case >= VirtualKey.Number0 and <= VirtualKey.Number9 when _duration > TimeSpan.Zero:
+                UserSeek(_duration * ((e.Key - VirtualKey.Number0) / 10.0));
+                break;
+            case >= VirtualKey.NumberPad0 and <= VirtualKey.NumberPad9 when _duration > TimeSpan.Zero:
+                UserSeek(_duration * ((e.Key - VirtualKey.NumberPad0) / 10.0));
+                break;
+            case VirtualKey.N when _extras.NextEpisode is { } nextEpisode:
+                _ = PlayNextAsync(nextEpisode);
+                break;
+            case VirtualKey.C:
+                ShowTrackMenu(SubtitlesButton, TrackType.Subtitle);
+                break;
+            case VirtualKey.A:
+                ShowTrackMenu(AudioButton, TrackType.Audio);
+                break;
+            case (VirtualKey)188: // « , » / « < » : plus lent
+                SetSpeed(_speed - 0.25);
+                break;
+            case (VirtualKey)190: // « . » / « > » : plus rapide
+                SetSpeed(_speed + 0.25);
+                break;
+            case VirtualKey.Back:
+                SetSpeed(1);
                 break;
             case VirtualKey.Up:
                 ChangeVolume(0.05);
@@ -558,6 +600,22 @@ public sealed partial class PlayerWindow : Window
         }
         e.Handled = true;
         ShowControls(autoHide: true);
+    }
+
+    private static bool Shift => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+    /// <summary>Vitesse de lecture (0,25× à 3×), affichée brièvement.</summary>
+    private void SetSpeed(double speed)
+    {
+        _speed = Math.Clamp(Math.Round(speed * 4) / 4, 0.25, 3);
+        _mpv?.SetSpeed(_speed);
+        // Indicateur de niveau réutilisé : icône chronomètre, barre = vitesse (3× = pleine).
+        LevelIcon.Glyph = "";
+        LevelBar.Value = _speed / 3 * 100;
+        Level.Opacity = 1;
+        _levelTimer.Stop();
+        _levelTimer.Start();
+        AppLog.Info("player", $"Vitesse {_speed}×");
     }
 
     private void TogglePlay()
@@ -759,6 +817,8 @@ public sealed partial class PlayerWindow : Window
     }
 
     private bool _overlayVisible = true;
+    private bool _active = true;
+    private double _speed = 1;
     private readonly DispatcherQueueTimer _overlayTimer;
     private readonly DispatcherQueueTimer _cursorTimer;
     private readonly DispatcherQueueTimer _statsTimer;
@@ -1130,7 +1190,7 @@ public sealed partial class PlayerWindow : Window
         foreach (var s in new[] { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 })
         {
             var item = new MenuFlyoutItem { Text = s == 1 ? "Normale" : $"{s.ToString("0.##", CultureInfo.GetCultureInfo("fr-FR"))}×" };
-            item.Click += (_, _) => _mpv?.SetSpeed(s);
+            item.Click += (_, _) => SetSpeed(s);
             speed.Items.Add(item);
         }
         menu.Items.Add(speed);
