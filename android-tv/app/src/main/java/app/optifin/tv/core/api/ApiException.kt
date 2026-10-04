@@ -61,5 +61,12 @@ class ApiException(
     }
 }
 
+/** Erreur dont le message s'adresse directement à l'utilisateur. */
+class UserFacingException(message: String) : Exception(message)
+
 /** Message d'erreur à afficher, quelle que soit l'exception. */
-fun Throwable.userMessage(): String = (this as? ApiException)?.userMessage ?: ApiException.from(this).userMessage
+fun Throwable.userMessage(): String = when (this) {
+    is ApiException -> userMessage
+    is UserFacingException -> message ?: ""
+    else -> ApiException.from(this).userMessage
+}
