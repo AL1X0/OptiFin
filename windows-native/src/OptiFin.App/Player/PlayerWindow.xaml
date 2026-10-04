@@ -106,6 +106,9 @@
                                Foreground="{StaticResource OFTextSecondaryBrush}" />
                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" Padding="4" CornerRadius="24"
                                 Background="{StaticResource OFGlassBrush}" VerticalAlignment="Center">
+                        <Button x:Name="VolumeButton" Style="{StaticResource OFIconButton}" Width="40" Height="40" Background="Transparent" ToolTipService.ToolTip="Volume (↑ ↓, M)">
+                            <FontIcon x:Name="VolumeIcon" Glyph="&#xE767;" FontSize="16" />
+                        </Button>
                         <Button x:Name="AudioButton" Style="{StaticResource OFIconButton}" Width="40" Height="40" Background="Transparent" ToolTipService.ToolTip="Audio">
                             <FontIcon Glyph="&#xE8D6;" FontSize="16" />
                         </Button>

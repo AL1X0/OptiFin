@@ -443,6 +443,8 @@ public sealed partial class PlayerWindow : Window
             _upNextDismissed = true;
             UpNext.Visibility = Visibility.Collapsed;
         };
+        VolumeButton.Click += (_, _) => ShowVolume();
+        UpdateVolumeIcon();
         AudioButton.Click += (_, _) => ShowTrackMenu(AudioButton, TrackType.Audio);
         SubtitlesButton.Click += (_, _) => ShowTrackMenu(SubtitlesButton, TrackType.Subtitle);
         SettingsButton.Click += (_, _) => ShowSettingsMenu();
@@ -668,21 +670,65 @@ public sealed partial class PlayerWindow : Window
 
     private bool _muted;
 
-    private void ChangeVolume(double delta)
+    private void ChangeVolume(double delta, bool flash = true)
     {
         var s = AppServices.Settings;
         s.Volume = Math.Clamp(s.Volume + delta, 0, 1);
         _mpv?.SetVolume(s.Volume);
-        if (_muted && delta > 0) ToggleMute();
-        FlashLevel(s.Volume);
+        if (_muted && delta > 0) ToggleMute(flash);
+        if (flash) FlashLevel(s.Volume);
+        UpdateVolumeIcon();
         AppServices.SaveSettings();
     }
 
-    private void ToggleMute()
+    /// <summary>Icône du bouton volume : coupé, faible, moyen, fort.</summary>
+    private void UpdateVolumeIcon()
+    {
+        var v = _muted ? 0 : AppServices.Settings.Volume;
+        VolumeIcon.Glyph = v <= 0 ? "" : v < 0.34 ? "" : v < 0.67 ? "" : "";
+    }
+
+    /// <summary>Bouton volume : curseur 0–100 et coupure du son, dans une petite bulle.</summary>
+    private void ShowVolume()
+    {
+        var slider = new Slider
+        {
+            Minimum = 0, Maximum = 100, StepFrequency = 1, Width = 200, VerticalAlignment = VerticalAlignment.Center,
+            Value = Math.Round(AppServices.Settings.Volume * 100),
+        };
+        var mute = new Button
+        {
+            Style = OptiFin.App.Controls.Ui.StyleOf("OFIconButton"), Width = 36, Height = 36, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            Content = new FontIcon { Glyph = _muted ? "" : "", FontSize = 15 },
+        };
+        ToolTipService.SetToolTip(mute, "Couper le son (M)");
+        var value = new TextBlock { Width = 34, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, FontSize = 13, Text = $"{slider.Value:0}" };
+        slider.ValueChanged += (_, e) =>
+        {
+            value.Text = $"{e.NewValue:0}";
+            ChangeVolume(e.NewValue / 100 - AppServices.Settings.Volume, flash: false);
+        };
+        mute.Click += (_, _) =>
+        {
+            ToggleMute(flash: false);
+            ((FontIcon)mute.Content).Glyph = _muted ? "" : "";
+        };
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Padding = new Thickness(4, 0, 4, 0) };
+        panel.Children.Add(mute);
+        panel.Children.Add(slider);
+        panel.Children.Add(value);
+        var flyout = new Flyout { Content = panel, Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Top };
+        flyout.Closed += (_, _) => ScheduleHide();
+        ShowControls(autoHide: false);
+        flyout.ShowAt(VolumeButton);
+    }
+
+    private void ToggleMute(bool flash = true)
     {
         _muted = !_muted;
         _mpv?.SetMute(_muted);
-        FlashLevel(_muted ? 0 : AppServices.Settings.Volume);
+        if (flash) FlashLevel(_muted ? 0 : AppServices.Settings.Volume);
+        UpdateVolumeIcon();
     }
 
     private void FlashLevel(double value)
