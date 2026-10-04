@@ -68,7 +68,7 @@ class MpvEngine implements PlaybackEngine {
       }),
     ]);
     // Images perdues (overlay de debug) : lues toutes les 2 s, seulement pendant la lecture.
-    _dropTimer = Timer.periodic(const Duration(seconds: 2), (_) => _pollDroppedFrames());
+    _dropTimer = Timer.periodic(Duration(seconds: OFDevice.tv ? 1 : 2), (_) => _pollDroppedFrames());
   }
 
   Timer? _dropTimer;
@@ -125,9 +125,72 @@ class MpvEngine implements PlaybackEngine {
     _emit(_snapshot.copyWith(status: PlaybackStatus.ready));
   }
 
+  bool _passthroughOn = false;
+  double? _lastPos;
+  int _stallTicks = 0;
+  int _diagnostics = 0;
+
+  /// Lecture qui n'avance plus alors qu'elle n'est ni en pause ni en chargement (image figée).
+  /// Cause connue sur Android : l'audio transmis tel quel (audio-spdif) bloque l'horloge audio
+  /// de certaines TV, et mpv cale l'image sur le son. Repli : mpv décode lui-même l'audio.
+  Future<void> _watchStall(NativePlayer native) async {
+    if (!_started || !_snapshot.playing || _snapshot.buffering) {
+      _stallTicks = 0;
+      _lastPos = null;
+      return;
+    }
+    final pos = double.tryParse(await native.getProperty('time-pos'));
+    if (pos == null) return;
+    final last = _lastPos;
+    _lastPos = pos;
+    if (last == null || (pos - last).abs() > 0.2) {
+      _stallTicks = 0;
+      return;
+    }
+    if (++_stallTicks < 2) return;
+    _stallTicks = 0;
+    final diag = await _diagnostic(native);
+    if (_passthroughOn) {
+      _passthroughOn = false;
+      AppLog.w('mpv', 'Lecture figée avec l’audio transmis tel quel ($diag) : décodage audio par mpv');
+      await _set('audio-spdif', '');
+      try {
+        await native.command(['ao-reload']);
+      } catch (_) {}
+    } else {
+      AppLog.w('mpv', 'Lecture figée ($diag)');
+    }
+  }
+
+  Future<String> _diagnostic(NativePlayer native) async {
+    Future<String> get(String name) async {
+      try {
+        return await native.getProperty(name);
+      } catch (_) {
+        return '?';
+      }
+    }
+
+    return 'position ${await get('time-pos')}, audio ${await get('audio-pts')}, '
+        'sortie audio ${await get('current-ao')} ${await get('audio-out-params/format')}, '
+        'images en retard ${await get('vo-delayed-frame-count')}, perdues ${await get('frame-drop-count')}, '
+        'cadence ${await get('estimated-vf-fps')}';
+  }
+
   Future<void> _pollDroppedFrames() async {
     final native = _native;
-    if (native == null || !_snapshot.playing) return;
+    if (native == null) return;
+    // Téléviseurs : surveillance du gel et diagnostic (journal) les premières secondes.
+    if (OFDevice.tv) {
+      try {
+        await _watchStall(native);
+        if (_started && _snapshot.playing && _diagnostics < 2) {
+          _diagnostics++;
+          AppLog.i('mpv', 'État de lecture : ${await _diagnostic(native)}');
+        }
+      } catch (_) {}
+    }
+    if (!_snapshot.playing) return;
     try {
       final vo = int.tryParse(await native.getProperty('frame-drop-count')) ?? 0;
       final decoder = int.tryParse(await native.getProperty('decoder-frame-drop-count')) ?? 0;
@@ -253,6 +316,7 @@ class MpvEngine implements PlaybackEngine {
       // lui-même et le volume différait d'un moteur à l'autre.
       final passthrough = await _passthrough();
       if (passthrough.isNotEmpty) {
+        _passthroughOn = true;
         await _set('audio-spdif', passthrough.join(','));
         AppLog.i('mpv', 'Audio transmis tel quel : ${passthrough.join(', ')}');
       }
