@@ -1,0 +1,43 @@
+{
+  "name": "OptiFin",
+  "identifier": "app.optifin.source",
+  "subtitle": "Client Jellyfin premium",
+  "description": "Builds de test d’OptiFin, publiés automatiquement à chaque modification.",
+  "iconURL": "https://raw.githubusercontent.com/AL1X0/OptiFin/main/assets/branding/icon_1024.png",
+  "website": "https://github.com/AL1X0/OptiFin",
+  "tintColor": "#000000",
+  "featuredApps": [
+    "app.optifin.optifin"
+  ],
+  "apps": [
+    {
+      "name": "OptiFin",
+      "bundleIdentifier": "app.optifin.optifin",
+      "developerName": "OptiFin",
+      "subtitle": "Films, séries et musique depuis votre serveur Jellyfin",
+      "localizedDescription": "Client Jellyfin immersif : lecture directe (libmpv), sous-titres ASS/PGS, reprise synchronisée, multi-comptes.",
+      "iconURL": "https://raw.githubusercontent.com/AL1X0/OptiFin/main/assets/branding/icon_1024.png",
+      "tintColor": "#000000",
+      "category": "entertainment",
+      "screenshots": [],
+      "versions": [
+        {
+          "version": "1.0.57",
+          "buildVersion": "57",
+          "date": "2026-10-04T18:38:50Z",
+          "localizedDescription": "mpv (TV) : image figée détectée, repli automatique sur le décodage audio par mpv",
+          "downloadURL": "https://github.com/AL1X0/OptiFin/releases/download/build-57/OptiFin.ipa",
+          "size": 17539878,
+          "minOSVersion": "15.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSLocalNetworkUsageDescription": "OptiFin recherche les serveurs Jellyfin présents sur votre réseau local."
+        }
+      }
+    }
+  ],
+  "news": []
+}
