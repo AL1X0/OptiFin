@@ -139,6 +139,8 @@ jobs:
           PC=$(gh release list --limit 50 --json tagName --jq '.[].tagName' | grep '^windows-' | sort -t- -k2 -n -r | head -1)
           echo "Version PC reprise : ${PC:-aucune}"
           [ -n "$PC" ] && gh release download "$PC" --dir dist --pattern 'OptiFin-windows-setup.exe'
+          TV=$(gh release list --limit 50 --json tagName --jq '.[].tagName' | grep '^tv-' | sort -t- -k2 -n -r | head -1 || true)
+          [ -n "$TV" ] && gh release download "$TV" --dir dist --pattern 'OptiFin-androidtv.apk' || true
       - name: Préparer l'IPA et la source
         run: |
           mv dist/OptiFin-unsigned.ipa dist/OptiFin.ipa
@@ -164,7 +166,8 @@ jobs:
         run: |
           # Installateur Windows : mise à jour automatique de l'appli PC (si la build a réussi).
           WINDOWS=$(ls dist/OptiFin-windows-setup.exe 2>/dev/null || true)
-          gh release create "$TAG" dist/OptiFin.ipa dist/OptiFin-android-*.apk $WINDOWS dist/source.json --draft --target "$GITHUB_SHA" --title "OptiFin $VERSION" --notes "$(git log -1 --pretty=%B)"
+          TVAPK=$(ls dist/OptiFin-androidtv.apk 2>/dev/null || true)
+          gh release create "$TAG" dist/OptiFin.ipa dist/OptiFin-android-*.apk $WINDOWS $TVAPK dist/source.json --draft --target "$GITHUB_SHA" --title "OptiFin $VERSION" --notes "$(git log -1 --pretty=%B)"
           gh release edit "$TAG" --draft=false --latest
       # Source servie directement (sans redirection ni lien signé qui expire) :
       #   https://raw.githubusercontent.com/AL1X0/OptiFin/sidestore/source.json

@@ -110,6 +110,14 @@ fun HomeScreen(nav: AppNav) {
                 AppServices.home?.watch()?.collect {
                     data = it
                     error = null
+                    // Écran d'accueil Android TV : « Continuer à regarder » à jour (données fraîches seulement).
+                    if (!it.fromCache) {
+                        if (AppServices.settings.value.watchNext) {
+                            app.optifin.tv.core.WatchNext.update(AppServices.context,
+                                it.sections.firstOrNull { s -> s.id == "resume" }?.items.orEmpty(),
+                                it.sections.firstOrNull { s -> s.id == "nextup" }?.items.orEmpty(), AppServices.images)
+                        } else app.optifin.tv.core.WatchNext.clear(AppServices.context)
+                    }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e

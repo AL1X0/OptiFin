@@ -1,6 +1,10 @@
 package app.optifin.tv
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.navigation.compose.composable
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -110,4 +114,36 @@ class TvUiTest {
         press(Key.DirectionUp, 3)
         capture("08-fiche-haut")
     }
+
+    @Composable
+    private fun Screen(content: @Composable (app.optifin.tv.ui.shell.AppNav) -> Unit) {
+        val nav = androidx.navigation.compose.rememberNavController()
+        val appNav = androidx.compose.runtime.remember { app.optifin.tv.ui.shell.AppNav(nav, { _, _ -> }, {}) }
+        OptiFinTheme {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().background(app.optifin.tv.ui.theme.OF.Background)) {
+                androidx.navigation.compose.NavHost(nav, startDestination = "x") { composable("x") { content(appNav) } }
+            }
+        }
+    }
+
+    private fun shot(name: String, wait: Long = 4000, content: @Composable (app.optifin.tv.ui.shell.AppNav) -> Unit) {
+        compose.mainClock.autoAdvance = false
+        compose.setContent { Screen(content) }
+        waitMs(wait)
+        capture(name)
+    }
+
+    @Test fun bibliotheques() = shot("10-bibliotheques") { app.optifin.tv.ui.library.LibrariesScreen(it) }
+
+    @Test
+    fun bibliothequeFilms() {
+        val films = runBlocking { AppServices.media!!.userViews().first { v -> v.libraryType == app.optifin.tv.core.media.LibraryType.Movies } }
+        shot("11-bibliotheque", 6000) { app.optifin.tv.ui.library.LibraryScreen(films.id, it) }
+    }
+
+    @Test fun recherche() = shot("12-recherche") { app.optifin.tv.ui.search.SearchScreen(it) }
+    @Test fun reglages() = shot("13-reglages") { app.optifin.tv.ui.settings.SettingsScreen(it) }
+    @Test fun compte() = shot("14-compte") { app.optifin.tv.ui.settings.AccountScreen(it) }
+    @Test fun soiree() = shot("15-soiree", 6000) { app.optifin.tv.ui.party.PartyScreen(it) }
+    @Test fun journaux() = shot("16-journaux") { app.optifin.tv.ui.settings.LogsScreen(it) }
 }

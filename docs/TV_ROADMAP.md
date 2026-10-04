@@ -81,3 +81,16 @@ Les applis mobiles (Flutter), PC (C# / WinUI) restent inchangées.
 Chaque étape se termine par une version installable sur la TV : 0 → 1 → 2 → 4 → 5 (lecteur
 ExoPlayer) → 3 → 6 → 7 → 5 bis (mpv) → 8. Le lecteur arrive tôt : c'est l'essentiel à valider sur
 ta TV.
+
+## État (2026-10-04) : terminé
+
+Toutes les étapes 0 à 8 sont livrées dans `android-tv/` ; le mode TV a été retiré de l'appli Flutter.
+Tests : logique et client Jellyfin (`CoreTest`), soirée réelle à deux comptes (`SyncPlayTest`), parcours
+télécommande et captures de chaque écran sur le serveur local (`TvUiTest`, captures dans `app/build/screens`).
+
+**Clé de signature** : `%LOCALAPPDATA%\OptiFin-build\keys\optifin-tv.jks` + `android-tv/signing.properties`
+(hors dépôt). À sauvegarder : sans elle, plus aucune mise à jour ne peut s'installer par-dessus l'appli.
+Les anciens APK Flutter étaient signés par une clé jetable de la CI : désinstaller une fois l'ancienne appli
+de la TV avant d'installer `OptiFin-androidtv.apk`.
+
+Publication : `bash android-tv/publish.sh` (tests, APK signé, release `tv-N` « OptiFin TV 1.2.N »).

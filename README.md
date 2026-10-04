@@ -28,7 +28,8 @@ Client [Jellyfin](https://jellyfin.org) pour iPhone, iPad, Android, Android TV e
 - **Un lecteur hybride** : AVPlayer, Media3 ou mpv choisi automatiquement pour chaque fichier, sans transcodage inutile.
 - **Pensé pour les séries** : reprise synchronisée, « Passer l'intro », épisode suivant préparé pendant le générique.
 - **Hors connexion** : films et saisons téléchargés en arrière-plan, lus sans réseau.
-- **iPhone, iPad, Android et Android TV** (télécommande), mode sombre soigné, Picture-in-Picture, AirPlay.
+- **iPhone, iPad et Android**, mode sombre soigné, Picture-in-Picture, AirPlay.
+- **Android TV** : appli native dédiée (Kotlin, Compose for TV), pensée pour la télécommande, lecteurs Media3 + FFmpeg et mpv.
 - **Windows** : appli native (C# / WinUI 3, compilée en NativeAOT), lecteur mpv avec HDR, souris et clavier, mises à jour automatiques.
 
 ## Installer
@@ -39,7 +40,9 @@ Client [Jellyfin](https://jellyfin.org) pour iPhone, iPad, Android, Android TV e
 https://raw.githubusercontent.com/AL1X0/OptiFin/sidestore/source.json
 ```
 
-**Android et Android TV** : `OptiFin-android-arm64-v8a.apk` (ou `armeabi-v7a` pour les box et Fire TV plus anciens) dans la [dernière Release](https://github.com/AL1X0/OptiFin/releases/latest).
+**Android (téléphones et tablettes)** : `OptiFin-android-arm64-v8a.apk` (ou `armeabi-v7a` pour les appareils plus anciens) dans la [dernière Release](https://github.com/AL1X0/OptiFin/releases/latest).
+
+**Android TV / Google TV** : `OptiFin-androidtv.apk` dans la [dernière Release](https://github.com/AL1X0/OptiFin/releases/latest) — appli native dédiée à la télécommande (Kotlin, Compose for TV, lecteurs Media3 et mpv), qui se met ensuite à jour toute seule. Si l'ancienne appli OptiFin (version Flutter) est installée sur la TV, désinstallez-la une fois avant : la signature a changé.
 
 **Windows 10 / 11** : `OptiFin-windows-setup.exe` dans la [dernière Release](https://github.com/AL1X0/OptiFin/releases/latest) (installation sans droits administrateur) ; l'appli se met ensuite à jour toute seule.
 

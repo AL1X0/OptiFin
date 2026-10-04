@@ -439,3 +439,12 @@ connexion, choix du moteur (un seul moteur sous Windows), réglages propres au r
   l'installateur PC le plus récent.
 - La mise à jour automatique de l'appli PC parcourt la liste des releases et retient la version la plus élevée qui
   contient `OptiFin-windows-setup.exe` (l'appli PC est en 1.1.N, le mobile en 1.0.N).
+
+## Appli Android TV native (2026-10-04)
+
+- L'APK Flutter « hybride » sur TV est remplacé par une appli native `android-tv/` (Kotlin, Compose for TV),
+  même identifiant `app.optifin.optifin`, versions 1.2.N (code 100000 + N), release `tv-N`.
+- Lecteur : ExoPlayer + FFmpeg par défaut, remux si le conteneur n'est pas lu, mpv quand des sous-titres image
+  seraient perdus ou que la vidéo n'est pas décodable, transcodage en dernier ; chaîne de repli au démarrage.
+- Jeton jamais dans les URL : en-tête Authorization (DataSource Media3, `http-header-fields` de mpv).
+- Signature par une clé permanente locale (voir docs/TV_ROADMAP.md) ; publication locale, pas en CI.

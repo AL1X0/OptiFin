@@ -29,6 +29,8 @@ DIST=$(mktemp -d)
 cp out/installer/OptiFin-windows-setup.exe "$DIST/"
 MOBILE=$(gh release list --limit 50 --json tagName --jq '.[].tagName' | grep '^build-' | sort -t- -k2 -n -r | head -1 || true)
 [ -n "$MOBILE" ] && gh release download "$MOBILE" --dir "$DIST" --pattern 'OptiFin.ipa' --pattern 'OptiFin-android-*.apk' --pattern 'source.json' || true
+TV=$(gh release list --limit 50 --json tagName --jq '.[].tagName' | grep '^tv-' | sort -t- -k2 -n -r | head -1 || true)
+[ -n "$TV" ] && gh release download "$TV" --dir "$DIST" --pattern 'OptiFin-androidtv.apk' || true
 
 gh release create "$TAG" "$DIST"/* --draft --target "$(git rev-parse HEAD)" \
   --title "OptiFin Windows $VERSION" --notes "$(git log -1 --pretty=%B)"

@@ -94,7 +94,7 @@ fun LibrariesScreen(nav: AppNav) {
             list.isEmpty() -> StatusMessage("Aucune bibliothèque.")
             else -> {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(320.dp),
+                    columns = GridCells.Adaptive(260.dp),
                     contentPadding = PaddingValues(horizontal = OF.Gutter, vertical = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                     verticalArrangement = Arrangement.spacedBy(28.dp),

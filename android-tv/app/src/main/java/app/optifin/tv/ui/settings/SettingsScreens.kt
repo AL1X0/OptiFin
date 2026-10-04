@@ -298,8 +298,9 @@ fun LogsScreen(@Suppress("UNUSED_PARAMETER") nav: AppNav) {
     val shown = entries.filter { it.level >= level }
     LaunchedEffect(shown.size) { if (shown.isNotEmpty()) list.scrollToItem(shown.lastIndex) }
     Column(Modifier.fillMaxSize().padding(top = OF.SafeY + 8.dp, start = OF.Gutter, end = OF.Gutter)) {
+        Text("Journaux", style = MaterialTheme.typography.displaySmall, maxLines = 1)
+        Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Journaux", style = MaterialTheme.typography.displaySmall, modifier = Modifier.weight(1f))
             for (l in listOf(LogLevel.Debug to "Tout", LogLevel.Info to "Infos", LogLevel.Warning to "Avertissements", LogLevel.Error to "Erreurs")) {
                 TvButton(l.second, { level = l.first }, primary = level == l.first)
             }
@@ -316,6 +317,7 @@ fun LogsScreen(@Suppress("UNUSED_PARAMETER") nav: AppNav) {
                     }
                 }
             }, icon = Icons.Rounded.CloudUpload)
+            Spacer(Modifier.weight(1f))
             TvButton("Effacer", { AppLog.clear() }, icon = Icons.Rounded.DeleteSweep)
         }
         Spacer(Modifier.height(14.dp))
@@ -330,7 +332,7 @@ fun LogsScreen(@Suppress("UNUSED_PARAMETER") nav: AppNav) {
 private fun LogLine(e: app.optifin.tv.core.LogEntry) {
     var focused by remember { mutableStateOf(false) }
     Text(
-        e.toString(), fontFamily = FontFamily.Monospace, fontSize = 13.sp,
+        e.toString(), fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 18.sp,
         color = when (e.level) { LogLevel.Error -> OF.Danger; LogLevel.Warning -> Color(0xFFFFCC66); LogLevel.Info -> OF.TextPrimary; LogLevel.Debug -> OF.TextTertiary },
         modifier = Modifier.fillMaxWidth()
             .background(if (focused) Color(0x26FFFFFF) else Color.Transparent)

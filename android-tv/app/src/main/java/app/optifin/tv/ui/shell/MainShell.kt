@@ -121,6 +121,13 @@ fun MainShell(launchItem: MutableStateFlow<String?>, onPlay: (String, Boolean) -
     val session by AppServices.session.collectAsState()
     val pending by launchItem.collectAsState()
 
+    // Mise à jour publiée : annonce discrète au démarrage.
+    LaunchedEffect(Unit) {
+        runCatching { app.optifin.tv.core.update.AppUpdater.check() }.getOrNull()?.let {
+            AppServices.notice("OptiFin TV ${it.version} est disponible : Réglages › Rechercher une mise à jour")
+        }
+    }
+
     LaunchedEffect(pending) {
         val id = pending ?: return@LaunchedEffect
         launchItem.value = null
