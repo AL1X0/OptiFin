@@ -6,10 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:optifin_native_player/optifin_native_player.dart' show NativePlayers;
 
 import 'app/app.dart';
-import 'core/design_system/design_system.dart';
 import 'core/platform/device_identity.dart';
 import 'core/logging/app_log.dart';
 import 'core/network/retry_policy.dart';
@@ -58,14 +56,9 @@ Future<void> bootstrap() async {
   final session = await container.read(accountStoreProvider).restoreActiveSession();
   final settings = await loadSettings(db);
   final identity = await identityFuture;
-  // Téléviseur : interface à la télécommande (voir OFDevice).
-  OFDevice.tv = await NativePlayers.isTelevision();
   container.dispose();
   AppLog.instance.verbose = settings.debugMode;
-  AppLog.i(
-    'app',
-    'Démarrage OptiFin ${identity.version}${OFDevice.tv ? ' (TV)' : ''} — session ${session == null ? 'aucune' : 'restaurée'}',
-  );
+  AppLog.i('app', 'Démarrage OptiFin ${identity.version} — session ${session == null ? 'aucune' : 'restaurée'}');
 
   runApp(
     ProviderScope(

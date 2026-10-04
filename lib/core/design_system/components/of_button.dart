@@ -5,7 +5,7 @@ import '../theme.dart';
 import '../tokens.dart';
 import 'glass_press.dart';
 import 'glass_surface.dart';
-import 'tv_focus.dart';
+import 'focusable.dart';
 
 enum OFButtonVariant { primary, secondary }
 
@@ -41,7 +41,7 @@ class OFButton extends StatefulWidget {
   final bool loading;
   final bool expand;
 
-  /// Reçoit le focus à l'ouverture de l'écran (télécommande).
+  /// Reçoit le focus à l'ouverture de l'écran (clavier).
   final bool autofocus;
   final FocusNode? focusNode;
 
@@ -110,7 +110,7 @@ class _OFButtonState extends State<OFButton> {
       label: widget.label,
       excludeSemantics: true,
       onTap: _enabled ? _handleTap : null,
-      child: TvFocusable(
+      child: OFFocusable(
         onSelect: _enabled ? _handleTap : null,
         autofocus: widget.autofocus,
         focusNode: widget.focusNode,
@@ -154,7 +154,7 @@ class OFIconButton extends StatelessWidget {
       child: Semantics(
         button: true,
         label: tooltip,
-        child: TvFocusable(
+        child: OFFocusable(
           onSelect: onPressed,
           scale: 1.12,
           child: GestureDetector(
@@ -254,7 +254,7 @@ class _OFGlassButtonState extends State<OFGlassButton> {
       label: widget.label,
       excludeSemantics: true,
       onTap: enabled ? widget.onPressed : null,
-      child: TvFocusable(
+      child: OFFocusable(
         onSelect: widget.onPressed,
         scale: widget.showLabel ? 1.06 : 1.12,
         child: GestureDetector(

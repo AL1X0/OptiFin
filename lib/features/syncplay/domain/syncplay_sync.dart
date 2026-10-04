@@ -5,8 +5,7 @@ import 'syncplay_models.dart';
 /// Horloge du serveur (comme NTP) : décalage estimé à partir de /GetUtcTime. On garde
 /// l'échantillon au plus court aller-retour parmi les derniers, le plus fiable.
 class TimeSync {
-  TimeSync({DateTime Function()? now})
-    : _now = now ?? (() => DateTime.now().toUtc());
+  TimeSync({DateTime Function()? now}) : _now = now ?? (() => DateTime.now().toUtc());
 
   final DateTime Function() _now;
   final _samples = <(Duration offset, Duration delay)>[];
@@ -21,9 +20,7 @@ class TimeSync {
 
   /// t0 : envoi (local), t1 : réception (serveur), t2 : réponse (serveur), t3 : réception (local).
   void addSample(DateTime t0, DateTime t1, DateTime t2, DateTime t3) {
-    final o = Duration(
-      microseconds: (t1.difference(t0) + t2.difference(t3)).inMicroseconds ~/ 2,
-    );
+    final o = Duration(microseconds: (t1.difference(t0) + t2.difference(t3)).inMicroseconds ~/ 2);
     var delay = t3.difference(t0) - t2.difference(t1);
     if (delay < Duration.zero) delay = Duration.zero;
     _samples.add((o, delay));
@@ -52,16 +49,8 @@ abstract interface class SyncTarget {
 
 /// Ce que le lecteur envoie au serveur.
 abstract interface class SyncRequests {
-  Future<void> ready(
-    Duration position, {
-    required bool isPlaying,
-    required String playlistItemId,
-  });
-  Future<void> buffering(
-    Duration position, {
-    required bool isPlaying,
-    required String playlistItemId,
-  });
+  Future<void> ready(Duration position, {required bool isPlaying, required String playlistItemId});
+  Future<void> buffering(Duration position, {required bool isPlaying, required String playlistItemId});
   Future<void> pause();
   Future<void> unpause();
   Future<void> seek(Duration position);
@@ -106,15 +95,11 @@ class SyncPlayPlayback {
   bool waiting = true;
 
   /// Titre chargé et position de départ atteinte : prêt pour le groupe.
-  Future<void> loaded({required bool isPlaying}) => requests.ready(
-    target.position,
-    isPlaying: isPlaying,
-    playlistItemId: playlistItemId,
-  );
+  Future<void> loaded({required bool isPlaying}) =>
+      requests.ready(target.position, isPlaying: isPlaying, playlistItemId: playlistItemId);
 
   void apply(SyncCommand command) {
-    if (command.kind != SyncCommandKind.stop &&
-        command.playlistItemId != playlistItemId) {
+    if (command.kind != SyncCommandKind.stop && command.playlistItemId != playlistItemId) {
       return;
     }
     switch (command.kind) {
@@ -130,10 +115,7 @@ class SyncPlayPlayback {
           _pendingUnpause = start;
         } else {
           // En retard : on part directement là où en est le groupe.
-          _seekIfFar(
-            command.position + now.difference(start),
-            const Duration(milliseconds: 250),
-          );
+          _seekIfFar(command.position + now.difference(start), const Duration(milliseconds: 250));
           target.play();
           _pendingUnpause = null;
           _settleUntil = now.add(settleTime);
@@ -165,13 +147,7 @@ class SyncPlayPlayback {
   void onSeekCompleted() {
     if (!_waitingForSeek) return;
     _waitingForSeek = false;
-    unawaited(
-      requests.ready(
-        target.position,
-        isPlaying: _readyAfterSeekPlaying,
-        playlistItemId: playlistItemId,
-      ),
-    );
+    unawaited(requests.ready(target.position, isPlaying: _readyAfterSeekPlaying, playlistItemId: playlistItemId));
   }
 
   /// Lecture arrêtée faute de données : au-delà de [stallThreshold], le groupe attend ce participant.
@@ -184,30 +160,16 @@ class SyncPlayPlayback {
     if (!_buffering) return;
     _buffering = false;
     _settleUntil = time.localNow.add(settleTime);
-    unawaited(
-      requests.ready(
-        target.position,
-        isPlaying: _playingFrom != null,
-        playlistItemId: playlistItemId,
-      ),
-    );
+    unawaited(requests.ready(target.position, isPlaying: _playingFrom != null, playlistItemId: playlistItemId));
   }
 
   /// À appeler régulièrement (≈ 4 fois par seconde) : départ programmé et rattrapage de dérive.
   void tick() {
     final now = time.localNow;
     final since = _stallSince;
-    if (since != null &&
-        !_buffering &&
-        now.difference(since) >= stallThreshold) {
+    if (since != null && !_buffering && now.difference(since) >= stallThreshold) {
       _buffering = true;
-      unawaited(
-        requests.buffering(
-          target.position,
-          isPlaying: _playingFrom != null,
-          playlistItemId: playlistItemId,
-        ),
-      );
+      unawaited(requests.buffering(target.position, isPlaying: _playingFrom != null, playlistItemId: playlistItemId));
     }
     final at = _pendingUnpause;
     if (at != null && !now.isBefore(at)) {
@@ -217,11 +179,7 @@ class SyncPlayPlayback {
       return;
     }
     final from = _playingFrom;
-    if (from == null ||
-        _buffering ||
-        target.paused ||
-        _pendingUnpause != null ||
-        now.isBefore(_settleUntil)) {
+    if (from == null || _buffering || target.paused || _pendingUnpause != null || now.isBefore(_settleUntil)) {
       return;
     }
     final expected = from.$2 + time.serverNow.difference(from.$1);
@@ -253,9 +211,7 @@ class SyncPlayPlayback {
   // ------------------------------------------------------------ Actions de l'utilisateur
 
   Future<void> requestTogglePlay() =>
-      _playingFrom != null || _pendingUnpause != null
-      ? requests.pause()
-      : requests.unpause();
+      _playingFrom != null || _pendingUnpause != null ? requests.pause() : requests.unpause();
   Future<void> requestSeek(Duration position) => requests.seek(position);
 
   void onGroupState(GroupState state) => waiting = state == GroupState.waiting;

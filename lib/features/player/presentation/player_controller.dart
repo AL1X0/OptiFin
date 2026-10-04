@@ -603,10 +603,12 @@ class PlayerController extends Notifier<PlayerUiState> {
     _partyController = controller;
     _subscriptionsForever
       ..add(controller.commands.listen(_onPartyCommand))
-      ..add(controller.groupStates.listen((s) {
-        _sync?.onGroupState(s);
-        _updatePartyBadge();
-      }));
+      ..add(
+        controller.groupStates.listen((s) {
+          _sync?.onGroupState(s);
+          _updatePartyBadge();
+        }),
+      );
     ref.listen(watchPartyProvider, (_, _) => _updatePartyBadge());
     // Appelé depuis build() : l'état n'existe pas encore, le badge est posé juste après.
     Future.microtask(_updatePartyBadge);
@@ -648,7 +650,9 @@ class PlayerController extends Notifier<PlayerUiState> {
       }
       return;
     }
-    if (command.kind == SyncCommandKind.seek && command.playlistItemId == sync.playlistItemId) _awaitedSeek = command.position;
+    if (command.kind == SyncCommandKind.seek && command.playlistItemId == sync.playlistItemId) {
+      _awaitedSeek = command.position;
+    }
     sync.apply(command);
     _updatePartyBadge();
   }
@@ -864,7 +868,6 @@ class PlayerController extends Notifier<PlayerUiState> {
     link?.close();
   }
 }
-
 
 /// Moteur de lecture vu par la synchronisation de soirée (commandes directes, sans passer par le groupe).
 class _EngineTarget implements SyncTarget {

@@ -13,12 +13,8 @@ import '../domain/syncplay_sync.dart';
 /// Authorization, jamais dans l'URL), maintien et reconnexion automatique, horloge du serveur, et
 /// requêtes du groupe. Les messages reçus sont diffusés par [messages].
 class SyncPlayClient implements SyncRequests {
-  SyncPlayClient({
-    required this.dio,
-    required this.baseUrl,
-    required this.authorization,
-    TimeSync? time,
-  }) : time = time ?? TimeSync();
+  SyncPlayClient({required this.dio, required this.baseUrl, required this.authorization, TimeSync? time})
+    : time = time ?? TimeSync();
 
   /// Requêtes authentifiées de la session.
   final Dio dio;
@@ -55,10 +51,8 @@ class SyncPlayClient implements SyncRequests {
     ];
   }
 
-  Future<void> create(String name) =>
-      _post('/SyncPlay/New', {'GroupName': name});
-  Future<void> join(String groupId) =>
-      _post('/SyncPlay/Join', {'GroupId': groupId});
+  Future<void> create(String name) => _post('/SyncPlay/New', {'GroupName': name});
+  Future<void> join(String groupId) => _post('/SyncPlay/Join', {'GroupId': groupId});
 
   Future<void> leave() async {
     await _post('/SyncPlay/Leave');
@@ -66,15 +60,10 @@ class SyncPlayClient implements SyncRequests {
   }
 
   /// Nouvelle file partagée : tous les participants ouvrent le titre à cette position.
-  Future<void> setQueue(
-    List<String> itemIds, {
-    int index = 0,
-    Duration start = Duration.zero,
-  }) => _post('/SyncPlay/SetNewQueue', {
-    'PlayingQueue': itemIds,
-    'PlayingItemPosition': index,
-    'StartPositionTicks': durationToTicks(start),
-  });
+  Future<void> setQueue(List<String> itemIds, {int index = 0, Duration start = Duration.zero}) => _post(
+    '/SyncPlay/SetNewQueue',
+    {'PlayingQueue': itemIds, 'PlayingItemPosition': index, 'StartPositionTicks': durationToTicks(start)},
+  );
 
   @override
   Future<void> pause() => _post('/SyncPlay/Pause');
@@ -86,29 +75,17 @@ class SyncPlayClient implements SyncRequests {
   Future<void> stop() => _post('/SyncPlay/Stop');
 
   @override
-  Future<void> seek(Duration position) =>
-      _post('/SyncPlay/Seek', {'PositionTicks': durationToTicks(position)});
+  Future<void> seek(Duration position) => _post('/SyncPlay/Seek', {'PositionTicks': durationToTicks(position)});
 
   @override
-  Future<void> ready(
-    Duration position, {
-    required bool isPlaying,
-    required String playlistItemId,
-  }) => _post('/SyncPlay/Ready', _state(position, isPlaying, playlistItemId));
+  Future<void> ready(Duration position, {required bool isPlaying, required String playlistItemId}) =>
+      _post('/SyncPlay/Ready', _state(position, isPlaying, playlistItemId));
 
   @override
-  Future<void> buffering(
-    Duration position, {
-    required bool isPlaying,
-    required String playlistItemId,
-  }) =>
+  Future<void> buffering(Duration position, {required bool isPlaying, required String playlistItemId}) =>
       _post('/SyncPlay/Buffering', _state(position, isPlaying, playlistItemId));
 
-  Map<String, Object> _state(
-    Duration position,
-    bool isPlaying,
-    String playlistItemId,
-  ) => {
+  Map<String, Object> _state(Duration position, bool isPlaying, String playlistItemId) => {
     'When': time.serverNow.toIso8601String(),
     'PositionTicks': durationToTicks(position),
     'IsPlaying': isPlaying,
@@ -165,12 +142,7 @@ class SyncPlayClient implements SyncRequests {
         _setConnected(true);
         backoff = const Duration(seconds: 2);
         AppLog.i('syncplay', 'Connexion temps réel établie');
-        unawaited(
-          syncTime().catchError(
-            (Object e) =>
-                AppLog.d('syncplay', 'Horloge du serveur indisponible : $e'),
-          ),
-        );
+        unawaited(syncTime().catchError((Object e) => AppLog.d('syncplay', 'Horloge du serveur indisponible : $e')));
         _scheduleKeepAlive();
         await for (final data in socket) {
           if (data is String) _handle(data);
@@ -218,11 +190,8 @@ class SyncPlayClient implements SyncRequests {
         group = g;
       case GroupLeft():
         group = null;
-      case UserJoined(:final userName)
-          when current != null && !current.participants.contains(userName):
-        group = current.copyWith(
-          participants: [...current.participants, userName],
-        );
+      case UserJoined(:final userName) when current != null && !current.participants.contains(userName):
+        group = current.copyWith(participants: [...current.participants, userName]);
       case UserLeft(:final userName) when current != null:
         group = current.copyWith(
           participants: [
@@ -232,8 +201,7 @@ class SyncPlayClient implements SyncRequests {
         );
       case StateChanged(:final state) when current != null:
         group = current.copyWith(state: state);
-      case SyncPlayError(:final kind)
-          when kind == 'NotInGroup' || kind == 'GroupDoesNotExist':
+      case SyncPlayError(:final kind) when kind == 'NotInGroup' || kind == 'GroupDoesNotExist':
         group = null;
       default:
         break;

@@ -25,7 +25,6 @@ class DeviceCapabilities {
     this.maxWidth = 1920,
     this.pictureInPicture = false,
     this.airPlay = false,
-    this.television = false,
   });
 
   final DevicePlatform platform;
@@ -63,8 +62,6 @@ class DeviceCapabilities {
   /// AirPlay (iOS, lecteur natif).
   final bool airPlay;
 
-  /// Téléviseur (Android TV, Google TV, Fire TV) : pas de Picture-in-Picture, mémoire comptée.
-  final bool television;
 
   bool get supportsDolbyVision => dolbyVisionProfiles.isNotEmpty;
 
@@ -135,7 +132,6 @@ class DeviceCapabilities {
       maxWidth: json['maxWidth'] is int ? json['maxWidth']! as int : base.maxWidth,
       pictureInPicture: json['pictureInPicture'] == true,
       airPlay: json['airPlay'] == true,
-      television: json['television'] == true,
     );
   }
 
@@ -153,7 +149,6 @@ class DeviceCapabilities {
     'maxWidth': maxWidth,
     'pictureInPicture': pictureInPicture,
     'airPlay': airPlay,
-    'television': television,
   };
 
   String toJsonString() => jsonEncode(toJson());
@@ -170,7 +165,7 @@ class DeviceCapabilities {
 
   /// Résumé lisible (paramètres, journaux).
   String get summary => [
-    '${television ? 'TV ' : ''}${platform.name}${model == null ? '' : ' $model'}${osVersion == null ? '' : ' $osVersion'}',
+    '${platform.name}${model == null ? '' : ' $model'}${osVersion == null ? '' : ' $osVersion'}',
     'vidéo ${videoCodecs.join('/')}${hevcMain10 ? ' (HEVC 10 bits)' : ''}',
     'gammes ${ranges.map((r) => r.label).join('/')}',
     if (supportsDolbyVision) 'DV p${dolbyVisionProfiles.join('/')}',

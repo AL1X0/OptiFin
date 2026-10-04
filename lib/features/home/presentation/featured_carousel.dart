@@ -186,8 +186,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
 
   void _restartTimer() {
     _timer?.cancel();
-    // TV : pas de défilement automatique (il déroberait le focus de la télécommande).
-    if (!OFMotion.of(context).enabled || widget.items.length < 2 || OFDevice.tv) return;
+    if (!OFMotion.of(context).enabled || widget.items.length < 2) return;
     _timer = Timer.periodic(const Duration(seconds: 8), (_) {
       if (!mounted || !_controller.hasClients) return;
       final next = (_index + 1) % widget.items.length;
@@ -245,7 +244,6 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
                       width: width,
                       height: height,
                       playFocus: _playNode(i),
-                      autofocus: OFDevice.tv && i == 0,
                       onStep: _step,
                     ),
                   ),
@@ -282,14 +280,12 @@ class _FeaturedPage extends ConsumerWidget {
     required this.height,
     required this.playFocus,
     required this.onStep,
-    this.autofocus = false,
   });
 
   final MediaItem item;
   final double width;
   final double height;
   final FocusNode playFocus;
-  final bool autofocus;
 
   /// Télécommande : titre précédent (-1) ou suivant (+1) ; false en bout de carrousel.
   final bool Function(int delta) onStep;
@@ -385,7 +381,6 @@ class _FeaturedPage extends ConsumerWidget {
                         label: 'Lecture',
                         icon: Icons.play_arrow_rounded,
                         focusNode: playFocus,
-                        autofocus: autofocus,
                         // Film : lecture directe. Série : la fiche choisit l'épisode à suivre.
                         onPressed: () => item.kind.isPlayableVideo ? context.play(item.id) : context.openItem(item),
                       ),

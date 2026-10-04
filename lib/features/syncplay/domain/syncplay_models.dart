@@ -12,12 +12,7 @@ GroupState _state(Object? s) => switch (s) {
 
 /// Soirée : identifiant, nom, état, participants (noms d'utilisateur).
 class GroupInfo {
-  const GroupInfo({
-    required this.id,
-    required this.name,
-    required this.state,
-    required this.participants,
-  });
+  const GroupInfo({required this.id, required this.name, required this.state, required this.participants});
 
   factory GroupInfo.fromJson(Map<String, dynamic> j) => GroupInfo(
     id: j['GroupId'] as String? ?? '',
@@ -35,24 +30,14 @@ class GroupInfo {
   final List<String> participants;
 
   GroupInfo copyWith({GroupState? state, List<String>? participants}) =>
-      GroupInfo(
-        id: id,
-        name: name,
-        state: state ?? this.state,
-        participants: participants ?? this.participants,
-      );
+      GroupInfo(id: id, name: name, state: state ?? this.state, participants: participants ?? this.participants);
 }
 
 enum SyncCommandKind { unpause, pause, stop, seek }
 
 /// Ordre du serveur à appliquer à l'heure [when] (heure du serveur, UTC).
 class SyncCommand {
-  const SyncCommand({
-    required this.kind,
-    required this.playlistItemId,
-    required this.when,
-    required this.position,
-  });
+  const SyncCommand({required this.kind, required this.playlistItemId, required this.when, required this.position});
 
   factory SyncCommand.fromJson(Map<String, dynamic> j) => SyncCommand(
     kind: switch (j['Command']) {
@@ -92,11 +77,7 @@ class PlayQueue {
     reason: j['Reason'] as String? ?? '',
     items: [
       for (final i in (j['Playlist'] as List? ?? const []))
-        if (i is Map<String, dynamic>)
-          QueueItem(
-            i['ItemId'] as String? ?? '',
-            i['PlaylistItemId'] as String? ?? '',
-          ),
+        if (i is Map<String, dynamic>) QueueItem(i['ItemId'] as String? ?? '', i['PlaylistItemId'] as String? ?? ''),
     ],
     playingIndex: (j['PlayingItemIndex'] as num?)?.toInt() ?? -1,
     start: ticksToDuration(j['StartPositionTicks']),
@@ -109,9 +90,7 @@ class PlayQueue {
   final Duration start;
   final bool isPlaying;
 
-  QueueItem? get current => playingIndex >= 0 && playingIndex < items.length
-      ? items[playingIndex]
-      : null;
+  QueueItem? get current => playingIndex >= 0 && playingIndex < items.length ? items[playingIndex] : null;
 }
 
 /// Message reçu par la connexion temps réel du serveur (/socket).
@@ -173,12 +152,8 @@ SyncPlayMessage? parseSyncPlayMessage(String raw) {
     final data = root['Data'];
     return switch (root['MessageType']) {
       'ForceKeepAlive' => KeepAliveRequest(data is num ? data.toInt() : 60),
-      'SyncPlayCommand' when data is Map<String, dynamic> => CommandReceived(
-        SyncCommand.fromJson(data),
-      ),
-      'SyncPlayGroupUpdate' when data is Map<String, dynamic> => _groupUpdate(
-        data,
-      ),
+      'SyncPlayCommand' when data is Map<String, dynamic> => CommandReceived(SyncCommand.fromJson(data)),
+      'SyncPlayGroupUpdate' when data is Map<String, dynamic> => _groupUpdate(data),
       _ => null,
     };
   } on FormatException {
@@ -190,9 +165,7 @@ SyncPlayMessage? _groupUpdate(Map<String, dynamic> update) {
   final data = update['Data'];
   final type = '${update['Type']}';
   return switch (type) {
-    'GroupJoined' when data is Map<String, dynamic> => GroupJoined(
-      GroupInfo.fromJson(data),
-    ),
+    'GroupJoined' when data is Map<String, dynamic> => GroupJoined(GroupInfo.fromJson(data)),
     'GroupLeft' => const GroupLeft(),
     'UserJoined' => UserJoined('${data ?? ''}'),
     'UserLeft' => UserLeft('${data ?? ''}'),
@@ -200,13 +173,8 @@ SyncPlayMessage? _groupUpdate(Map<String, dynamic> update) {
       _state(data['State']),
       data['Reason'] as String? ?? '',
     ),
-    'PlayQueue' when data is Map<String, dynamic> => QueueChanged(
-      PlayQueue.fromJson(data),
-    ),
-    'NotInGroup' => SyncPlayError(
-      type,
-      'Vous ne faites plus partie de cette soirée.',
-    ),
+    'PlayQueue' when data is Map<String, dynamic> => QueueChanged(PlayQueue.fromJson(data)),
+    'NotInGroup' => SyncPlayError(type, 'Vous ne faites plus partie de cette soirée.'),
     'GroupDoesNotExist' => SyncPlayError(type, 'Cette soirée n’existe plus.'),
     'CreateGroupDenied' => SyncPlayError(
       type,
@@ -216,16 +184,12 @@ SyncPlayMessage? _groupUpdate(Map<String, dynamic> update) {
       type,
       'Votre compte n’a pas le droit de rejoindre une soirée (réglage SyncPlay du serveur).',
     ),
-    'LibraryAccessDenied' => SyncPlayError(
-      type,
-      'Un participant n’a pas accès à ce titre dans ses bibliothèques.',
-    ),
+    'LibraryAccessDenied' => SyncPlayError(type, 'Un participant n’a pas accès à ce titre dans ses bibliothèques.'),
     _ => null,
   };
 }
 
-Duration ticksToDuration(Object? ticks) =>
-    Duration(microseconds: ((ticks as num?) ?? 0) ~/ 10);
+Duration ticksToDuration(Object? ticks) => Duration(microseconds: ((ticks as num?) ?? 0) ~/ 10);
 
 int durationToTicks(Duration d) => d.inMicroseconds * 10;
 
@@ -233,9 +197,6 @@ int durationToTicks(Duration d) => d.inMicroseconds * 10;
 DateTime parseServerTime(Object? value) {
   if (value is! String) return DateTime.now().toUtc();
   // Dart n'accepte que 6 décimales : on tronque les secondes fractionnaires.
-  final trimmed = value.replaceFirstMapped(
-    RegExp(r'(\.\d{6})\d+'),
-    (m) => m[1]!,
-  );
+  final trimmed = value.replaceFirstMapped(RegExp(r'(\.\d{6})\d+'), (m) => m[1]!);
   return (DateTime.tryParse(trimmed) ?? DateTime.now()).toUtc();
 }

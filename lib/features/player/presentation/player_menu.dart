@@ -195,17 +195,15 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
             onTap: () => _open(PlayerMenuPage.engine),
           ),
           const _MenuDivider(),
-          // Verrou (écran tactile) : inutile à la télécommande.
-          if (!OFDevice.tv)
-            _MenuRow(
-              icon: Icons.lock_outline_rounded,
-              label: 'Verrouiller l’écran',
-              chevron: false,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                widget.onLock();
-              },
-            ),
+          _MenuRow(
+            icon: Icons.lock_outline_rounded,
+            label: 'Verrouiller l’écran',
+            chevron: false,
+            onTap: () {
+              HapticFeedback.selectionClick();
+              widget.onLock();
+            },
+          ),
           _MenuRow(
             icon: Icons.info_outline_rounded,
             label: 'Infos techniques',
@@ -470,10 +468,6 @@ class _FocusFirstState extends State<_FocusFirst> {
   @override
   void initState() {
     super.initState();
-    if (!OFDevice.tv) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _group.traversalDescendants.firstOrNull?.requestFocus();
-    });
   }
 
   @override

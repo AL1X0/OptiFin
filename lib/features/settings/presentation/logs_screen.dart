@@ -39,7 +39,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
   }
 
   /// Envoie le journal au serveur Jellyfin (Tableau de bord › Journaux, fichier
-  /// « upload_… ») : seul moyen de le récupérer depuis un téléviseur.
+  /// « upload_… »).
   Future<void> _upload() async {
     final messenger = ScaffoldMessenger.of(context);
     try {

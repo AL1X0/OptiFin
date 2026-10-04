@@ -32,16 +32,6 @@ abstract final class NativePlayers {
             .handleError((Object _) {});
 
   /// Android : passe l'activité en PiP au format de la vidéo. false si impossible.
-  /// Android TV, Google TV ou Fire TV (interface « 10 pieds », télécommande). false ailleurs.
-  static Future<bool> isTelevision() async {
-    if (defaultTargetPlatform != TargetPlatform.android) return false;
-    try {
-      return await _channel.invokeMethod<bool>('isTelevision') ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
-
   static Future<bool> enterPictureInPicture({int width = 16, int height = 9}) async {
     try {
       return await _channel.invokeMethod<bool>('enterPip', {'width': width, 'height': height}) ?? false;

@@ -40,7 +40,7 @@ abstract final class OFTheme {
       canvasColor: OFColors.background,
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
-      // Focus à la télécommande (listes, puces, menus) : surbrillance nette.
+      // Focus au clavier (listes, puces, menus) : surbrillance nette.
       focusColor: const Color(0x33FFFFFF),
       textTheme: textTheme.apply(bodyColor: OFColors.textPrimary, displayColor: OFColors.textPrimary),
       dividerTheme: const DividerThemeData(color: OFColors.stroke, thickness: 0.5, space: 0.5),

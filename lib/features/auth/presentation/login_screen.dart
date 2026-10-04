@@ -13,7 +13,6 @@ import '../../../core/providers.dart';
 import '../data/auth_repository.dart';
 import '../domain/entities.dart';
 import 'auth_providers.dart';
-import 'tv_auth_layout.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key, this.initialUsername});
@@ -67,17 +66,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _quickConnect(JellyfinServer server) async {
-    // TV : fenêtre centrée (un panneau venu du bas n'a pas de sens sur un téléviseur).
-    final session = OFDevice.tv
-        ? await showDialog<ActiveSession>(
-            context: context,
-            builder: (_) => Dialog(
-              backgroundColor: OFColors.surface,
-              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(28))),
-              child: SizedBox(width: 560, child: _QuickConnectSheet(server: server)),
-            ),
-          )
-        : await showOFSheet<ActiveSession>(context, builder: (_) => _QuickConnectSheet(server: server));
+    final session = await showOFSheet<ActiveSession>(context, builder: (_) => _QuickConnectSheet(server: server));
     if (session != null) await _finish(session);
   }
 
@@ -97,81 +86,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final gutter = OFSpacing.gutterOf(context);
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final images = JellyfinImageUrlBuilder(server.baseUrl);
-
-    if (OFDevice.tv) {
-      return TvAuthLayout(
-        title: server.name,
-        subtitle: quickConnect ? 'Le plus simple : Quick Connect.' : 'Qui regarde ?',
-        footer: '${server.baseUrl} · Jellyfin ${server.version}',
-        children: [
-          if (quickConnect) ...[
-            OFButton(
-              label: 'Se connecter avec Quick Connect',
-              icon: Icons.bolt_rounded,
-              expand: true,
-              autofocus: true,
-              onPressed: _busy ? null : () => _quickConnect(server),
-            ),
-            const SizedBox(height: OFSpacing.xs),
-            Text(
-              'Un code s’affiche : validez-le depuis Jellyfin sur votre téléphone.',
-              style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
-            ),
-            const TvSectionLabel('Ou avec un mot de passe'),
-          ],
-          if (users.isNotEmpty) ...[
-            SizedBox(
-              height: 112,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                padding: const EdgeInsets.symmetric(vertical: OFSpacing.xs),
-                itemCount: users.length,
-                separatorBuilder: (_, _) => const SizedBox(width: OFSpacing.lg),
-                itemBuilder: (context, i) {
-                  final u = users[i];
-                  final selected = _username.text == u.name;
-                  return TvFocusable(
-                    autofocus: !quickConnect && i == 0,
-                    borderRadius: const BorderRadius.all(Radius.circular(40)),
-                    scale: 1.1,
-                    ring: false,
-                    onSelect: () {
-                      setState(() => _username.text = u.name);
-                      // Utilisateur choisi : on passe au mot de passe.
-                      _passwordFocus.requestFocus();
-                    },
-                    child: _TvUser(
-                      name: u.name,
-                      selected: selected,
-                      imageUrl: u.avatarTag == null
-                          ? null
-                          : images.userAvatar(userId: u.id, tag: u.avatarTag, logicalWidth: 64, devicePixelRatio: dpr),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: OFSpacing.sm),
-          ],
-          OFTextField(label: 'Nom d’utilisateur', controller: _username, textInputAction: TextInputAction.next),
-          const SizedBox(height: OFSpacing.sm),
-          OFTextField(
-            label: 'Mot de passe',
-            controller: _password,
-            focusNode: _passwordFocus,
-            obscure: true,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _login(server),
-            errorText: _error,
-          ),
-          const SizedBox(height: OFSpacing.md),
-          OFButton(label: 'Se connecter', expand: true, loading: _busy, onPressed: () => _login(server)),
-          const SizedBox(height: OFSpacing.sm),
-          OFButton.secondary(label: 'Changer de serveur', expand: true, onPressed: () => context.pop()),
-        ],
-      );
-    }
 
     return Scaffold(
       // Arrivée douce du formulaire.
@@ -216,7 +130,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               setState(() => _username.text = u.name);
                             }
 
-                            return TvFocusable(
+                            return OFFocusable(
                               onSelect: pick,
                               borderRadius: const BorderRadius.all(Radius.circular(OFRadius.md)),
                               child: GestureDetector(
@@ -399,46 +313,3 @@ class _QuickConnectSheetState extends ConsumerState<_QuickConnectSheet> {
   }
 }
 
-/// Profil sur l'écran de connexion TV : avatar entouré de blanc au focus, liseré coloré
-/// pour le profil choisi.
-class _TvUser extends StatelessWidget {
-  const _TvUser({required this.name, required this.selected, this.imageUrl});
-
-  final String name;
-  final bool selected;
-  final Uri? imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final focused = Focus.of(context).hasPrimaryFocus || (Focus.maybeOf(context)?.hasFocus ?? false);
-    final accent = Theme.of(context).colorScheme.primary;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedContainer(
-          duration: OFMotion.of(context).fast,
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: focused ? OFColors.textPrimary : (selected ? accent : Colors.transparent),
-              width: 3,
-            ),
-          ),
-          child: AvatarChip(name: name, size: 64, imageUrl: imageUrl),
-        ),
-        const SizedBox(height: OFSpacing.xs),
-        SizedBox(
-          width: 84,
-          child: Text(
-            name,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: OFTypography.caption.copyWith(color: focused ? OFColors.textPrimary : OFColors.textSecondary),
-          ),
-        ),
-      ],
-    );
-  }
-}

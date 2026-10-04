@@ -11,7 +11,6 @@ import '../../../core/network/image_url.dart';
 import '../../../core/providers.dart';
 import '../data/account_store.dart';
 import 'auth_providers.dart';
-import 'tv_auth_layout.dart';
 
 /// Écran d'accueil de connexion : comptes enregistrés, serveurs découverts, saisie manuelle.
 class ConnectScreen extends ConsumerStatefulWidget {
@@ -71,65 +70,6 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     final accounts = ref.watch(savedAccountsProvider).value ?? const [];
     final discovered = ref.watch(discoveredServersProvider);
     final canPop = context.canPop();
-
-    if (OFDevice.tv) {
-      final servers = discovered.value ?? const [];
-      return TvAuthLayout(
-        title: 'OptiFin',
-        subtitle: 'Connectez-vous à votre serveur Jellyfin.',
-        children: [
-          if (accounts.isNotEmpty) ...[
-            const TvSectionLabel('Comptes'),
-            for (final (i, a) in accounts.indexed)
-              TvChoiceTile(
-                autofocus: i == 0,
-                leading: _AccountAvatar(stored: a),
-                title: a.account.userName,
-                subtitle: a.server.name,
-                onSelect: () => _resume(a),
-              ),
-          ],
-          TvSectionLabel(discovered.isLoading ? 'Recherche sur ce réseau…' : 'Sur ce réseau'),
-          if (servers.isEmpty && !discovered.isLoading)
-            Padding(
-              padding: const EdgeInsets.only(bottom: OFSpacing.sm),
-              child: Text(
-                'Aucun serveur détecté automatiquement.',
-                style: OFTypography.callout.copyWith(color: OFColors.textTertiary),
-              ),
-            ),
-          for (final (i, server) in servers.indexed)
-            TvChoiceTile(
-              autofocus: accounts.isEmpty && i == 0,
-              leading: const _ServerIcon(),
-              title: server.name,
-              subtitle: server.address.toString(),
-              onSelect: _probing ? null : () => _connect(server.address.toString()),
-            ),
-          const TvSectionLabel('Adresse du serveur'),
-          OFTextField(
-            label: 'https://jellyfin.exemple.fr',
-            controller: _address,
-            keyboardType: TextInputType.url,
-            textInputAction: TextInputAction.go,
-            onSubmitted: _connect,
-            errorText: _error,
-          ),
-          const SizedBox(height: OFSpacing.md),
-          OFButton(
-            label: 'Continuer',
-            expand: true,
-            loading: _probing,
-            autofocus: accounts.isEmpty && servers.isEmpty,
-            onPressed: () => _connect(_address.text),
-          ),
-          if (canPop) ...[
-            const SizedBox(height: OFSpacing.sm),
-            OFButton.secondary(label: 'Annuler', expand: true, onPressed: () => context.pop()),
-          ],
-        ],
-      );
-    }
 
     return Scaffold(
       // Arrivée douce du formulaire.

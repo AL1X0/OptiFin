@@ -12,18 +12,11 @@ import '../data/syncplay_client.dart';
 import '../domain/syncplay_models.dart';
 
 /// Messages éphémères (arrivée d'un participant, erreur de soirée), affichés partout dans l'appli.
-final rootMessengerKey = GlobalKey<ScaffoldMessengerState>(
-  debugLabel: 'messages',
-);
+final rootMessengerKey = GlobalKey<ScaffoldMessengerState>(debugLabel: 'messages');
 
 /// Ouverture du lecteur pour une soirée : élément de la file, position et état de départ.
 class PartyStart {
-  const PartyStart({
-    required this.itemId,
-    required this.playlistItemId,
-    required this.start,
-    required this.isPlaying,
-  });
+  const PartyStart({required this.itemId, required this.playlistItemId, required this.start, required this.isPlaying});
   final String itemId;
   final String playlistItemId;
   final Duration start;
@@ -31,11 +24,7 @@ class PartyStart {
 }
 
 class WatchPartyState {
-  const WatchPartyState({
-    this.group,
-    this.connected = false,
-    this.available = false,
-  });
+  const WatchPartyState({this.group, this.connected = false, this.available = false});
 
   /// Soirée rejointe (null hors soirée).
   final GroupInfo? group;
@@ -50,10 +39,7 @@ class WatchPartyState {
 /// Soirées (SyncPlay de Jellyfin) à l'échelle de l'appli : connexion ouverte dès qu'un compte est
 /// actif, état du groupe pour l'interface, et ouverture du lecteur chez tout le monde quand un
 /// participant lance un titre.
-final watchPartyProvider =
-    NotifierProvider<WatchPartyController, WatchPartyState>(
-      WatchPartyController.new,
-    );
+final watchPartyProvider = NotifierProvider<WatchPartyController, WatchPartyState>(WatchPartyController.new);
 
 class WatchPartyController extends Notifier<WatchPartyState> {
   /// Connexion temps réel au serveur ; désactivée dans les tests d'écrans (pas de serveur).
@@ -88,19 +74,14 @@ class WatchPartyController extends Notifier<WatchPartyState> {
     final client = SyncPlayClient(
       dio: ref.watch(jellyfinDioProvider),
       baseUrl: session.server.baseUrl,
-      authorization: () =>
-          buildAuthorizationHeader(identity, token: session.token),
+      authorization: () => buildAuthorizationHeader(identity, token: session.token),
     );
     _client = client;
     _subscriptions
       ..add(client.messages.listen(_onMessage))
       ..add(
         client.connectionChanges.listen(
-          (c) => state = WatchPartyState(
-            group: client.group,
-            connected: c,
-            available: true,
-          ),
+          (c) => state = WatchPartyState(group: client.group, connected: c, available: true),
         ),
       );
     client.start();
@@ -146,9 +127,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
         if (command.kind == SyncCommandKind.stop) {
           _openedPlaylistItem = null;
           final id = command.playlistItemId;
-          if (!_stopping &&
-              id.replaceAll('0', '').isNotEmpty &&
-              pending != null) {
+          if (!_stopping && id.replaceAll('0', '').isNotEmpty && pending != null) {
             _notice('L’hôte a arrêté la lecture');
           }
           _stopping = false;
@@ -159,11 +138,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
       case KeepAliveRequest():
         break;
     }
-    state = WatchPartyState(
-      group: client.group,
-      connected: client.connected,
-      available: true,
-    );
+    state = WatchPartyState(group: client.group, connected: client.connected, available: true);
   }
 
   void _onQueue(PlayQueue queue) {
@@ -176,12 +151,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
     if (current == null || current.playlistItemId == _openedPlaylistItem) {
       return;
     }
-    if (!const {
-      'NewPlaylist',
-      'SetCurrentItem',
-      'NextItem',
-      'PreviousItem',
-    }.contains(queue.reason)) {
+    if (!const {'NewPlaylist', 'SetCurrentItem', 'NextItem', 'PreviousItem'}.contains(queue.reason)) {
       return;
     }
     _openedPlaylistItem = current.playlistItemId;
@@ -193,19 +163,13 @@ class WatchPartyController extends Notifier<WatchPartyState> {
     );
     final router = ref.read(routerProvider);
     final location = Routes.play(current.itemId, start: queue.start);
-    final inPlayer = router.routerDelegate.currentConfiguration.uri.path
-        .startsWith('/play/');
+    final inPlayer = router.routerDelegate.currentConfiguration.uri.path.startsWith('/play/');
     AppLog.i('syncplay', 'Titre lancé par la soirée : ${current.itemId}');
-    unawaited(
-      inPlayer
-          ? router.pushReplacement<void>(location)
-          : router.push<void>(location),
-    );
+    unawaited(inPlayer ? router.pushReplacement<void>(location) : router.push<void>(location));
   }
 
   /// Synchronisation à utiliser par le lecteur qui ouvre [itemId] (null hors soirée).
-  PartyStart? partyFor(String itemId) =>
-      state.inParty && pending?.itemId == itemId ? pending : null;
+  PartyStart? partyFor(String itemId) => state.inParty && pending?.itemId == itemId ? pending : null;
 
   void _notice(String text) {
     rootMessengerKey.currentState
@@ -243,11 +207,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
     _resetHost();
     final client = _client;
     if (client != null) {
-      state = WatchPartyState(
-        group: client.group,
-        connected: client.connected,
-        available: true,
-      );
+      state = WatchPartyState(group: client.group, connected: client.connected, available: true);
     }
   }
 
@@ -272,11 +232,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
       await action();
     } catch (e) {
       AppLog.w('syncplay', '$e');
-      _notice(
-        e is ApiFailure
-            ? e.userMessage
-            : 'La soirée n’a pas pu être mise à jour.',
-      );
+      _notice(e is ApiFailure ? e.userMessage : 'La soirée n’a pas pu être mise à jour.');
     }
   }
 }

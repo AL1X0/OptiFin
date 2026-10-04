@@ -89,7 +89,6 @@ class DemoHarness {
 
   Future<void> setUp() async {
     debugDefaultTargetPlatformOverride = tv ? TargetPlatform.android : TargetPlatform.iOS;
-    OFDevice.tv = tv;
     OFGlass.blur = !tv;
     if (tv) {
       // Android simulé : flux Picture-in-Picture natif absent des tests.
@@ -230,7 +229,6 @@ class DemoHarness {
     }
     await tester.runAsync(db.close);
     debugDefaultTargetPlatformOverride = null;
-    OFDevice.tv = false;
     OFGlass.blur = true;
     tester.view.reset();
   }

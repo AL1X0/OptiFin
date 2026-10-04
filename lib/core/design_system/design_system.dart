@@ -1,6 +1,6 @@
 export 'components/cards.dart';
 export 'components/glass_press.dart';
-export 'components/tv_focus.dart';
+export 'components/focusable.dart';
 export 'components/glass_surface.dart';
 export 'components/loader.dart';
 export 'components/media_row.dart';

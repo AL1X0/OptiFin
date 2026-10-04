@@ -178,7 +178,7 @@ class _CardFrame extends StatefulWidget {
 class _CardFrameState extends State<_CardFrame> {
   bool _pressed = false;
 
-  /// Focus venu de la télécommande (ou du clavier) : carte agrandie, image cerclée.
+  /// Focus venu du clavier : carte agrandie, image cerclée.
   bool _focused = false;
 
   @override

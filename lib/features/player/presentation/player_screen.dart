@@ -19,7 +19,6 @@ import 'player_controller.dart';
 import 'player_overlays.dart';
 import 'player_menu.dart';
 import 'player_sheets.dart';
-import 'player_tv_controls.dart';
 
 /// Lecteur plein écran. Même UI quel que soit le moteur : tout passe par
 /// [PlayerController] et l'interface [PlaybackEngine].
@@ -378,11 +377,11 @@ class _PlayerControlsState extends State<PlayerControls> {
   static const _hideAfter = Duration(seconds: 4);
   static const _skip = Duration(seconds: 10);
 
-  /// Racine des touches (télécommande, clavier) quand aucun bouton n'a le focus.
+  /// Racine des touches (clavier) quand aucun bouton n'a le focus.
   /// Hors du parcours des flèches : il couvre tout l'écran et capterait le focus entre deux boutons.
   final _keys = FocusNode(debugLabel: 'lecteur', skipTraversal: true);
 
-  /// Bouton lecture/pause : le focus y va quand les contrôles apparaissent à la télécommande.
+  /// Bouton lecture/pause : le focus y va quand les contrôles apparaissent au clavier.
   final _playFocus = FocusNode(debugLabel: 'lecture/pause');
 
   @override
@@ -396,11 +395,6 @@ class _PlayerControlsState extends State<PlayerControls> {
   bool _handleBack() {
     if (_menu) {
       _closeMenu();
-      return true;
-    }
-    // TV : Retour masque d'abord les contrôles (comme sur l'Apple TV), puis quitte.
-    if (OFDevice.tv && _visible) {
-      _hide();
       return true;
     }
     return false;
@@ -558,8 +552,6 @@ class _PlayerControlsState extends State<PlayerControls> {
     if (!_menu) return;
     setState(() => _menu = false);
     _scheduleHide();
-    // Télécommande : le focus revient sur les boutons du lecteur.
-    if (OFDevice.tv) _playFocus.requestFocus();
   }
 
   void _flashUnlock() {
@@ -722,41 +714,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                       opacity: _visible && !_locked ? 1 : 0,
                       duration: motion.standard,
                       curve: OFMotion.standardCurve,
-                      child: OFDevice.tv
-                          ? TvPlayerControls(
-                              snapshot: s,
-                              scrubbing: _scrubbing,
-                              showSpinner: showSpinner,
-                              debug: _debug,
-                              ui: ui,
-                              engine: widget.engine,
-                              fit: widget.fit,
-                              playFocus: _playFocus,
-                              onPlayPause: () {
-                                unawaited(widget.controller.togglePlay());
-                                _show();
-                              },
-                              onSkip: (d) {
-                                unawaited(widget.controller.seekBy(d));
-                                _show();
-                              },
-                              onScrubStart: (p) {
-                                _hideTimer?.cancel();
-                                setState(() => _scrubbing = p);
-                              },
-                              onScrub: (p) => setState(() => _scrubbing = p),
-                              onScrubEnd: (p) {
-                                setState(() => _scrubbing = null);
-                                unawaited(widget.controller.seek(p));
-                                _scheduleHide();
-                              },
-                              onMenu: _openMenu,
-                              onCycleFit: () {
-                                widget.onCycleFit();
-                                _show();
-                              },
-                            )
-                          : (_visible && !_locked) || motion.enabled
+                      child: (_visible && !_locked) || motion.enabled
                           ? _ControlsLayer(
                               metrics: metrics,
                               snapshot: s,
@@ -787,8 +745,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                                 _scheduleHide();
                               },
                               onSettings: () => _menu ? _closeMenu() : _openMenu(),
-                              // TV : pas de Picture-in-Picture (lecture en plein écran).
-                              onPictureInPicture: widget.engine.capabilities.pictureInPicture && !OFDevice.tv
+                              onPictureInPicture: widget.engine.capabilities.pictureInPicture
                                   ? _pictureInPicture
                                   : null,
                               onCycleFit: () {
@@ -802,11 +759,10 @@ class _PlayerControlsState extends State<PlayerControls> {
                     ),
                   ),
                   // Menu Réglages : ancré sous son bouton, se déploie depuis le coin.
-                  // TV : panneau latéral à droite, sur toute la hauteur.
                   Positioned(
                     key: const ValueKey('menu'),
-                    top: OFDevice.tv ? TvPlayerControls.safeY : padding.top + metrics.menuTop,
-                    right: OFDevice.tv ? TvPlayerControls.safeX - OFSpacing.lg : padding.right + metrics.edge,
+                    top: padding.top + metrics.menuTop,
+                    right: padding.right + metrics.edge,
                     child: AnimatedSwitcher(
                       duration: motion.standard,
                       switchInCurve: OFMotion.emphasizedCurve,
@@ -832,12 +788,11 @@ class _PlayerControlsState extends State<PlayerControls> {
                                 onLock: _lock,
                                 onSearchSubtitles: _searchSubtitles,
                                 // Au-dessus de la barre de progression, qu'il ne recouvre jamais.
-                                maxHeight: OFDevice.tv
-                                    ? MediaQuery.sizeOf(context).height - 2 * TvPlayerControls.safeY
-                                    : MediaQuery.sizeOf(context).height -
-                                          padding.vertical -
-                                          metrics.menuTop -
-                                          metrics.bottomBarClearance,
+                                maxHeight:
+                                    MediaQuery.sizeOf(context).height -
+                                    padding.vertical -
+                                    metrics.menuTop -
+                                    metrics.bottomBarClearance,
                                 onToggleDebug: () => setState(() => _debug = !_debug),
                               ),
                             )
@@ -985,7 +940,7 @@ class _ControlsLayer extends StatelessWidget {
     required this.playFocus,
   });
 
-  /// Focus du bouton lecture/pause (télécommande).
+  /// Focus du bouton lecture/pause (clavier).
   final FocusNode playFocus;
 
   final _Metrics metrics;
@@ -1123,7 +1078,6 @@ class _ControlsLayer extends StatelessWidget {
                       iconSize: m.play * 0.72,
                       onPressed: onPlayPause,
                       focusNode: playFocus,
-                      autofocus: OFDevice.tv,
                       child: showSpinner ? OFLoader(size: m.play * 0.42) : null,
                     ),
                     SizedBox(width: m.gap),
@@ -1245,7 +1199,7 @@ class _BareButtonState extends State<_BareButton> {
       label: widget.label,
       excludeSemantics: true,
       onTap: widget.onTap,
-      child: TvFocusable(
+      child: OFFocusable(
         onSelect: widget.onTap,
         scale: 1.15,
         child: GestureDetector(
@@ -1330,10 +1284,10 @@ class Scrubber extends StatefulWidget {
 class _ScrubberState extends State<Scrubber> {
   Duration _last = Duration.zero;
 
-  /// Focalisée à la télécommande : barre épaissie, ◀ ▶ reculent ou avancent.
+  /// Focalisée au clavier : barre épaissie, ◀ ▶ reculent ou avancent.
   bool _focused = false;
 
-  /// Recherche à la télécommande (comme sur l'Apple TV) : ◀ ▶ déplacent un curseur
+  /// Recherche au clavier : ◀ ▶ déplacent un curseur
   /// d'aperçu (vignettes), de plus en plus vite si la touche reste enfoncée ; la lecture
   /// saute à la position choisie à l'appui sur OK ou une fraction de seconde après.
   Duration? _keyTarget;
@@ -1435,7 +1389,7 @@ class _ScrubberState extends State<Scrubber> {
           decreasedValue: MediaFormat.clock(widget.position > step ? widget.position - step : Duration.zero),
           onIncrease: enabled ? () => widget.onEnd(widget.position + step) : null,
           onDecrease: enabled ? () => widget.onEnd(widget.position - step) : null,
-          child: TvFocusable(
+          child: OFFocusable(
             ring: false,
             scale: 1,
             onKeyEvent: _onKey,
@@ -1510,7 +1464,6 @@ class _PlainButton extends StatefulWidget {
     required this.iconSize,
     this.child,
     this.focusNode,
-    this.autofocus = false,
   });
 
   final IconData icon;
@@ -1519,7 +1472,6 @@ class _PlainButton extends StatefulWidget {
   final double size;
   final double iconSize;
   final FocusNode? focusNode;
-  final bool autofocus;
 
   /// Contenu à la place de l'icône (indicateur de chargement).
   final Widget? child;
@@ -1546,10 +1498,9 @@ class _PlainButtonState extends State<_PlainButton> {
       excludeSemantics: true,
       onTap: widget.onPressed,
       // Télécommande : cercle lumineux autour de l'icône focalisée.
-      child: TvFocusable(
+      child: OFFocusable(
         onSelect: widget.onPressed,
         focusNode: widget.focusNode,
-        autofocus: widget.autofocus,
         scale: 1.12,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,

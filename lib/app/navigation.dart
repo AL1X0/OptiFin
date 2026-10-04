@@ -42,6 +42,7 @@ extension OFNavigation on BuildContext {
     }
     push(Routes.play(itemId, start: start));
   }
+
   void openPerson(String id) => push('/$_branch/person/$id');
   void openLibrary(String id) => push('/$_branch/library/$id');
   void openGenre(NamedRef genre) =>

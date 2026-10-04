@@ -533,13 +533,7 @@ class _ActionBar extends StatelessWidget {
         final playWidth = OFSpacing.xl * 2 + 20 + OFSpacing.sm + text.width + 2;
         final iconsWidth = icons.isEmpty ? 0.0 : icons.length * _icon + (icons.length - 1) * _gap;
         final oneLine = playWidth + (icons.isEmpty ? 0 : _gap + iconsWidth) <= constraints.maxWidth;
-        final play = OFButton(
-          label: label,
-          icon: Icons.play_arrow_rounded,
-          expand: !oneLine,
-          autofocus: OFDevice.tv,
-          onPressed: onPlay,
-        );
+        final play = OFButton(label: label, icon: Icons.play_arrow_rounded, expand: !oneLine, onPressed: onPlay);
         if (oneLine) {
           return Row(
             children: [
@@ -626,7 +620,7 @@ class _InfoLine extends StatelessWidget {
             child: Wrap(
               children: [
                 for (final (i, r) in refs.indexed)
-                  TvFocusable(
+                  OFFocusable(
                     onSelect: () => isPeople ? context.openPerson(r.id) : onTap?.call(r),
                     borderRadius: const BorderRadius.all(Radius.circular(OFRadius.md)),
                     scale: 1.03,
@@ -672,7 +666,7 @@ class _ExpandableTextState extends State<ExpandableText> {
         final overflows = painter.didExceedMaxLines;
         painter.dispose();
         final toggle = overflows ? () => setState(() => _expanded = !_expanded) : null;
-        return TvFocusable(
+        return OFFocusable(
           onSelect: toggle,
           borderRadius: const BorderRadius.all(Radius.circular(OFRadius.md)),
           scale: 1.01,

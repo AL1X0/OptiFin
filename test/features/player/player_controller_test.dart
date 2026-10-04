@@ -1,10 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:optifin/features/player/presentation/player_tv_controls.dart';
 import 'package:optifin/core/design_system/design_system.dart';
 import 'package:optifin/core/media/media_item.dart';
 import 'package:optifin/core/network/jellyfin_auth.dart';
@@ -18,7 +16,6 @@ import 'package:optifin/features/player/domain/playback_engine.dart';
 import 'package:optifin/features/player/domain/playback_extras.dart';
 import 'package:optifin/features/player/domain/playback_plan.dart';
 import 'package:optifin/features/player/presentation/player_controller.dart';
-import 'package:optifin/features/player/presentation/player_menu.dart';
 import 'package:optifin/features/player/presentation/player_screen.dart';
 import 'package:optifin/features/settings/domain/app_settings.dart';
 import 'package:optifin/features/settings/presentation/settings_providers.dart';
@@ -253,72 +250,6 @@ void main() {
     await tester.pump(const Duration(minutes: 3));
   });
 
-  testWidgets('écran TV : à la télécommande, toutes les commandes du bas sont atteignables', (tester) async {
-    OFDevice.tv = true;
-    addTearDown(() => OFDevice.tv = false);
-    tester.view.physicalSize = const Size(1920, 1080);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    container = build();
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          theme: OFTheme.dark(),
-          home: const PlayerScreen(args: PlayerArgs('m')),
-        ),
-      ),
-    );
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 20));
-    }
-    String? focused() {
-      final node = FocusManager.instance.primaryFocus;
-      return node?.context?.findAncestorWidgetOfExactType<TvControlButton>()?.label ?? node?.debugLabel;
-    }
-
-    Future<void> press(LogicalKeyboardKey key) async {
-      await tester.sendKeyEvent(key);
-      for (var i = 0; i < 5; i++) {
-        await tester.pump(const Duration(milliseconds: 60));
-      }
-    }
-
-    // Contrôles masqués puis réveillés par ▼ : focus sur lecture/pause.
-    await press(LogicalKeyboardKey.arrowDown);
-    final visited = <String?>[focused()];
-    for (var i = 0; i < 6; i++) {
-      await press(LogicalKeyboardKey.arrowRight);
-      visited.add(focused());
-    }
-    expect(visited, containsAllInOrder(['+10 s', 'Sous-titres', 'Réglages']));
-
-    // OK sur Réglages : panneau latéral, focus dedans, ▼ ▲ y restent ; Retour le ferme.
-    while (focused() != 'Réglages') {
-      await press(LogicalKeyboardKey.arrowRight);
-    }
-    await press(LogicalKeyboardKey.select);
-    await tester.pump(const Duration(milliseconds: 400));
-    bool inMenu() =>
-        FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<PlayerSettingsMenu>() != null;
-    expect(find.byType(PlayerSettingsMenu), findsOneWidget);
-    expect(inMenu(), isTrue, reason: 'focus dans le menu');
-    for (var i = 0; i < 3; i++) {
-      await press(LogicalKeyboardKey.arrowDown);
-      expect(inMenu(), isTrue);
-    }
-    await tester.binding.handlePopRoute();
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    expect(find.byType(PlayerSettingsMenu), findsNothing);
-    expect(focused(), anyOf('Pause', 'Lecture'));
-
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(minutes: 3));
-    container.dispose();
-    await tester.pump(const Duration(minutes: 3));
-  });
 
   group('Phase 5 : segments, épisode suivant, décalages, sous-titres', () {
     const intro = MediaSegment(type: SegmentType.intro, start: Duration(minutes: 1), end: Duration(minutes: 2));

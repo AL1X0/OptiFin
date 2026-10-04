@@ -7,18 +7,12 @@ import android.media.MediaCodecInfo.CodecProfileLevel
 import android.media.MediaCodecList
 import android.os.Build
 import android.view.Display
-import androidx.annotation.OptIn
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.audio.AudioCapabilities
 
 /**
  * Ce que Media3 peut lire sur cet appareil : décodeurs matériels (MediaCodec),
  * gammes HDR de l'écran, profils Dolby Vision. Clés lues par
  * `DeviceCapabilities.fromJson` côté Dart.
  */
-@OptIn(UnstableApi::class)
 object CapabilitiesProbe {
     fun probe(context: Context): Map<String, Any?> {
         val decoders = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.filter { !it.isEncoder }
@@ -86,28 +80,9 @@ object CapabilitiesProbe {
             "ranges" to ranges,
             "dolbyVisionProfiles" to dvProfiles.sorted(),
             "audioCodecs" to audio,
-            "passthrough" to passthrough(context),
             "containers" to listOf("mp4", "m4v", "mov", "mkv", "webm", "ts", "mpegts"),
             "maxWidth" to if (uhd) 3840 else 1920,
         )
-    }
-
-    /**
-     * Formats envoyés tels quels à la sortie audio (TV, barre de son, ampli), selon la même
-     * détection que Media3 : mpv les transmet alors de la même façon (volume identique).
-     */
-    @Suppress("DEPRECATION")
-    private fun passthrough(context: Context): List<String> = try {
-        val caps = AudioCapabilities.getCapabilities(context, AudioAttributes.DEFAULT, null)
-        listOf(
-            "ac3" to C.ENCODING_AC3,
-            "eac3" to C.ENCODING_E_AC3,
-            "dts" to C.ENCODING_DTS,
-            "dts-hd" to C.ENCODING_DTS_HD,
-            "truehd" to C.ENCODING_DOLBY_TRUEHD,
-        ).filter { (_, encoding) -> caps.supportsEncoding(encoding) }.map { it.first }
-    } catch (e: Throwable) {
-        emptyList()
     }
 
     private fun isHardware(info: MediaCodecInfo): Boolean =
