@@ -110,6 +110,7 @@ object AppServices {
         playback = PlaybackService(client, session.account.userId)
         images = ImageUrls(session.server.baseUrl)
         _session.value = session
+        WatchParty.attach(client)
     }
 
     fun switchTo(accountId: String): Boolean {
@@ -121,6 +122,7 @@ object AppServices {
 
     suspend fun signOut(revoke: Boolean = true) {
         val session = _session.value ?: return
+        WatchParty.attach(null)
         if (revoke) auth.logout(session)
         accounts.forgetToken(session.account.id)
         client = null

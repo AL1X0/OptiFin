@@ -132,9 +132,9 @@ private enum class Panel { Subtitles, Audio, Chapters, Settings, Speed, Subtitle
  * - panneaux à droite : sous-titres, audio, chapitres, réglages.
  */
 @Composable
-fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayItem: (String) -> Unit) {
+fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayItem: (String) -> Unit, party: Boolean = false) {
     val context = LocalContext.current
-    val controller = remember(itemId) { PlayerController(context, itemId, fromStart) }
+    val controller = remember(itemId) { PlayerController(context, itemId, fromStart, party) }
     val ui by controller.state.collectAsState()
     var visible by remember { mutableStateOf(true) }
     var panel by remember { mutableStateOf<Panel?>(null) }
@@ -154,7 +154,9 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
         controller.onPlayNext = { next -> onPlayItem(next) }
         controller.onFinished = onExit
         controller.start()
+        app.optifin.tv.WatchParty.playerOpen = true
         onDispose {
+            app.optifin.tv.WatchParty.playerOpen = false
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             controller.close()
         }

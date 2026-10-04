@@ -26,6 +26,7 @@ import app.optifin.tv.ui.shell.MainShell
 import app.optifin.tv.ui.theme.OF
 import app.optifin.tv.ui.theme.OptiFinTheme
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 /** Routes de premier niveau : connexion, appli (menu latéral), lecteur plein écran. */
 object Routes {
@@ -75,6 +76,28 @@ private fun AppNavigation(launchItem: MutableStateFlow<String?>) {
         }
     }
 
+    // Soirée : un titre lancé par le groupe ouvre le lecteur (ou remplace celui en cours).
+    LaunchedEffect(Unit) {
+        WatchParty.open.collect { start ->
+            val inPlayer = nav.currentDestination?.route == Routes.PLAYER
+            nav.navigate(Routes.player(start.itemId, party = true)) {
+                if (inPlayer) popUpTo(Routes.PLAYER) { inclusive = true }
+            }
+        }
+    }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    fun play(id: String, fromStart: Boolean) {
+        if (!WatchParty.inParty) {
+            nav.navigate(Routes.player(id, fromStart))
+            return
+        }
+        // En soirée : le titre est lancé pour tout le groupe ; le lecteur s'ouvre à réception de la file.
+        scope.launch {
+            val start = if (fromStart) 0L else runCatching { AppServices.media?.item(id)?.resumeMs }.getOrNull() ?: 0L
+            WatchParty.play(id, start)
+        }
+    }
+
     NavHost(nav, startDestination = start) {
         composable(Routes.CONNECT) {
             ConnectScreen(onServer = { nav.navigate(Routes.LOGIN) }, onSignedIn = { goMain(nav) })
@@ -85,7 +108,7 @@ private fun AppNavigation(launchItem: MutableStateFlow<String?>) {
         composable(Routes.MAIN) {
             MainShell(
                 launchItem = launchItem,
-                onPlay = { id, fromStart -> nav.navigate(Routes.player(id, fromStart)) },
+                onPlay = ::play,
                 onAddAccount = { nav.navigate(Routes.CONNECT) },
             )
         }
@@ -101,6 +124,7 @@ private fun AppNavigation(launchItem: MutableStateFlow<String?>) {
             PlayerScreen(
                 itemId = args.getString("id")!!,
                 fromStart = args.getBoolean("fromStart"),
+                party = args.getBoolean("party"),
                 onExit = { nav.popBackStack() },
                 onPlayItem = { next -> nav.navigate(Routes.player(next)) { popUpTo(Routes.PLAYER) { inclusive = true } } },
             )

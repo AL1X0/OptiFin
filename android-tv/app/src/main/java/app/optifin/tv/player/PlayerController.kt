@@ -2,6 +2,13 @@ package app.optifin.tv.player
 
 import android.content.Context
 import app.optifin.tv.AppServices
+import app.optifin.tv.PartyStart
+import app.optifin.tv.WatchParty
+import app.optifin.tv.core.syncplay.GroupState
+import app.optifin.tv.core.syncplay.SyncCommandKind
+import app.optifin.tv.core.syncplay.SyncPlayPlayback
+import app.optifin.tv.core.syncplay.SyncRequests
+import app.optifin.tv.core.syncplay.SyncTarget
 import app.optifin.tv.core.AppLog
 import app.optifin.tv.core.api.userMessage
 import app.optifin.tv.core.media.MediaItem
@@ -57,7 +64,7 @@ data class PlayerUiState(
  * automatique si le moteur échoue avant la première image (autre moteur, puis transcodage),
  * rapports au serveur, pistes, segments, épisode suivant.
  */
-class PlayerController(private val context: Context, val itemId: String, private val fromStart: Boolean) {
+class PlayerController(private val context: Context, val itemId: String, private val fromStart: Boolean, private val partyMode: Boolean = false) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state
@@ -74,6 +81,75 @@ class PlayerController(private val context: Context, val itemId: String, private
     private var tickJob: Job? = null
     private var closed = false
     private val started = System.currentTimeMillis()
+
+    // ------------------------------------------------------------ Soirée
+    private var party: PartyStart? = null
+    private var sync: SyncPlayPlayback? = null
+    private var awaitedSeek: Long? = null
+    private var stoppedByParty = false
+
+    /** Moteur vu par la synchronisation de soirée. */
+    private val syncTarget = object : SyncTarget {
+        override val positionMs: Long get() = engine?.state?.value?.positionMs ?: 0
+        override val paused: Boolean get() = engine?.state?.value?.playing != true
+        override fun play() { engine?.play() }
+        override fun pause() { engine?.pause() }
+        override fun seek(positionMs: Long) { engine?.seek(positionMs) }
+        override fun setSpeed(speed: Float) { engine?.setRate(speed) }
+    }
+
+    private val syncRequests = object : SyncRequests {
+        private val c get() = WatchParty.syncClient
+        override suspend fun ready(positionMs: Long, isPlaying: Boolean, playlistItemId: String) { c?.ready(positionMs, isPlaying, playlistItemId) }
+        override suspend fun buffering(positionMs: Long, isPlaying: Boolean, playlistItemId: String) { c?.buffering(positionMs, isPlaying, playlistItemId) }
+        override suspend fun pause() { c?.pause() }
+        override suspend fun unpause() { c?.unpause() }
+        override suspend fun seek(positionMs: Long) { c?.seek(positionMs) }
+    }
+
+    /** Lecture lancée par une soirée : synchronisation avec le groupe. */
+    private fun setupParty() {
+        val start = if (partyMode) WatchParty.partyFor(itemId) else null
+        val client = WatchParty.syncClient
+        if (start == null || client == null) return
+        party = start
+        sync = SyncPlayPlayback(syncTarget, syncRequests, client.time, start.playlistItemId, scope)
+        scope.launch {
+            WatchParty.commands.collect { command ->
+                val s = sync ?: return@collect
+                if (command.kind == SyncCommandKind.Stop) {
+                    if (command.playlistItemId.replace("0", "").isNotEmpty()) {
+                        stoppedByParty = true
+                        onFinished?.invoke()
+                    }
+                    return@collect
+                }
+                if (command.kind == SyncCommandKind.Seek && command.playlistItemId == s.playlistItemId) awaitedSeek = command.positionMs
+                s.apply(command)
+                updatePartyBadge()
+            }
+        }
+        scope.launch {
+            WatchParty.states.collect {
+                sync?.onGroupState(it)
+                updatePartyBadge()
+            }
+        }
+        scope.launch { WatchParty.group.collect { updatePartyBadge() } }
+    }
+
+    private fun updatePartyBadge() {
+        val s = sync ?: return
+        val group = WatchParty.group.value
+        val count = group?.participants?.size ?: 0
+        _state.value = _state.value.copy(
+            party = when {
+                group == null -> null
+                s.waiting && group.state == GroupState.Waiting -> "${group.name} · en attente des autres…"
+                else -> "${group.name} · $count participant${if (count > 1) "s" else ""}"
+            },
+        )
+    }
 
     /** Lecture de l'épisode suivant demandée (écran : navigation). */
     var onPlayNext: ((String) -> Unit)? = null
@@ -95,7 +171,8 @@ class PlayerController(private val context: Context, val itemId: String, private
         try {
             val item = media.item(itemId)
             _state.value = _state.value.copy(item = item)
-            startMs = if (fromStart) 0 else item.resumeMs
+            setupParty()
+            startMs = party?.startMs ?: if (fromStart) 0 else item.resumeMs
             val settings = AppServices.settings.value
             val caps = AppServices.capabilities
             // Sonde : profil mpv (tout en lecture directe) pour connaître la source réelle.
@@ -219,6 +296,11 @@ class PlayerController(private val context: Context, val itemId: String, private
 
     private fun onFirstFrame() {
         _state.value = _state.value.copy(notice = null)
+        // Soirée : en pause à la position du groupe, « prêt » ; le serveur relance tout le monde.
+        sync?.let { s ->
+            engine?.pause()
+            s.loaded(party?.isPlaying == true)
+        }
         val plan = _state.value.plan ?: return
         if (!reported) {
             reported = true
@@ -240,6 +322,15 @@ class PlayerController(private val context: Context, val itemId: String, private
                 engine.poll()
                 val s = engine.state.value
                 val plan = _state.value.plan
+                sync?.let { sp ->
+                    sp.onBuffering(s.buffering && s.ready)
+                    val target = awaitedSeek
+                    if (target != null && !s.buffering && kotlin.math.abs(s.positionMs - target) < 1500) {
+                        awaitedSeek = null
+                        sp.onSeekCompleted()
+                    }
+                    sp.tick()
+                }
                 if (s.ready && plan != null) {
                     val now = System.currentTimeMillis()
                     val paused = !s.playing
@@ -282,6 +373,11 @@ class PlayerController(private val context: Context, val itemId: String, private
 
     fun togglePlay() {
         val e = engine ?: return
+        // En soirée : demande au groupe (appliquée chez tous en même temps).
+        sync?.let { s ->
+            scope.launch { runCatching { s.requestTogglePlay() } }
+            return
+        }
         if (e.state.value.playing) e.pause() else e.play()
     }
 
@@ -292,6 +388,10 @@ class PlayerController(private val context: Context, val itemId: String, private
     }
 
     fun seekTo(positionMs: Long) {
+        sync?.let { s ->
+            scope.launch { runCatching { s.requestSeek(positionMs.coerceAtLeast(0)) } }
+            return
+        }
         engine?.seek(positionMs)
     }
 
@@ -416,8 +516,11 @@ class PlayerController(private val context: Context, val itemId: String, private
         val position = engine?.state?.value?.positionMs ?: 0
         engine?.pause()
         _state.value = _state.value.copy(phase = PlayerPhase.Closed)
+        val leavingHost = sync != null && !stoppedByParty
         AppServices.scope.launch {
             withContext(NonCancellable) {
+                // L'hôte quitte : la lecture s'arrête chez tous les participants.
+                if (leavingHost) WatchParty.stopForAll()
                 if (plan != null && reported) AppServices.playback?.reportStopped(plan, position)
                 engine?.release()
                 AppServices.notifyChanged(itemId)
