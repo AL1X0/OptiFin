@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ColorScheme
+import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Typography
 import androidx.tv.material3.darkColorScheme
@@ -79,6 +80,8 @@ private val typography = Typography(
 class PivotSpec(private val fraction: Float, private val minOffsetPx: Float = 0f) : BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
         val target = maxOf(containerSize * fraction, minOffsetPx)
+        // Déjà bien placé (entièrement visible, entre le pivot et les trois quarts) : rien ne bouge.
+        if (offset >= target - 1 && offset + size <= containerSize && offset <= containerSize * 0.75f) return 0f
         // Élément plus grand que l'espace restant (carrousel) : aligné en haut.
         if (size >= containerSize - target) return offset
         return offset - target
@@ -90,6 +93,7 @@ val LocalAccent = staticCompositionLocalOf { OF.Accent }
 @Composable
 fun OptiFinTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = scheme, typography = typography) {
-        CompositionLocalProvider(LocalAccent provides OF.Accent, content = content)
+        // Texte blanc par défaut (sinon noir hors des Surface de Compose for TV).
+        CompositionLocalProvider(LocalAccent provides OF.Accent, LocalContentColor provides OF.TextPrimary, content = content)
     }
 }

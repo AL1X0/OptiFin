@@ -131,6 +131,7 @@ fun MainShell(launchItem: MutableStateFlow<String?>, onPlay: (String, Boolean) -
     BackHandler(enabled = route != Screens.HOME && nav.previousBackStackEntry == null) { appNav.section(Screens.HOME) }
 
     NavigationDrawer(
+        modifier = Modifier.fillMaxSize().background(OF.Background),
         drawerState = drawer,
         drawerContent = { value ->
             DrawerContent(value, route, session?.account?.userName ?: "", appNav)

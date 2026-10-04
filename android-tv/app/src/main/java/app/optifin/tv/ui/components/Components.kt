@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -37,6 +38,8 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -317,3 +320,20 @@ fun Avatar(name: String, url: String?, size: Dp, modifier: Modifier = Modifier) 
 fun BoxScope.TopFade() {
     Box(Modifier.fillMaxWidth().height(120.dp).align(Alignment.TopCenter).background(Brush.verticalGradient(listOf(Color(0xB3000000), Color.Transparent))))
 }
+
+/** Logo du titre (image transparente du serveur) ; titre en texte s'il manque ou ne charge pas. */
+@Composable
+fun TitleLogo(url: String?, title: String, modifier: Modifier = Modifier, maxWidth: Dp = 520.dp, maxHeight: Dp = 160.dp) {
+    var failed by remember(url) { mutableStateOf(url == null) }
+    if (failed) {
+        Text(title, style = MaterialTheme.typography.displayMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            modifier = modifier.widthIn(max = maxWidth * 1.7f))
+    } else {
+        AsyncImage(
+            model = url, contentDescription = title, contentScale = ContentScale.Fit, alignment = Alignment.BottomStart,
+            onError = { failed = true },
+            modifier = modifier.widthIn(max = maxWidth).height(maxHeight),
+        )
+    }
+}
+

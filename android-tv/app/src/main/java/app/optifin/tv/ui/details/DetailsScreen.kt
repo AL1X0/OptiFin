@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -84,6 +85,7 @@ import app.optifin.tv.ui.components.MediaRow
 import app.optifin.tv.ui.components.ProgressLine
 import app.optifin.tv.ui.components.Skeleton
 import app.optifin.tv.ui.components.StatusMessage
+import app.optifin.tv.ui.components.TitleLogo
 import app.optifin.tv.ui.components.TvButton
 import app.optifin.tv.ui.components.TvDialog
 import app.optifin.tv.ui.components.TvIconButton
@@ -155,15 +157,22 @@ fun DetailsScreen(id: String, nav: AppNav) {
             current == null && error != null -> StatusMessage(error!!, action = "Réessayer", onAction = { scope.launch { load() } })
             current == null -> DetailsSkeleton()
             else -> {
-                val pivot = remember { PivotSpec(0.3f) }
+                val pivot = remember { PivotSpec(0.12f) }
                 val firstFocus = remember { FocusRequester() }
+                val list = androidx.compose.foundation.lazy.rememberLazyListState()
                 CompositionLocalProvider(LocalBringIntoViewSpec provides pivot) {
                     LazyColumn(
                         Modifier.fillMaxSize().focusRestorer(firstFocus),
+                        state = list,
                         contentPadding = PaddingValues(bottom = 72.dp),
                         verticalArrangement = Arrangement.spacedBy(30.dp),
                     ) {
-                        item(key = "header") { Header(current, nav, firstFocus, onOverview = { overview = true }) }
+                        item(key = "header") {
+                            // Retour sur les boutons de la fiche : la page remonte tout en haut.
+                            Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { list.animateScrollToItem(0) } }) {
+                                Header(current, nav, firstFocus, onOverview = { overview = true })
+                            }
+                        }
                         if (current.seasons.isNotEmpty()) item(key = "seasons") { Seasons(current.item, current.seasons, current.nextUp, nav) { actions = it } }
                         if (current.children.isNotEmpty()) {
                             item(key = "children") {
@@ -229,13 +238,7 @@ private fun Header(data: DetailsData, nav: AppNav, firstFocus: FocusRequester, o
             Text(item.seriesName, style = MaterialTheme.typography.titleLarge, color = OF.TextSecondary)
             Spacer(Modifier.height(6.dp))
         }
-        val logo = if (item.kind != MediaKind.Episode) images?.maybe(item.logo, 800) else null
-        if (logo != null) {
-            AsyncImage(logo, item.name, contentScale = ContentScale.Fit, alignment = Alignment.BottomStart,
-                modifier = Modifier.widthIn(max = 520.dp).heightIn(max = 170.dp))
-        } else {
-            Text(item.name, style = MaterialTheme.typography.displayMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 900.dp))
-        }
+        TitleLogo(if (item.kind != MediaKind.Episode) images?.maybe(item.logo, 800) else null, item.name, maxHeight = 170.dp)
         Spacer(Modifier.height(16.dp))
         val meta = listOfNotNull(item.episodeLabel) + MediaFormat.metadataLine(item)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

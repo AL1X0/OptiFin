@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -67,6 +68,7 @@ import app.optifin.tv.ui.components.MediaRow
 import app.optifin.tv.ui.components.Skeleton
 import app.optifin.tv.ui.components.SkeletonRow
 import app.optifin.tv.ui.components.StatusMessage
+import app.optifin.tv.ui.components.TitleLogo
 import app.optifin.tv.ui.components.TvButton
 import app.optifin.tv.ui.shell.AppNav
 import app.optifin.tv.ui.theme.OF
@@ -132,17 +134,22 @@ fun HomeScreen(nav: AppNav) {
             current == null -> HomeSkeleton()
             current.isEmpty -> StatusMessage("Votre serveur ne contient encore rien à afficher.")
             else -> {
-                val pivot = remember { PivotSpec(0.22f) }
+                val pivot = remember { PivotSpec(0.1f) }
+                val list = androidx.compose.foundation.lazy.rememberLazyListState()
                 val firstFocus = remember { FocusRequester() }
                 CompositionLocalProvider(LocalBringIntoViewSpec provides pivot) {
                     LazyColumn(
+                        state = list,
                         modifier = Modifier.fillMaxSize().focusRestorer(firstFocus),
                         contentPadding = PaddingValues(bottom = 80.dp),
                         verticalArrangement = Arrangement.spacedBy(28.dp),
                     ) {
                         if (current.featured.isNotEmpty()) {
                             item(key = "featured") {
-                                Featured(current.featured, nav, Modifier.focusRequester(firstFocus)) { item ->
+                                // Retour sur le carrousel : la page remonte tout en haut.
+                                Featured(current.featured, nav, Modifier.focusRequester(firstFocus).onFocusChanged {
+                                    if (it.hasFocus) scope.launch { list.animateScrollToItem(0) }
+                                }) { item ->
                                     backdrop = images?.maybe(item.backdrop, 1920)
                                 }
                             }
@@ -203,14 +210,7 @@ private fun Featured(items: List<MediaItem>, nav: AppNav, modifier: Modifier, on
                     Modifier.fillMaxSize().padding(start = OF.Gutter, bottom = 56.dp, end = OF.Gutter),
                     verticalArrangement = Arrangement.Bottom,
                 ) {
-                    val logo = images?.maybe(shown.logo, 800)
-                    if (logo != null) {
-                        AsyncImage(logo, shown.name, contentScale = ContentScale.Fit, alignment = Alignment.BottomStart,
-                            modifier = Modifier.widthIn(max = 460.dp).heightIn(max = 150.dp))
-                    } else {
-                        Text(shown.name, style = MaterialTheme.typography.displayMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.widthIn(max = 760.dp))
-                    }
+                    TitleLogo(images?.maybe(shown.logo, 800), shown.name, maxWidth = 460.dp, maxHeight = 150.dp)
                     Spacer(Modifier.height(14.dp))
                     val meta = (shown.genres.take(2).map { it.name } + MediaFormat.metadataLine(shown)).joinToString(" · ")
                     if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.titleSmall, color = OF.TextSecondary)
