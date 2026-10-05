@@ -37,9 +37,25 @@ public static class AppServices
     {
         Settings = SettingsStore.Load();
         AppLog.Verbose = Settings.DebugMode;
+        ImageUrls.Format = CanDecodeWebp() ? "Webp" : "Jpg";
         Identity = new ClientIdentity("OptiFin", Environment.MachineName, Accounts.DeviceId(), Version);
         Auth = new AuthService(Identity);
         if (Accounts.Restore() is { } session) Activate(session);
+    }
+
+    private static bool CanDecodeWebp()
+    {
+        try
+        {
+            foreach (var codec in Windows.Graphics.Imaging.BitmapDecoder.GetDecoderInformationEnumerator())
+                if (codec.MimeTypes.Contains("image/webp")) return true;
+            AppLog.Info("app", "Décodeur WebP absent (Extensions de média web) : images en JPEG");
+        }
+        catch (Exception e)
+        {
+            AppLog.Debug("app", $"Liste des décodeurs d'images indisponible : {e.Message}");
+        }
+        return false;
     }
 
     public static void SaveSettings() => SettingsStore.Save(Settings);

@@ -9,6 +9,12 @@ namespace OptiFin.Core.Media;
 /// </summary>
 public sealed class ImageUrls(Uri baseUrl)
 {
+    /// <summary>
+    /// Format demandé au serveur : WebP (plus léger) si Windows sait le décoder, sinon JPEG (Windows N,
+    /// Windows Server ou installation sans « Extensions de média web » : sans ça, aucune image ne s'affiche).
+    /// </summary>
+    public static string Format { get; set; } = "Webp";
+
     public static readonly int[] WidthBuckets = [120, 180, 240, 320, 480, 640, 800, 1080, 1280, 1920, 2560, 3840];
 
     public static int BucketFor(double logicalWidth, double scale)
@@ -19,7 +25,7 @@ public sealed class ImageUrls(Uri baseUrl)
         return WidthBuckets[^1];
     }
 
-    public Uri Image(ImageRef r, double logicalWidth, double scale = 1, int quality = 90, string format = "Webp")
+    public Uri Image(ImageRef r, double logicalWidth, double scale = 1, int quality = 90, string? format = null)
     {
         var type = r.Type.ToString();
         var path = r.Type == ImageKind.Backdrop ? $"Items/{r.ItemId}/Images/{type}/{r.Index}" : $"Items/{r.ItemId}/Images/{type}";
@@ -27,7 +33,7 @@ public sealed class ImageUrls(Uri baseUrl)
         [
             new("maxWidth", BucketFor(logicalWidth, scale).ToString()),
             new("quality", quality.ToString()),
-            new("format", format),
+            new("format", format ?? Format),
             new("tag", r.Tag),
         ]);
     }
@@ -40,7 +46,7 @@ public sealed class ImageUrls(Uri baseUrl)
         [
             new("maxWidth", BucketFor(logicalWidth, scale).ToString()),
             new("quality", "90"),
-            new("format", "Webp"),
+            new("format", Format),
             new("tag", tag),
         ]);
 
@@ -49,7 +55,7 @@ public sealed class ImageUrls(Uri baseUrl)
         [
             new("maxWidth", BucketFor(logicalWidth, scale).ToString()),
             new("quality", "85"),
-            new("format", "Webp"),
+            new("format", Format),
             new("tag", tag),
         ]);
 }

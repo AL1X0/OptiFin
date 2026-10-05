@@ -21,6 +21,8 @@ public static class Ui
         image.Opacity = 0;
         image.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(ms) };
         image.ImageOpened += (_, _) => image.Opacity = 1;
+        image.ImageFailed += (_, e) => OptiFin.Core.Logging.AppLog.Debug("image",
+            $"Image non affichée ({(image.Source as BitmapImage)?.UriSource?.GetLeftPart(UriPartial.Path)}) : {e.ErrorMessage}");
         return image;
     }
 
