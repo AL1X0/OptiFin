@@ -48,7 +48,7 @@ public partial class App : Application
     /// </summary>
     private async Task CheckForUpdateAsync()
     {
-        if (AppServices.Version == "1.0.0" || Environment.GetCommandLineArgs().Contains("--capture")) return;
+        if (AppUpdater.ByStore || AppServices.Version == "1.0.0" || Environment.GetCommandLineArgs().Contains("--capture")) return;
         await Task.Delay(TimeSpan.FromSeconds(6));
         if (await AppUpdater.CheckAsync() is not { } update || _window?.Content?.XamlRoot is not { } root) return;
         _window.DispatcherQueue.TryEnqueue(() => _ = UpdateDialog.ShowAsync(root, update));

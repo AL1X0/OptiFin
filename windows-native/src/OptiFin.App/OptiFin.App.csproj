@@ -54,4 +54,19 @@
   <ItemGroup>
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- Paquet Microsoft Store (store/build-msix.sh : -p:WindowsPackageType=MSIX -p:StoreManifest=…), signé par le Store. -->
+  <PropertyGroup Condition="'$(WindowsPackageType)' == 'MSIX'">
+    <DefineConstants>$(DefineConstants);STORE</DefineConstants>
+    <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
+    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <AppxBundle>Never</AppxBundle>
+    <UapAppxPackageBuildMode>StoreUpload</UapAppxPackageBuildMode>
+    <AppxSymbolPackageEnabled>false</AppxSymbolPackageEnabled>
+    <GenerateTestArtifacts>false</GenerateTestArtifacts>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(WindowsPackageType)' == 'MSIX'">
+    <AppxManifest Include="$(StoreManifest)" />
+    <Content Include="..\..\store\Assets\*.png" Link="Images\%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

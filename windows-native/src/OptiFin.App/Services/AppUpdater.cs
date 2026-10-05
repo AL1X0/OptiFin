@@ -19,6 +19,13 @@ public sealed record AppUpdate(string Version, Uri Url, long Size, string? Sha25
 public static partial class AppUpdater
 {
     public const string AssetName = "OptiFin-windows-setup.exe";
+
+    /// <summary>Version Microsoft Store : le Store installe les mises à jour, l'appli ne les cherche pas.</summary>
+#if STORE
+    public static readonly bool ByStore = true;
+#else
+    public static readonly bool ByStore = false;
+#endif
     /// <summary>Releases récentes : celles de l'appli PC (« OptiFin Windows 1.1.N ») et celles du mobile.</summary>
     private const string Releases = "https://api.github.com/repos/AL1X0/OptiFin/releases?per_page=30";
 

@@ -197,7 +197,9 @@ public sealed partial class SettingsPage : Page
             status.Text = $"Version {update.Version} disponible.";
             await UpdateDialog.ShowAsync(XamlRoot, update);
         };
-        Panel.Children.Add(Row($"OptiFin {AppServices.Version}", "Lecteur Jellyfin pour Windows · mises à jour automatiques.", stack));
+        Panel.Children.Add(AppUpdater.ByStore
+            ? Row($"OptiFin {AppServices.Version}", "Lecteur Jellyfin pour Windows · mises à jour par le Microsoft Store.", new TextBlock())
+            : Row($"OptiFin {AppServices.Version}", "Lecteur Jellyfin pour Windows · mises à jour automatiques.", stack));
         var licences = Ui.Secondary("Afficher");
         licences.Click += async (_, _) => await ShowLicencesAsync();
         Panel.Children.Add(Row("Licences", "Composants libres utilisés par OptiFin.", licences));

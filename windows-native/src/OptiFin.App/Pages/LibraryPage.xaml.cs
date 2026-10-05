@@ -232,7 +232,7 @@ public sealed partial class LibraryPage : Page
             Toolbar.Children.Add(reset);
         }
 
-        var view = Ui.Round(_listView ? "E8A9" : "E8FD", _listView ? "Affichage grille" : "Affichage liste", 36);
+        var view = Ui.Round(_listView ? "" : "", _listView ? "Affichage grille" : "Affichage liste", 36);
         view.Click += (_, _) =>
         {
             _listView = !_listView;
