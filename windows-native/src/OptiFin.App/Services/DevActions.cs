@@ -73,6 +73,9 @@ public static class DevActions
                 cards[0].StartBringIntoView();
                 if (arg is "vu" or "nonvu") await MediaActions.SetPlayedAsync([.. MediaActions.Selected], arg == "vu");
                 break;
+            case "survol":
+                Player.PlayerLauncher.Current?.DevHover(double.Parse(arg, System.Globalization.CultureInfo.InvariantCulture));
+                break;
             case "fermer":
                 Player.PlayerLauncher.Current?.DevClose();
                 break;

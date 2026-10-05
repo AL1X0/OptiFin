@@ -47,6 +47,10 @@ public static partial class AppUpdater
             {
                 if (release.TryGetProperty("draft", out var draft) && draft.GetBoolean()) continue;
                 if (release.TryGetProperty("prerelease", out var pre) && pre.GetBoolean()) continue;
+                // Seules les releases PC (tag windows-N) donnent la version de l'appli PC : les releases
+                // mobiles et TV joignent aussi l'installateur, mais leur numéro est celui de leur appli.
+                var tag = release.TryGetProperty("tag_name", out var t) ? t.GetString() ?? "" : "";
+                if (!tag.StartsWith("windows-", StringComparison.Ordinal)) continue;
                 var name = release.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
                 var match = VersionPattern().Match(name);
                 if (!match.Success || Compare(match.Value, best?.Version ?? AppServices.Version) <= 0) continue;

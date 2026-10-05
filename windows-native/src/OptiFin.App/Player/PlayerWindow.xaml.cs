@@ -513,8 +513,11 @@ public sealed partial class PlayerWindow : Window
         PositionText.Text = MediaFormat.Clock(target);
     }
 
+    private readonly Microsoft.UI.Xaml.Media.TranslateTransform _hoverShift = new();
+
     private void ShowHover(double x)
     {
+        HoverLabel.RenderTransform = _hoverShift;
         if (_duration <= TimeSpan.Zero) return;
         var at = At(x);
         var chapter = _extras.ChapterAt(at);
@@ -522,7 +525,9 @@ public sealed partial class PlayerWindow : Window
         HoverLabel.Visibility = Visibility.Visible;
         HoverLabel.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
         var w = HoverLabel.DesiredSize.Width;
-        HoverLabel.Margin = new Thickness(Math.Clamp(x - w / 2, 0, Math.Max(0, Scrubber.ActualWidth - w)), -30, 0, 0);
+        // Déplacement par translation : une marge gauche changeante faisait recalculer la mise en page de la
+        // barre, et l'étiquette restait en retard sur le curseur dans la moitié droite.
+        _hoverShift.X = Math.Clamp(x - w / 2, 0, Math.Max(0, Scrubber.ActualWidth - w));
     }
 
     private void OnKey(object sender, KeyRoutedEventArgs e)
@@ -1182,6 +1187,12 @@ public sealed partial class PlayerWindow : Window
     internal void DevSeek(TimeSpan position) => UserSeek(position);
 
     internal void DevClose() => RequestClose();
+
+    internal void DevHover(double fraction)
+    {
+        ShowControls(autoHide: false);
+        ShowHover(fraction * Scrubber.ActualWidth);
+    }
 
     private void ShowSettingsMenu()
     {
