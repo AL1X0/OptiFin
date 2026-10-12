@@ -23,7 +23,8 @@ public sealed partial class LibraryPage : Page
     private LibraryQuery _query = new();
     private readonly ObservableCollection<object> _items = [];
     private int _total;
-    private bool _loading;
+    // Génération en cours de chargement : un rechargement (filtre, tri) n'attend pas la page précédente.
+    private int? _loadingFor;
     private int _generation;
     private ScrollViewer? _scroll;
     private CardStyle _style = CardStyle.Poster;
@@ -94,8 +95,9 @@ public sealed partial class LibraryPage : Page
         Empty.Visibility = Visibility.Collapsed;
         Spinner.IsActive = true;
         await LoadPageAsync(generation);
+        if (generation != _generation) return;
         Spinner.IsActive = false;
-        if (_items.Count == 0 && generation == _generation)
+        if (_items.Count == 0 && Empty.Visibility == Visibility.Collapsed) // (erreur déjà affichée sinon)
         {
             Empty.Text = _query.ActiveFilterCount > 0 ? "Aucun élément ne correspond à ces filtres." : "Cette bibliothèque est vide.";
             Empty.Visibility = Visibility.Visible;
@@ -104,8 +106,8 @@ public sealed partial class LibraryPage : Page
 
     private async Task LoadPageAsync(int generation)
     {
-        if (_loading || AppServices.Media is not { } media) return;
-        _loading = true;
+        if (_loadingFor == generation || AppServices.Media is not { } media) return;
+        _loadingFor = generation;
         try
         {
             var page = await media.PageAsync(_query, _items.Count, PageSize);
@@ -117,6 +119,7 @@ public sealed partial class LibraryPage : Page
         catch (ApiException e)
         {
             AppLog.Warn("library", e.UserMessage);
+            if (generation != _generation) return;
             if (_items.Count == 0)
             {
                 Empty.Text = e.UserMessage;
@@ -125,13 +128,13 @@ public sealed partial class LibraryPage : Page
         }
         finally
         {
-            _loading = false;
+            if (_loadingFor == generation) _loadingFor = null;
         }
     }
 
     private void MaybeLoadMore()
     {
-        if (_scroll is null || _loading || _items.Count >= _total) return;
+        if (_scroll is null || _loadingFor != null || _items.Count >= _total) return;
         if (_scroll.VerticalOffset > _scroll.ScrollableHeight - _scroll.ViewportHeight * 1.5) _ = LoadPageAsync(_generation);
     }
 

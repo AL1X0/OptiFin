@@ -349,7 +349,9 @@ public sealed partial class DetailsPage : Page
         {
             var state = await call();
             _item = _item with { User = state };
-            BuildActions(_item);
+            // Série ou saison marquée vue : les coches de tous ses épisodes changent aussi.
+            if (_item.Kind is MediaKind.Series or MediaKind.Season) await LoadAsync();
+            else BuildActions(_item);
         }
         catch (ApiException e)
         {
@@ -499,6 +501,7 @@ public sealed partial class DetailsPage : Page
         var row = new HandGrid { Padding = new Thickness(12), CornerRadius = new CornerRadius(14), ColumnSpacing = 20, IsTabStop = true, UseSystemFocusVisuals = true };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(260) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var thumb = new Grid { Height = 146, Width = 260, CornerRadius = new CornerRadius(10), Background = Ui.Res("OFSurfaceBrush") };
         if (AppServices.Images?.Maybe(e.Landscape, 260, 1.5) is { } url)
             thumb.Children.Add(Ui.FadeIn(new Image { Source = new BitmapImage(url) { DecodePixelWidth = 390 }, Stretch = Stretch.UniformToFill }));
@@ -513,6 +516,15 @@ public sealed partial class DetailsPage : Page
             OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(150) },
         };
         thumb.Children.Add(playIcon);
+        // Coche « vu » sur la vignette (comme les cartes et l'appli mobile).
+        var badge = new Border
+        {
+            Width = 24, Height = 24, CornerRadius = new CornerRadius(12), Margin = new Thickness(8),
+            Background = new SolidColorBrush(Color.FromArgb(0xCC, 0, 0, 0)),
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
+            Child = new FontIcon { Glyph = "", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)) },
+        };
+        thumb.Children.Add(badge);
         row.Children.Add(thumb);
         var text = new StackPanel { Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
         var head = $"{e.IndexNumber}. {e.Name}";
@@ -520,12 +532,44 @@ public sealed partial class DetailsPage : Page
         var meta = new List<string>();
         if (MediaFormat.Duration(e.Runtime) is { } d) meta.Add(d);
         if (e.PremiereDate is { } date) meta.Add(date.ToString("d MMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("fr-FR")));
-        if (e.User.Played) meta.Add("Vu");
         if (meta.Count > 0) text.Children.Add(new TextBlock { Text = string.Join(" · ", meta), Style = Ui.StyleOf("OFCaption") });
         if (e.Overview is { } overview)
             text.Children.Add(new TextBlock { Text = overview, FontSize = 14, MaxLines = 3, TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.WordEllipsis, Foreground = Ui.Res("OFTextSecondaryBrush") });
         Grid.SetColumn(text, 1);
         row.Children.Add(text);
+
+        // Bouton vu / non vu : coche pleine aux couleurs du film quand l'épisode est vu.
+        var played = e.User.Played;
+        var toggle = Ui.Round("", "", 40);
+        toggle.VerticalAlignment = VerticalAlignment.Center;
+        var idle = toggle.Background;
+        void ShowPlayed()
+        {
+            badge.Visibility = played ? Visibility.Visible : Visibility.Collapsed;
+            toggle.Background = played ? AccentBrush : idle;
+            ((FontIcon)toggle.Content).Opacity = played ? 1 : 0.5;
+            var tip = played ? "Marquer comme non vu" : "Marquer comme vu";
+            ToolTipService.SetToolTip(toggle, tip);
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(toggle, tip);
+        }
+        ShowPlayed();
+        toggle.Click += async (_, _) =>
+        {
+            try
+            {
+                played = (await AppServices.Media!.SetPlayedAsync(e.Id, !played)).Played;
+                ShowPlayed();
+            }
+            catch (ApiException ex)
+            {
+                AppLog.Warn("details", ex.UserMessage);
+            }
+        };
+        // Le bouton ne lance pas la lecture de la ligne (Tapped remonte jusqu'à elle).
+        toggle.Tapped += (_, args) => args.Handled = true;
+        Grid.SetColumn(toggle, 2);
+        row.Children.Add(toggle);
+
         var transparent = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
         row.Background = transparent;
         Ui.Clickable(row, () => PlayerLauncher.Play(e), transparent, Ui.Res("OFSurfaceBrush"));

@@ -91,6 +91,10 @@ public static class DevActions
                 var views = await media.UserViewsAsync();
                 if (views.FirstOrDefault(v => v.Name == arg) is { } view) Nav.Go(typeof(LibraryPage), view);
                 break;
+            case "defiler" when Nav.ContentFrame?.Content is Microsoft.UI.Xaml.DependencyObject page:
+                // Défile la page affichée (fiche, accueil…) jusqu'à la position donnée, en pixels.
+                Find<Microsoft.UI.Xaml.Controls.ScrollViewer>(page).FirstOrDefault()?.ChangeView(null, double.Parse(arg), null, true);
+                break;
             case "lecture" when AppServices.Media is { } media:
                 Player.PlayerLauncher.Play(await media.ItemAsync(arg));
                 break;

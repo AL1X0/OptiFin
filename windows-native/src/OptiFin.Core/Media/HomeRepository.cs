@@ -41,9 +41,12 @@ public sealed class HomeRepository(MediaRepository media, string accountId, stri
 
     private static readonly HashSet<string> LatestLibraryTypes = ["movies", "tvshows", "music", "musicvideos", "homevideos"];
 
+    /// <summary>Dernier accueil affiché : les retours sur l'accueil gardent la même sélection « à la une ».</summary>
+    private HomeSnapshot? _shown;
+
     public async IAsyncEnumerable<HomeData> WatchAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
-        var cached = ReadCache();
+        var cached = _shown ?? ReadCache();
         if (cached != null) yield return Build(cached, fromCache: true);
 
         HomeSnapshot? fresh = null;
@@ -69,6 +72,7 @@ public sealed class HomeRepository(MediaRepository media, string accountId, stri
             var kept = cached.Featured.Where(i => !started.Contains(i.Id)).ToList();
             if (kept.Count > 0) shown = Clone(fresh, kept);
         }
+        _shown = shown;
         yield return Build(shown, fromCache: false);
         WriteCache(fresh);
     }

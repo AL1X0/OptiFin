@@ -87,11 +87,11 @@ public sealed class MediaRepository(JellyfinClient api, string userId)
 
     public async Task<IReadOnlyList<MediaItem>> SeasonsAsync(string seriesId, CancellationToken ct = default) =>
         Map((await api.GetAsync($"Shows/{seriesId}/Seasons", JellyfinJson.Default.BaseItemDtoQueryResult,
-            [new("UserId", userId), new("Fields", CardFields), new("EnableImageTypes", CardImages)], ct)).Items);
+            [new("UserId", userId), new("Fields", CardFields), new("EnableImageTypes", CardImages), new("ImageTypeLimit", "1")], ct)).Items);
 
     public async Task<IReadOnlyList<MediaItem>> EpisodesAsync(string seriesId, string seasonId, CancellationToken ct = default) =>
         Map((await api.GetAsync($"Shows/{seriesId}/Episodes", JellyfinJson.Default.BaseItemDtoQueryResult,
-            [new("UserId", userId), new("SeasonId", seasonId), new("Fields", EpisodeFields), new("EnableImageTypes", "Primary,Thumb")],
+            [new("UserId", userId), new("SeasonId", seasonId), new("Fields", EpisodeFields), new("EnableImageTypes", "Primary,Thumb"), new("ImageTypeLimit", "1")],
             ct)).Items);
 
     /// <summary>Épisode à reprendre / suivant d'une série (bouton Lecture de la fiche série).</summary>
@@ -120,7 +120,7 @@ public sealed class MediaRepository(JellyfinClient api, string userId)
 
     public async Task<IReadOnlyList<MediaItem>> SimilarAsync(string id, int limit = 16, CancellationToken ct = default) =>
         Map((await api.GetAsync($"Items/{id}/Similar", JellyfinJson.Default.BaseItemDtoQueryResult,
-            [new("UserId", userId), new("Limit", limit.ToString()), new("Fields", CardFields)], ct)).Items);
+            [new("UserId", userId), new("Limit", limit.ToString()), new("Fields", CardFields), new("EnableImageTypes", CardImages), new("ImageTypeLimit", "1")], ct)).Items);
 
     public async Task<IReadOnlyList<MediaItem>> ChildrenAsync(string parentId, int limit = 200, CancellationToken ct = default) =>
         Map((await Items(
