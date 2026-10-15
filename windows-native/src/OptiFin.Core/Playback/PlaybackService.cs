@@ -72,11 +72,8 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
             throw new ApiException(ApiErrorKind.PlaybackDenied, "NoCompatibleStream");
         }
 
-        var streams = (source.MediaStreams ?? []).OrderBy(s => s.Index ?? 0).ToList();
-        var audio = streams.Where(s => s.Type == "Audio" && s.Index != null).Select(s => Track(s, TrackType.Audio)).ToList();
-        var subtitles = streams.Where(s => s.Type == "Subtitle" && s.Index != null).Select(s => Track(s, TrackType.Subtitle)).ToList();
-        var video = streams.FirstOrDefault(s => s.Type == "Video");
-        var defaultSub = requestedSubtitle ?? source.DefaultSubtitleStreamIndex;
+        var tracks = TracksOf(source, requestedAudio, requestedSubtitle);
+        var video = source.MediaStreams?.OrderBy(s => s.Index ?? 0).FirstOrDefault(s => s.Type == "Video");
         return new PlaybackPlan
         {
             ItemId = itemId,
@@ -84,10 +81,10 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
             PlaySessionId = response.PlaySessionId,
             Method = method,
             StreamUrl = url,
-            AudioTracks = audio,
-            SubtitleTracks = subtitles,
-            AudioIndex = requestedAudio ?? source.DefaultAudioStreamIndex ?? audio.FirstOrDefault()?.Index,
-            SubtitleIndex = defaultSub is null or < 0 || subtitles.All(t => t.Index != defaultSub) ? null : defaultSub,
+            AudioTracks = tracks.Audio,
+            SubtitleTracks = tracks.Subtitles,
+            AudioIndex = tracks.AudioIndex,
+            SubtitleIndex = tracks.SubtitleIndex,
             Container = source.Container,
             Bitrate = source.Bitrate,
             VideoCodec = video?.Codec,
@@ -110,6 +107,18 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
                         !p.StartsWith("ApiKey=", StringComparison.OrdinalIgnoreCase));
         var query = string.Join('&', kept);
         return query.Length == 0 ? url[..q] : $"{url[..q]}?{query}";
+    }
+
+    /// <summary>Pistes d'une source (réponse PlaybackInfo ou fiche détaillée) et pistes par défaut.</summary>
+    public static TrackSet TracksOf(MediaSourceInfo source, int? requestedAudio = null, int? requestedSubtitle = null)
+    {
+        var streams = (source.MediaStreams ?? []).OrderBy(s => s.Index ?? 0).ToList();
+        var audio = streams.Where(s => s.Type == "Audio" && s.Index != null).Select(s => Track(s, TrackType.Audio)).ToList();
+        var subtitles = streams.Where(s => s.Type == "Subtitle" && s.Index != null).Select(s => Track(s, TrackType.Subtitle)).ToList();
+        var defaultSub = requestedSubtitle ?? source.DefaultSubtitleStreamIndex;
+        return new TrackSet(audio, subtitles,
+            requestedAudio ?? source.DefaultAudioStreamIndex ?? audio.FirstOrDefault()?.Index,
+            defaultSub is null or < 0 || subtitles.All(t => t.Index != defaultSub) ? null : defaultSub);
     }
 
     private static MediaTrack Track(MediaStream s, TrackType type)

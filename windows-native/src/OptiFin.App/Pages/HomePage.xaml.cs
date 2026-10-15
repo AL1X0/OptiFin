@@ -44,12 +44,19 @@ public sealed partial class HomePage : Page
         var ct = _cts.Token;
         ErrorPanel.Visibility = Visibility.Collapsed;
         if (!quiet && !_loaded) ShowSkeleton();
+        var started = Environment.TickCount64;
         try
         {
             await foreach (var data in home.WatchAsync(ct))
             {
                 Render(data);
                 _loaded = true;
+                AppLog.Timing("home", $"Accueil affiché ({(data.FromCache ? "cache" : "serveur")}{(quiet ? ", retour" : "")})", started);
+                if (!App.HomeShown)
+                {
+                    App.HomeShown = true;
+                    AppLog.Timing("app", "Accueil affiché depuis le lancement du processus", App.ProcessStarted);
+                }
             }
         }
         catch (OperationCanceledException)

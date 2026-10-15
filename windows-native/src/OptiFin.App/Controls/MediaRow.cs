@@ -58,7 +58,8 @@ public sealed partial class MediaRow : Grid
         };
         foreach (var item in items)
         {
-            var card = new MediaCard(item, style, width);
+            var card = new MediaCard(item, style, width, loadImage: false);
+            card.LoadImageWhenNear();
             card.Activated += i => ItemActivated?.Invoke(i);
             panel.Children.Add(card);
         }

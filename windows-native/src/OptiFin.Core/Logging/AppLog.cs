@@ -41,8 +41,28 @@ public static partial class AppLog
             System.IO.Directory.CreateDirectory(Directory);
             if (File.Exists(FilePath))
             {
-                var lines = File.ReadAllLines(FilePath);
-                var tail = lines.Skip(Math.Max(0, lines.Length - 400)).ToList();
+                List<string> lines = [];
+                using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    const long maxBytes = 256 * 1024;
+                    bool skippedFirstPartialLine = false;
+                    if (fs.Length > maxBytes)
+                    {
+                        fs.Seek(fs.Length - maxBytes, SeekOrigin.Begin);
+                        skippedFirstPartialLine = true;
+                    }
+                    using var reader = new StreamReader(fs, Encoding.UTF8);
+                    if (skippedFirstPartialLine)
+                    {
+                        reader.ReadLine();
+                    }
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        lines.Add(line);
+                    }
+                }
+                var tail = lines.Skip(Math.Max(0, lines.Count - 400)).ToList();
                 if (tail.Count > 0)
                 {
                     lock (Gate)
@@ -75,6 +95,10 @@ public static partial class AppLog
     public static void Warn(string tag, string message) => Add(LogLevel.Warning, tag, message);
     public static void Error(string tag, string message, Exception? e = null) =>
         Add(LogLevel.Error, tag, e == null ? message : $"{message}\n{e.GetType().Name}: {e.Message}\n{e.StackTrace}");
+
+    /// <summary>Durée d'une étape (temps de chargement), depuis <paramref name="started"/> (<see cref="Environment.TickCount64"/>).</summary>
+    public static void Timing(string tag, string step, long started) =>
+        Add(LogLevel.Info, tag, $"⏱ {step} : {Environment.TickCount64 - started} ms");
 
     public static void Add(LogLevel level, string tag, string message)
     {

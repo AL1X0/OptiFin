@@ -30,7 +30,14 @@ public sealed unsafe class MpvPlayer : IDisposable
         ("volume", MpvNative.FormatDouble), ("mute", MpvNative.FormatFlag), ("core-idle", MpvNative.FormatFlag),
     ];
 
+    /// <summary>
+    /// Position, ~5 fois par seconde (mpv la signale à chaque image : 24 à 60 mises à jour d'interface
+    /// par seconde pour rien). Sauts et mises en pause : signalés tout de suite.
+    /// </summary>
     public event Action<TimeSpan>? PositionChanged;
+
+    /// <summary>Position exacte (dernière image), pour les calculs fins (Watch Party).</summary>
+    public TimeSpan Position { get; private set; }
     public event Action<TimeSpan>? DurationChanged;
     public event Action<bool>? PauseChanged;
     public event Action<bool>? BufferingChanged;
@@ -46,6 +53,7 @@ public sealed unsafe class MpvPlayer : IDisposable
 
     private bool _cache;
     private bool _seeking;
+    private double _emittedPosition = double.NaN;
     private double _width;
     private double _height;
 
@@ -164,6 +172,8 @@ public sealed unsafe class MpvPlayer : IDisposable
     public void Load(string url, IReadOnlyDictionary<string, string> headers, TimeSpan start, string? title = null)
     {
         if (!_events.IsAlive && !_disposed) _events.Start();
+        Position = start;
+        _emittedPosition = double.NaN;
         Command("change-list", "http-header-fields", "clr", "");
         foreach (var (key, value) in headers) Command("change-list", "http-header-fields", "append", $"{key}: {value}");
         TrySet("user-agent", "OptiFin");
@@ -258,6 +268,12 @@ public sealed unsafe class MpvPlayer : IDisposable
         }
     }
 
+    private void EmitPosition()
+    {
+        _emittedPosition = Position.TotalSeconds;
+        PositionChanged?.Invoke(Position);
+    }
+
     private void OnProperty(MpvNative.PropertyData* p)
     {
         var name = Marshal.PtrToStringUTF8(p->Name);
@@ -267,9 +283,17 @@ public sealed unsafe class MpvPlayer : IDisposable
         static TimeSpan S(double s) => double.IsFinite(s) ? TimeSpan.FromSeconds(Math.Max(0, s)) : TimeSpan.Zero;
         switch (name)
         {
-            case "time-pos": PositionChanged?.Invoke(S(D())); break;
+            case "time-pos":
+                var position = D();
+                Position = S(position);
+                if (double.IsNaN(_emittedPosition) || Math.Abs(position - _emittedPosition) >= 0.2) EmitPosition();
+                break;
             case "duration": DurationChanged?.Invoke(S(D())); break;
-            case "pause": PauseChanged?.Invoke(F()); break;
+            case "pause":
+                var paused = F();
+                if (paused) EmitPosition();
+                PauseChanged?.Invoke(paused);
+                break;
             case "paused-for-cache":
                 _cache = F();
                 CacheStallChanged?.Invoke(_cache);

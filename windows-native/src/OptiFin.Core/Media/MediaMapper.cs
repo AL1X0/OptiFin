@@ -80,6 +80,7 @@ public static partial class MediaMapper
             ChildCount = dto.ChildCount ?? dto.RecursiveItemCount,
             LibraryType = LibraryTypeOf(dto.CollectionType),
             Streams = Streams(dto),
+            Tracks = dto.MediaSources?.FirstOrDefault() is { } source ? Playback.PlaybackService.TracksOf(source) : null,
             Primary = Own(ImageKind.Primary, "Primary", blur?.Primary),
             Backdrops = backdrops,
             Logo = logo,

@@ -30,6 +30,9 @@ public sealed record MediaTrack(
     string? DeliveryUrl = null,
     int? Channels = null);
 
+/// <summary>Pistes d'une source et pistes retenues par défaut (fiche ou plan de lecture).</summary>
+public sealed record TrackSet(IReadOnlyList<MediaTrack> Audio, IReadOnlyList<MediaTrack> Subtitles, int? AudioIndex, int? SubtitleIndex);
+
 /// <summary>Comment lire un élément : URL du flux, pistes, mode choisi par le serveur.</summary>
 public sealed record PlaybackPlan
 {

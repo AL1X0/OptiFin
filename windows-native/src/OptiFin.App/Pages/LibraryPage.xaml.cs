@@ -36,20 +36,31 @@ public sealed partial class LibraryPage : Page
         Items.ItemsSource = _items;
         Items.ContainerContentChanging += (_, args) =>
         {
-            if (args.InRecycleQueue || args.Item is not MediaItem item) return;
-            FrameworkElement card;
-            if (_listView)
+            if (args.ItemContainer.ContentTemplateRoot is not ContentControl host) return;
+            // Carte sortie de l'écran : son image est libérée (mémoire, téléchargement abandonné).
+            if (args.InRecycleQueue)
             {
-                var row = ListRow(item);
-                card = row;
+                if (host.Content is MediaCard old) old.ClearImage();
+                return;
             }
+            if (args.Item is not MediaItem item) return;
+            if (_listView) host.Content = ListRow(item);
             else
             {
-                var media = new MediaCard(item, _style, MediaRow.CardWidth(_style));
-                media.Activated += HomePage.Open;
-                card = media;
+                // Carte recyclée réaffectée (pas de nouvel arbre visuel) ; image chargée en phase 1,
+                // une fois la mise en page faite : un défilement rapide ne télécharge pas tout au passage.
+                if (host.Content is MediaCard card && card.Kind == _style) card.Bind(item, loadImage: false);
+                else
+                {
+                    card = new MediaCard(item, _style, MediaRow.CardWidth(_style), loadImage: false);
+                    card.Activated += HomePage.Open;
+                    host.Content = card;
+                }
+                args.RegisterUpdateCallback((_, next) =>
+                {
+                    if (ReferenceEquals(next.Item, item) && host.Content is MediaCard shown) shown.LoadImage();
+                });
             }
-            if (args.ItemContainer.ContentTemplateRoot is ContentControl host) host.Content = card;
             args.Handled = true;
         };
         foreach (var letter in Letters)
@@ -108,12 +119,15 @@ public sealed partial class LibraryPage : Page
     {
         if (_loadingFor == generation || AppServices.Media is not { } media) return;
         _loadingFor = generation;
+        var started = Environment.TickCount64;
         try
         {
             var page = await media.PageAsync(_query, _items.Count, PageSize);
             if (generation != _generation) return;
             _total = page.Total;
+            var first = _items.Count;
             foreach (var item in page.Items) _items.Add(item);
+            AppLog.Timing("library", $"Page {first}–{_items.Count} / {_total} affichée", started);
             Count.Text = _total == 1 ? "1 élément" : $"{_total} éléments";
         }
         catch (ApiException e)

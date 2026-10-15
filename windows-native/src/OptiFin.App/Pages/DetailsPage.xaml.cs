@@ -59,6 +59,7 @@ public sealed partial class DetailsPage : Page
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
         ErrorText.Visibility = Visibility.Collapsed;
+        var started = Environment.TickCount64;
         try
         {
             var accent = FilmAccent.ForAsync(_item);
@@ -72,7 +73,9 @@ public sealed partial class DetailsPage : Page
             Render(item);
             _rendered = true;
             Spinner.IsActive = false;
+            AppLog.Timing("details", $"Fiche « {item.Name} » affichée", started);
             await LoadExtrasAsync(item, media, ct);
+            AppLog.Timing("details", "Fiche complète (saisons, distribution, similaires)", started);
         }
         catch (OperationCanceledException)
         {

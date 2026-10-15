@@ -9,34 +9,50 @@ public sealed class AuthService(ClientIdentity identity)
 
     private JellyfinClient Client(Uri baseUrl, string? token = null) => new(baseUrl, identity, () => token);
 
-    /// <summary>Essaie chaque adresse candidate et renvoie le premier serveur Jellyfin valide.</summary>
+    /// <summary>
+    /// Sonde toutes les adresses candidates en même temps (une adresse injoignable ne fait plus
+    /// attendre son délai avant d'essayer la suivante) et renvoie, dans l'ordre de préférence, le
+    /// premier serveur Jellyfin valide.
+    /// </summary>
     public async Task<JellyfinServer> ProbeAsync(string input, CancellationToken ct = default)
     {
         var candidates = ServerAddress.Candidates(input);
         if (candidates.Count == 0) throw new ApiException(ApiErrorKind.Unreachable);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var probes = candidates.Select(url => ProbeOneAsync(url, cts.Token)).ToList();
         ApiException? last = null;
-        foreach (var url in candidates)
+        try
         {
-            try
+            foreach (var probe in probes)
             {
-                var info = await Client(url).GetAsync("System/Info/Public", JellyfinJson.Default.PublicSystemInfo, ct: ct);
-                if (info.Id is null || (info.ProductName != null && info.ProductName != JellyfinProductName))
+                try
                 {
-                    last = new ApiException(ApiErrorKind.NotJellyfin);
-                    continue;
+                    return await probe;
                 }
-                if (!ServerAddress.IsSupportedVersion(info.Version))
-                    throw new ApiException(ApiErrorKind.UnsupportedVersion, info.Version ?? "?");
-                return new JellyfinServer(info.Id, string.IsNullOrEmpty(info.ServerName) ? url.Host : info.ServerName, url,
-                    info.Version!);
-            }
-            catch (ApiException e) when (e.Kind != ApiErrorKind.UnsupportedVersion)
-            {
-                // Une réponse qui n'est pas du JSON Jellyfin : mauvais service à cette adresse.
-                last = e.Kind == ApiErrorKind.Unexpected ? new ApiException(ApiErrorKind.NotJellyfin) : e;
+                catch (ApiException e) when (e.Kind != ApiErrorKind.UnsupportedVersion)
+                {
+                    // Une réponse qui n'est pas du JSON Jellyfin : mauvais service à cette adresse.
+                    last = e.Kind == ApiErrorKind.Unexpected ? new ApiException(ApiErrorKind.NotJellyfin) : e;
+                }
             }
         }
+        finally
+        {
+            // Sondes restantes abandonnées ; leurs erreurs (annulation) sont observées sans bruit.
+            cts.Cancel();
+            foreach (var probe in probes) _ = probe.ContinueWith(t => t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+        }
         throw last ?? new ApiException(ApiErrorKind.Unreachable);
+    }
+
+    private async Task<JellyfinServer> ProbeOneAsync(Uri url, CancellationToken ct)
+    {
+        var info = await Client(url).GetAsync("System/Info/Public", JellyfinJson.Default.PublicSystemInfo, ct: ct);
+        if (info.Id is null || (info.ProductName != null && info.ProductName != JellyfinProductName))
+            throw new ApiException(ApiErrorKind.NotJellyfin);
+        if (!ServerAddress.IsSupportedVersion(info.Version))
+            throw new ApiException(ApiErrorKind.UnsupportedVersion, info.Version ?? "?");
+        return new JellyfinServer(info.Id, string.IsNullOrEmpty(info.ServerName) ? url.Host : info.ServerName, url, info.Version!);
     }
 
     /// <summary>Utilisateurs visibles sur l'écran de connexion (vide s'ils sont masqués).</summary>

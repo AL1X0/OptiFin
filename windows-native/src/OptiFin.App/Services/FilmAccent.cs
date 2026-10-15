@@ -25,7 +25,11 @@ public static class FilmAccent
         if (AppServices.Images is not { } images || (item.Backdrop ?? item.Primary) is not { } image) return Task.FromResult<Color?>(null);
         // JPEG plutôt que WebP : décodable partout par Windows, et la plus petite taille servie suffit.
         var url = images.Image(image, 120, 1, 70, "Jpg");
-        return Cache.GetOrAdd(url.ToString(), _ => ComputeAsync(url));
+        var key = url.ToString();
+        if (Cache.TryGetValue(key, out var existing)) return existing;
+        // Cache borné (mémoire) : vidé d'un coup au-delà de 512 teintes, recalculées au besoin.
+        if (Cache.Count >= 512) Cache.Clear();
+        return Cache.GetOrAdd(key, _ => ComputeAsync(url));
     }
 
     public static void Clear() => Cache.Clear();

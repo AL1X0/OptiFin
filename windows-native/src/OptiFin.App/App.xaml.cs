@@ -10,6 +10,13 @@ public partial class App : Application
 
     private Window? _window;
 
+    /// <summary>Lancement du processus, en <see cref="Environment.TickCount64"/> (chronos du démarrage).</summary>
+    public static readonly long ProcessStarted = Environment.TickCount64 -
+        (long)(DateTime.Now - System.Diagnostics.Process.GetCurrentProcess().StartTime).TotalMilliseconds;
+
+    /// <summary>Premier accueil affiché (chrono « depuis le lancement » une seule fois).</summary>
+    public static bool HomeShown { get; set; }
+
     public App()
     {
         InitializeComponent();
@@ -35,9 +42,11 @@ public partial class App : Application
         Player.Win32.SetCurrentProcessExplicitAppUserModelID(AppId);
         AppServices.Initialize();
         AppLog.Info("app", $"Démarrage OptiFin {AppServices.Version} (Windows) — session {(AppServices.Session is null ? "aucune" : "restaurée")}");
+        AppLog.Timing("app", "Services prêts", started);
         _window = new MainWindow();
         _window.Activate();
-        AppLog.Info("app", $"Fenêtre prête en {Environment.TickCount64 - started} ms");
+        AppLog.Timing("app", "Fenêtre prête", started);
+        AppLog.Timing("app", "Fenêtre prête depuis le lancement du processus", ProcessStarted);
         _ = CheckForUpdateAsync();
     }
 

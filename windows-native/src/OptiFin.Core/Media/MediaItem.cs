@@ -100,6 +100,8 @@ public sealed record MediaItem
     public int? ChildCount { get; init; }
     public LibraryType? LibraryType { get; init; }
     public IReadOnlyList<StreamSummary> Streams { get; init; } = [];
+    /// <summary>Pistes audio / sous-titres (fiche détaillée seulement) : préférences appliquées dès la 1re requête de lecture.</summary>
+    public Playback.TrackSet? Tracks { get; init; }
     public ImageRef? Primary { get; init; }
     public IReadOnlyList<ImageRef> Backdrops { get; init; } = [];
     public ImageRef? Logo { get; init; }

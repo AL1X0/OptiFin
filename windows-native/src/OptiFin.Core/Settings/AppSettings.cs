@@ -110,12 +110,16 @@ public static class TrackPreferences
     /// (audio, sous-titres) à utiliser. Les valeurs du plan sont gardées quand aucune préférence ne
     /// s'applique (le serveur a déjà appliqué celles du compte Jellyfin).
     /// </summary>
-    public static (int? Audio, int? Subtitle) Preferred(PlaybackPlan plan, AppSettings settings)
+    public static (int? Audio, int? Subtitle) Preferred(PlaybackPlan plan, AppSettings settings) =>
+        Preferred(new TrackSet(plan.AudioTracks, plan.SubtitleTracks, plan.AudioIndex, plan.SubtitleIndex), settings);
+
+    /// <summary>Même choix à partir des pistes de la fiche : demandé d'emblée au serveur (une seule requête PlaybackInfo).</summary>
+    public static (int? Audio, int? Subtitle) Preferred(TrackSet tracks, AppSettings settings)
     {
-        var audio = plan.AudioIndex;
+        var audio = tracks.AudioIndex;
         if (Normalize(settings.AudioLanguage) is { } audioLang)
         {
-            var matches = plan.AudioTracks.Where(t => Normalize(t.Language) == audioLang).ToList();
+            var matches = tracks.Audio.Where(t => Normalize(t.Language) == audioLang).ToList();
             if (matches.Count > 0 && matches.All(t => t.Index != audio))
                 audio = (matches.FirstOrDefault(t => t.IsDefault) ?? matches[0]).Index;
         }
@@ -123,13 +127,13 @@ public static class TrackPreferences
         var subLang = Normalize(settings.SubtitleLanguage);
         List<MediaTrack> InLang(IEnumerable<MediaTrack> tracks) =>
             subLang == null ? [.. tracks] : [.. tracks.Where(t => Normalize(t.Language) == subLang)];
-        var subs = plan.SubtitleTracks;
+        var subs = tracks.Subtitles;
         int? subtitle = settings.SubtitleMode switch
         {
-            SubtitleMode.Server => plan.SubtitleIndex,
+            SubtitleMode.Server => tracks.SubtitleIndex,
             SubtitleMode.None => null,
             SubtitleMode.Always => (InLang(subs.Where(t => !t.IsForced)).FirstOrDefault() ?? InLang(subs).FirstOrDefault())?.Index
-                                   ?? plan.SubtitleIndex,
+                                   ?? tracks.SubtitleIndex,
             _ => InLang(subs.Where(t => t.IsForced)).FirstOrDefault()?.Index,
         };
         return (audio, subtitle);

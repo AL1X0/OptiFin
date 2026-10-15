@@ -45,6 +45,8 @@ public sealed partial class PlayerWindow : Window
     private TimeSpan _buffered;
     private bool _paused;
     private bool _started;
+    /// <summary>Début du lancement de la lecture (chrono jusqu'à la première image).</summary>
+    private long _startTicks;
     private bool _transcodeTried;
     private bool _closing;
     private bool _reported;
@@ -176,6 +178,7 @@ public sealed partial class PlayerWindow : Window
     {
         var playback = AppServices.Playback!;
         var media = AppServices.Media!;
+        _startTicks = Environment.TickCount64;
         try
         {
             ShowPreparing(forceTranscode ? "Le serveur prépare une version compatible…" : null);
@@ -183,7 +186,9 @@ public sealed partial class PlayerWindow : Window
             _item = full;
             SetTitles(full);
             var settings = AppServices.Settings;
-            var plan = await playback.PrepareAsync(full.Id, start, forceTranscode: forceTranscode, maxBitrate: settings.EffectiveMaxBitrate);
+            // Pistes connues par la fiche : préférences demandées d'emblée (pas de 2e requête en transcodage).
+            var (hintAudio, hintSubtitle) = full.Tracks is { } tracks ? TrackPreferences.Preferred(tracks, settings) : (null, null);
+            var plan = await playback.PrepareAsync(full.Id, start, hintAudio, hintSubtitle, forceTranscode, settings.EffectiveMaxBitrate);
             var (audio, subtitle) = TrackPreferences.Preferred(plan, settings);
             // Transcodage : les pistes sont choisies par le serveur ; si elles changent, nouvelle demande.
             if (plan.Method != PlayMethod.DirectPlay && (audio != plan.AudioIndex || subtitle != plan.SubtitleIndex))
@@ -191,6 +196,7 @@ public sealed partial class PlayerWindow : Window
             else
                 plan = plan with { AudioIndex = audio, SubtitleIndex = subtitle };
             _plan = plan;
+            AppLog.Timing("player", "Plan de lecture prêt", _startTicks);
             AppLog.Info("player", $"« {full.Name} » → {plan.Method.Label()} : conteneur {plan.Container}, vidéo {plan.VideoCodec} " +
                                   $"{plan.VideoRangeType}, {plan.Bitrate / 1_000_000.0:0.#} Mb/s");
             _ = LoadExtrasAsync(full);
@@ -266,6 +272,8 @@ public sealed partial class PlayerWindow : Window
         if (_started) return;
         _started = true;
         _startupTimer.Stop();
+        if (_startTicks != 0) AppLog.Timing("player", "Première image", _startTicks);
+        _startTicks = 0;
         Preparing.Visibility = Visibility.Collapsed;
         ScheduleHide();
         _reportTimer.Start();
@@ -723,7 +731,7 @@ public sealed partial class PlayerWindow : Window
     /// <summary>mpv vu par la synchronisation de soirée.</summary>
     private sealed class MpvTarget(PlayerWindow w) : ISyncTarget
     {
-        public TimeSpan Position => w._position;
+        public TimeSpan Position => w._mpv?.Position ?? w._position;
         public bool Paused => w._paused;
         public void Play() => w._mpv?.Play();
         public void Pause() => w._mpv?.Pause();

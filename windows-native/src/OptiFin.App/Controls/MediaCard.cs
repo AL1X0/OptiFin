@@ -23,9 +23,17 @@ public sealed partial class MediaCard : Grid
     public MediaItem Item { get; private set; }
     public event Action<MediaItem>? Activated;
 
+    /// <summary>Format de la carte (une carte recyclée n'est réutilisée que pour le même format).</summary>
+    public CardStyle Kind { get; }
+
+    private readonly double _width;
+    private readonly Image _image;
+    private readonly TextBlock _fallback;
+    private readonly TextBlock _title;
+    private readonly TextBlock _subtitle;
     private readonly Border _hover;
     private readonly Border _frame;
-    private readonly Border? _play;
+    private readonly Border _play;
     private bool _starting;
     private readonly ProgressBar _progress;
     private readonly Border _playedBadge;
@@ -36,9 +44,11 @@ public sealed partial class MediaCard : Grid
     private static readonly SolidColorBrush NoStroke = new(Windows.UI.Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush HoverStroke = new(Windows.UI.Color.FromArgb(0x8C, 0xFF, 0xFF, 0xFF));
 
-    public MediaCard(MediaItem item, CardStyle style, double width)
+    public MediaCard(MediaItem item, CardStyle style, double width, bool loadImage = true)
     {
         Item = item;
+        Kind = style;
+        _width = width;
         Width = width;
         IsTabStop = true;
         UseSystemFocusVisuals = true;
@@ -52,30 +62,20 @@ public sealed partial class MediaCard : Grid
             CardStyle.Square => width,
             _ => width * 9 / 16,
         };
-        var imageRef = style == CardStyle.Landscape ? item.Landscape : item.Poster ?? item.Primary;
         var artwork = new Grid { Height = height, Background = Brush("OFSurfaceBrush") };
-        if (AppServices.Images?.Maybe(imageRef, width, 1.5) is { } url)
+        _image = Ui.FadeIn(new Image { Stretch = Stretch.UniformToFill });
+        artwork.Children.Add(_image);
+        _fallback = new TextBlock
         {
-            artwork.Children.Add(Ui.FadeIn(new Image
-            {
-                Source = new BitmapImage(url) { DecodePixelWidth = (int)Math.Ceiling(width * 1.5), DecodePixelType = DecodePixelType.Physical },
-                Stretch = Stretch.UniformToFill,
-            }));
-        }
-        else
-        {
-            artwork.Children.Add(new TextBlock
-            {
-                Text = item.Name,
-                Style = Ui.StyleOf("OFCaption"),
-                TextWrapping = TextWrapping.Wrap,
-                TextAlignment = TextAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(12),
-                MaxLines = 4,
-            });
-        }
+            Style = Ui.StyleOf("OFCaption"),
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(12),
+            MaxLines = 4,
+        };
+        artwork.Children.Add(_fallback);
 
         // Progression (aux couleurs du film, comme sur mobile) et pastille « vu » : mises à jour
         // quand l'état change (menu du clic droit, sélection).
@@ -110,7 +110,6 @@ public sealed partial class MediaCard : Grid
             IsHitTestVisible = false,
         };
         artwork.Children.Add(_hover);
-        if (item.Kind.IsPlayableVideo() || item.Kind == MediaKind.Series)
         {
             var playIcon = new FontIcon { Glyph = "", FontSize = 18, Foreground = new SolidColorBrush(Colors.Black) };
             _play = new Border
@@ -157,19 +156,17 @@ public sealed partial class MediaCard : Grid
         Children.Add(frame);
 
         var text = new StackPanel { Margin = new Thickness(2, 8, 2, 0), Spacing = 1 };
-        text.Children.Add(new TextBlock
+        _title = new TextBlock
         {
-            Text = Title(item, style),
             FontSize = 14,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             Foreground = Brush("OFTextPrimaryBrush"),
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxLines = 1,
-        });
-        if (Subtitle(item, style) is { } subtitle)
-        {
-            text.Children.Add(new TextBlock { Text = subtitle, Style = Ui.StyleOf("OFCaption"), MaxLines = 1 });
-        }
+        };
+        text.Children.Add(_title);
+        _subtitle = new TextBlock { Style = Ui.StyleOf("OFCaption"), MaxLines = 1 };
+        text.Children.Add(_subtitle);
         SetRow(text, 1);
         Children.Add(text);
 
@@ -184,7 +181,6 @@ public sealed partial class MediaCard : Grid
             if (MediaActions.Selecting) MediaActions.Toggle(Item);
             else Activated?.Invoke(Item);
         };
-        ApplyUserState();
         // Clic droit (ou touche Menu / Maj+F10) : actions sur l'élément ou sur la sélection.
         var menu = new MenuFlyout();
         menu.Opening += (_, _) => FillMenu(menu);
@@ -203,8 +199,72 @@ public sealed partial class MediaCard : Grid
         KeyDown += OnKeyDown;
         GotFocus += (_, _) => SetHover(true);
         LostFocus += (_, _) => SetHover(false);
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(this, Title(item, style));
         ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.Hand);
+        Bind(item, loadImage);
+    }
+
+    /// <summary>
+    /// Affiche <paramref name="item"/> dans cette carte : les grilles virtualisées recyclent les cartes
+    /// au défilement au lieu d'en reconstruire une par élément. Sans <paramref name="loadImage"/>,
+    /// l'image attend <see cref="LoadImage"/> (défilement rapide : pas de téléchargement inutile).
+    /// </summary>
+    public void Bind(MediaItem item, bool loadImage = true)
+    {
+        if (!ReferenceEquals(Item, item)) ClearImage();
+        Item = item;
+        _fallback.Text = item.Name;
+        _fallback.Visibility = ImageUrl() is null ? Visibility.Visible : Visibility.Collapsed;
+        _play.Visibility = item.Kind.IsPlayableVideo() || item.Kind == MediaKind.Series ? Visibility.Visible : Visibility.Collapsed;
+        var title = Title(item, Kind);
+        _title.Text = title;
+        var subtitle = Subtitle(item, Kind);
+        _subtitle.Text = subtitle ?? "";
+        _subtitle.Visibility = subtitle is null ? Visibility.Collapsed : Visibility.Visible;
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(this, title);
+        SetHover(false);
+        ApplyUserState();
+        if (IsLoaded) ApplySelection();
+        if (loadImage) LoadImage();
+    }
+
+    private Uri? ImageUrl(double scale = 1.5) =>
+        AppServices.Images?.Maybe(Kind == CardStyle.Landscape ? Item.Landscape : Item.Poster ?? Item.Primary, _width, scale);
+
+    /// <summary>
+    /// Charge l'image de l'élément affiché (sans effet si elle est déjà là), à la définition réelle de
+    /// l'écran : rien de plus téléchargé ni décodé que ce qui s'affiche.
+    /// </summary>
+    public void LoadImage()
+    {
+        // Avant d'être dans l'arbre visuel, l'échelle de l'écran est inconnue : 1,5 par défaut.
+        var scale = XamlRoot?.RasterizationScale is > 0 and var s ? s : 1.5;
+        if (_image.Source is not null || ImageUrl(scale) is not { } url) return;
+        _image.Source = new BitmapImage(url) { DecodePixelWidth = (int)Math.Ceiling(_width * scale), DecodePixelType = DecodePixelType.Physical };
+    }
+
+    /// <summary>
+    /// Image chargée seulement à l'approche de l'écran (rangées de l'accueil : les cartes hors champ
+    /// ne téléchargent rien tant qu'on ne fait pas défiler jusqu'à elles).
+    /// </summary>
+    public void LoadImageWhenNear()
+    {
+        if (_image.Source is not null) return;
+        EffectiveViewportChanged += OnEffectiveViewportChanged;
+    }
+
+    private void OnEffectiveViewportChanged(FrameworkElement sender, EffectiveViewportChangedEventArgs e)
+    {
+        // Moins d'un écran (environ) de distance : chargé d'avance pour être prêt à l'arrivée.
+        if (e.BringIntoViewDistanceX > 1600 || e.BringIntoViewDistanceY > 900) return;
+        EffectiveViewportChanged -= OnEffectiveViewportChanged;
+        LoadImage();
+    }
+
+    /// <summary>Libère l'image (carte sortie de l'écran ou réaffectée) : mémoire rendue, téléchargement abandonné.</summary>
+    public void ClearImage()
+    {
+        _image.Source = null;
+        _image.Opacity = 0;
     }
 
     private void OnUserStateChanged(string id, UserState state)
@@ -224,10 +284,12 @@ public sealed partial class MediaCard : Grid
             if (FilmAccent.Cached(item) is { } cached) _progress.Foreground = new SolidColorBrush(cached);
             else
             {
+                _progress.ClearValue(Control.ForegroundProperty);
                 var bar = _progress;
                 _ = FilmAccent.ForAsync(item).ContinueWith(t => bar.DispatcherQueue.TryEnqueue(() =>
                 {
-                    if (t.Result is { } c) bar.Foreground = new SolidColorBrush(c);
+                    // Carte recyclée entre-temps : la teinte n'est plus la sienne.
+                    if (t.Result is { } c && Item.Id == item.Id) bar.Foreground = new SolidColorBrush(c);
                 }), TaskScheduler.Default);
             }
         }
@@ -346,7 +408,7 @@ public sealed partial class MediaCard : Grid
     {
         Scale = on ? new Vector3(1.05f, 1.05f, 1) : Vector3.One;
         _hover.Opacity = on ? 1 : 0;
-        if (_play != null) _play.Opacity = on ? 1 : 0;
+        _play.Opacity = on ? 1 : 0;
         if (!(MediaActions.Selecting && MediaActions.IsSelected(Item))) _frame.BorderBrush = on ? HoverStroke : NoStroke;
     }
 
@@ -386,7 +448,7 @@ public sealed partial class MediaCard : Grid
         UIElement? hit = null;
         foreach (var e in VisualTreeHelper.FindElementsInHostCoordinates(point, XamlRoot.Content)) { hit = e; break; }
         OptiFin.Core.Logging.AppLog.Info("dev", $"Clic carte {(center ? "centre" : "haut")} : {(ReferenceEquals(hit, _play) || IsChild(hit, _play) ? "bouton lecture" : "carte")}");
-        if (_play != null && (ReferenceEquals(hit, _play) || IsChild(hit, _play))) _ = PlayAsync();
+        if (_play.Visibility == Visibility.Visible && (ReferenceEquals(hit, _play) || IsChild(hit, _play))) _ = PlayAsync();
         else Activated?.Invoke(Item);
     }
 

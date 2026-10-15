@@ -285,6 +285,20 @@ public class PlaybackTests
     }
 
     [Fact]
+    public void PreferencesDePistes_depuisLaFiche()
+    {
+        // Pistes de la fiche (MediaSources) : même choix que sur le plan, sans requête PlaybackInfo de plus.
+        var response = Response(direct: false);
+        var plan = PlaybackService.PlanFromResponse(response, "i", Base, TimeSpan.Zero);
+        var fromItem = PlaybackService.TracksOf(response.MediaSources![0]);
+        foreach (var mode in new[] { SubtitleMode.Always, SubtitleMode.ForcedOnly, SubtitleMode.Server, SubtitleMode.None })
+        {
+            var settings = new AppSettings { AudioLanguage = "en", SubtitleMode = mode, SubtitleLanguage = "fr" };
+            Assert.Equal(TrackPreferences.Preferred(plan, settings), TrackPreferences.Preferred(fromItem, settings));
+        }
+    }
+
+    [Fact]
     public void Segments_etEpisodeSuivant()
     {
         var next = new MediaItem { Id = "n", Name = "Suite", Kind = MediaKind.Episode };
