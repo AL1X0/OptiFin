@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show compute;
 import 'package:jellyfin_api/jellyfin_api.dart';
 
+import '../../../core/logging/app_log.dart';
 import '../../../core/media/media_repository.dart';
 import '../../../core/storage/app_database.dart';
 import '../domain/home_data.dart';
@@ -81,9 +83,13 @@ class HomeRepository {
   /// cette ouverture (pas de changement sous les yeux de l'utilisateur) ; la nouvelle
   /// sélection tirée au sort est enregistrée et apparaîtra à la prochaine ouverture.
   Stream<HomeData> watch() async* {
+    final clock = Stopwatch()..start();
     final cachedRaw = await _cache.read(_key);
-    final cached = cachedRaw == null ? null : HomeSnapshot.tryParse(cachedRaw);
-    if (cached != null) yield buildHome(cached, fromCache: true);
+    final cached = cachedRaw == null ? null : await compute(HomeSnapshot.tryParse, cachedRaw);
+    if (cached != null) {
+      yield buildHome(cached, fromCache: true);
+      AppLog.timing('home', 'Accueil affiché (cache)', clock);
+    }
 
     try {
       final fresh = await fetch();
@@ -91,6 +97,7 @@ class HomeRepository {
           ? fresh
           : fresh.withFeatured(_stillUnwatched(cached, fresh));
       yield buildHome(shown, fromCache: false, upcoming: identical(shown, fresh) ? const [] : fresh.featured);
+      AppLog.timing('home', 'Accueil affiché (serveur)', clock);
       unawaited(_cache.write(_key, jsonEncode(fresh.toJson())));
     } catch (e) {
       if (cached == null) rethrow;

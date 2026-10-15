@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-
 import 'app/app.dart';
 import 'core/platform/device_identity.dart';
 import 'core/logging/app_log.dart';
@@ -19,6 +18,7 @@ import 'features/settings/presentation/settings_providers.dart';
 /// Démarrage minimal : uniquement ce qui est local et rapide (DB, trousseau).
 /// Aucun appel réseau, aucun moteur de lecture (libmpv est chargé à la demande).
 Future<void> bootstrap() async {
+  final launch = Stopwatch()..start();
   WidgetsFlutterBinding.ensureInitialized();
   // Journal sur disque : lisible au lancement suivant, même après un plantage.
   try {
@@ -53,12 +53,15 @@ Future<void> bootstrap() async {
   final container = ProviderContainer(
     overrides: [appDatabaseProvider.overrideWithValue(db), tokenVaultProvider.overrideWithValue(vault)],
   );
-  final session = await container.read(accountStoreProvider).restoreActiveSession();
-  final settings = await loadSettings(db);
-  final identity = await identityFuture;
+  final (session, settings, identity) = await (
+    container.read(accountStoreProvider).restoreActiveSession(),
+    loadSettings(db),
+    identityFuture,
+  ).wait;
   container.dispose();
   AppLog.instance.verbose = settings.debugMode;
   AppLog.i('app', 'Démarrage OptiFin ${identity.version} — session ${session == null ? 'aucune' : 'restaurée'}');
+  AppLog.timing('app', 'Services prêts', launch);
 
   runApp(
     ProviderScope(
@@ -73,4 +76,5 @@ Future<void> bootstrap() async {
       child: const OptiFinApp(),
     ),
   );
+  WidgetsBinding.instance.addPostFrameCallback((_) => AppLog.timing('app', 'Première image', launch));
 }

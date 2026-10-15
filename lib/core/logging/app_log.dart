@@ -105,6 +105,9 @@ class AppLog extends ChangeNotifier {
 
   static void d(String tag, String message) => instance.add(LogLevel.debug, tag, message);
   static void i(String tag, String message) => instance.add(LogLevel.info, tag, message);
+
+  /// Durée d'une étape (temps de chargement) mesurée par [watch].
+  static void timing(String tag, String step, Stopwatch watch) => i(tag, '⏱ $step : ${watch.elapsedMilliseconds} ms');
   static void w(String tag, String message) => instance.add(LogLevel.warning, tag, message);
   static void e(String tag, String message, [Object? error, StackTrace? stack]) => instance.add(
     LogLevel.error,
