@@ -344,7 +344,8 @@ class PlayerBack {
   bool Function()? handle;
 }
 
-enum _Level { brightness, volume }
+/// Glissé vertical : tiers gauche = luminosité, tiers central = fermer (vers le bas), tiers droit = volume.
+enum _Level { brightness, close, volume }
 
 class _PlayerControlsState extends State<PlayerControls> {
   /// Chaque changement d'état (contrôles affichés/masqués, menu, verrou, glissé) peut
@@ -373,6 +374,10 @@ class _PlayerControlsState extends State<PlayerControls> {
   double _volume = 0.5;
   double _dragStartValue = 0;
   double _dragDistance = 0;
+
+  /// Distance de glissé vers le bas qui ferme le lecteur.
+  static const _closeDistance = 140.0;
+  double _closeProgress = 0;
 
   static const _hideAfter = Duration(seconds: 4);
   static const _skip = Duration(seconds: 10);
@@ -605,8 +610,14 @@ class _PlayerControlsState extends State<PlayerControls> {
   void _levelStart(DragStartDetails d) {
     if (_locked || _menu) return;
     final width = context.size?.width ?? 1;
-    final level = d.localPosition.dx < width / 2 ? _Level.brightness : _Level.volume;
+    final x = d.localPosition.dx;
+    final level = x < width / 3
+        ? _Level.brightness
+        : x > width * 2 / 3
+        ? _Level.volume
+        : _Level.close;
     _dragDistance = 0;
+    _closeProgress = 0;
     _dragStartValue = level == _Level.brightness ? _brightness : _volume;
     setState(() => _level = level);
   }
@@ -616,6 +627,13 @@ class _PlayerControlsState extends State<PlayerControls> {
     if (level == null) return;
     final height = context.size?.height ?? 1;
     _dragDistance += d.delta.dy;
+    if (level == _Level.close) {
+      final progress = (_dragDistance / _closeDistance).clamp(0.0, 1.0);
+      // Petit choc au seuil : relâcher maintenant ferme le lecteur.
+      if (progress == 1 && _closeProgress < 1) HapticFeedback.mediumImpact();
+      setState(() => _closeProgress = progress);
+      return;
+    }
     // Toute la hauteur de l'écran ≈ toute la plage.
     final value = (_dragStartValue - _dragDistance / (height * 0.8)).clamp(0.0, 1.0);
     setState(() {
@@ -633,8 +651,13 @@ class _PlayerControlsState extends State<PlayerControls> {
     );
   }
 
-  void _levelEnd([DragEndDetails? _]) {
-    if (_level != null) setState(() => _level = null);
+  void _levelEnd([DragEndDetails? d]) {
+    if (_level == null) return;
+    // Seuil franchi, ou lancé franc vers le bas.
+    final fling = (d?.velocity.pixelsPerSecond.dy ?? 0) > 1000 && _closeProgress > 0.3;
+    final close = _level == _Level.close && (_closeProgress == 1 || fling);
+    setState(() => _level = null);
+    if (close) widget.onClose();
   }
 
   // ------------------------------------------------------------ Actions
@@ -701,8 +724,16 @@ class _PlayerControlsState extends State<PlayerControls> {
                       child: Align(
                         alignment: const Alignment(0, -0.7),
                         child: LevelIndicator(
-                          icon: _level == _Level.brightness ? Icons.brightness_6_rounded : Icons.volume_up_rounded,
-                          value: _level == _Level.brightness ? _brightness : _volume,
+                          icon: switch (_level!) {
+                            _Level.brightness => Icons.brightness_6_rounded,
+                            _Level.close => Icons.keyboard_arrow_down_rounded,
+                            _Level.volume => Icons.volume_up_rounded,
+                          },
+                          value: switch (_level!) {
+                            _Level.brightness => _brightness,
+                            _Level.close => _closeProgress,
+                            _Level.volume => _volume,
+                          },
                         ),
                       ),
                     ),

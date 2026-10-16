@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'page_transitions.dart';
 import 'tokens.dart';
 
 /// Échelle typographique. Sur iOS, `fontFamily: null` = SF Pro système ;
@@ -53,7 +54,7 @@ abstract final class OFTheme {
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: OFCupertinoPageTransitionsBuilder(),
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
         },
       ),

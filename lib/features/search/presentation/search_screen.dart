@@ -63,68 +63,70 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final gutter = OFSpacing.gutterOf(context);
     final accent = Theme.of(context).colorScheme.primary;
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, OFSpacing.md),
-              child: TextField(
-                controller: _controller,
-                focusNode: _focus,
-                onChanged: _onChanged,
-                textInputAction: TextInputAction.search,
-                autocorrect: false,
-                style: OFTypography.body,
-                cursorColor: accent,
-                decoration: InputDecoration(
-                  hintText: 'Films, séries, personnes, musique…',
-                  hintStyle: OFTypography.body.copyWith(color: OFColors.textTertiary),
-                  prefixIcon: const Icon(Icons.search_rounded, color: OFColors.textSecondary),
-                  suffixIcon: _controller.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Effacer',
-                          icon: const Icon(Icons.close_rounded, color: OFColors.textSecondary),
-                          onPressed: () {
-                            _controller.clear();
-                            _onChanged('');
-                            _focus.requestFocus();
-                          },
-                        ),
-                  filled: true,
-                  fillColor: OFColors.surface,
-                  contentPadding: const EdgeInsets.symmetric(vertical: OFSpacing.md),
-                  border: const OutlineInputBorder(borderRadius: OFRadius.mdAll, borderSide: BorderSide.none),
+    return ScrollToTopListener(
+      child: Scaffold(
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, OFSpacing.md),
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focus,
+                  onChanged: _onChanged,
+                  textInputAction: TextInputAction.search,
+                  autocorrect: false,
+                  style: OFTypography.body,
+                  cursorColor: accent,
+                  decoration: InputDecoration(
+                    hintText: 'Films, séries, personnes, musique…',
+                    hintStyle: OFTypography.body.copyWith(color: OFColors.textTertiary),
+                    prefixIcon: const Icon(Icons.search_rounded, color: OFColors.textSecondary),
+                    suffixIcon: _controller.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Effacer',
+                            icon: const Icon(Icons.close_rounded, color: OFColors.textSecondary),
+                            onPressed: () {
+                              _controller.clear();
+                              _onChanged('');
+                              _focus.requestFocus();
+                            },
+                          ),
+                    filled: true,
+                    fillColor: OFColors.surface,
+                    contentPadding: const EdgeInsets.symmetric(vertical: OFSpacing.md),
+                    border: const OutlineInputBorder(borderRadius: OFRadius.mdAll, borderSide: BorderSide.none),
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: FadeThroughSwitcher(
-                child: switch (results) {
-                  AsyncData(value: null) => const StatusMessage(
-                    key: ValueKey('accueil'),
-                    icon: Icons.search_rounded,
-                    text: 'Recherchez dans toutes vos bibliothèques.',
-                  ),
-                  AsyncData(:final value?) when value.isEmpty => StatusMessage(
-                    key: const ValueKey('aucun'),
-                    icon: Icons.search_off_rounded,
-                    text: 'Aucun résultat pour « ${ref.read(searchTermProvider)} ».',
-                  ),
-                  // Nouvelle recherche : nouvelles entrées animées.
-                  AsyncData(:final value?) => _Results(key: ValueKey(value), results: value),
-                  AsyncError(:final error) => StatusMessage(
-                    key: const ValueKey('erreur'),
-                    text: error is ApiFailure ? error.userMessage : 'La recherche a échoué.',
-                    onRetry: () => ref.invalidate(searchResultsProvider),
-                  ),
-                  _ => const Center(key: ValueKey('chargement'), child: OFLoader()),
-                },
+              Expanded(
+                child: FadeThroughSwitcher(
+                  child: switch (results) {
+                    AsyncData(value: null) => const StatusMessage(
+                      key: ValueKey('accueil'),
+                      icon: Icons.search_rounded,
+                      text: 'Recherchez dans toutes vos bibliothèques.',
+                    ),
+                    AsyncData(:final value?) when value.isEmpty => StatusMessage(
+                      key: const ValueKey('aucun'),
+                      icon: Icons.search_off_rounded,
+                      text: 'Aucun résultat pour « ${ref.read(searchTermProvider)} ».',
+                    ),
+                    // Nouvelle recherche : nouvelles entrées animées.
+                    AsyncData(:final value?) => _Results(key: ValueKey(value), results: value),
+                    AsyncError(:final error) => StatusMessage(
+                      key: const ValueKey('erreur'),
+                      text: error is ApiFailure ? error.userMessage : 'La recherche a échoué.',
+                      onRetry: () => ref.invalidate(searchResultsProvider),
+                    ),
+                    _ => const Center(key: ValueKey('chargement'), child: OFLoader()),
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

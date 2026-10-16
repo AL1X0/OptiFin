@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,6 +18,7 @@ import '../features/search/presentation/search_screen.dart';
 import '../features/settings/presentation/logs_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import 'app_shell.dart';
+import 'route_titles.dart';
 
 abstract final class Routes {
   static const home = '/home';
@@ -38,34 +39,42 @@ abstract final class Routes {
 
 final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
+/// Route à page Material explicite. go_router 18 cherche le `MaterialApp` de material_ui ;
+/// l'app utilise celui de flutter/material, donc avec `builder:` il retombe sur des pages
+/// sans transition — ni glissement, ni retour par glissé depuis le bord sur iOS.
+GoRoute appRoute(
+  String path,
+  Widget Function(GoRouterState state) build, {
+  GlobalKey<NavigatorState>? parentNavigatorKey,
+  List<RouteBase> routes = const [],
+}) => GoRoute(
+  path: path,
+  parentNavigatorKey: parentNavigatorKey,
+  pageBuilder: (_, s) =>
+      MaterialPage<void>(key: s.pageKey, name: s.uri.toString(), restorationId: s.pageKey.value, child: build(s)),
+  routes: routes,
+);
+
 /// Routes de contenu disponibles sous chaque onglet (la fiche s'ouvre dans
 /// l'onglet courant : barre d'onglets conservée, retour naturel).
 List<RouteBase> _contentRoutes() => [
-  GoRoute(
-    path: 'item/:id',
-    builder: (_, s) => ItemDetailsScreen(
+  appRoute(
+    'item/:id',
+    (s) => ItemDetailsScreen(
       itemId: s.pathParameters['id']!,
       heroTag: s.extra is String ? s.extra! as String : null,
       initialSeasonId: s.uri.queryParameters['season'],
     ),
   ),
-  GoRoute(
-    path: 'person/:id',
-    builder: (_, s) => PersonScreen(personId: s.pathParameters['id']!),
+  appRoute('person/:id', (s) => PersonScreen(personId: s.pathParameters['id']!)),
+  appRoute('library/:id', (s) => LibraryScreen(source: ViewSource(s.pathParameters['id']!))),
+  appRoute(
+    'genre/:id',
+    (s) => LibraryScreen(source: GenreSource(s.pathParameters['id']!, s.uri.queryParameters['name'] ?? 'Genre')),
   ),
-  GoRoute(
-    path: 'library/:id',
-    builder: (_, s) => LibraryScreen(source: ViewSource(s.pathParameters['id']!)),
-  ),
-  GoRoute(
-    path: 'genre/:id',
-    builder: (_, s) =>
-        LibraryScreen(source: GenreSource(s.pathParameters['id']!, s.uri.queryParameters['name'] ?? 'Genre')),
-  ),
-  GoRoute(
-    path: 'studio/:id',
-    builder: (_, s) =>
-        LibraryScreen(source: StudioSource(s.pathParameters['id']!, s.uri.queryParameters['name'] ?? 'Studio')),
+  appRoute(
+    'studio/:id',
+    (s) => LibraryScreen(source: StudioSource(s.pathParameters['id']!, s.uri.queryParameters['name'] ?? 'Studio')),
   ),
 ];
 
@@ -77,6 +86,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   final router = GoRouter(
     navigatorKey: _rootKey,
+    observers: [OFNavObserver()],
     initialLocation: sessionListenable.value == null ? Routes.connect : Routes.home,
     refreshListenable: sessionListenable,
     redirect: (context, state) {
@@ -95,19 +105,39 @@ final routerProvider = Provider<GoRouter>((ref) {
             FadingBranches(index: shell.currentIndex, children: children),
         branches: [
           StatefulShellBranch(
-            routes: [GoRoute(path: Routes.home, builder: (_, _) => const HomeScreen(), routes: _contentRoutes())],
-          ),
-          StatefulShellBranch(
             routes: [
-              GoRoute(path: Routes.libraries, builder: (_, _) => const LibrariesScreen(), routes: _contentRoutes()),
+              appRoute(
+                Routes.home,
+                (_) => const OFRouteTitle(title: 'Accueil', child: HomeScreen()),
+                routes: _contentRoutes(),
+              ),
             ],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: Routes.search, builder: (_, _) => const SearchScreen(), routes: _contentRoutes())],
+            routes: [
+              appRoute(
+                Routes.libraries,
+                (_) => const OFRouteTitle(title: 'Bibliothèques', child: LibrariesScreen()),
+                routes: _contentRoutes(),
+              ),
+            ],
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(path: Routes.downloads, builder: (_, _) => const DownloadsScreen(), routes: _contentRoutes()),
+              appRoute(
+                Routes.search,
+                (_) => const OFRouteTitle(title: 'Recherche', child: SearchScreen()),
+                routes: _contentRoutes(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              appRoute(
+                Routes.downloads,
+                (_) => const OFRouteTitle(title: 'Téléchargements', child: DownloadsScreen()),
+                routes: _contentRoutes(),
+              ),
             ],
           ),
         ],
@@ -133,22 +163,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      GoRoute(
-        path: Routes.settings,
+      appRoute(
+        Routes.settings,
         parentNavigatorKey: _rootKey,
-        builder: (_, _) => const SettingsScreen(),
-        routes: [GoRoute(path: 'logs', builder: (_, _) => const LogsScreen())],
+        (_) => const SettingsScreen(),
+        routes: [appRoute('logs', (_) => const LogsScreen())],
       ),
-      GoRoute(
-        path: Routes.connect,
+      appRoute(
+        Routes.connect,
         parentNavigatorKey: _rootKey,
-        builder: (_, _) => const ConnectScreen(),
-        routes: [
-          GoRoute(
-            path: 'login',
-            builder: (_, state) => LoginScreen(initialUsername: state.extra as String?),
-          ),
-        ],
+        (_) => const ConnectScreen(),
+        routes: [appRoute('login', (state) => LoginScreen(initialUsername: state.extra as String?))],
       ),
     ],
   );

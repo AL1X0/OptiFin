@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/navigation.dart';
+import '../../../app/route_titles.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/media/formatters.dart';
 import '../../../core/media/media_item.dart';
@@ -116,55 +117,62 @@ class _DetailsState extends ConsumerState<_Details> {
     return AnimatedTheme(
       data: OFTheme.dark(accent: _accent ?? OFColors.accentFallback),
       duration: OFMotion.of(context).standard,
-      child: Scaffold(
-        body: EntranceScope(
-          child: Stack(
-            children: [
-              CustomScrollView(
-                controller: _scroll,
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: _Header(
-                      item: item,
-                      height: headerHeight,
-                      scroll: _scroll,
-                      heroTag: widget.heroTag,
-                      wide: wide,
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, 0),
-                    sliver: SliverToBoxAdapter(
-                      child: FadeSlideIn(
-                        delay: staggerDelay(3),
-                        // Tablette : le synopsis garde une longueur de ligne confortable.
-                        child: Align(
-                          alignment: Alignment.topLeft,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 820),
-                            child: _Summary(item: item),
+      child: ScrollToTopListener(
+        controller: _scroll,
+        child: OFRouteTitle(
+          title: item.name,
+          child: Scaffold(
+            body: EntranceScope(
+              child: Stack(
+                children: [
+                  CustomScrollView(
+                    controller: _scroll,
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _Header(
+                          item: item,
+                          height: headerHeight,
+                          scroll: _scroll,
+                          heroTag: widget.heroTag,
+                          wide: wide,
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, 0),
+                        sliver: SliverToBoxAdapter(
+                          child: FadeSlideIn(
+                            delay: staggerDelay(3),
+                            // Tablette : le synopsis garde une longueur de ligne confortable.
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 820),
+                                child: _Summary(item: item),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                      // Les sections arrivent en cascade sous les actions.
+                      for (final (i, section) in [
+                        if (item.kind == MediaKind.series)
+                          SeasonsSection(series: item, initialSeasonId: widget.initialSeasonId),
+                        if (item.kind == MediaKind.boxSet || item.kind == MediaKind.playlist)
+                          ChildrenSection(parent: item),
+                        if (item.people.isNotEmpty) CastSection(people: item.people),
+                        if (item.kind != MediaKind.episode) SimilarSection(itemId: item.id),
+                        if (item.streams.isNotEmpty) TechnicalSection(item: item),
+                      ].indexed)
+                        SliverToBoxAdapter(
+                          child: FadeSlideIn(delay: staggerDelay(i + 5), offset: 24, child: section),
+                        ),
+                      SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 120)),
+                    ],
                   ),
-                  // Les sections arrivent en cascade sous les actions.
-                  for (final (i, section) in [
-                    if (item.kind == MediaKind.series)
-                      SeasonsSection(series: item, initialSeasonId: widget.initialSeasonId),
-                    if (item.kind == MediaKind.boxSet || item.kind == MediaKind.playlist) ChildrenSection(parent: item),
-                    if (item.people.isNotEmpty) CastSection(people: item.people),
-                    if (item.kind != MediaKind.episode) SimilarSection(itemId: item.id),
-                    if (item.streams.isNotEmpty) TechnicalSection(item: item),
-                  ].indexed)
-                    SliverToBoxAdapter(
-                      child: FadeSlideIn(delay: staggerDelay(i + 5), offset: 24, child: section),
-                    ),
-                  SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 120)),
+                  _TopBar(scroll: _scroll, title: item.name, fadeStart: headerHeight - 140),
                 ],
               ),
-              _TopBar(scroll: _scroll, title: item.name, fadeStart: headerHeight - 140),
-            ],
+            ),
           ),
         ),
       ),
@@ -765,7 +773,7 @@ class _BackButton extends StatelessWidget {
     return Positioned(
       top: MediaQuery.paddingOf(context).top + OFSpacing.xs,
       left: OFSpacing.md + MediaQuery.paddingOf(context).left,
-      child: OFIconButton(icon: Icons.arrow_back_ios_new_rounded, tooltip: 'Retour', onPressed: () => context.pop()),
+      child: OFBackButton(previousTitle: OFRouteTitles.previousOf(context), onPressed: () => context.pop()),
     );
   }
 }

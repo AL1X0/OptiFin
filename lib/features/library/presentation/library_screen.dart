@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/navigation.dart';
+import '../../../app/route_titles.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/media/formatters.dart';
 import '../../../core/media/media_item.dart';
@@ -125,118 +126,126 @@ class _LibraryBrowserState extends ConsumerState<_LibraryBrowser> {
     final topInset = MediaQuery.paddingOf(context).top + 64;
     final bottomInset = MediaQuery.paddingOf(context).bottom + 96;
 
-    return Scaffold(
-      body: ListenableBuilder(
-        listenable: _pager,
-        builder: (context, _) {
-          final total = _pager.total;
-          Widget body;
-          if (_pager.error != null) {
-            final e = _pager.error;
-            body = StatusMessage(
-              key: const ValueKey('erreur'),
-              text: e is ApiFailure ? e.userMessage : 'Impossible de charger le contenu.',
-              onRetry: _pager.retry,
-            );
-          } else if (total == null) {
-            body = const Center(key: ValueKey('chargement'), child: OFLoader());
-          } else if (total == 0) {
-            body = StatusMessage(
-              key: const ValueKey('vide'),
-              icon: Icons.filter_alt_off_rounded,
-              text: _query.activeFilterCount > 0 ? 'Aucun résultat avec ces filtres.' : 'Cette bibliothèque est vide.',
-            );
-          } else {
-            body = EntranceScope(
-              key: ValueKey('grille-${_query.hashCode}-$_listMode'),
-              child: Scrollbar(
-                controller: _scroll,
-                child: CustomScrollView(
-                  controller: _scroll,
-                  slivers: [
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(
-                        g.gutter,
-                        topInset + OFSpacing.md,
-                        g.gutter + (_query.supportsAlphaIndex ? 12 : 0),
-                        bottomInset,
-                      ),
-                      sliver: _listMode
-                          ? SliverFixedExtentList.builder(
-                              itemExtent: g.rowExtent,
-                              itemCount: total,
-                              itemBuilder: (context, i) => FadeSlideIn(
-                                delay: staggerDelay(i),
-                                child: _ListRow(item: _pager.itemAt(i)),
-                              ),
-                            )
-                          : SliverGrid.builder(
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: g.columns,
-                                mainAxisSpacing: OFSpacing.lg,
-                                crossAxisSpacing: OFSpacing.md,
-                                mainAxisExtent: g.rowExtent - OFSpacing.lg,
-                              ),
-                              itemCount: total,
-                              itemBuilder: (context, i) {
-                                final item = _pager.itemAt(i);
-                                // Arrivée en diagonale (ligne + colonne), puis squelette → carte en fondu.
-                                return FadeSlideIn(
-                                  delay: staggerDelay(i ~/ g.columns + i % g.columns),
-                                  child: FadeThroughSwitcher(
-                                    child: item == null
-                                        ? Align(
-                                            key: const ValueKey('squelette'),
-                                            alignment: Alignment.topCenter,
-                                            child: SkeletonBox(
-                                              width: g.cardWidth,
-                                              aspectRatio: _aspect(widget.context0.style),
-                                            ),
-                                          )
-                                        : MediaCard(
-                                            key: ValueKey(item.id),
-                                            item: item,
-                                            style: widget.context0.style,
-                                            width: g.cardWidth,
-                                            heroScope: 'lib',
-                                          ),
+    return ScrollToTopListener(
+      controller: _scroll,
+      child: OFRouteTitle(
+        title: widget.context0.title,
+        child: Scaffold(
+          body: ListenableBuilder(
+            listenable: _pager,
+            builder: (context, _) {
+              final total = _pager.total;
+              Widget body;
+              if (_pager.error != null) {
+                final e = _pager.error;
+                body = StatusMessage(
+                  key: const ValueKey('erreur'),
+                  text: e is ApiFailure ? e.userMessage : 'Impossible de charger le contenu.',
+                  onRetry: _pager.retry,
+                );
+              } else if (total == null) {
+                body = const Center(key: ValueKey('chargement'), child: OFLoader());
+              } else if (total == 0) {
+                body = StatusMessage(
+                  key: const ValueKey('vide'),
+                  icon: Icons.filter_alt_off_rounded,
+                  text: _query.activeFilterCount > 0
+                      ? 'Aucun résultat avec ces filtres.'
+                      : 'Cette bibliothèque est vide.',
+                );
+              } else {
+                body = EntranceScope(
+                  key: ValueKey('grille-${_query.hashCode}-$_listMode'),
+                  child: Scrollbar(
+                    controller: _scroll,
+                    child: CustomScrollView(
+                      controller: _scroll,
+                      slivers: [
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            g.gutter,
+                            topInset + OFSpacing.md,
+                            g.gutter + (_query.supportsAlphaIndex ? 12 : 0),
+                            bottomInset,
+                          ),
+                          sliver: _listMode
+                              ? SliverFixedExtentList.builder(
+                                  itemExtent: g.rowExtent,
+                                  itemCount: total,
+                                  itemBuilder: (context, i) => FadeSlideIn(
+                                    delay: staggerDelay(i),
+                                    child: _ListRow(item: _pager.itemAt(i)),
                                   ),
-                                );
-                              },
-                            ),
+                                )
+                              : SliverGrid.builder(
+                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: g.columns,
+                                    mainAxisSpacing: OFSpacing.lg,
+                                    crossAxisSpacing: OFSpacing.md,
+                                    mainAxisExtent: g.rowExtent - OFSpacing.lg,
+                                  ),
+                                  itemCount: total,
+                                  itemBuilder: (context, i) {
+                                    final item = _pager.itemAt(i);
+                                    // Arrivée en diagonale (ligne + colonne), puis squelette → carte en fondu.
+                                    return FadeSlideIn(
+                                      delay: staggerDelay(i ~/ g.columns + i % g.columns),
+                                      child: FadeThroughSwitcher(
+                                        child: item == null
+                                            ? Align(
+                                                key: const ValueKey('squelette'),
+                                                alignment: Alignment.topCenter,
+                                                child: SkeletonBox(
+                                                  width: g.cardWidth,
+                                                  aspectRatio: _aspect(widget.context0.style),
+                                                ),
+                                              )
+                                            : MediaCard(
+                                                key: ValueKey(item.id),
+                                                item: item,
+                                                style: widget.context0.style,
+                                                width: g.cardWidth,
+                                                heroScope: 'lib',
+                                              ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            );
-          }
+                  ),
+                );
+              }
 
-          return Stack(
-            children: [
-              Positioned.fill(child: FadeThroughSwitcher(child: body)),
-              if (_query.supportsAlphaIndex && (total ?? 0) > 40)
-                Positioned(
-                  right: 2,
-                  top: topInset + OFSpacing.md,
-                  bottom: bottomInset,
-                  child: AlphabetIndex(onLetter: (l) => _jumpToLetter(l, g)),
-                ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: _TopBar(
-                  title: widget.context0.title,
-                  subtitle: total == null ? null : '$total élément${total > 1 ? 's' : ''}',
-                  filterCount: _query.activeFilterCount,
-                  listMode: _listMode,
-                  onToggleMode: () => setState(() => _listMode = !_listMode),
-                  onOptions: _openOptions,
-                ),
-              ),
-            ],
-          );
-        },
+              return Stack(
+                children: [
+                  Positioned.fill(child: FadeThroughSwitcher(child: body)),
+                  if (_query.supportsAlphaIndex && (total ?? 0) > 40)
+                    Positioned(
+                      right: 2,
+                      top: topInset + OFSpacing.md,
+                      bottom: bottomInset,
+                      child: AlphabetIndex(onLetter: (l) => _jumpToLetter(l, g)),
+                    ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: _TopBar(
+                      title: widget.context0.title,
+                      subtitle: total == null ? null : '$total élément${total > 1 ? 's' : ''}',
+                      filterCount: _query.activeFilterCount,
+                      listMode: _listMode,
+                      onToggleMode: () => setState(() => _listMode = !_listMode),
+                      onOptions: _openOptions,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -286,12 +295,10 @@ class _TopBar extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(gutter - OFSpacing.sm, top + OFSpacing.sm, gutter - OFSpacing.sm, OFSpacing.sm),
           child: Row(
             children: [
-              if (context.canPop())
-                IconButton(
-                  tooltip: 'Retour',
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                  onPressed: () => context.pop(),
-                ),
+              if (context.canPop()) ...[
+                OFBackButton(previousTitle: OFRouteTitles.previousOf(context), onPressed: () => context.pop()),
+                const SizedBox(width: OFSpacing.sm),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

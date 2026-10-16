@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -117,24 +116,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Thème neutre : chaque film garde sa couleur pour lui (points du carrousel,
     // barres de progression), sans teinter tout l'accueil.
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Squelette → contenu : fondu enchaîné plutôt qu'un remplacement sec.
-          Positioned.fill(child: FadeThroughSwitcher(child: content)),
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + OFSpacing.sm,
-            right: gutter,
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                WatchPartyButton(),
-                SizedBox(width: OFSpacing.sm),
-                AccountButton(),
-              ],
+    return ScrollToTopListener(
+      controller: _scroll,
+      child: Scaffold(
+        body: Stack(
+          children: [
+            // Squelette → contenu : fondu enchaîné plutôt qu'un remplacement sec.
+            Positioned.fill(child: FadeThroughSwitcher(child: content)),
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + OFSpacing.sm,
+              right: gutter,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  WatchPartyButton(),
+                  SizedBox(width: OFSpacing.sm),
+                  AccountButton(),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

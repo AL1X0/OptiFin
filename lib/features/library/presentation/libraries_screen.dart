@@ -26,67 +26,62 @@ class LibrariesScreen extends ConsumerWidget {
     final images = ref.watch(imageUrlBuilderProvider);
     final dpr = MediaQuery.devicePixelRatioOf(context);
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverSafeArea(
-            bottom: false,
-            sliver: SliverPadding(
-              padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, OFSpacing.xl),
-              sliver: const SliverToBoxAdapter(
-                child: Row(
-                  children: [
-                    Expanded(child: Text('Bibliothèques', style: OFTypography.title1)),
-                    _SettingsButton(),
-                    SizedBox(width: OFSpacing.md),
-                    AccountButton(),
-                  ],
-                ),
+    return ScrollToTopListener(
+      child: Scaffold(
+        body: CustomScrollView(
+          slivers: [
+            const OFLargeTitleSliver(
+              title: 'Bibliothèques',
+              actions: [
+                _SettingsButton(),
+                SizedBox(width: OFSpacing.md),
+                AccountButton(),
+              ],
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: OFSpacing.lg)),
+            switch (views) {
+              AsyncData(:final value) when value.isEmpty => const SliverFillRemaining(
+                child: StatusMessage(text: 'Aucune bibliothèque.'),
               ),
-            ),
-          ),
-          switch (views) {
-            AsyncData(:final value) when value.isEmpty => const SliverFillRemaining(
-              child: StatusMessage(text: 'Aucune bibliothèque.'),
-            ),
-            AsyncData(:final value) => SliverPadding(
-              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, MediaQuery.paddingOf(context).bottom + 96),
-              sliver: SliverGrid.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  mainAxisSpacing: OFSpacing.lg,
-                  crossAxisSpacing: OFSpacing.md,
-                  childAspectRatio: cardWidth / (cardWidth * 9 / 16 + 28),
-                ),
-                itemCount: value.length,
-                itemBuilder: (context, i) {
-                  final v = value[i];
-                  final image = v.primary ?? v.landscape;
-                  return FadeSlideIn(
-                    delay: staggerDelay(i ~/ columns + i % columns),
-                    child: LandscapeCard(
-                      width: cardWidth,
-                      data: MediaCardData(
-                        id: v.id,
-                        title: v.name,
-                        imageUrl: images.maybe(image, logicalWidth: cardWidth, devicePixelRatio: dpr),
-                        blurHash: image?.blurHash,
+              AsyncData(:final value) => SliverPadding(
+                padding: EdgeInsets.fromLTRB(gutter, 0, gutter, MediaQuery.paddingOf(context).bottom + 96),
+                sliver: SliverGrid.builder(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    mainAxisSpacing: OFSpacing.lg,
+                    crossAxisSpacing: OFSpacing.md,
+                    childAspectRatio: cardWidth / (cardWidth * 9 / 16 + 28),
+                  ),
+                  itemCount: value.length,
+                  itemBuilder: (context, i) {
+                    final v = value[i];
+                    final image = v.primary ?? v.landscape;
+                    return FadeSlideIn(
+                      delay: staggerDelay(i ~/ columns + i % columns),
+                      child: LandscapeCard(
+                        width: cardWidth,
+                        data: MediaCardData(
+                          id: v.id,
+                          title: v.name,
+                          imageUrl: images.maybe(image, logicalWidth: cardWidth, devicePixelRatio: dpr),
+                          blurHash: image?.blurHash,
+                        ),
+                        onTap: () => context.openLibrary(v.id),
                       ),
-                      onTap: () => context.openLibrary(v.id),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-            AsyncError(:final error) => SliverFillRemaining(
-              child: StatusMessage(
-                text: error is ApiFailure ? error.userMessage : 'Impossible de charger les bibliothèques.',
-                onRetry: () => ref.invalidate(userViewsProvider),
+              AsyncError(:final error) => SliverFillRemaining(
+                child: StatusMessage(
+                  text: error is ApiFailure ? error.userMessage : 'Impossible de charger les bibliothèques.',
+                  onRetry: () => ref.invalidate(userViewsProvider),
+                ),
               ),
-            ),
-            _ => const SliverFillRemaining(child: Center(child: OFLoader())),
-          },
-        ],
+              _ => const SliverFillRemaining(child: Center(child: OFLoader())),
+            },
+          ],
+        ),
       ),
     );
   }

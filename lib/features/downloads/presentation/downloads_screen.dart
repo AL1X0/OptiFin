@@ -26,57 +26,55 @@ class DownloadsScreen extends ConsumerWidget {
     final gutter = OFSpacing.gutterOf(context);
     final bottom = MediaQuery.paddingOf(context).bottom + 96;
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverSafeArea(
-            bottom: false,
-            sliver: SliverPadding(
-              padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, OFSpacing.md),
-              sliver: SliverToBoxAdapter(
-                child: Row(
+    return ScrollToTopListener(
+      child: Scaffold(
+        body: CustomScrollView(
+          slivers: [
+            OFLargeTitleSliver(
+              title: 'Téléchargements',
+              actions: [
+                if (groups.value?.isNotEmpty ?? false)
+                  OFIconButton(
+                    icon: Icons.delete_sweep_outlined,
+                    tooltip: 'Tout supprimer',
+                    onPressed: () => _confirmDeleteAll(context, ref),
+                  ),
+              ],
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: OFSpacing.sm)),
+            switch (groups) {
+              AsyncData(:final value) when value.isEmpty => const SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyState(),
+              ),
+              AsyncData(:final value) => SliverPadding(
+                padding: EdgeInsets.fromLTRB(gutter, 0, gutter, bottom),
+                sliver: SliverList.list(
                   children: [
-                    const Expanded(child: Text('Téléchargements', style: OFTypography.title1)),
-                    if (groups.value?.isNotEmpty ?? false)
-                      OFIconButton(
-                        icon: Icons.delete_sweep_outlined,
-                        tooltip: 'Tout supprimer',
-                        onPressed: () => _confirmDeleteAll(context, ref),
+                    _Summary(groups: value),
+                    const SizedBox(height: OFSpacing.lg),
+                    for (final (i, g) in value.indexed)
+                      FadeSlideIn(
+                        key: ValueKey(g.id),
+                        delay: staggerDelay(i),
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: OFSpacing.xl),
+                          child: g.isSeries ? _SeriesGroup(group: g) : _DownloadRow(entry: g.first),
+                        ),
                       ),
                   ],
                 ),
               ),
-            ),
-          ),
-          switch (groups) {
-            AsyncData(:final value) when value.isEmpty => const SliverFillRemaining(
-              hasScrollBody: false,
-              child: _EmptyState(),
-            ),
-            AsyncData(:final value) => SliverPadding(
-              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, bottom),
-              sliver: SliverList.list(
-                children: [
-                  _Summary(groups: value),
-                  const SizedBox(height: OFSpacing.lg),
-                  for (final (i, g) in value.indexed)
-                    FadeSlideIn(
-                      key: ValueKey(g.id),
-                      delay: staggerDelay(i),
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: OFSpacing.xl),
-                        child: g.isSeries ? _SeriesGroup(group: g) : _DownloadRow(entry: g.first),
-                      ),
-                    ),
-                ],
+              AsyncError() => const SliverFillRemaining(
+                child: StatusMessage(
+                  icon: Icons.error_outline_rounded,
+                  text: 'Impossible de lire les téléchargements.',
+                ),
               ),
-            ),
-            AsyncError() => const SliverFillRemaining(
-              child: StatusMessage(icon: Icons.error_outline_rounded, text: 'Impossible de lire les téléchargements.'),
-            ),
-            _ => const SliverFillRemaining(child: Center(child: OFLoader())),
-          },
-        ],
+              _ => const SliverFillRemaining(child: Center(child: OFLoader())),
+            },
+          ],
+        ),
       ),
     );
   }

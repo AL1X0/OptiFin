@@ -32,8 +32,14 @@ class AppShell extends StatelessWidget {
 
   void _select(int index) {
     HapticFeedback.selectionClick();
-    // Re-taper l'onglet courant revient à sa racine.
-    shell.goBranch(index, initialLocation: index == shell.currentIndex);
+    // Re-taper l'onglet courant revient à sa racine, puis, déjà à la racine, remonte en haut.
+    final reselect = index == shell.currentIndex;
+    final atRoot = !(shell.route.branches[index].navigatorKey.currentState?.canPop() ?? false);
+    if (reselect && atRoot) {
+      OFScrollToTop.request();
+      return;
+    }
+    shell.goBranch(index, initialLocation: reselect);
   }
 
   @override
