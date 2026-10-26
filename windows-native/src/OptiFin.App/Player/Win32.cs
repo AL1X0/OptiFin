@@ -178,14 +178,28 @@ internal static unsafe partial class Win32
 
     // ------------------------------------------------------------ Touches système (Alt, Windows)
 
-    private const int WH_KEYBOARD = 2;
+    private const int WH_KEYBOARD_LL = 13;
+    private const uint WM_KEYDOWN = 0x0100;
+    private const uint WM_SYSKEYDOWN = 0x0104;
     private const int VK_MENU = 0x12;
+    private const int VK_LMENU = 0xA4;
+    private const int VK_RMENU = 0xA5;
     private const int VK_LWIN = 0x5B;
     private const int VK_RWIN = 0x5C;
     private static nint _keyHook;
     private static Action? _systemKeyDown;
 
-    [LibraryImport("user32.dll", EntryPoint = "SetWindowsHookExW")]
+    [StructLayout(LayoutKind.Sequential)]
+    private struct KeyboardHookInfo
+    {
+        public uint VkCode;
+        public uint ScanCode;
+        public uint Flags;
+        public uint Time;
+        public nint ExtraInfo;
+    }
+
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowsHookExW", SetLastError = true)]
     private static partial nint SetWindowsHookEx(int id, delegate* unmanaged<int, nint, nint, nint> proc, nint module, uint threadId);
 
     [LibraryImport("user32.dll")]
@@ -195,40 +209,42 @@ internal static unsafe partial class Win32
     [LibraryImport("user32.dll")]
     private static partial nint CallNextHookEx(nint hook, int code, nint wparam, nint lparam);
 
-    [LibraryImport("kernel32.dll")]
-    private static partial uint GetCurrentThreadId();
-
     [LibraryImport("user32.dll")]
     private static partial short GetAsyncKeyState(int key);
 
     /// <summary>Alt ou la touche Windows est enfoncée (Alt+Tab, menu Démarrer, Windows+D… en cours).</summary>
     public static bool SystemKeyHeld() =>
-        (GetAsyncKeyState(VK_MENU) | GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) < 0;
+        GetAsyncKeyState(VK_MENU) < 0 || GetAsyncKeyState(VK_LWIN) < 0 || GetAsyncKeyState(VK_RWIN) < 0;
 
     /// <summary>
     /// Appelle <paramref name="onDown"/> dès qu'Alt ou la touche Windows est enfoncée, avant que
-    /// Windows n'ouvre Alt+Tab ou la barre des tâches (hook clavier du fil d'interface seulement).
+    /// Windows n'ouvre Alt+Tab, le menu Démarrer ou la barre des tâches. Hook clavier bas niveau :
+    /// il voit la touche avant tout le monde, quelle que soit la façon dont WinUI distribue le
+    /// clavier. Appelé sur ce fil (qui doit traiter ses messages) ; <c>null</c> le retire.
+    /// Faux si Windows a refusé le hook.
     /// </summary>
-    public static void WatchSystemKeys(Action? onDown)
+    public static bool WatchSystemKeys(Action? onDown)
     {
         _systemKeyDown = onDown;
         if (onDown != null && _keyHook == 0)
-            _keyHook = SetWindowsHookEx(WH_KEYBOARD, &KeyboardProc, 0, GetCurrentThreadId());
+            _keyHook = SetWindowsHookEx(WH_KEYBOARD_LL, &KeyboardProc, GetModuleHandle(0), 0);
         else if (onDown == null && _keyHook != 0)
         {
             UnhookWindowsHookEx(_keyHook);
             _keyHook = 0;
         }
+        return onDown == null || _keyHook != 0;
     }
 
     [UnmanagedCallersOnly]
     private static nint KeyboardProc(int code, nint wparam, nint lparam)
     {
-        // Bit 31 de lparam : 0 = touche enfoncée.
-        if (code >= 0 && (lparam & 0x80000000) == 0 && wparam is VK_MENU or VK_LWIN or VK_RWIN)
+        if (code >= 0 && (wparam == WM_KEYDOWN || wparam == WM_SYSKEYDOWN)
+            && ((KeyboardHookInfo*)lparam)->VkCode is VK_MENU or VK_LMENU or VK_RMENU or VK_LWIN or VK_RWIN)
         {
+            // Rapide (Windows abandonne un hook trop lent) et jamais d'exception à travers le hook.
             try { _systemKeyDown?.Invoke(); }
-            catch { /* jamais d'exception à travers le hook */ }
+            catch { }
         }
         return CallNextHookEx(_keyHook, code, wparam, lparam);
     }

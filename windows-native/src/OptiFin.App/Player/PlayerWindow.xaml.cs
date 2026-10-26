@@ -66,9 +66,7 @@ public sealed partial class PlayerWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "OptiFin.ico"));
         Title = item.Name;
         _video.Own(_hwnd);
-        // Fenêtre « possédée » par la fenêtre vidéo (pour rester au-dessus d'elle) : sans ce style,
-        // Windows ne lui donne pas de bouton dans la barre des tâches.
-        Win32.SetWindowLongPtr(_hwnd, Win32.GWL_EXSTYLE, Win32.GetWindowLongPtr(_hwnd, Win32.GWL_EXSTYLE) | Win32.WS_EX_APPWINDOW);
+        EnsureTaskbarButton();
         // Commandes posées sur la vidéo : la fenêtre doit être réellement transparente pour Windows
         // (sinon écran noir, son seul). Et par sécurité, commandes masquées, elle est « voilée » (DWM) :
         // la vidéo est alors visible quoi qu'il arrive ; elle garde le focus et reçoit le clavier.
@@ -114,7 +112,9 @@ public sealed partial class PlayerWindow : Window
         };
         // Même raison : Alt (Alt+Tab) ou Windows (barre des tâches, plein écran compris) lèvent le
         // voile tout de suite, avant que Windows ne dresse la liste des fenêtres.
-        Win32.WatchSystemKeys(() => SetOverlayVisible(true));
+        if (!Win32.WatchSystemKeys(() => SetOverlayVisible(true)))
+            AppLog.Warn("player", $"Touches Alt / Windows non surveillées (hook refusé : {System.Runtime.InteropServices.Marshal.GetLastPInvokeError()})");
+        else AppLog.Info("player", "Touches Alt / Windows surveillées (barre des tâches, Alt+Tab)");
         Closed += (_, _) => Shutdown();
         _startPosition = party?.Start ?? (fromStart ? TimeSpan.Zero : item.ResumePosition);
         _syncTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(250), () => _sync?.Tick(), repeating: true);
@@ -126,6 +126,18 @@ public sealed partial class PlayerWindow : Window
         SetTitles(item);
         Win32.SetThreadExecutionState(Win32.ES_CONTINUOUS | Win32.ES_DISPLAY_REQUIRED | Win32.ES_SYSTEM_REQUIRED);
         _ = StartAsync(item, _startPosition);
+    }
+
+    /// <summary>
+    /// Fenêtre « possédée » par la fenêtre vidéo (pour rester au-dessus d'elle) : sans le style
+    /// « fenêtre d'appli », Windows ne lui donne ni bouton dans la barre des tâches ni place dans
+    /// Alt+Tab. Revérifié à chaque bascule plein écran.
+    /// </summary>
+    private void EnsureTaskbarButton()
+    {
+        var ex = Win32.GetWindowLongPtr(_hwnd, Win32.GWL_EXSTYLE);
+        if ((ex & Win32.WS_EX_APPWINDOW) != 0) return;
+        Win32.SetWindowLongPtr(_hwnd, Win32.GWL_EXSTYLE, ex | Win32.WS_EX_APPWINDOW);
     }
 
     private static DispatcherQueueTimer Timer(DispatcherQueue d, TimeSpan interval, Action tick, bool repeating = false)
@@ -603,7 +615,7 @@ public sealed partial class PlayerWindow : Window
                 ToggleFullscreen();
                 break;
             case VirtualKey.Escape:
-                if (AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen) ToggleFullscreen();
+                if (_fullscreen) ToggleFullscreen();
                 else RequestClose();
                 break;
             case VirtualKey.I:
@@ -815,20 +827,41 @@ public sealed partial class PlayerWindow : Window
         _levelTimer.Start();
     }
 
-    /// <summary>État de la fenêtre avant le plein écran (agrandie ou non), rétabli en sortie.</summary>
+    /// <summary>État de la fenêtre avant le plein écran (agrandie ou non, et sa place), rétabli en sortie.</summary>
     private bool _maximizedBeforeFullscreen;
+    private Windows.Graphics.RectInt32 _boundsBeforeFullscreen;
+    private bool _fullscreen;
 
+    /// <summary>Outil de développement : bascule plein écran.</summary>
+    internal void DevToggleFullscreen() => ToggleFullscreen();
+
+    /// <summary>
+    /// Plein écran « à la main » : fenêtre sans bordure qui couvre tout l'écran (Windows masque alors
+    /// la barre des tâches tant qu'elle est active). Pas le présentateur plein écran de WinUI : il
+    /// interdit le style « fenêtre d'appli », et le lecteur disparaissait de la barre des tâches et
+    /// d'Alt+Tab (touche Windows en plein film : aucun moyen d'y revenir).
+    /// </summary>
     private void ToggleFullscreen()
     {
-        var full = AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen;
-        if (!full) _maximizedBeforeFullscreen = AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized };
-        AppWindow.SetPresenter(full ? AppWindowPresenterKind.Overlapped : AppWindowPresenterKind.FullScreen);
-        if (full && AppWindow.Presenter is OverlappedPresenter p)
+        if (AppWindow.Presenter is not OverlappedPresenter p) return;
+        var full = _fullscreen;
+        if (!full)
         {
-            p.SetBorderAndTitleBar(false, false);
+            _maximizedBeforeFullscreen = p.State == OverlappedPresenterState.Maximized;
+            if (_maximizedBeforeFullscreen) p.Restore();
+            _boundsBeforeFullscreen = new Windows.Graphics.RectInt32(AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
+            p.IsResizable = false;
+            AppWindow.MoveAndResize(DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).OuterBounds);
+        }
+        else
+        {
+            p.IsResizable = true;
+            AppWindow.MoveAndResize(_boundsBeforeFullscreen);
             // Retour à l'état d'avant : agrandie si elle l'était (et non une petite fenêtre).
             if (_maximizedBeforeFullscreen) p.Maximize();
         }
+        _fullscreen = !full;
+        EnsureTaskbarButton();
         FullscreenIcon.Glyph = full ? "" : "";
         SyncVideo();
     }

@@ -95,6 +95,9 @@ public static class DevActions
                 // Défile la page affichée (fiche, accueil…) jusqu'à la position donnée, en pixels.
                 Find<Microsoft.UI.Xaml.Controls.ScrollViewer>(page).FirstOrDefault()?.ChangeView(null, double.Parse(arg), null, true);
                 break;
+            case "pleinecran":
+                Player.PlayerLauncher.Current?.DevToggleFullscreen();
+                break;
             case "lecture" when AppServices.Media is { } media:
                 Player.PlayerLauncher.Play(await media.ItemAsync(arg));
                 break;
