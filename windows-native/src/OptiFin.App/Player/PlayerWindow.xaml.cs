@@ -88,7 +88,8 @@ public sealed partial class PlayerWindow : Window
         _startupTimer = Timer(dispatcher, TimeSpan.FromSeconds(30), () => _ = OnStartupFailureAsync("aucune image après 30 s"));
         _overlayTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(300), () =>
         {
-            if (_active && Controls.Opacity == 0 && !_stats && Preparing.Visibility == Visibility.Collapsed && ErrorPanel.Visibility == Visibility.Collapsed)
+            if (_active && Controls.Opacity == 0 && !_stats && Preparing.Visibility == Visibility.Collapsed && ErrorPanel.Visibility == Visibility.Collapsed
+                && !Win32.SystemKeyHeld())
                 SetOverlayVisible(false);
         });
         _cursorTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(100), () =>
@@ -111,6 +112,9 @@ public sealed partial class PlayerWindow : Window
             if (!_active) SetOverlayVisible(true);
             else Root.Focus(FocusState.Programmatic);
         };
+        // Même raison : Alt (Alt+Tab) ou Windows (barre des tâches, plein écran compris) lèvent le
+        // voile tout de suite, avant que Windows ne dresse la liste des fenêtres.
+        Win32.WatchSystemKeys(() => SetOverlayVisible(true));
         Closed += (_, _) => Shutdown();
         _startPosition = party?.Start ?? (fromStart ? TimeSpan.Zero : item.ResumePosition);
         _syncTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(250), () => _sync?.Tick(), repeating: true);
@@ -1370,6 +1374,7 @@ public sealed partial class PlayerWindow : Window
         _cursorTimer.Stop();
         _overlayTimer.Stop();
         _statsTimer.Stop();
+        Win32.WatchSystemKeys(null);
         Win32.SetCursorHidden(false);
         _reportTimer.Stop();
         _startupTimer.Stop();

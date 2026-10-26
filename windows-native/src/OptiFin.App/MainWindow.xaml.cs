@@ -1,6 +1,8 @@
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
+using OptiFin.App.Controls;
 using OptiFin.App.Pages;
 using OptiFin.App.Services;
 using OptiFin.Core.Logging;
@@ -37,10 +39,47 @@ public sealed partial class MainWindow : Window
         AppWindow.Closing += (_, _) => WindowPlacement.Save(AppWindow);
         Closed += (_, _) => _closed = true;
 
+        // Écran de démarrage tout de suite, par-dessus tout ; le contenu se construit dans Start().
+        _splash = new SplashScreen();
+        Root.Children.Add(_splash);
+    }
+
+    private SplashScreen? _splash;
+
+    /// <summary>
+    /// Appelle <paramref name="action"/> une fois la première image de la fenêtre (l'écran de
+    /// démarrage) à l'écran : le chargement ne retarde pas son apparition.
+    /// </summary>
+    public void AfterFirstFrame(Action action)
+    {
+        void OnRendered(object? sender, RenderedEventArgs e)
+        {
+            CompositionTarget.Rendered -= OnRendered;
+            DispatcherQueue.TryEnqueue(() => action());
+        }
+        CompositionTarget.Rendered += OnRendered;
+    }
+
+    /// <summary>Contenu de la fenêtre (services prêts) : connexion ou accueil.</summary>
+    public void Start()
+    {
         AppServices.SessionChanged += ShowStart;
         AppServices.SessionLost += () => DispatcherQueue.TryEnqueue(ShowStart);
         ShowStart();
         DevCapture.AttachIfRequested(this, Root);
+        // Filet : accueil lent (pas de cache, serveur muet) → son squelette prend le relais.
+        var timeout = DispatcherQueue.CreateTimer();
+        timeout.Interval = TimeSpan.FromSeconds(4);
+        timeout.IsRepeating = false;
+        timeout.Tick += (_, _) => HideSplash();
+        timeout.Start();
+    }
+
+    /// <summary>Premier écran prêt : l'écran de démarrage s'efface.</summary>
+    public void HideSplash()
+    {
+        _splash?.Dismiss();
+        _splash = null;
     }
 
     /// <summary>
@@ -79,6 +118,7 @@ public sealed partial class MainWindow : Window
         if (AppServices.Session is null)
         {
             Nav.Root(typeof(ConnectPage));
+            HideSplash();
         }
         else
         {

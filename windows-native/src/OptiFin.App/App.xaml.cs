@@ -19,6 +19,8 @@ public partial class App : Application
 
     public App()
     {
+        // Déjà ouverte : elle revient au premier plan, ce lancement-ci s'arrête là (journal intact).
+        if (!Environment.GetCommandLineArgs().Contains("--capture") && !SingleInstance.Claim()) Environment.Exit(0);
         InitializeComponent();
         AppLog.Open();
         // Toute erreur non interceptée finit dans le journal (Réglages › Journaux).
@@ -40,14 +42,37 @@ public partial class App : Application
     {
         var started = Environment.TickCount64;
         Player.Win32.SetCurrentProcessExplicitAppUserModelID(AppId);
-        AppServices.Initialize();
-        AppLog.Info("app", $"Démarrage OptiFin {AppServices.Version} (Windows) — session {(AppServices.Session is null ? "aucune" : "restaurée")}");
-        AppLog.Timing("app", "Services prêts", started);
-        _window = new MainWindow();
+        // Fenêtre et écran de démarrage d'abord : quelque chose s'affiche avant tout chargement.
+        var window = new MainWindow();
+        _window = window;
+        window.Activate();
+        SingleInstance.Listen(window.DispatcherQueue, BringToFront);
+        window.AfterFirstFrame(() =>
+        {
+            AppLog.Timing("app", "Écran de démarrage affiché depuis le lancement du processus", ProcessStarted);
+            var loading = Environment.TickCount64;
+            AppServices.Initialize();
+            AppLog.Info("app", $"Démarrage OptiFin {AppServices.Version} (Windows) — session {(AppServices.Session is null ? "aucune" : "restaurée")}");
+            AppLog.Timing("app", "Services prêts", loading);
+            window.Start();
+            AppLog.Timing("app", "Fenêtre prête", started);
+            AppLog.Timing("app", "Fenêtre prête depuis le lancement du processus", ProcessStarted);
+            _ = CheckForUpdateAsync();
+        });
+    }
+
+    /// <summary>Nouveau lancement alors qu'OptiFin est ouverte : le lecteur s'il est ouvert, sinon la fenêtre principale.</summary>
+    private void BringToFront()
+    {
+        if (Player.PlayerLauncher.Current is { } player)
+        {
+            SingleInstance.BringToFront(WinRT.Interop.WindowNative.GetWindowHandle(player));
+            return;
+        }
+        if (_window is null) return;
+        _window.AppWindow.Show();
+        SingleInstance.BringToFront(WinRT.Interop.WindowNative.GetWindowHandle(_window));
         _window.Activate();
-        AppLog.Timing("app", "Fenêtre prête", started);
-        AppLog.Timing("app", "Fenêtre prête depuis le lancement du processus", ProcessStarted);
-        _ = CheckForUpdateAsync();
     }
 
     /// <summary>

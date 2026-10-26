@@ -175,6 +175,80 @@ internal static unsafe partial class Win32
     }
 
     public const int BLACK_BRUSH = 4;
+
+    // ------------------------------------------------------------ Touches système (Alt, Windows)
+
+    private const int WH_KEYBOARD = 2;
+    private const int VK_MENU = 0x12;
+    private const int VK_LWIN = 0x5B;
+    private const int VK_RWIN = 0x5C;
+    private static nint _keyHook;
+    private static Action? _systemKeyDown;
+
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowsHookExW")]
+    private static partial nint SetWindowsHookEx(int id, delegate* unmanaged<int, nint, nint, nint> proc, nint module, uint threadId);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool UnhookWindowsHookEx(nint hook);
+
+    [LibraryImport("user32.dll")]
+    private static partial nint CallNextHookEx(nint hook, int code, nint wparam, nint lparam);
+
+    [LibraryImport("kernel32.dll")]
+    private static partial uint GetCurrentThreadId();
+
+    [LibraryImport("user32.dll")]
+    private static partial short GetAsyncKeyState(int key);
+
+    /// <summary>Alt ou la touche Windows est enfoncée (Alt+Tab, menu Démarrer, Windows+D… en cours).</summary>
+    public static bool SystemKeyHeld() =>
+        (GetAsyncKeyState(VK_MENU) | GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) < 0;
+
+    /// <summary>
+    /// Appelle <paramref name="onDown"/> dès qu'Alt ou la touche Windows est enfoncée, avant que
+    /// Windows n'ouvre Alt+Tab ou la barre des tâches (hook clavier du fil d'interface seulement).
+    /// </summary>
+    public static void WatchSystemKeys(Action? onDown)
+    {
+        _systemKeyDown = onDown;
+        if (onDown != null && _keyHook == 0)
+            _keyHook = SetWindowsHookEx(WH_KEYBOARD, &KeyboardProc, 0, GetCurrentThreadId());
+        else if (onDown == null && _keyHook != 0)
+        {
+            UnhookWindowsHookEx(_keyHook);
+            _keyHook = 0;
+        }
+    }
+
+    [UnmanagedCallersOnly]
+    private static nint KeyboardProc(int code, nint wparam, nint lparam)
+    {
+        // Bit 31 de lparam : 0 = touche enfoncée.
+        if (code >= 0 && (lparam & 0x80000000) == 0 && wparam is VK_MENU or VK_LWIN or VK_RWIN)
+        {
+            try { _systemKeyDown?.Invoke(); }
+            catch { /* jamais d'exception à travers le hook */ }
+        }
+        return CallNextHookEx(_keyHook, code, wparam, lparam);
+    }
+
+    // ------------------------------------------------------------ Premier plan (instance unique)
+
+    public const int SW_RESTORE = 9;
+    public const int ASFW_ANY = -1;
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetForegroundWindow(nint hwnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool AllowSetForegroundWindow(int processId);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsIconic(nint hwnd);
 }
 
 /// <summary>

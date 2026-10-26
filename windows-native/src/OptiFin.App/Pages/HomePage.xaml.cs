@@ -55,6 +55,7 @@ public sealed partial class HomePage : Page
                 if (!App.HomeShown)
                 {
                     App.HomeShown = true;
+                    Nav.Window.HideSplash();
                     AppLog.Timing("app", "Accueil affiché depuis le lancement du processus", App.ProcessStarted);
                 }
             }
@@ -65,6 +66,7 @@ public sealed partial class HomePage : Page
         catch (Exception e)
         {
             if (_loaded) return;
+            Nav.Window.HideSplash();
             Body.Children.Clear();
             ErrorText.Text = e is ApiException api ? api.UserMessage : "L’accueil n’a pas pu être chargé.";
             ErrorPanel.Visibility = Visibility.Visible;

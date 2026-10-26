@@ -18,7 +18,11 @@ public static class DevCapture
         var folder = args[i + 1];
         var steps = args.Skip(i + 2).ToList();
         if (steps.Count == 0) steps.Add("ecran=2500");
-        root.Loaded += async (_, _) =>
+        // Contenu construit après l'écran de démarrage : la racine peut déjà être chargée.
+        if (root.IsLoaded) _ = RunAsync();
+        else root.Loaded += (_, _) => _ = RunAsync();
+
+        async Task RunAsync()
         {
             foreach (var step in steps)
             {
@@ -42,6 +46,6 @@ public static class DevCapture
                 }
             }
             window.Close();
-        };
+        }
     }
 }
