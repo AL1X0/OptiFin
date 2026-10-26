@@ -34,7 +34,7 @@ public sealed partial class SplashScreen : Grid
 
     public SplashScreen()
     {
-        Background = (Brush)Application.Current.Resources["OFBackgroundBrush"];
+        Background = Ui.Res("OFBackgroundBrush");
         _compositor = ElementCompositionPreview.GetElementVisual(this).Compositor;
         var accent = (Windows.UI.Color)Application.Current.Resources["OFAccent"];
 

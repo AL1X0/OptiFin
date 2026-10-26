@@ -30,7 +30,7 @@ public sealed partial class MainWindow : Window
         bar.ButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF);
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "OptiFin.ico"));
 
-        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        if (Ui.Overlapped(AppWindow) is { } presenter)
         {
             presenter.PreferredMinimumWidth = 960;
             presenter.PreferredMinimumHeight = 600;
@@ -143,7 +143,7 @@ internal static class WindowPlacement
             var area = DisplayArea.GetFromRect(rect, DisplayAreaFallback.None);
             if (area is null) throw new InvalidOperationException();
             window.MoveAndResize(rect);
-            if (parts[4] == 1 && window.Presenter is OverlappedPresenter p) p.Maximize();
+            if (parts[4] == 1 && Ui.Overlapped(window) is { } p) p.Maximize();
         }
         catch
         {
@@ -158,7 +158,7 @@ internal static class WindowPlacement
     {
         try
         {
-            var maximized = window.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized };
+            var maximized = Ui.Overlapped(window) is { State: OverlappedPresenterState.Maximized };
             if (maximized && File.Exists(FilePath))
             {
                 // Agrandie : on garde la taille « normale » précédente.

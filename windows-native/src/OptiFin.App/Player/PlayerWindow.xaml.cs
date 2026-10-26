@@ -62,7 +62,7 @@ public sealed partial class PlayerWindow : Window
         _hwnd = WindowNative.GetWindowHandle(this);
         SystemBackdrop = new TransparentBackdrop();
         ExtendsContentIntoTitleBar = true;
-        if (AppWindow.Presenter is OverlappedPresenter p) p.SetBorderAndTitleBar(false, false);
+        OptiFin.App.Controls.Ui.Overlapped(AppWindow)?.SetBorderAndTitleBar(false, false);
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "OptiFin.ico"));
         Title = item.Name;
         _video.Own(_hwnd);
@@ -153,12 +153,12 @@ public sealed partial class PlayerWindow : Window
     public void ShowOver(AppWindow main)
     {
         var area = DisplayArea.GetFromWindowId(main.Id, DisplayAreaFallback.Primary);
-        var mainMaximized = main.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized };
+        var mainMaximized = OptiFin.App.Controls.Ui.Overlapped(main) is { State: OverlappedPresenterState.Maximized };
         AppWindow.MoveAndResize(mainMaximized
             ? area.WorkArea
             : new Windows.Graphics.RectInt32(main.Position.X, main.Position.Y, main.Size.Width, main.Size.Height));
         // Fenêtre principale agrandie : le lecteur l'est aussi (et le redevient en sortie de plein écran).
-        if (mainMaximized && AppWindow.Presenter is OverlappedPresenter overlapped) overlapped.Maximize();
+        if (mainMaximized && OptiFin.App.Controls.Ui.Overlapped(AppWindow) is { } overlapped) overlapped.Maximize();
         // Entrée en fondu (le rideau « Préparation » noir apparaît sur la fenêtre principale), puis
         // la fenêtre vidéo une fois le fondu fini.
         Root.Opacity = 0;
@@ -843,7 +843,11 @@ public sealed partial class PlayerWindow : Window
     /// </summary>
     private void ToggleFullscreen()
     {
-        if (AppWindow.Presenter is not OverlappedPresenter p) return;
+        if (OptiFin.App.Controls.Ui.Overlapped(AppWindow) is not { } p)
+        {
+            AppLog.Warn("player", $"Plein écran impossible : présentateur {AppWindow.Presenter?.Kind}");
+            return;
+        }
         var full = _fullscreen;
         if (!full)
         {

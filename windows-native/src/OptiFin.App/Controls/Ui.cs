@@ -53,6 +53,18 @@ public static class Ui
         new EntranceThemeTransition { IsStaggeringEnabled = true, FromVerticalOffset = vertical, FromHorizontalOffset = horizontal },
     ];
 
+    /// <summary>
+    /// Présentateur « fenêtre classique » d'une fenêtre. En NativeAOT, <c>Presenter</c> peut être rendu
+    /// comme simple présentateur générique (un <c>is OverlappedPresenter</c> échoue alors toujours) :
+    /// on demande explicitement l'interface, comme pour les styles.
+    /// </summary>
+    public static Microsoft.UI.Windowing.OverlappedPresenter? Overlapped(Microsoft.UI.Windowing.AppWindow window) => window.Presenter switch
+    {
+        Microsoft.UI.Windowing.OverlappedPresenter p => p,
+        { Kind: Microsoft.UI.Windowing.AppWindowPresenterKind.Overlapped } o => WinRT.CastExtensions.As<Microsoft.UI.Windowing.OverlappedPresenter>(o),
+        _ => null,
+    };
+
     public static Brush Res(string key) => Application.Current.Resources[key] switch
     {
         Brush b => b,

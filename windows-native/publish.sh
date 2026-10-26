@@ -24,6 +24,9 @@ echo "Publication de OptiFin Windows $VERSION ($TAG)"
 dotnet run --project tests/OptiFin.Core.Tests -c Release
 rm -rf out/x64 out/installer
 dotnet publish src/OptiFin.App/OptiFin.App.csproj -c Release -r win-x64 -p:Platform=x64 -p:Version="$VERSION" -o out/x64
+# Le binaire livré est vérifié en vrai (lecteur, plein écran, barre des tâches, instance unique) :
+# au moindre échec, rien n'est publié.
+bash tools/check-player/check-player.sh out/x64/OptiFin.exe
 "$ISCC" //Q //DAppVersion="$VERSION" installer/optifin.iss
 
 DIST=$(mktemp -d)
