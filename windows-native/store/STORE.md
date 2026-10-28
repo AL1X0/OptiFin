@@ -78,6 +78,18 @@ messages entre utilisateurs ; elle affiche uniquement les médias du serveur per
 
 Puis **Envoyer au Store** : vérification de quelques heures à quelques jours.
 
+## Mises à jour automatiques (une commande)
+
+Une fois l'appli publiée sur le Store, chaque nouvelle version s'envoie par :
+
+```bash
+bash windows-native/store/publish-store.sh          # dernière release PC (ou : publish-store.sh 1.1.17)
+```
+
+Construit le paquet, remplace l'ancien dans une nouvelle soumission, met les « Nouveautés » (texte de la release
+GitHub, ou `out/store/nouveautes-<version>.txt` s'il existe) et l'envoie au Store. Accès à l'API, une seule fois :
+copier `store/store.env.example` en `store/store.env` (non versionné) et suivre ses indications.
+
 ## Notes techniques
 
 - Paquet construit par `dotnet publish -p:WindowsPackageType=MSIX` (même NativeAOT, Windows App SDK embarqué),

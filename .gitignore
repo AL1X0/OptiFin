@@ -60,3 +60,5 @@ brag-output/
 
 # Identifiants du serveur des tests de lecture (modèle : windows-native/tests/server.env.example)
 windows-native/tests/server.env
+# Accès à l'API du Microsoft Store (modèle : windows-native/store/store.env.example)
+windows-native/store/store.env
