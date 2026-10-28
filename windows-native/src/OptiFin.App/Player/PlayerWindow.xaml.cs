@@ -53,6 +53,17 @@ public sealed partial class PlayerWindow : Window
     private bool _upNextDismissed;
     private bool _scrubbing;
     private TimeSpan _startPosition;
+    /// <summary>
+    /// Numéro du dernier lancement (titre, repli, piste, épisode suivant) : un lancement plus ancien
+    /// qui finit après lui (réseau lent) s'arrête sans rien charger.
+    /// </summary>
+    private int _loadGeneration;
+    /// <summary>Numéro du flux ouvert dans mpv (les pistes ajoutées n'appartiennent qu'à lui).</summary>
+    private int _streamGeneration;
+    /// <summary>Reprises automatiques après une coupure en cours de lecture (limitées par titre).</summary>
+    private int _recoveries;
+    /// <summary>Sous-titres déjà ajoutés à mpv pour le flux en cours : adresse → piste mpv.</summary>
+    private readonly Dictionary<string, string> _addedSubtitles = [];
     private readonly IntPtr _hwnd;
 
     public PlayerWindow(MediaItem item, bool fromStart, PartyStart? party = null)
@@ -194,37 +205,52 @@ public sealed partial class PlayerWindow : Window
     {
         var playback = AppServices.Playback!;
         var media = AppServices.Media!;
+        var generation = ++_loadGeneration;
+        // Lecteur fermé ou lancement plus récent pendant une attente réseau : on abandonne celui-ci
+        // (sinon un mpv pouvait être recréé après la fermeture, le son continuant sans fenêtre).
+        bool Stale() => generation != _loadGeneration || _closing;
         _startTicks = Environment.TickCount64;
+        _startPosition = start;
+        _started = false;
+        _startupTimer.Stop();
         try
         {
             ShowPreparing(forceTranscode ? "Le serveur prépare une version compatible…" : null);
             var full = item.Kind.IsPlayableVideo() && item.Overview is null ? await media.ItemAsync(item.Id) : item;
+            if (Stale()) return;
             _item = full;
             SetTitles(full);
             var settings = AppServices.Settings;
             // Pistes connues par la fiche : préférences demandées d'emblée (pas de 2e requête en transcodage).
             var (hintAudio, hintSubtitle) = full.Tracks is { } tracks ? TrackPreferences.Preferred(tracks, settings) : (null, null);
             var plan = await playback.PrepareAsync(full.Id, start, hintAudio, hintSubtitle, forceTranscode, settings.EffectiveMaxBitrate);
+            if (Stale()) return;
             var (audio, subtitle) = TrackPreferences.Preferred(plan, settings);
             // Transcodage : les pistes sont choisies par le serveur ; si elles changent, nouvelle demande.
             if (plan.Method != PlayMethod.DirectPlay && (audio != plan.AudioIndex || subtitle != plan.SubtitleIndex))
                 plan = await playback.PrepareAsync(full.Id, start, audio, subtitle, forceTranscode, settings.EffectiveMaxBitrate, plan.MediaSourceId);
             else
                 plan = plan with { AudioIndex = audio, SubtitleIndex = subtitle };
+            if (Stale()) return;
             _plan = plan;
             AppLog.Timing("player", "Plan de lecture prêt", _startTicks);
             AppLog.Info("player", $"« {full.Name} » → {plan.Method.Label()} : conteneur {plan.Container}, vidéo {plan.VideoCodec} " +
                                   $"{plan.VideoRangeType}, {plan.Bitrate / 1_000_000.0:0.#} Mb/s");
-            _ = LoadExtrasAsync(full);
+            _ = LoadExtrasAsync(full, generation);
 
             _mpv ??= CreatePlayer();
-            _started = false;
-            _startupTimer.Start();
-            var headers = new Dictionary<string, string> { ["Authorization"] = AppServices.Client!.AuthorizationHeader };
-            _mpv.Load(plan.StreamUrl, headers, start, full.Name);
+            _position = start;
+            _duration = TimeSpan.Zero;
+            _buffered = TimeSpan.Zero;
+            UpdateTimes();
+            LoadStream(plan, start, full.Name);
             // En soirée : chargé en pause, le groupe donne le départ.
             if (_sync != null) _mpv.Pause();
             ApplySubtitleStyle();
+        }
+        catch (Exception e) when (Stale())
+        {
+            AppLog.Info("player", $"Lancement abandonné (remplacé ou lecteur fermé) : {e.Message}");
         }
         catch (ApiException e)
         {
@@ -235,6 +261,32 @@ public sealed partial class PlayerWindow : Window
             AppLog.Error("player", "Démarrage impossible", e);
             ShowError("La lecture n’a pas pu démarrer.", e.Message);
         }
+    }
+
+    /// <summary>Ouvre un flux dans mpv (jamais de première image d'avant : _started remis à zéro).</summary>
+    private void LoadStream(PlaybackPlan plan, TimeSpan start, string? title = null)
+    {
+        if (_mpv is null) return;
+        _started = false;
+        _startPosition = start;
+        _streamGeneration++;
+        _addedSubtitles.Clear();
+        _startupTimer.Stop();
+        _startupTimer.Start();
+        var headers = new Dictionary<string, string> { ["Authorization"] = AppServices.Client!.AuthorizationHeader };
+        _mpv.Load(plan.StreamUrl, headers, start, title ?? _item.Name);
+    }
+
+    /// <summary>
+    /// La session de lecture en cours est remplacée (piste, transcodage) : le serveur la clôt, ce qui
+    /// arrête aussi son transcodage (sinon ffmpeg continue pour rien sur le serveur).
+    /// </summary>
+    private void EndServerSession(PlaybackPlan? plan, TimeSpan position)
+    {
+        if (plan != null && _reported) _ = AppServices.Playback!.ReportStoppedAsync(plan, position);
+        // Pas encore signalée (remplacée avant la première image) : son transcodage est arrêté quand même.
+        else if (plan != null) _ = AppServices.Playback!.StopEncodingAsync(plan);
+        _reported = false;
     }
 
     private MpvPlayer CreatePlayer()
@@ -314,31 +366,54 @@ public sealed partial class PlayerWindow : Window
     private void SelectInitialTracks()
     {
         if (_mpv is null || _plan is not { } plan) return;
-        if (plan.Method == PlayMethod.DirectPlay)
-        {
-            if (plan.CurrentAudio is { } audio && plan.MpvId(audio) is { } aid) _mpv.SelectAudio(aid);
-            SelectSubtitle(plan.CurrentSubtitle);
-        }
-        else if (plan.CurrentSubtitle is { IsExternal: true } external)
-        {
-            SelectSubtitle(external);
-        }
+        if (plan.Method == PlayMethod.DirectPlay && plan.CurrentAudio is { } audio && plan.MpvId(audio) is { } aid) _mpv.SelectAudio(aid);
+        // Transcodage : le son est déjà celui choisi ; un sous-titre texte arrive à part (adresse de
+        // livraison), y compris un sous-titre intégré au fichier, que le flux HLS ne transporte pas.
+        if (plan.Method == PlayMethod.DirectPlay || plan.CurrentSubtitle is not null) _ = SelectSubtitleAsync(plan.CurrentSubtitle);
     }
 
-    private void SelectSubtitle(MediaTrack? track)
+    private async Task SelectSubtitleAsync(MediaTrack? track)
     {
-        if (_mpv is null || _plan is null) return;
+        if (_mpv is not { } mpv || _plan is not { } plan) return;
         if (track is null)
         {
-            _mpv.SelectSubtitle(null);
+            mpv.SelectSubtitle(null);
             return;
         }
-        if (track.IsExternal && track.DeliveryUrl is { } url)
+        if (plan.Method == PlayMethod.DirectPlay && plan.MpvId(track) is { } sid)
         {
-            _mpv.AddSubtitle(AppServices.Client!.Resolve(url), track.Label, track.Language);
+            mpv.SelectSubtitle(sid);
             return;
         }
-        if (_plan.MpvId(track) is { } sid) _mpv.SelectSubtitle(sid);
+        if (track.DeliveryUrl is { } delivery)
+        {
+            // Clé d'API retirée de l'adresse : l'en-tête Authorization part déjà avec chaque requête de mpv.
+            var url = AppServices.Client!.Resolve(PlaybackService.WithoutApiKey(delivery));
+            // Déjà ajouté à ce flux : simple sélection (pas une nouvelle piste à chaque choix dans le menu).
+            if (_addedSubtitles.TryGetValue(url.ToString(), out var known) && int.TryParse(known, out var knownId))
+            {
+                mpv.SelectSubtitle(knownId);
+                return;
+            }
+            // mpv télécharge le fichier pendant la commande : hors du fil d'interface (serveur lent = pas de gel).
+            var stream = _streamGeneration;
+            try
+            {
+                var added = await Task.Run(() =>
+                {
+                    mpv.AddSubtitle(url, track.Label, track.Language);
+                    return mpv.Get("sid");
+                });
+                if (stream == _streamGeneration && added is { } id && id != "no") _addedSubtitles[url.ToString()] = id;
+            }
+            catch (InvalidOperationException e)
+            {
+                AppLog.Warn("player", $"Sous-titre « {track.Label} » non chargé : {e.Message}");
+            }
+            return;
+        }
+        // Sous-titre incrusté par le serveur dans l'image (ou introuvable) : aucune piste à afficher en plus.
+        mpv.SelectSubtitle(null);
     }
 
     private void OnEnded(EndReason reason, string? error)
@@ -351,10 +426,26 @@ public sealed partial class PlayerWindow : Window
                 _ = OnStartupFailureAsync(error ?? "erreur");
                 return;
             }
+            // Coupure en pleine lecture (réseau, serveur redémarré) : reprise là où l'on était.
+            if (_plan is { } current && _recoveries < 3 && _sync is null)
+            {
+                _recoveries++;
+                AppLog.Warn("player", $"Reprise automatique à {MediaFormat.Clock(_position)} (essai {_recoveries})");
+                ShowPreparing("Reconnexion…");
+                LoadStream(current, _position);
+                return;
+            }
             ShowError("La lecture s’est interrompue.", error);
             return;
         }
         if (reason != EndReason.Eof) return;
+        // Fin avant la moindre image, loin de la fin connue : flux illisible (réponse vide, coupée…),
+        // pas un titre terminé. Repli comme pour une erreur.
+        if (!_started && _plan?.Runtime is { } runtime && _startPosition < runtime - TimeSpan.FromSeconds(30))
+        {
+            _ = OnStartupFailureAsync("fin du flux avant la première image");
+            return;
+        }
         if (_sync != null)
         {
             RequestClose();
@@ -384,17 +475,24 @@ public sealed partial class PlayerWindow : Window
         await StartAsync(_item, _startPosition, forceTranscode: true);
     }
 
-    private async Task LoadExtrasAsync(MediaItem item)
+    private async Task LoadExtrasAsync(MediaItem item, int generation)
     {
-        _extras = await AppServices.Playback!.ExtrasAsync(item, AppServices.Media!);
+        var extras = await AppServices.Playback!.ExtrasAsync(item, AppServices.Media!);
+        // Titre changé entre-temps (épisode suivant) : chapitres et segments de l'ancien ignorés.
+        if (generation != _loadGeneration || _closing) return;
+        _extras = extras;
         AppLog.Info("extras", $"{_extras.Chapters.Count} chapitres, {_extras.Segments.Count} segments" +
                               (_extras.NextEpisode is { } n ? $", suivant : « {n.Name} »" : ""));
     }
 
     private async Task PlayNextAsync(MediaItem next)
     {
-        if (_plan != null) await AppServices.Playback!.ReportStoppedAsync(_plan, _position);
+        if (_closing) return;
+        // Fin de l'épisode signalée sans l'attendre (et une seule fois, même après deux clics).
+        var previous = _plan;
         _plan = null;
+        if (previous != null && _reported) _ = AppServices.Playback!.ReportStoppedAsync(previous, _position);
+        _recoveries = 0;
         _extras = PlaybackExtras.Empty;
         _autoSkipped.Clear();
         _upNextDismissed = false;
@@ -959,29 +1057,40 @@ public sealed partial class PlayerWindow : Window
         if (_plan is not { } plan || _mpv is null) return;
         var audio = type == TrackType.Audio ? track?.Index : plan.AudioIndex;
         var subtitle = type == TrackType.Subtitle ? track?.Index : plan.SubtitleIndex;
-        var local = plan.Method == PlayMethod.DirectPlay &&
-                    (track is null || !track.IsExternal || track.DeliveryUrl != null);
+        var local = plan.Method == PlayMethod.DirectPlay
+            ? track is null || !track.IsExternal || track.DeliveryUrl != null
+            // Transcodage : un sous-titre texte livré à part se change sans relancer le transcodage,
+            // sauf si l'actuel est incrusté dans l'image (il faut alors un flux sans lui).
+            : type == TrackType.Subtitle && (track is null || track.DeliveryUrl != null) && plan.CurrentSubtitle is not { DeliveryUrl: null };
         if (local)
         {
             _plan = plan with { AudioIndex = audio, SubtitleIndex = subtitle };
             if (type == TrackType.Audio && track != null && plan.MpvId(track) is { } aid) _mpv.SelectAudio(aid);
-            if (type == TrackType.Subtitle) SelectSubtitle(track);
+            if (type == TrackType.Subtitle) await SelectSubtitleAsync(track);
             AppLog.Info("player", $"Piste {type} : {track?.Label ?? "aucune"}");
             return;
         }
         var position = _position;
+        var generation = _loadGeneration;
+        var stream = ++_streamGeneration;
         ShowPreparing("Changement de piste…");
         try
         {
-            _plan = await AppServices.Playback!.PrepareAsync(plan.ItemId, position, audio, subtitle, plan.Method == PlayMethod.Transcode,
+            var next = await AppServices.Playback!.PrepareAsync(plan.ItemId, position, audio, subtitle, plan.Method == PlayMethod.Transcode,
                 AppServices.Settings.EffectiveMaxBitrate, plan.MediaSourceId);
-            _started = false;
-            _startupTimer.Start();
-            _mpv.Load(_plan.StreamUrl, new Dictionary<string, string> { ["Authorization"] = AppServices.Client!.AuthorizationHeader }, position);
+            // Autre choix ou autre titre entre-temps, ou lecteur fermé : celui-ci n'a plus lieu d'être.
+            if (generation != _loadGeneration || stream != _streamGeneration || _closing) return;
+            // L'ancienne session (et son transcodage) est close sur le serveur.
+            EndServerSession(plan, position);
+            _plan = next;
+            LoadStream(next, position);
         }
-        catch (ApiException e)
+        catch (Exception e)
         {
-            ShowError(e.UserMessage, e.Detail);
+            if (generation != _loadGeneration || stream != _streamGeneration || _closing) return;
+            // Le flux actuel continue : on le garde plutôt que d'interrompre la lecture.
+            AppLog.Warn("player", $"Changement de piste impossible : {e.Message}");
+            Preparing.Visibility = Visibility.Collapsed;
         }
     }
 
@@ -1074,7 +1183,10 @@ public sealed partial class PlayerWindow : Window
             }.Where(x => x != null))));
             var vbr = D("video-bitrate");
             var abr = D("audio-bitrate");
-            rows.Add(("Débit", $"vidéo {(vbr is { } v ? $"{v / 1e6:0.0} Mb/s" : "?")} · audio {(abr is { } a ? $"{a / 1e3:0} kb/s" : "?")}"));
+            // Débit instantané souvent absent chez mpv : débit moyen du fichier (taille / durée), sinon celui du serveur.
+            var average = D("file-size") is > 0 and var size && D("duration") is > 0 and var length ? size * 8 / length : (double?)plan?.Bitrate;
+            var videoRate = vbr is { } v ? $"{v / 1e6:0.0} Mb/s" : average is { } avg ? $"{avg / 1e6:0.0} Mb/s en moyenne" : "?";
+            rows.Add(("Débit", $"vidéo {videoRate} · audio {(abr is { } a ? $"{a / 1e3:0} kb/s" : "?")}"));
             var cache = D("demuxer-cache-duration");
             var speed = D("cache-speed");
             rows.Add(("Cache", $"{(cache is { } cd ? $"{cd:0} s" : "?")}{(speed is { } sp ? $" · {sp * 8 / 1e6:0.0} Mb/s" : "")}"));
@@ -1313,6 +1425,7 @@ public sealed partial class PlayerWindow : Window
         transcode.Click += (_, _) =>
         {
             _transcodeTried = true;
+            EndServerSession(_plan, _position);
             _ = StartAsync(_item, _position, forceTranscode: true);
         };
         menu.Items.Add(transcode);
@@ -1383,6 +1496,8 @@ public sealed partial class PlayerWindow : Window
         ErrorPanel.Visibility = Visibility.Visible;
         Root.ProtectedCursorReset();
         _video.Show(false);
+        // Plus de son derrière le message (flux encore ouvert après un échec de changement de titre).
+        _mpv?.Pause();
     }
 
     private void OnMediaButton(Windows.Media.SystemMediaTransportControlsButton button)
@@ -1426,7 +1541,7 @@ public sealed partial class PlayerWindow : Window
         // La fenêtre principale revient tout de suite, quoi qu'il arrive ensuite.
         try
         {
-            PlayerLauncher.OnClosed();
+            PlayerLauncher.OnClosed(this);
         }
         catch (Exception e)
         {

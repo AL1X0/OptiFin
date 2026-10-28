@@ -278,9 +278,23 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
             PositionTicks = position.Ticks,
             Failed = failed,
         };
-        return SafeReport("fin", () => api.PostAsync("Sessions/Playing/Stopped",
-            JellyfinClient.Json(report, JellyfinJson.Default.PlaybackReportDto)));
+        return Task.WhenAll(
+            SafeReport("fin", () => api.PostAsync("Sessions/Playing/Stopped",
+                JellyfinClient.Json(report, JellyfinJson.Default.PlaybackReportDto))),
+            StopEncodingAsync(plan));
     }
+
+    /// <summary>
+    /// Arrête le transcodage d'une session sur le serveur (comme le client web de Jellyfin). Sans
+    /// cela, un ffmpeg encore actif pour cet appareil pouvait servir ses segments au flux suivant
+    /// (même titre : repli, changement de piste, reprise) : image décalée de plusieurs dizaines de
+    /// secondes par rapport à la position demandée.
+    /// </summary>
+    public Task StopEncodingAsync(PlaybackPlan plan) =>
+        plan.Method == PlayMethod.DirectPlay || string.IsNullOrEmpty(plan.PlaySessionId)
+            ? Task.CompletedTask
+            : SafeReport("arrêt du transcodage", () => api.DeleteAsync(
+                $"Videos/ActiveEncodings?deviceId={Uri.EscapeDataString(api.Identity.DeviceId)}&playSessionId={Uri.EscapeDataString(plan.PlaySessionId!)}"));
 
     /// <summary>Rapports au mieux : une coupure réseau ne doit jamais interrompre la lecture.</summary>
     private static async Task SafeReport(string what, Func<Task> call)

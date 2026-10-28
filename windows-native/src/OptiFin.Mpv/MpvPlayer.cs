@@ -46,6 +46,11 @@ public sealed unsafe class MpvPlayer : IDisposable
     public event Action<TimeSpan>? BufferedChanged;
     public event Action<int, int>? VideoSizeChanged;
     public event Action? FileLoaded;
+    /// <summary>
+    /// Lecture réellement partie après une ouverture (premier « playback-restart » du fichier chargé).
+    /// Pas « video-reconfig » : avec force-window, mpv le signale aussi quand le fichier n'a pas pu
+    /// s'ouvrir, et l'appli croyait la lecture démarrée (plus de repli en transcodage).
+    /// </summary>
     public event Action? FirstFrame;
     public event Action? PlaybackRestarted;
     public event Action<EndReason, string?>? Ended;
@@ -56,6 +61,27 @@ public sealed unsafe class MpvPlayer : IDisposable
     private double _emittedPosition = double.NaN;
     private double _width;
     private double _height;
+
+    // Entrée de liste de mpv du dernier Load, et celle que mpv joue réellement. Entre les deux
+    // (rechargement : épisode suivant, repli, changement de piste), les événements de l'ancien
+    // fichier sont ignorés : sa fin n'est ni une fin de lecture ni une erreur du nouveau.
+    private long _requestedEntry = -1;
+    private long _playingEntry = -1;
+    private bool _loaded;
+    private bool _awaitingStart;
+    /// <summary>Entrée demandée / entrée jouée : lues et écrites ensemble.</summary>
+    private readonly Lock _gate = new();
+    /// <summary>Appels natifs et libération : jamais en même temps (mpv libéré = pointeur invalide).</summary>
+    private readonly ReaderWriterLockSlim _life = new(LockRecursionPolicy.SupportsRecursion);
+
+    private bool IsCurrent
+    {
+        get
+        {
+            var requested = Interlocked.Read(ref _requestedEntry);
+            return requested < 0 || requested == _playingEntry;
+        }
+    }
 
     private MpvPlayer(nint ctx)
     {
@@ -118,18 +144,34 @@ public sealed unsafe class MpvPlayer : IDisposable
 
     // ------------------------------------------------------------ Commandes
 
+    // Appels natifs : en parallèle entre eux (verrou partagé), jamais pendant la libération (exclusif).
+    private bool Enter()
+    {
+        _life.EnterReadLock();
+        if (_ctx != 0) return true;
+        _life.ExitReadLock();
+        return false;
+    }
+
+    private void Exit() => _life.ExitReadLock();
+
     public void Command(params string[] args)
     {
-        if (_disposed) return;
         var pointers = new nint[args.Length + 1];
         try
         {
             for (var i = 0; i < args.Length; i++) pointers[i] = Marshal.StringToCoTaskMemUTF8(args[i]);
-            fixed (nint* p = pointers)
+            if (!Enter()) return;
+            int rc;
+            try
             {
-                var rc = MpvNative.Command(_ctx, p);
-                if (rc < 0) throw new InvalidOperationException($"{args[0]} : {MpvNative.Error(rc)}");
+                fixed (nint* p = pointers) rc = MpvNative.Command(_ctx, p);
             }
+            finally
+            {
+                Exit();
+            }
+            if (rc < 0) throw new InvalidOperationException($"{args[0]} : {MpvNative.Error(rc)}");
         }
         finally
         {
@@ -138,12 +180,31 @@ public sealed unsafe class MpvPlayer : IDisposable
         }
     }
 
-    public bool TrySet(string name, string value) => !_disposed && MpvNative.SetPropertyString(_ctx, name, value) >= 0;
+    public bool TrySet(string name, string value)
+    {
+        if (!Enter()) return false;
+        try
+        {
+            return MpvNative.SetPropertyString(_ctx, name, value) >= 0;
+        }
+        finally
+        {
+            Exit();
+        }
+    }
 
     public string? Get(string name)
     {
-        if (_disposed) return null;
-        var p = MpvNative.GetPropertyString(_ctx, name);
+        if (!Enter()) return null;
+        nint p;
+        try
+        {
+            p = MpvNative.GetPropertyString(_ctx, name);
+        }
+        finally
+        {
+            Exit();
+        }
         if (p == 0) return null;
         try
         {
@@ -157,9 +218,30 @@ public sealed unsafe class MpvPlayer : IDisposable
 
     public double? GetDouble(string name)
     {
-        if (_disposed) return null;
-        double value;
-        return MpvNative.GetProperty(_ctx, name, MpvNative.FormatDouble, &value) >= 0 ? value : null;
+        if (!Enter()) return null;
+        try
+        {
+            double value;
+            return MpvNative.GetProperty(_ctx, name, MpvNative.FormatDouble, &value) >= 0 ? value : null;
+        }
+        finally
+        {
+            Exit();
+        }
+    }
+
+    private long? GetLong(string name)
+    {
+        if (!Enter()) return null;
+        try
+        {
+            long value;
+            return MpvNative.GetProperty(_ctx, name, MpvNative.FormatInt64, &value) >= 0 ? value : null;
+        }
+        finally
+        {
+            Exit();
+        }
     }
 
     /// <summary>
@@ -180,7 +262,13 @@ public sealed unsafe class MpvPlayer : IDisposable
         TrySet("pause", "no");
         if (title != null) TrySet("force-media-title", title);
         var startSeconds = start.TotalSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
-        Command("loadfile", url, "replace", "-1", $"start={startSeconds}");
+        // Sous le verrou : le fil des événements ne juge aucun événement tant que la nouvelle entrée
+        // (seule de la liste après « replace ») n'est pas connue.
+        lock (_gate)
+        {
+            Command("loadfile", url, "replace", "-1", $"start={startSeconds}");
+            Interlocked.Exchange(ref _requestedEntry, GetLong("playlist/0/id") ?? -1);
+        }
     }
 
     public void Play() => TrySet("pause", "no");
@@ -221,12 +309,19 @@ public sealed unsafe class MpvPlayer : IDisposable
 
     // ------------------------------------------------------------ Événements
 
+    private bool Current()
+    {
+        lock (_gate) return IsCurrent;
+    }
+
     private void EventLoop()
     {
+        // Contexte copié : Dispose remet _ctx à zéro pendant que ce fil peut encore attendre.
+        var ctx = _ctx;
         while (!_disposed)
         {
-            var e = MpvNative.WaitEvent(_ctx, -1);
-            if (e == null) continue;
+            var e = MpvNative.WaitEvent(ctx, -1);
+            if (e == null || _disposed) continue;
             switch (e->EventId)
             {
                 case MpvNative.EventNone:
@@ -236,18 +331,38 @@ public sealed unsafe class MpvPlayer : IDisposable
                 case MpvNative.EventPropertyChange:
                     OnProperty((MpvNative.PropertyData*)e->Data);
                     break;
+                case MpvNative.EventStartFile:
+                    lock (_gate)
+                    {
+                        _playingEntry = e->Data != 0 ? ((MpvNative.StartFileData*)e->Data)->PlaylistEntryId : -1;
+                        _loaded = false;
+                        _awaitingStart = false;
+                    }
+                    break;
                 case MpvNative.EventFileLoaded:
+                    if (!Current()) break;
+                    _loaded = true;
+                    _awaitingStart = true;
                     FileLoaded?.Invoke();
                     break;
-                case MpvNative.EventVideoReconfig:
-                    FirstFrame?.Invoke();
-                    break;
                 case MpvNative.EventPlaybackRestart:
+                    if (!Current()) break;
+                    if (_loaded && _awaitingStart)
+                    {
+                        _awaitingStart = false;
+                        FirstFrame?.Invoke();
+                    }
                     PlaybackRestarted?.Invoke();
                     break;
                 case MpvNative.EventEndFile:
                 {
                     var end = (MpvNative.EndFileData*)e->Data;
+                    long requested;
+                    lock (_gate) requested = _requestedEntry;
+                    // Fin d'un fichier remplacé depuis : rien à signaler.
+                    if (requested >= 0 && end->PlaylistEntryId != requested) break;
+                    _loaded = false;
+                    _awaitingStart = false;
                     var reason = end->Reason switch
                     {
                         MpvNative.EndFileEof => EndReason.Eof,
@@ -281,6 +396,8 @@ public sealed unsafe class MpvPlayer : IDisposable
         double D() => *(double*)p->Data;
         bool F() => *(int*)p->Data != 0;
         static TimeSpan S(double s) => double.IsFinite(s) ? TimeSpan.FromSeconds(Math.Max(0, s)) : TimeSpan.Zero;
+        // Position, durée et tampon d'un fichier en cours de remplacement : périmés.
+        if (name is "time-pos" or "duration" or "demuxer-cache-time" && !Current()) return;
         switch (name)
         {
             case "time-pos":
@@ -317,13 +434,23 @@ public sealed unsafe class MpvPlayer : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-        var ctx = _ctx;
-        _ctx = 0;
+        nint ctx;
+        _life.EnterWriteLock();
+        try
+        {
+            if (_disposed) return;
+            _disposed = true;
+            // Plus aucun appel natif après ceci (ceux en cours sont finis : verrou exclusif).
+            ctx = _ctx;
+            _ctx = 0;
+        }
+        finally
+        {
+            _life.ExitWriteLock();
+        }
         // Débloque le fil des événements, puis libère mpv (attend la fin de ses threads).
         MpvNative.Wakeup(ctx);
-        if (_events.IsAlive) _events.Join(TimeSpan.FromSeconds(2));
+        if (_events.IsAlive && Thread.CurrentThread != _events) _events.Join(TimeSpan.FromSeconds(2));
         MpvNative.TerminateDestroy(ctx);
     }
 }

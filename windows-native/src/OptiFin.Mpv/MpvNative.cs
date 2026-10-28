@@ -59,6 +59,13 @@ internal static unsafe partial class MpvNative
     {
         public int Reason;
         public int Error;
+        public long PlaylistEntryId;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct StartFileData
+    {
+        public long PlaylistEntryId;
     }
 
     [LibraryImport(Lib, EntryPoint = "mpv_create")]

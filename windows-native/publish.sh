@@ -21,6 +21,7 @@ TAG="windows-$N"
 echo "Publication de OptiFin Windows $VERSION ($TAG)"
 
 # dotnet run plutôt que dotnet test : avec le SDK 10.0.401, dotnet test exécute les tests mais en signale « zéro ».
+# Comprend la lecture de bout en bout sur le serveur Jellyfin de test (tests/server.env, local).
 dotnet run --project tests/OptiFin.Core.Tests -c Release
 rm -rf out/x64 out/installer
 dotnet publish src/OptiFin.App/OptiFin.App.csproj -c Release -r win-x64 -p:Platform=x64 -p:Version="$VERSION" -o out/x64

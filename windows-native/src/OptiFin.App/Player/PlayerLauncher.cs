@@ -69,8 +69,10 @@ public static class PlayerLauncher
         }
     }
 
-    internal static void OnClosed()
+    internal static void OnClosed(PlayerWindow closed)
     {
+        // Ancien lecteur qui finit de se fermer alors qu'un autre est déjà ouvert : rien à rétablir.
+        if (_current != null && _current != closed) return;
         _current = null;
         var main = Nav.Window.AppWindow;
         Nav.Window.PlayEntrance();
