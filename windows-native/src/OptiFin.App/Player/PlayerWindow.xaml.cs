@@ -72,8 +72,20 @@ public sealed partial class PlayerWindow : Window
         _item = item;
         _hwnd = WindowNative.GetWindowHandle(this);
         SystemBackdrop = new TransparentBackdrop();
+        // Barre de titre intégrée (déplacer, redimensionner, boutons de Windows). Pas de
+        // SetBorderAndTitleBar(false, false) : bande blanche en haut et fenêtre ni déplaçable ni redimensionnable.
         ExtendsContentIntoTitleBar = true;
-        OptiFin.App.Controls.Ui.Overlapped(AppWindow)?.SetBorderAndTitleBar(false, false);
+        SetTitleBar(DragArea);
+        var bar = AppWindow.TitleBar;
+        bar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        bar.ButtonBackgroundColor = Colors.Transparent;
+        bar.ButtonInactiveBackgroundColor = Colors.Transparent;
+        bar.ButtonForegroundColor = Colors.White;
+        bar.ButtonInactiveForegroundColor = Colors.White;
+        bar.ButtonHoverBackgroundColor = Windows.UI.Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF);
+        bar.ButtonHoverForegroundColor = Colors.White;
+        bar.ButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF);
+        bar.ButtonPressedForegroundColor = Colors.White;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "OptiFin.ico"));
         Title = item.Name;
         _video.Own(_hwnd);
@@ -86,7 +98,9 @@ public sealed partial class PlayerWindow : Window
         AppWindow.Changed += (_, e) =>
         {
             if (e.DidPositionChange || e.DidSizeChange || e.DidVisibilityChange) SyncVideo();
+            if (e.DidSizeChange || e.DidPresenterChange) UpdateTitleInset();
         };
+        Root.Loaded += (_, _) => UpdateTitleInset();
 
         var dispatcher = DispatcherQueue.GetForCurrentThread();
         _hideTimer = Timer(dispatcher, TimeSpan.FromSeconds(2.5), HideControls);
@@ -929,6 +943,15 @@ public sealed partial class PlayerWindow : Window
     private bool _maximizedBeforeFullscreen;
     private Windows.Graphics.RectInt32 _boundsBeforeFullscreen;
     private bool _fullscreen;
+    private nint _styleBeforeFullscreen;
+
+    /// <summary>Haut des commandes décalé des boutons de Windows (réduire, agrandir, fermer), absents en plein écran.</summary>
+    private void UpdateTitleInset()
+    {
+        if (Root.XamlRoot is not { } root) return;
+        var inset = _fullscreen ? 0 : AppWindow.TitleBar.RightInset / root.RasterizationScale;
+        TopBar.Padding = new Thickness(20, 16, 20 + inset, 0);
+    }
 
     /// <summary>Outil de développement : bascule plein écran.</summary>
     internal void DevToggleFullscreen() => ToggleFullscreen();
@@ -952,17 +975,29 @@ public sealed partial class PlayerWindow : Window
             _maximizedBeforeFullscreen = p.State == OverlappedPresenterState.Maximized;
             if (_maximizedBeforeFullscreen) p.Restore();
             _boundsBeforeFullscreen = new Windows.Graphics.RectInt32(AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
-            p.IsResizable = false;
-            AppWindow.MoveAndResize(DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).OuterBounds);
+            // Sans cadre ni barre de titre (styles Win32, rétablis à la sortie) : rien autour de l'image,
+            // ni bord blanc ni bordure de redimensionnement ; boutons de Windows et zone de déplacement retirés.
+            _styleBeforeFullscreen = Win32.GetWindowLongPtr(_hwnd, Win32.GWL_STYLE);
+            Win32.SetWindowLongPtr(_hwnd, Win32.GWL_STYLE, _styleBeforeFullscreen & ~(nint)(Win32.WS_CAPTION | Win32.WS_THICKFRAME));
+            AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Collapsed;
+            DragArea.Visibility = Visibility.Collapsed;
+            Win32.SetBorderColor(_hwnd, Win32.DWMWA_COLOR_NONE);
+            var screen = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).OuterBounds;
+            Win32.SetWindowPos(_hwnd, 0, screen.X, screen.Y, screen.Width, screen.Height, Win32.SWP_NOZORDER | Win32.SWP_FRAMECHANGED);
         }
         else
         {
-            p.IsResizable = true;
-            AppWindow.MoveAndResize(_boundsBeforeFullscreen);
+            Win32.SetWindowLongPtr(_hwnd, Win32.GWL_STYLE, _styleBeforeFullscreen);
+            AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+            DragArea.Visibility = Visibility.Visible;
+            Win32.SetBorderColor(_hwnd, Win32.DWMWA_COLOR_DEFAULT);
+            var b = _boundsBeforeFullscreen;
+            Win32.SetWindowPos(_hwnd, 0, b.X, b.Y, b.Width, b.Height, Win32.SWP_NOZORDER | Win32.SWP_FRAMECHANGED);
             // Retour à l'état d'avant : agrandie si elle l'était (et non une petite fenêtre).
             if (_maximizedBeforeFullscreen) p.Maximize();
         }
         _fullscreen = !full;
+        UpdateTitleInset();
         EnsureTaskbarButton();
         FullscreenIcon.Glyph = full ? "" : "";
         SyncVideo();

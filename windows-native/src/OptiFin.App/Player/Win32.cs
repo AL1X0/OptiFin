@@ -14,6 +14,13 @@ internal static unsafe partial class Win32
     public const int GWLP_HWNDPARENT = -8;
     public const int DWMWA_CLOAK = 13;
     public const int GWL_EXSTYLE = -20;
+    public const int GWL_STYLE = -16;
+    public const uint WS_CAPTION = 0x00C00000;
+    public const uint WS_THICKFRAME = 0x00040000;
+    public const uint SWP_FRAMECHANGED = 0x0020;
+    public const int DWMWA_BORDER_COLOR = 34;
+    public const uint DWMWA_COLOR_NONE = 0xFFFFFFFE;
+    public const uint DWMWA_COLOR_DEFAULT = 0xFFFFFFFF;
     public const int WS_EX_APPWINDOW = 0x00040000;
     public const uint DWM_BB_ENABLE = 0x1;
     public const uint DWM_BB_BLURREGION = 0x2;
@@ -136,6 +143,13 @@ internal static unsafe partial class Win32
     {
         var value = cloaked ? 1 : 0;
         DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &value, sizeof(int));
+    }
+
+    /// <summary>Liseré que Windows 11 trace autour des fenêtres (aucun en plein écran ; ignoré sous Windows 10).</summary>
+    public static void SetBorderColor(nint hwnd, uint color)
+    {
+        var value = (int)color;
+        DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &value, sizeof(int));
     }
 
     [LibraryImport("user32.dll")]

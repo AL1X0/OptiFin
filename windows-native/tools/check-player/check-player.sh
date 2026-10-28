@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Vérifie le lecteur Windows sur un binaire compilé (celui qui sera livré), contre le serveur de
-# démonstration : lecteur sans barre de titre, plein écran qui couvre l'écran, retour à la place et
+# démonstration : lecteur déplaçable et redimensionnable sans bande claire en haut, plein écran sans
+# cadre qui couvre l'écran, retour à la place et
 # à l'état d'avant (fenêtre normale ou agrandie), bouton dans la barre des tâches à chaque étape,
 # touches Alt / Windows surveillées, une seule OptiFin à la fois. Code de sortie ≠ 0 au moindre échec.
 #
@@ -22,6 +23,8 @@ CAPW=$(cygpath -w "$CAP")
 TITLE="Horizon perdu"
 probe() { powershell -NoProfile -ExecutionPolicy Bypass -File probe.ps1 "$@" | tr -d '\r'; }
 fails=0
+# Luminosité du haut de la fenêtre : ignorée si l'écran ne peut pas être capturé (session déconnectée).
+expect_dark_top() { if [ "$2" = indisponible ]; then echo "  --     $1 : capture d'écran indisponible"; else expect "$1 (luminosité $2)" "$(( $2 < 120 ? 1 : 0 ))" "1"; fi; }
 expect() { if [ "$2" = "$3" ]; then echo "  OK     $1"; else echo "  ÉCHEC  $1 : « $2 », attendu « $3 »"; fails=$((fails + 1)); fi; }
 stop_app() { taskkill //IM OptiFin.exe //F >/dev/null 2>&1; sleep 1; }
 # Attend la capture d'une étape (prise 2,5 s après son action).
@@ -56,13 +59,17 @@ scenario() {
   IFS=';' read -r before style cloak <<<"$(probe window "$TITLE")"
   expect "lecteur ouvert" "$([ -n "$style" ] && echo oui || echo non)" "oui"
   [ -n "$style" ] || return
-  expect "lecteur sans barre de titre" "$(( (0x$style & 0xC00000) == 0xC00000 ? 1 : 0 ))" "0"
+  expect "lecteur redimensionnable" "$(( (0x$style & 0x40000) != 0 ? 1 : 0 ))" "1"
+  [ "$maximized" = 0 ] && expect "lecteur déplaçable par le haut (barre de titre)" "$(probe hit "$TITLE")" "2"
+  expect_dark_top "pas de bande claire en haut du lecteur" "$(probe top "$TITLE")"
   expect "lecteur agrandi comme la fenêtre principale" "$(( (0x$style & 0x1000000) != 0 ? 1 : 0 ))" "$maximized"
   [ "$maximized" = 0 ] && expect "lecteur à la place de la fenêtre principale" "$before" "$(echo "$placement" | cut -d';' -f1-4 | tr ';' ',')"
   expect "bouton dans la barre des tâches (fenêtré)" "$(probe taskbar)" "oui"
   step f || return
   IFS=';' read -r rect style cloak <<<"$(probe window "$TITLE")"
   expect "plein écran : couvre tout l'écran" "$rect" "$SCREEN"
+  expect "plein écran : sans cadre ni barre de titre" "$(( (0x$style & 0xC40000) != 0 ? 1 : 0 ))" "0"
+  expect_dark_top "plein écran : pas de bande claire en haut" "$(probe top "$TITLE")"
   expect "bouton dans la barre des tâches (plein écran)" "$(probe taskbar)" "oui"
   step f2 || return
   IFS=';' read -r rect style cloak <<<"$(probe window "$TITLE")"
