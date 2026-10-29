@@ -20,6 +20,8 @@ Client [Jellyfin](https://jellyfin.org) pour iPhone, iPad, Android, Android TV e
 
 <img src="docs/media/appstore.jpg" width="900" alt="Accueil, fiche, séries, lecteur et téléchargements" />
 
+<img src="docs/media/windows.jpg" width="900" alt="OptiFin sur Windows : accueil, fiche, série et bibliothèque" />
+
 </div>
 
 ## En bref

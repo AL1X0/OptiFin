@@ -43,17 +43,32 @@ public static class AppServices
         if (Accounts.Restore() is { } session) Activate(session);
     }
 
+    /// <summary>Image WebP de 1 × 1 pixel, décodée au démarrage pour vérifier que Windows sait vraiment le faire.</summary>
+    private const string TinyWebp = "UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=";
+
+    /// <summary>
+    /// WebP seulement si Windows le décode vraiment : un décodeur peut être déclaré sans fonctionner
+    /// (Windows Server, extension installée mais inutilisable) et aucune image ne s'affichait.
+    /// </summary>
     private static bool CanDecodeWebp()
     {
         try
         {
-            foreach (var codec in Windows.Graphics.Imaging.BitmapDecoder.GetDecoderInformationEnumerator())
-                if (codec.MimeTypes.Contains("image/webp")) return true;
-            AppLog.Info("app", "Décodeur WebP absent (Extensions de média web) : images en JPEG");
+            var test = Task.Run(async () =>
+            {
+                using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                await stream.WriteAsync(System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.AsBuffer(Convert.FromBase64String(TinyWebp)));
+                stream.Seek(0);
+                var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(stream);
+                using var bitmap = await decoder.GetSoftwareBitmapAsync();
+                return bitmap.PixelWidth == 1;
+            });
+            if (test.Wait(TimeSpan.FromSeconds(3)) && test.Result) return true;
+            AppLog.Info("app", "Décodeur WebP absent ou trop lent : images en JPEG");
         }
         catch (Exception e)
         {
-            AppLog.Debug("app", $"Liste des décodeurs d'images indisponible : {e.Message}");
+            AppLog.Info("app", $"Décodeur WebP inutilisable ({e.InnerException?.Message ?? e.Message}) : images en JPEG");
         }
         return false;
     }

@@ -82,6 +82,7 @@ public static class DevCapture
                 var loaded = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage { DecodePixelWidth = bitmap.DecodePixelWidth, DecodePixelType = bitmap.DecodePixelType };
                 await loaded.SetSourceAsync(stream);
                 image.Source = loaded;
+                image.Opacity = 1; // fondu d'apparition (Ui.FadeIn) : ImageOpened ne vient pas d'une source chargée ainsi
             }
             catch (Exception e)
             {
