@@ -81,8 +81,10 @@ def main():
     print(f"Appli : {info.get('primaryName', s['STORE_APP_ID'])}")
     pending = info.get("pendingApplicationSubmission")
     if pending:
-        print(f"Soumission en attente {pending['id']} supprimée (remplacée par celle-ci).")
+        # L'API ne peut supprimer que ses propres brouillons : un brouillon ouvert dans Partner Center
+        # doit y être supprimé à la main (« Supprimer la soumission »).
         request("DELETE", f"{app}/submissions/{pending['id']}", t)
+        print(f"Soumission en attente {pending['id']} supprimée (remplacée par celle-ci).")
 
     sub = request("POST", f"{app}/submissions", t)
     print(f"Soumission {sub['id']} créée.")
