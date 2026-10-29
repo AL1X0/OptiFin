@@ -22,7 +22,7 @@ trap restore EXIT
 rm -rf "$DATA"; mkdir -p "$DATA"
 printf "0;0;1920;1080;0" > "$DATA/window.txt"
 
-out/capture/OptiFin.exe --capture "$(cygpath -w "$OUT")" \
+OPTIFIN_CAPTURE_IMAGES=1 out/capture/OptiFin.exe --capture "$(cygpath -w "$OUT")" \
   "connexion=demo:https://demo.jellyfin.org/stable|demo" \
   1-accueil=8000 \
   2-fiche=fiche:5e6e8380563c5211106652362c5c6843 \

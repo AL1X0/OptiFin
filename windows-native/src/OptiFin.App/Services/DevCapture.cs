@@ -39,7 +39,9 @@ public static class DevCapture
                         await Task.Delay(2500);
                     }
                     var target = Player.PlayerLauncher.CurrentRoot ?? root;
-                    await LoadImagesAsync(target);
+                    // Captures marketing seulement : le préchargement prend du temps et décalerait les
+                    // étapes minutées des tests (tools/check-player).
+                    if (Environment.GetEnvironmentVariable("OPTIFIN_CAPTURE_IMAGES") == "1") await LoadImagesAsync(target);
                     await Capture.SaveAsync(target, Path.Combine(folder, name + ".png"));
                 }
                 catch (Exception e)
