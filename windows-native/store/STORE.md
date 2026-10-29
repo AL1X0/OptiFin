@@ -90,6 +90,9 @@ Construit le paquet, remplace l'ancien dans une nouvelle soumission, met les « 
 GitHub, ou `out/store/nouveautes-<version>.txt` s'il existe) et l'envoie au Store. Accès à l'API, une seule fois :
 copier `store/store.env.example` en `store/store.env` (non versionné) et suivre ses indications.
 
+Captures de la fiche (sans nouveau paquet) : `bash windows-native/tools/marketing-shots.sh` (sur un bureau
+affiché) puis `python windows-native/store/submit.py --captures windows-native/store/screenshots`.
+
 ## Notes techniques
 
 - Paquet construit par `dotnet publish -p:WindowsPackageType=MSIX` (même NativeAOT, Windows App SDK embarqué),

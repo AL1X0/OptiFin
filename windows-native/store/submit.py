@@ -1,6 +1,7 @@
 """Soumet un paquet .msix au Microsoft Store (API de soumission de Partner Center), sans outil à installer.
 
     python windows-native/store/submit.py <paquet.msix> [--notes fichier.txt] [--attendre]
+    python windows-native/store/submit.py --captures windows-native/store/screenshots   # captures seules
 
 Identifiants : windows-native/store/store.env (local, non versionné ; modèle : store.env.example).
 Étapes : jeton Azure AD → soumission brouillon (copie de la dernière publiée, l'ancienne en attente est
@@ -66,12 +67,16 @@ def token(s):
 
 def main():
     args = argparse.ArgumentParser()
-    args.add_argument("msix")
+    args.add_argument("msix", nargs="?", help="paquet à publier (absent : paquet actuel conservé)")
+    args.add_argument("--captures", help="dossier de captures PNG (1-….png, 2-….png…) qui remplacent celles de la fiche")
     args.add_argument("--notes", help="texte des « Nouveautés de cette version »")
     args.add_argument("--attendre", action="store_true", help="attendre la fin des vérifications automatiques")
     a = args.parse_args()
-    if not os.path.exists(a.msix):
+    if a.msix and not os.path.exists(a.msix):
         sys.exit(f"Paquet introuvable : {a.msix}")
+    captures = sorted(f for f in os.listdir(a.captures) if f.lower().endswith(".png")) if a.captures else []
+    if not a.msix and not captures:
+        sys.exit("Rien à soumettre : un paquet et/ou --captures")
     notes = open(a.notes, encoding="utf-8").read().strip() if a.notes else None
 
     s = settings()
@@ -88,13 +93,23 @@ def main():
 
     sub = request("POST", f"{app}/submissions", t)
     print(f"Soumission {sub['id']} créée.")
-    name = os.path.basename(a.msix)
-    for p in sub.get("applicationPackages", []):
-        p["fileStatus"] = "PendingDelete"
-    sub["applicationPackages"].append({
-        "fileName": name, "fileStatus": "PendingUpload",
-        "minimumDirectXVersion": "None", "minimumSystemRam": "None",
-    })
+    name = os.path.basename(a.msix) if a.msix else None
+    if name:
+        for p in sub.get("applicationPackages", []):
+            p["fileStatus"] = "PendingDelete"
+        sub["applicationPackages"].append({
+            "fileName": name, "fileStatus": "PendingUpload",
+            "minimumDirectXVersion": "None", "minimumSystemRam": "None",
+        })
+    if captures:
+        # Captures de chaque langue remplacées (les autres images de la fiche, logos et affiches, restent).
+        for listing in sub.get("listings", {}).values():
+            images = listing.setdefault("baseListing", {}).setdefault("images", [])
+            for img in images:
+                if img.get("imageType") == "Screenshot":
+                    img["fileStatus"] = "PendingDelete"
+            images.extend({"fileName": f"captures/{f}", "fileStatus": "PendingUpload", "imageType": "Screenshot",
+                           "description": ""} for f in captures)
     if notes:
         for lang, listing in sub.get("listings", {}).items():
             listing.setdefault("baseListing", {})["releaseNotes"] = notes[:1500]
@@ -103,9 +118,12 @@ def main():
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
-        z.write(a.msix, name)
+        if name:
+            z.write(a.msix, name)
+        for f in captures:
+            z.write(os.path.join(a.captures, f), f"captures/{f}")
     size = buf.tell()
-    print(f"Envoi du paquet ({size // 1_000_000} Mo)…")
+    print(f"Envoi ({'paquet, ' if name else ''}{len(captures)} capture(s), {size // 1_000_000} Mo)…")
     request("PUT", upload_url, raw=buf.getvalue(), headers={"x-ms-blob-type": "BlockBlob"})
 
     request("POST", f"{app}/submissions/{sub['id']}/commit", t)
