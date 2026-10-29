@@ -29,9 +29,11 @@ public static class DevActions
                 Nav.PushRoot(typeof(LoginPage), new LoginRequest(await AppServices.Auth.ProbeAsync(arg), null));
                 break;
             case "demo":
-                // Connexion au serveur de démonstration (tools/OptiFin.DemoServer), qui accepte tout compte.
-                var server = await AppServices.Auth.ProbeAsync(arg);
-                AppServices.SignIn(await AppServices.Auth.LoginAsync(server, "Léa", ""));
+                // Connexion au serveur de démonstration : tools/OptiFin.DemoServer (accepte tout compte) ou,
+                // avec « adresse|utilisateur », un serveur public sans mot de passe (demo.jellyfin.org/stable|demo).
+                var (address, account) = arg.Split('|', 2) is [var addr, var name] ? (addr, name) : (arg, "Léa");
+                var server = await AppServices.Auth.ProbeAsync(address);
+                AppServices.SignIn(await AppServices.Auth.LoginAsync(server, account, ""));
                 break;
             case "jellyfin":
                 // Serveur Jellyfin de test local : fichier JSON {url, users:[{name,password}]} (hors dépôt).

@@ -39,6 +39,7 @@ import 'demo_engine.dart';
 import 'demo_fonts.dart';
 import 'demo_library.dart';
 import 'demo_server.dart';
+import 'server_snapshot.dart';
 
 /// Taille logique d'un iPhone 15 Pro et zones sûres (portrait / paysage).
 const phone = Size(393, 852);
@@ -57,7 +58,10 @@ class _MemoryVault implements TokenVault {
 
 /// App OptiFin réelle, branchée sur le serveur simulé et les illustrations générées.
 class DemoHarness {
-  DemoHarness(this.tester, {this.device = phone, this.tablet = false, this.tv = false, this.signedIn = true});
+  DemoHarness(this.tester, {this.device = phone, this.tablet = false, this.tv = false, this.signedIn = true, this.server});
+
+  /// Copie du vrai serveur de démonstration Jellyfin (sinon : bibliothèque fictive).
+  final ServerSnapshot? server;
 
   /// false : l'app démarre sur l'écran de connexion (serveur et profils simulés).
   final bool signedIn;
@@ -100,25 +104,25 @@ class DemoHarness {
     NativeGlassView.enabled = false; // pas de vue native dans un rendu de test
     await tester.runAsync(() async {
       await loadDemoFonts();
-      await assets.generate();
+      if (server == null) await assets.generate();
     });
-    OFImageSource.override(assets.provider);
+    OFImageSource.override(server?.provider ?? assets.provider);
     _portrait();
     db = AppDatabase(NativeDatabase.memory());
 
     final session = ActiveSession(
       server: JellyfinServer(
         id: 'srv',
-        name: 'Maison',
-        baseUrl: Uri.parse('https://jellyfin.maison/jf'),
-        version: '10.10.7',
+        name: server?.serverName ?? 'Maison',
+        baseUrl: server?.baseUrl ?? Uri.parse('https://jellyfin.maison/jf'),
+        version: server?.version ?? '10.10.7',
       ),
-      account: const Account(serverId: 'srv', userId: 'demo-user', userName: 'Léa'),
+      account: Account(serverId: 'srv', userId: server?.userId ?? 'demo-user', userName: server?.userName ?? 'Léa'),
       token: 'demo',
     );
     const identity = ClientIdentity(clientName: 'OptiFin', deviceName: 'iPhone', deviceId: 'demo', version: '1.0');
     final dio = createJellyfinDio(baseUrl: session.server.baseUrl, identity: identity, tokenProvider: () => 'demo')
-      ..httpClientAdapter = DemoJellyfinAdapter()
+      ..httpClientAdapter = server == null ? DemoJellyfinAdapter() : SnapshotJellyfinAdapter(server!)
       ..transformer = SyncTransformer();
     const caps = DeviceCapabilities(
       platform: DevicePlatform.ios,
@@ -173,8 +177,8 @@ class DemoHarness {
                     maxBitrateResolverProvider.overrideWithValue(() async => 120000000),
                     playbackEngineFactoryProvider.overrideWithValue(
                       (kind) async => engine = DemoEngine(
-                        assets.videoFrame,
-                        durationOf: (id) => Duration(minutes: titleById(id).minutes),
+                        server?.videoFrame ?? assets.videoFrame,
+                        durationOf: (id) => server?.runtimeOf(id) ?? Duration(minutes: titleById(id).minutes),
                         name: kind == EngineKind.native ? 'AVPlayer' : 'mpv',
                       ),
                     ),
@@ -195,6 +199,19 @@ class DemoHarness {
         await precacheImage(p, context);
       }
     });
+  }
+
+  /// Copie du serveur : décode les images demandées jusqu'ici (à appeler avant une capture fixe).
+  Future<void> precacheServerImages() async {
+    final s = server;
+    if (s == null) return;
+    await tester.runAsync(() async {
+      final context = tester.element(find.byType(OptiFinApp));
+      for (final p in s.all.toList()) {
+        await precacheImage(p, context);
+      }
+    });
+    await tester.pump();
   }
 
   void _portrait() {
@@ -287,6 +304,7 @@ class DemoHarness {
   }
 
   Future<void> screenshot(String name) async {
+    await precacheServerImages();
     await tester.runAsync(() async {
       final boundary = _boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
       final image = await boundary.toImage(pixelRatio: tv ? 2 : (tablet ? 1 : 3));
@@ -548,5 +566,37 @@ extension DemoDownloads on DemoHarness {
     await add('veilleurs-s1e1', 'complete', 1, 1480);
     await add('veilleurs-s1e2', 'complete', 1, 1395);
     await add('veilleurs-s1e3', 'paused', 0.18, 1510);
+  }
+}
+
+extension ServerDownloads on DemoHarness {
+  /// Téléchargements simulés d'éléments du serveur de démonstration (id, état, avancement, Mo).
+  Future<void> seedServerDownloads(List<(String, String, double, int)> list) async {
+    final s = server!;
+    for (final (i, (id, status, progress, mb)) in list.indexed) {
+      final item = s.item(id);
+      if (item == null) continue; // pas encore dans la copie : récupéré au prochain passage
+      final playback = s.response('POST', 'Items/$id/PlaybackInfo');
+      await tester.runAsync(
+        () => db
+            .into(db.downloads)
+            .insert(
+              DownloadsCompanion.insert(
+                itemId: id,
+                accountId: 'srv:${s.userId}',
+                kind: item['Type'] == 'Episode' ? 'episode' : 'movie',
+                title: item['Name']! as String,
+                seriesId: Value(item['SeriesId'] as String?),
+                itemJson: jsonEncode(item),
+                playbackJson: jsonEncode(playback ?? const {}),
+                filePath: 'downloads/$id.mp4',
+                sizeBytes: Value(mb * 1024 * 1024),
+                progress: Value(progress),
+                status: status,
+                createdAt: DateTime.now().subtract(Duration(minutes: i)),
+              ),
+            ),
+      );
+    }
   }
 }

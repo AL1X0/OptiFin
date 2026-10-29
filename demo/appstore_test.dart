@@ -37,7 +37,7 @@ const panels = [
     'fiche',
     ['details'],
     'Chaque film\na sa fiche.',
-    '4K · Dolby Vision · Atmos, en un coup d’œil.',
+    'Résumé, distribution et infos techniques.',
     Color(0xFFD9774A),
   ),
   Panel(

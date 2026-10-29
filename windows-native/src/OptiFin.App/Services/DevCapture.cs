@@ -38,7 +38,9 @@ public static class DevCapture
                         await DevActions.RunAsync(action);
                         await Task.Delay(2500);
                     }
-                    await Capture.SaveAsync(Player.PlayerLauncher.CurrentRoot ?? root, Path.Combine(folder, name + ".png"));
+                    var target = Player.PlayerLauncher.CurrentRoot ?? root;
+                    await LoadImagesAsync(target);
+                    await Capture.SaveAsync(target, Path.Combine(folder, name + ".png"));
                 }
                 catch (Exception e)
                 {
@@ -47,5 +49,45 @@ public static class DevCapture
             }
             window.Close();
         }
+    }
+
+    private static readonly HttpClient Http = new();
+
+    /// <summary>
+    /// Images réseau de la page chargées tout de suite : sans bureau affiché (session déconnectée),
+    /// Windows ne les télécharge jamais et la capture n'aurait que des cases vides.
+    /// </summary>
+    private static async Task LoadImagesAsync(Microsoft.UI.Xaml.DependencyObject root)
+    {
+        var images = new List<Microsoft.UI.Xaml.Controls.Image>();
+        void Walk(Microsoft.UI.Xaml.DependencyObject node)
+        {
+            if (node is Microsoft.UI.Xaml.Controls.Image image) images.Add(image);
+            for (var i = 0; i < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(node); i++)
+                Walk(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(node, i));
+        }
+        Walk(root);
+        foreach (var image in images)
+        {
+            if (image.Source is not Microsoft.UI.Xaml.Media.Imaging.BitmapImage { UriSource: { Scheme: "http" or "https" } uri } bitmap
+                || bitmap.PixelWidth > 0) continue;
+            try
+            {
+                // En JPEG : Jellyfin envoie du WebP par défaut, sans décodeur sur certains Windows (Server).
+                var url = uri.ToString().Replace("format=Webp", "format=Jpg", StringComparison.OrdinalIgnoreCase);
+                var bytes = await Http.GetByteArrayAsync(url.Contains("format=") ? url : url + (uri.Query.Length > 0 ? "&" : "?") + "format=Jpg");
+                using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+                await stream.WriteAsync(System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.AsBuffer(bytes));
+                stream.Seek(0);
+                var loaded = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage { DecodePixelWidth = bitmap.DecodePixelWidth, DecodePixelType = bitmap.DecodePixelType };
+                await loaded.SetSourceAsync(stream);
+                image.Source = loaded;
+            }
+            catch (Exception e)
+            {
+                AppLog.Warn("capture", $"Image {uri.GetLeftPart(UriPartial.Path)} : {e.GetType().Name} 0x{e.HResult:X8} {e.Message}");
+            }
+        }
+        if (images.Count > 0) await Task.Delay(500);
     }
 }

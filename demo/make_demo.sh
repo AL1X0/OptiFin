@@ -11,7 +11,13 @@ cd "$(dirname "$0")/.."
 
 flutter test demo/capture_test.dart    # tournage : build/demo/frames/<scène>/ + build/demo/shots/
 flutter test demo/stage_test.dart      # montage 1920×1080 : build/demo/stage/ + build/demo/timeline.json
-flutter test demo/appstore_test.dart   # captures App Store : build/demo/appstore/
+# Captures App Store : l'app réelle sur le serveur de démonstration public (copie locale, complétée
+# jusqu'à ce qu'il ne manque rien), puis mise en page.
+for _ in 1 2 3 4 5 6; do
+  python demo/server_snapshot.py
+  flutter test demo/server_capture_test.dart >/dev/null 2>&1 && break
+done
+flutter test demo/appstore_test.dart   # build/demo/appstore/
 node demo/music.mjs build/demo/timeline.json build/demo/music.wav
 
 mkdir -p docs/media docs/appstore
