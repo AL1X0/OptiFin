@@ -190,16 +190,16 @@ public sealed partial class PlayerWindow : Window
         Root.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(260) };
         Activate();
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => Root.Opacity = 1);
-        var reveal = Timer(DispatcherQueue.GetForCurrentThread(), TimeSpan.FromMilliseconds(280), () =>
+        OptiFin.App.Controls.Ui.After(TimeSpan.FromMilliseconds(280), () =>
         {
             if (_closing) return;
             _videoShown = true;
             SyncVideo();
         });
-        reveal.Start();
     }
 
     private bool _videoShown;
+    private DispatcherQueueTimer? _closeFade;
 
     private void SyncVideo()
     {
@@ -1143,17 +1143,18 @@ public sealed partial class PlayerWindow : Window
         Curtain.Opacity = 1;
         var volume = AppServices.Settings.Volume;
         var step = 0;
-        var fade = DispatcherQueue.GetForCurrentThread().CreateTimer();
-        fade.Interval = TimeSpan.FromMilliseconds(35);
-        fade.Tick += (_, _) =>
+        // Dans un champ : retenu jusqu'à la fin du fondu (voir Ui.After).
+        _closeFade = DispatcherQueue.GetForCurrentThread().CreateTimer();
+        _closeFade.Interval = TimeSpan.FromMilliseconds(35);
+        _closeFade.Tick += (_, _) =>
         {
             step++;
             _mpv?.SetVolume(volume * Math.Max(0, 1 - step / 8.0));
             if (step < 9) return;
-            fade.Stop();
+            _closeFade.Stop();
             Close();
         };
-        fade.Start();
+        _closeFade.Start();
     }
 
     // ------------------------------------------------------------ Infos de lecture

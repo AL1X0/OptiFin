@@ -13,6 +13,29 @@ namespace OptiFin.App.Controls;
 /// <summary>Petits éléments d'interface réutilisés (style OptiFin), construits en code.</summary>
 public static class Ui
 {
+    // ---------------------------------------------------------------- Minuteurs
+
+    private static readonly HashSet<Microsoft.UI.Dispatching.DispatcherQueueTimer> PendingTimers = [];
+
+    /// <summary>
+    /// Exécute <paramref name="action"/> une fois, après <paramref name="delay"/>, sur le fil d'interface.
+    /// Le minuteur est retenu jusque-là : gardé seulement dans une variable locale, le ramasse-miettes
+    /// peut le détruire avant qu'il se déclenche (selon la machine, l'action n'arrive alors jamais).
+    /// </summary>
+    public static void After(TimeSpan delay, Action action)
+    {
+        var timer = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().CreateTimer();
+        timer.Interval = delay;
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) =>
+        {
+            PendingTimers.Remove(timer);
+            action();
+        };
+        PendingTimers.Add(timer);
+        timer.Start();
+    }
+
     // ---------------------------------------------------------------- Animations
 
     /// <summary>Image qui apparaît en fondu une fois décodée, au lieu de surgir d'un coup.</summary>

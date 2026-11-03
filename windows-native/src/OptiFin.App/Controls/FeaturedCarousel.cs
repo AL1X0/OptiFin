@@ -107,18 +107,14 @@ public sealed partial class FeaturedCarousel : Grid
         layer.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromSeconds(12) };
         layer.Scale = new System.Numerics.Vector3(1.07f, 1.07f, 1f);
         // L'ancien calque s'efface une fois recouvert.
-        var hide = DispatcherQueue.CreateTimer();
-        hide.Interval = TimeSpan.FromMilliseconds(950);
-        hide.IsRepeating = false;
-        hide.Tick += (_, _) =>
+        Ui.After(TimeSpan.FromMilliseconds(950), () =>
         {
             if (other == _layers[_front]) return;
             other.Opacity = 0;
             // Zoom remis à zéro hors de la vue, prêt pour le prochain passage.
             other.ScaleTransition = null;
             other.Scale = System.Numerics.Vector3.One;
-        };
-        hide.Start();
+        });
     }
 
     private static LinearGradientBrush Gradient(Windows.Foundation.Point start, Windows.Foundation.Point end, params (double Offset, Color Color)[] stops)

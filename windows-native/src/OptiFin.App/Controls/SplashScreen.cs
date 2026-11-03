@@ -118,11 +118,7 @@ public sealed partial class SplashScreen : Grid
             Visual(element).Opacity = 0;
         StartAmbient();
         // Logo lent à décoder : l'intro part quand même.
-        var fallback = DispatcherQueue.CreateTimer();
-        fallback.Interval = TimeSpan.FromMilliseconds(250);
-        fallback.IsRepeating = false;
-        fallback.Tick += (_, _) => StartIntro();
-        fallback.Start();
+        Ui.After(TimeSpan.FromMilliseconds(250), StartIntro);
     }
 
     /// <summary>Halo qui respire et trait de chargement qui balaie, en boucle.</summary>
@@ -153,7 +149,7 @@ public sealed partial class SplashScreen : Grid
     /// <summary>Logo (fondu + rebond), puis le nom qui monte, puis la piste de chargement.</summary>
     private void StartIntro()
     {
-        if (_introStarted || _leaving) return;
+        if (_introStarted) return;
         _introStarted = true;
         var spring = _compositor.CreateCubicBezierEasingFunction(new Vector2(0.34f, 1.56f), new Vector2(0.64f, 1));
         var ease = _compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0), new Vector2(0, 1));
@@ -188,36 +184,32 @@ public sealed partial class SplashScreen : Grid
 
     /// <summary>
     /// Sortie : le logo s'approche, l'écran s'efface, puis il quitte l'arbre. Jamais avant que
-    /// l'intro ait eu le temps de se jouer (pas de simple flash).
+    /// l'intro ait eu le temps de se jouer (pas de simple flash) ; sans compte enregistré, la sortie
+    /// est demandée avant même le début de l'intro.
     /// </summary>
     public void Dismiss()
     {
         if (_leaving) return;
         _leaving = true;
-        var wait = Math.Max(0, 900 - (Environment.TickCount64 - _shownAt));
-        var timer = DispatcherQueue.CreateTimer();
-        timer.Interval = TimeSpan.FromMilliseconds(wait);
-        timer.IsRepeating = false;
-        timer.Tick += (_, _) => Leave();
-        timer.Start();
+        StartIntro();
+        Ui.After(TimeSpan.FromMilliseconds(Math.Max(1, 900 - (Environment.TickCount64 - _shownAt))), Leave);
     }
 
     private void Leave()
     {
         IsHitTestVisible = false;
         var ease = _compositor.CreateCubicBezierEasingFunction(new Vector2(0.4f, 0), new Vector2(1, 1));
-        var batch = _compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
         var zoom = _compositor.CreateVector3KeyFrameAnimation();
         zoom.InsertKeyFrame(1, new Vector3(1.18f, 1.18f, 1), ease);
         zoom.Duration = TimeSpan.FromMilliseconds(380);
         Visual(_logo).StartAnimation("Scale", zoom);
         Visual(this).StartAnimation("Opacity", Scalar(TimeSpan.FromMilliseconds(380), (0, 1), (1, 0)));
-        batch.End();
-        batch.Completed += (_, _) => DispatcherQueue.TryEnqueue(() =>
+        Ui.After(TimeSpan.FromMilliseconds(400), () =>
         {
             Visual(_glow).StopAnimation("Scale");
             Visual(_sweep).StopAnimation("Translation");
             (Parent as Panel)?.Children.Remove(this);
+            OptiFin.Core.Logging.AppLog.Info("app", $"Écran de démarrage retiré après {Environment.TickCount64 - _shownAt} ms");
         });
     }
 

@@ -65,14 +65,10 @@ public sealed partial class MainWindow : Window
     {
         AppServices.SessionChanged += ShowStart;
         AppServices.SessionLost += () => DispatcherQueue.TryEnqueue(ShowStart);
+        // Filet : accueil lent (pas de cache, serveur muet) ou page en erreur → l'écran de démarrage s'efface quand même.
+        Ui.After(TimeSpan.FromSeconds(4), HideSplash);
         ShowStart();
         DevCapture.AttachIfRequested(this, Root);
-        // Filet : accueil lent (pas de cache, serveur muet) → son squelette prend le relais.
-        var timeout = DispatcherQueue.CreateTimer();
-        timeout.Interval = TimeSpan.FromSeconds(4);
-        timeout.IsRepeating = false;
-        timeout.Tick += (_, _) => HideSplash();
-        timeout.Start();
     }
 
     /// <summary>Premier écran prêt : l'écran de démarrage s'efface.</summary>

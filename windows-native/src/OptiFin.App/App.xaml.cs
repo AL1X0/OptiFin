@@ -23,6 +23,18 @@ public partial class App : Application
         if (!Environment.GetCommandLineArgs().Contains("--capture") && !SingleInstance.Claim()) Environment.Exit(0);
         InitializeComponent();
         AppLog.Open();
+        // Test de fiabilité (tools/check-player) : ramasse-miettes en continu, pour révéler dès maintenant
+        // ce qui ne tient qu'à son passage tardif (minuteur non retenu…) et ne casse que sur certaines machines.
+        if (Environment.GetEnvironmentVariable("OPTIFIN_GC_STRESS") == "1")
+            new Thread(() =>
+            {
+                while (true)
+                {
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    Thread.Sleep(5);
+                }
+            }) { IsBackground = true, Name = "Ramasse-miettes forcé" }.Start();
         // Toute erreur non interceptée finit dans le journal (Réglages › Journaux).
         UnhandledException += (_, e) =>
         {

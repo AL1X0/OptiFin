@@ -42,9 +42,14 @@ cleanup() {
   stop_app
   if [ -f "$CAP/window.bak" ]; then cp "$CAP/window.bak" "$PLACEMENT"; else rm -f "$PLACEMENT"; fi
   [ -n "$SERVER_PID" ] && { kill "$SERVER_PID" 2>/dev/null; taskkill //IM OptiFin.DemoServer.exe //F >/dev/null 2>&1; }
+  # Données de l'appli écartées par le scénario « première installation » : remises telles quelles.
+  if [ -d "$CAP/data.bak" ]; then rm -rf "$DATA"; mv "$CAP/data.bak" "$DATA"; fi
   rm -rf "$CAP"
 }
 trap cleanup EXIT
+
+# DLL dont libmpv dépend et que Windows ne fournit pas toujours : livrée avec l'appli.
+expect "vulkan-1.dll livrée à côté de libmpv" "$([ -f "$(dirname "$EXE")/vulkan-1.dll" ] && echo oui || echo non)" "oui"
 
 SCREEN=$(probe screen)
 scenario() {
@@ -53,7 +58,7 @@ scenario() {
   stop_app
   printf "%s" "$placement" > "$PLACEMENT"
   rm -f "$CAP"/*.png
-  "$EXE" --capture "$CAPW" "c=demo:http://localhost:$PORT" l=lecture:horizon w1=3000 f=pleinecran w2=6000 f2=pleinecran w=20000 &
+  "$EXE" --capture "$CAPW" "c=demo:http://localhost:$PORT" l=lecture:horizon w1=15000 f=pleinecran w2=15000 f2=pleinecran w=25000 &
   step l || return
   sleep 1
   IFS=';' read -r before style cloak <<<"$(probe window "$TITLE")"
@@ -81,6 +86,27 @@ scenario() {
 }
 scenario "normale" "240;126;1440;900;0" 0
 scenario "agrandie" "240;126;1440;900;1" 1
+
+# Première installation (aucune donnée) : l'écran de démarrage laisse place à la connexion, même avec
+# le ramasse-miettes en continu (selon les machines, il détruisait le minuteur de sortie : halo sans fin).
+echo "== Première installation"
+stop_app
+mv "$DATA" "$CAP/data.bak"
+OPTIFIN_GC_STRESS=1 "$EXE" &
+sleep 6
+expect "écran de démarrage retiré (sans compte, ramasse-miettes forcé)" "$(grep -ac 'Écran de démarrage retiré' "$LOG")" "1"
+expect "journal : aucune erreur (première installation)" "$(grep -aE ' [EW]/' "$LOG" | grep -vc 'mpv')" "0"
+stop_app
+rm -rf "$DATA"; mv "$CAP/data.bak" "$DATA"
+
+# Lecteur avec le ramasse-miettes forcé : il s'ouvre, puis se ferme (fondu de sortie).
+echo "== Lecteur, ramasse-miettes forcé"
+printf "%s" "240;126;1440;900;0" > "$PLACEMENT"
+rm -f "$CAP"/*.png
+OPTIFIN_GC_STRESS=1 "$EXE" --capture "$CAPW" "c=demo:http://localhost:$PORT" l=lecture:horizon w=4000 x=fermer z=4000 w2=20000 &
+step z && sleep 1
+expect "lecteur fermé" "$(probe window "$TITLE")" "absente"
+stop_app
 
 echo "== Instance unique"
 stop_app

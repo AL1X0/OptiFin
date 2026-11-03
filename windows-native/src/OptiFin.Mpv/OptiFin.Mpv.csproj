@@ -38,6 +38,14 @@
     <Delete Files="$(LibmpvDir)\$(LibmpvArchive)" />
   </Target>
 
+  <!--
+    Chargeur Vulkan officiel (Khronos) : libmpv-2.dll en dépend à son chargement, même si le rendu passe par
+    Direct3D 11, et Windows ne le fournit pas (il vient des pilotes graphiques) : sans lui, pas de lecteur.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.Vulkan.Loader.Native" Version="2025.9.12" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="$(LibmpvDir)\libmpv-2.dll" Link="libmpv-2.dll" CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest" Visible="false" />

@@ -53,14 +53,10 @@ public static class PlayerLauncher
             _current = player;
             player.ShowOver(main);
             // La fenêtre principale disparaît une fois le lecteur apparu en fondu par-dessus.
-            var hide = Nav.Dispatcher.CreateTimer();
-            hide.Interval = TimeSpan.FromMilliseconds(300);
-            hide.IsRepeating = false;
-            hide.Tick += (_, _) =>
+            OptiFin.App.Controls.Ui.After(TimeSpan.FromMilliseconds(300), () =>
             {
                 if (_current == player) main.Hide();
-            };
-            hide.Start();
+            });
         }
         catch (Exception e)
         {

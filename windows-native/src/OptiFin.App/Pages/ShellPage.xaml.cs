@@ -271,14 +271,10 @@ public sealed partial class ShellPage : Page
         Notices.Margin = new Thickness(0, 0, 24, MediaActions.Selecting ? 96 : 24);
         if (!MediaActions.Selecting)
         {
-            var hide = DispatcherQueue.CreateTimer();
-            hide.Interval = TimeSpan.FromMilliseconds(200);
-            hide.IsRepeating = false;
-            hide.Tick += (_, _) =>
+            Ui.After(TimeSpan.FromMilliseconds(200), () =>
             {
                 if (!MediaActions.Selecting) SelectionBar.Visibility = Visibility.Collapsed;
-            };
-            hide.Start();
+            });
         }
     }
 
@@ -310,11 +306,7 @@ public sealed partial class ShellPage : Page
         };
         Notices.Children.Add(notice);
         while (Notices.Children.Count > 3) Notices.Children.RemoveAt(0);
-        var timer = DispatcherQueue.CreateTimer();
-        timer.Interval = TimeSpan.FromSeconds(4);
-        timer.IsRepeating = false;
-        timer.Tick += (_, _) => Notices.Children.Remove(notice);
-        timer.Start();
+        Ui.After(TimeSpan.FromSeconds(4), () => Notices.Children.Remove(notice));
     }
 
     private void UpdateBackButton() =>
