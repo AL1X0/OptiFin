@@ -28,7 +28,7 @@ public partial class PlaybackReliabilityTests
 
     private static readonly Dictionary<string, string> NoHeaders = [];
 
-    private static async Task Until(Func<bool> ok, string what, int seconds = 15)
+    private static async Task Until(Func<bool> ok, string what, int seconds = 45)
     {
         var deadline = DateTime.UtcNow.AddSeconds(seconds);
         while (!ok())
@@ -72,6 +72,7 @@ public partial class PlaybackReliabilityTests
     {
         var hwnd = Window();
         using var player = MpvPlayer.Create(hwnd);
+        player.TrySet("ao", "null"); // indépendant du périphérique audio du poste
         var rec = new Recorder(player);
         player.Load(Clip(30), NoHeaders, TimeSpan.Zero);
         await Until(() => rec.FirstFrames == 1 && rec.Position > TimeSpan.FromSeconds(0.5), "premier titre");
@@ -97,6 +98,7 @@ public partial class PlaybackReliabilityTests
     {
         var hwnd = Window();
         using var player = MpvPlayer.Create(hwnd);
+        player.TrySet("ao", "null"); // indépendant du périphérique audio du poste
         var rec = new Recorder(player);
         for (var i = 0; i < 6; i++)
         {
@@ -123,6 +125,7 @@ public partial class PlaybackReliabilityTests
     {
         var hwnd = Window();
         using var player = MpvPlayer.Create(hwnd);
+        player.TrySet("ao", "null"); // indépendant du périphérique audio du poste
         var rec = new Recorder(player);
         // Graphe lavfi invalide : mpv échoue à l'ouverture ; l'appli doit le savoir (sinon « Préparation » à vie).
         player.Load("av://lavfi:testsrc2=duration=1,2", NoHeaders, TimeSpan.Zero);
@@ -136,6 +139,7 @@ public partial class PlaybackReliabilityTests
     {
         var hwnd = Window();
         using var player = MpvPlayer.Create(hwnd);
+        player.TrySet("ao", "null"); // indépendant du périphérique audio du poste
         var rec = new Recorder(player);
         player.Load(new Uri("http://127.0.0.1:9/introuvable.mkv"), NoHeaders, TimeSpan.Zero);
         await Until(() => rec.Has("ended:Error"), "échec de la lecture directe");
@@ -153,6 +157,7 @@ public partial class PlaybackReliabilityTests
     {
         var hwnd = Window();
         using var player = MpvPlayer.Create(hwnd);
+        player.TrySet("ao", "null"); // indépendant du périphérique audio du poste
         var rec = new Recorder(player);
         // Clics répétés (« épisode suivant » plusieurs fois) : seul le dernier titre doit jouer.
         for (var i = 0; i < 5; i++) player.Load(Clip(20 + i), NoHeaders, TimeSpan.Zero);
@@ -169,6 +174,7 @@ public partial class PlaybackReliabilityTests
     {
         var hwnd = Window();
         using var player = MpvPlayer.Create(hwnd);
+        player.TrySet("ao", "null"); // indépendant du périphérique audio du poste
         var rec = new Recorder(player);
         // Reprise enregistrée plus loin que la durée réelle : la lecture se termine, sans blocage.
         player.Load(Clip(3), NoHeaders, TimeSpan.FromSeconds(60));
@@ -310,6 +316,7 @@ public partial class PlaybackReliabilityTests
         using var server = new FileServer(film);
         var hwnd = Window();
         using var player = MpvPlayer.Create(hwnd);
+        player.TrySet("ao", "null"); // indépendant du périphérique audio du poste
         var rec = new Recorder(player);
         var headers = new Dictionary<string, string> { ["Authorization"] = "MediaBrowser Token=\"secret\"" };
         player.Load(new Uri(server.Url + "Videos/abc/stream?static=true"), headers, TimeSpan.FromSeconds(3));

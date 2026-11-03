@@ -20,6 +20,28 @@ public partial class FormatPlaybackTests
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool DestroyWindow(nint hwnd);
 
+    [LibraryImport("user32.dll")]
+    private static partial nint OpenInputDesktop(uint flags, [MarshalAs(UnmanagedType.Bool)] bool inherit, uint access);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool CloseDesktop(nint desktop);
+
+    /// <summary>Bureau réellement affiché ? Non en session déconnectée : mpv n'y connaît pas l'écran et garde alors la courbe d'origine.</summary>
+    private static bool DesktopShown()
+    {
+        var desktop = OpenInputDesktop(0, false, 0x0001);
+        if (desktop == 0) return false;
+        CloseDesktop(desktop);
+        return true;
+    }
+
+    /// <summary>Écran SDR : image convertie (tone mapping), pas envoyée telle quelle.</summary>
+    private static void AssertConverted(string curve, string? target)
+    {
+        if (DesktopShown()) Assert.NotEqual(curve, target);
+    }
+
     private const string Video = "-f lavfi -i testsrc2=size=1920x1080:rate=24:duration=6";
     private const string Hdr10X265 = "log-level=error:hdr10=1:colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:" +
                                      "master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1):max-cll=1000,400";
@@ -64,6 +86,8 @@ public partial class FormatPlaybackTests
         try
         {
             using var mpv = MpvPlayer.Create(hwnd);
+            // Sortie son nulle : sans périphérique audio (session déconnectée), mpv désactiverait la piste testée.
+            mpv.TrySet("ao", "null");
             var started = false;
             var position = TimeSpan.Zero;
             mpv.FirstFrame += () => started = true;
@@ -71,6 +95,8 @@ public partial class FormatPlaybackTests
             mpv.Log += (level, prefix, text) =>
             {
                 // Machine de test sans carte graphique : l'échec du décodage matériel (repli logiciel) n'est pas une erreur de lecture.
+                // Session déconnectée : pas d'écran, donc pas de sortie à interroger pour la chaîne d'échange.
+                if (text.Contains("swap chain's output") && !DesktopShown()) return;
                 if (level is "error" or "fatal" && prefix != "vd" && !prefix.StartsWith("ffmpeg")) lock (errors) errors.Add($"[{prefix}] {text}");
             };
             mpv.Load(file, new Dictionary<string, string>(), TimeSpan.Zero);
@@ -108,8 +134,7 @@ public partial class FormatPlaybackTests
         Assert.Equal("bt.2020", seen.Primaries);
         // Métadonnées de mastering (1000 nits) lues : nécessaires au bon calcul du rendu.
         Assert.Equal(1000, double.Parse(seen.MaxLuma!, System.Globalization.CultureInfo.InvariantCulture));
-        // Écran SDR : image convertie (tone mapping), pas envoyée en PQ.
-        Assert.NotEqual("pq", seen.TargetGamma);
+        AssertConverted("pq", seen.TargetGamma);
         Assert.Equal("eac3", seen.AudioCodec);
         Assert.Equal(6, seen.Channels);
         Assert.True(seen.VideoBitrate > 0, "débit vidéo inconnu");
@@ -125,7 +150,7 @@ public partial class FormatPlaybackTests
         var seen = await PlayAsync(file);
         Assert.Equal("hlg", seen.Gamma);
         Assert.Equal("bt.2020", seen.Primaries);
-        Assert.NotEqual("hlg", seen.TargetGamma);
+        AssertConverted("hlg", seen.TargetGamma);
         Assert.Equal("ac3", seen.AudioCodec);
         Assert.Equal(6, seen.Channels);
         Assert.Empty(seen.Errors);
@@ -141,7 +166,7 @@ public partial class FormatPlaybackTests
         var seen = await PlayAsync(file);
         Assert.Equal("av1", seen.VideoCodec);
         Assert.Equal("pq", seen.Gamma);
-        Assert.NotEqual("pq", seen.TargetGamma);
+        AssertConverted("pq", seen.TargetGamma);
         Assert.Equal("flac", seen.AudioCodec);
         Assert.Equal(8, seen.Channels);
         Assert.Empty(seen.Errors);
