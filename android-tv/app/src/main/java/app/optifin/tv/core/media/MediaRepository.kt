@@ -1,5 +1,6 @@
 package app.optifin.tv.core.media
 
+import app.optifin.tv.core.L
 import app.optifin.tv.core.AppLog
 import app.optifin.tv.core.api.ApiErrorKind
 import app.optifin.tv.core.api.ApiException
@@ -56,18 +57,18 @@ class ImageUrls(private val baseUrl: String) {
 }
 
 enum class LibrarySort(val label: String, val fields: String) {
-    Title("Titre", "SortName"),
-    DateAdded("Date d’ajout", "DateCreated,SortName"),
-    PremiereDate("Date de sortie", "PremiereDate,SortName"),
-    Rating("Note", "CommunityRating,SortName"),
-    Runtime("Durée", "Runtime,SortName"),
-    Year("Année", "ProductionYear,SortName");
+    Title(L.t("Titre"), "SortName"),
+    DateAdded(L.t("Date d’ajout"), "DateCreated,SortName"),
+    PremiereDate(L.t("Date de sortie"), "PremiereDate,SortName"),
+    Rating(L.t("Note"), "CommunityRating,SortName"),
+    Runtime(L.t("Durée"), "Runtime,SortName"),
+    Year(L.t("Année"), "ProductionYear,SortName");
 
     /** Sens par défaut : récent / meilleur d'abord, sauf le titre. */
     val defaultDescending: Boolean get() = this != Title
 }
 
-enum class ResolutionFilter(val label: String) { Any("Toutes"), Hd("HD"), Uhd("4K") }
+enum class ResolutionFilter(val label: String) { Any(L.t("Toutes")), Hd("HD"), Uhd("4K") }
 
 /** Requête de parcours d'une bibliothèque (immuable). */
 data class LibraryQuery(
@@ -179,7 +180,7 @@ class MediaRepository(val api: JellyfinClient, val userId: String) {
 
     suspend fun itemRaw(id: String): BaseItemDto =
         items(listOf("Ids" to id, "Fields" to DETAIL_FIELDS, "EnableTotalRecordCount" to "false")).items?.firstOrNull()
-            ?: throw ApiException(ApiErrorKind.NotFound, "Élément introuvable")
+            ?: throw ApiException(ApiErrorKind.NotFound, L.t("Élément introuvable"))
 
     suspend fun item(id: String): MediaItem = MediaMapper.fromDto(itemRaw(id))
 
@@ -387,14 +388,14 @@ class HomeRepository(private val media: MediaRepository, accountId: String, cach
         val resumeIds = resume.map { it.id }.toSet()
         val nextUp = map(s.nextUp.filter { it.id !in resumeIds })
         val sections = mutableListOf<HomeSection>()
-        if (resume.isNotEmpty()) sections += HomeSection("resume", "Reprendre", resume, landscape = true)
-        if (nextUp.isNotEmpty()) sections += HomeSection("nextup", "À suivre", nextUp, landscape = true)
+        if (resume.isNotEmpty()) sections += HomeSection("resume", L.t("Reprendre"), resume, landscape = true)
+        if (nextUp.isNotEmpty()) sections += HomeSection("nextup", L.t("À suivre"), nextUp, landscape = true)
         for (lib in libraries) {
             val items = s.latest[lib.id].orEmpty()
             if (items.isEmpty()) continue
-            sections += HomeSection("latest-${lib.id}", "Ajouts récents · ${lib.name}", map(items), landscape = false, libraryId = lib.id)
+            sections += HomeSection("latest-${lib.id}", L.f("Ajouts récents · {0}", lib.name), map(items), landscape = false, libraryId = lib.id)
         }
-        if (s.favorites.isNotEmpty()) sections += HomeSection("favorites", "Favoris", map(s.favorites), landscape = false)
+        if (s.favorites.isNotEmpty()) sections += HomeSection("favorites", L.t("Favoris"), map(s.favorites), landscape = false)
         val featured = map(s.featured).filter { it.backdrops.isNotEmpty() }
         return HomeData(featured, sections, libraries, fromCache)
     }

@@ -1,5 +1,6 @@
 package app.optifin.tv.player
 
+import app.optifin.tv.core.L
 import android.content.Context
 import app.optifin.tv.AppServices
 import app.optifin.tv.PartyStart
@@ -145,8 +146,8 @@ class PlayerController(private val context: Context, val itemId: String, private
         _state.value = _state.value.copy(
             party = when {
                 group == null -> null
-                s.waiting && group.state == GroupState.Waiting -> "${group.name} · en attente des autres…"
-                else -> "${group.name} · $count participant${if (count > 1) "s" else ""}"
+                s.waiting && group.state == GroupState.Waiting -> L.f("{0} · en attente des autres…", group.name)
+                else -> L.f(if (count > 1) "{0} · {1} participants" else "{0} · {1} participant", group.name, count)
             },
         )
     }
@@ -231,7 +232,7 @@ class PlayerController(private val context: Context, val itemId: String, private
         startTicks()
     }
 
-    private fun engineName(kind: EngineKind) = if (kind == EngineKind.Native) "Natif" else "mpv"
+    private fun engineName(kind: EngineKind) = if (kind == EngineKind.Native) L.t("Natif") else "mpv"
 
     /** Média à ouvrir : pistes intégrées par rang, sous-titres texte externes servis par Jellyfin. */
     private fun mediaFor(plan: PlaybackPlan, start: Long): EngineMedia {
@@ -281,11 +282,11 @@ class PlayerController(private val context: Context, val itemId: String, private
         attempt++
         val next = chain.getOrNull(attempt)
         if (next == null) {
-            fail("Le lecteur n’a pas pu lire ce fichier.", failures.joinToString("\n"))
+            fail(L.t("Le lecteur n’a pas pu lire ce fichier."), failures.joinToString("\n"))
             return
         }
         AppLog.i("player", "Bascule automatique → ${next.label} (${next.reason})")
-        _state.value = _state.value.copy(notice = "Bascule vers ${next.label}…")
+        _state.value = _state.value.copy(notice = L.f("Bascule vers {0}…", next.label))
         val plan = _state.value.plan
         try {
             launch(next, plan?.audioIndex, plan?.subtitleIndex)
@@ -356,7 +357,7 @@ class PlayerController(private val context: Context, val itemId: String, private
         if (segment != null && AppServices.settings.value.autoSkipSegments) {
             skipped += segment
             engine?.seek(segment.endMs)
-            AppServices.notice("${segment.type.skipLabel.removePrefix("Passer ").replaceFirstChar { it.uppercase() }} passé")
+            AppServices.notice("${segment.type.skipLabel.removePrefix(if (L.isEnglish) "Skip " else "Passer ").replaceFirstChar { it.uppercase() }} ${if (L.isEnglish) "skipped" else "passé"}")
             return
         }
         val upNextAt = extras.upNextAt(duration)
@@ -458,7 +459,7 @@ class PlayerController(private val context: Context, val itemId: String, private
         startMs = position
         scope.launch {
             try {
-                _state.value = _state.value.copy(notice = "Changement de piste…")
+                _state.value = _state.value.copy(notice = L.t("Changement de piste…"))
                 val decision = _state.value.decision ?: return@launch
                 launch(decision, audio, subtitle)
             } catch (e: Exception) {
@@ -474,7 +475,7 @@ class PlayerController(private val context: Context, val itemId: String, private
         val decision = EngineDecision(kind, if (kind == EngineKind.Mpv) Delivery.DirectPlay else Delivery.DirectPlay, reason = "choisi pendant la lecture")
         scope.launch {
             try {
-                _state.value = _state.value.copy(notice = "Bascule vers ${kind.label}…")
+                _state.value = _state.value.copy(notice = L.f("Bascule vers {0}…", kind.label))
                 launch(decision, plan.audioIndex, plan.subtitleIndex)
             } catch (e: Exception) {
                 AppServices.notice(e.userMessage())

@@ -1,5 +1,6 @@
 package app.optifin.tv.ui.auth
 
+import app.optifin.tv.core.L
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -165,7 +166,7 @@ fun ConnectScreen(onServer: () -> Unit, onSignedIn: () -> Unit) {
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = "Le serveur de démonstration ne répond pas. Réessayez plus tard."
+                error = L.t("Le serveur de démonstration ne répond pas. Réessayez plus tard.")
             } finally {
                 busy = false
             }
@@ -183,10 +184,10 @@ fun ConnectScreen(onServer: () -> Unit, onSignedIn: () -> Unit) {
         }
     }
 
-    AuthLayout("OptiFin", "Connectez-vous à votre serveur Jellyfin.") {
+    AuthLayout("OptiFin", L.t("Connectez-vous à votre serveur Jellyfin.")) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (accounts.isNotEmpty()) {
-                item { SectionLabel("Comptes") }
+                item { SectionLabel(L.t("Comptes")) }
                 items(accounts, key = { it.account.id }) { a ->
                     val images = ImageUrls(a.server.baseUrl)
                     ChoiceItem(
@@ -197,24 +198,24 @@ fun ConnectScreen(onServer: () -> Unit, onSignedIn: () -> Unit) {
                     )
                 }
             }
-            item { SectionLabel(if (searching) "Recherche sur ce réseau…" else "Sur ce réseau") }
+            item { SectionLabel(if (searching) L.t("Recherche sur ce réseau…") else L.t("Sur ce réseau")) }
             if (discovered.isEmpty() && !searching) {
-                item { Text("Aucun serveur détecté automatiquement.", style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary) }
+                item { Text(L.t("Aucun serveur détecté automatiquement."), style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary) }
             }
             items(discovered, key = { it.id }) { s ->
                 ChoiceItem(s.name, s.address, leading = { Icon(Icons.Rounded.Dns, null) }, onClick = { connect(s.address) },
                     modifier = if (accounts.isEmpty() && s == discovered.first()) Modifier.focusRequester(first) else Modifier)
             }
-            item { SectionLabel("Adresse du serveur") }
+            item { SectionLabel(L.t("Adresse du serveur")) }
             item {
                 TvTextField(address, { address = it }, "https://jellyfin.exemple.fr", keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go,
                     onSubmit = { connect(address) }, focusRequester = if (accounts.isEmpty() && discovered.isEmpty()) first else remember { FocusRequester() })
             }
             item {
                 Spacer(Modifier.height(10.dp))
-                TvButton(if (busy) "Connexion…" else "Continuer", { connect(address) }, primary = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
+                TvButton(if (busy) L.t("Connexion…") else L.t("Continuer"), { connect(address) }, primary = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
-            item { TvButton("Essayer avec le serveur de démonstration", ::tryDemo, enabled = !busy, modifier = Modifier.fillMaxWidth()) }
+            item { TvButton(L.t("Essayer avec le serveur de démonstration"), ::tryDemo, enabled = !busy, modifier = Modifier.fillMaxWidth()) }
             error?.let { item { Text(it, style = MaterialTheme.typography.bodyMedium, color = OF.Danger, modifier = Modifier.padding(top = 8.dp)) } }
         }
     }
@@ -288,10 +289,10 @@ fun LoginScreen(onSignedIn: () -> Unit, onBack: () -> Unit) {
     }
 
     val shown = code
-    AuthLayout(server.name, if (quickConnect) "Le plus simple : Quick Connect." else "Qui regarde ?", "${server.baseUrl} · Jellyfin ${server.version}") {
+    AuthLayout(server.name, if (quickConnect) L.t("Le plus simple : Quick Connect.") else L.t("Qui regarde ?"), "${server.baseUrl} · Jellyfin ${server.version}") {
         if (shown != null) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Text("Code Quick Connect", style = MaterialTheme.typography.titleLarge, color = OF.TextSecondary)
+                Text(L.t("Code Quick Connect"), style = MaterialTheme.typography.titleLarge, color = OF.TextSecondary)
                 Spacer(Modifier.height(16.dp))
                 Surface(shape = RoundedCornerShape(20.dp), colors = SurfaceDefaults.colors(containerColor = Color(0x1FFFFFFF))) {
                     Text(shown, fontSize = 64.sp, fontFamily = FontFamily.Monospace, color = OF.TextPrimary,
@@ -299,11 +300,11 @@ fun LoginScreen(onSignedIn: () -> Unit, onBack: () -> Unit) {
                 }
                 Spacer(Modifier.height(20.dp))
                 Text(
-                    "Sur votre téléphone ou ordinateur : Jellyfin › Profil › Quick Connect, puis saisissez ce code.",
+                    L.t("Sur votre téléphone ou ordinateur : Jellyfin › Profil › Quick Connect, puis saisissez ce code."),
                     style = MaterialTheme.typography.bodyLarge, color = OF.TextSecondary,
                 )
                 Spacer(Modifier.height(24.dp))
-                TvButton("Annuler", { quickJob?.cancel(); code = null }, modifier = Modifier.focusRequester(firstFocus))
+                TvButton(L.t("Annuler"), { quickJob?.cancel(); code = null }, modifier = Modifier.focusRequester(firstFocus))
             }
             LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
             return@AuthLayout
@@ -311,13 +312,13 @@ fun LoginScreen(onSignedIn: () -> Unit, onBack: () -> Unit) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (quickConnect) {
                 item {
-                    TvButton("Se connecter avec Quick Connect", ::startQuickConnect, icon = Icons.Rounded.Bolt, primary = true,
+                    TvButton(L.t("Se connecter avec Quick Connect"), ::startQuickConnect, icon = Icons.Rounded.Bolt, primary = true,
                         modifier = Modifier.fillMaxWidth().focusRequester(firstFocus))
                 }
                 item {
-                    Text("Un code s’affiche : validez-le depuis Jellyfin sur votre téléphone.", style = MaterialTheme.typography.bodySmall, color = OF.TextTertiary)
+                    Text(L.t("Un code s’affiche : validez-le depuis Jellyfin sur votre téléphone."), style = MaterialTheme.typography.bodySmall, color = OF.TextTertiary)
                 }
-                item { SectionLabel("Ou avec un mot de passe") }
+                item { SectionLabel(L.t("Ou avec un mot de passe")) }
             }
             if (users.isNotEmpty()) {
                 item {
@@ -347,12 +348,12 @@ fun LoginScreen(onSignedIn: () -> Unit, onBack: () -> Unit) {
                 }
             }
             item {
-                TvTextField(username, { username = it }, "Nom d’utilisateur", imeAction = ImeAction.Next,
+                TvTextField(username, { username = it }, L.t("Nom d’utilisateur"), imeAction = ImeAction.Next,
                     focusRequester = if (!quickConnect && users.isEmpty()) firstFocus else remember { FocusRequester() })
             }
-            item { TvTextField(password, { password = it }, "Mot de passe", password = true, imeAction = ImeAction.Go, onSubmit = ::login, focusRequester = passwordFocus) }
+            item { TvTextField(password, { password = it }, L.t("Mot de passe"), password = true, imeAction = ImeAction.Go, onSubmit = ::login, focusRequester = passwordFocus) }
             item {
-                TvButton(if (busy) "Connexion…" else "Se connecter", ::login, icon = Icons.Rounded.Login, primary = !quickConnect,
+                TvButton(if (busy) L.t("Connexion…") else L.t("Se connecter"), ::login, icon = Icons.Rounded.Login, primary = !quickConnect,
                     enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
             error?.let { item { Text(it, style = MaterialTheme.typography.bodyMedium, color = OF.Danger) } }

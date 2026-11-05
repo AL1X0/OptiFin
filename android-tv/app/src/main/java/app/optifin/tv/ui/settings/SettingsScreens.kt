@@ -1,5 +1,6 @@
 package app.optifin.tv.ui.settings
 
+import app.optifin.tv.core.L
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -96,37 +97,37 @@ fun SettingsScreen(nav: AppNav) {
     fun update(transform: (AppSettings) -> AppSettings) = AppServices.settings.update(transform)
 
     Column(Modifier.fillMaxSize().padding(top = OF.SafeY + 8.dp)) {
-        Text("Réglages", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(start = OF.Gutter, bottom = 8.dp))
+        Text(L.t("Réglages"), style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(start = OF.Gutter, bottom = 8.dp))
         LazyColumn(Modifier.fillMaxWidth().padding(horizontal = OF.Gutter - 12.dp).width(900.dp), contentPadding = PaddingValues(bottom = 64.dp)) {
-            item { SectionTitle("Lecture") }
+            item { SectionTitle(L.t("Lecture ").trim()) }
             item {
-                MenuRow("Lecteur", {
-                    choice = Choice("Lecteur", EnginePreference.entries.map { it to it.label }, settings.enginePreference) { s, v -> s.copy(enginePreference = v) }
+                MenuRow(L.t("Lecteur"), {
+                    choice = Choice(L.t("Lecteur"), EnginePreference.entries.map { it to it.label }, settings.enginePreference) { s, v -> s.copy(enginePreference = v) }
                 }, Modifier.focusRequester(first), supporting = settings.enginePreference.label + when (settings.enginePreference) {
-                    EnginePreference.Auto -> " — natif (HDR, Dolby Vision) ou mpv selon le fichier"
-                    EnginePreference.Native -> " — Media3, transcodage si nécessaire"
-                    EnginePreference.Mpv -> " — libmpv pour tout"
+                    EnginePreference.Auto -> L.t(" — natif (HDR, Dolby Vision) ou mpv selon le fichier")
+                    EnginePreference.Native -> L.t(" — Media3, transcodage si nécessaire")
+                    EnginePreference.Mpv -> L.t(" — libmpv pour tout")
                 })
             }
             item {
-                MenuRow("Débit maximal", {
-                    choice = Choice("Débit maximal", BitrateChoices.entries.map { it.key to it.value }, settings.maxBitrate) { s, v -> s.copy(maxBitrate = v) }
+                MenuRow(L.t("Débit maximal"), {
+                    choice = Choice(L.t("Débit maximal"), BitrateChoices.entries.map { it.key to it.value }, settings.maxBitrate) { s, v -> s.copy(maxBitrate = v) }
                 }, supporting = BitrateChoices[settings.maxBitrate] ?: "${settings.maxBitrate / 1_000_000} Mb/s")
             }
             item {
-                MenuRow("Sous-titres image (PGS, VobSub)", {
-                    choice = Choice("Sous-titres image", ImageSubtitlePolicy.entries.map { it to it.label }, settings.imageSubtitles) { s, v -> s.copy(imageSubtitles = v) }
-                }, supporting = settings.imageSubtitles.label + " — quand ils ne peuvent pas rester dans le flux")
+                MenuRow(L.t("Sous-titres image (PGS, VobSub)"), {
+                    choice = Choice(L.t("Sous-titres image"), ImageSubtitlePolicy.entries.map { it to it.label }, settings.imageSubtitles) { s, v -> s.copy(imageSubtitles = v) }
+                }, supporting = settings.imageSubtitles.label + L.t(" — quand ils ne peuvent pas rester dans le flux"))
             }
-            item { SwitchRow("Épisode suivant automatique", "Lance l’épisode suivant à la fin du générique", settings.autoPlayNext) { update { it.copy(autoPlayNext = !it.autoPlayNext) } } }
-            item { SwitchRow("Passer les intros automatiquement", "Intros, récapitulatifs et génériques détectés par le serveur", settings.autoSkipSegments) { update { it.copy(autoSkipSegments = !it.autoSkipSegments) } } }
+            item { SwitchRow(L.t("Épisode suivant automatique"), L.t("Lance l’épisode suivant à la fin du générique"), settings.autoPlayNext) { update { it.copy(autoPlayNext = !it.autoPlayNext) } } }
+            item { SwitchRow(L.t("Passer les intros automatiquement"), L.t("Intros, récapitulatifs et génériques détectés par le serveur"), settings.autoSkipSegments) { update { it.copy(autoSkipSegments = !it.autoSkipSegments) } } }
 
-            item { SectionTitle("Langues et sous-titres") }
+            item { SectionTitle(L.t("Langues et sous-titres")) }
             item {
-                MenuRow("Langue audio préférée", {
-                    choice = Choice("Langue audio", listOf<Pair<String?, String>>(null to "Réglage du serveur") + PreferredLanguages.entries.map { it.key to it.value },
+                MenuRow(L.t("Langue audio préférée"), {
+                    choice = Choice(L.t("Langue audio"), listOf<Pair<String?, String>>(null to L.t("Réglage du serveur")) + PreferredLanguages.entries.map { it.key to it.value },
                         settings.audioLanguage) { s, v -> s.copy(audioLanguage = v) }
-                }, supporting = settings.audioLanguage?.let { PreferredLanguages[it] } ?: "Réglage du serveur")
+                }, supporting = settings.audioLanguage?.let { PreferredLanguages[it] } ?: L.t("Réglage du serveur"))
             }
             item {
                 MenuRow("Sous-titres", {
@@ -134,40 +135,40 @@ fun SettingsScreen(nav: AppNav) {
                 }, supporting = settings.subtitleMode.label)
             }
             item {
-                MenuRow("Langue des sous-titres", {
-                    choice = Choice("Langue des sous-titres", listOf<Pair<String?, String>>(null to "Réglage du serveur") + PreferredLanguages.entries.map { it.key to it.value },
+                MenuRow(L.t("Langue des sous-titres"), {
+                    choice = Choice(L.t("Langue des sous-titres"), listOf<Pair<String?, String>>(null to L.t("Réglage du serveur")) + PreferredLanguages.entries.map { it.key to it.value },
                         settings.subtitleLanguage) { s, v -> s.copy(subtitleLanguage = v) }
-                }, supporting = settings.subtitleLanguage?.let { PreferredLanguages[it] } ?: "Réglage du serveur")
+                }, supporting = settings.subtitleLanguage?.let { PreferredLanguages[it] } ?: L.t("Réglage du serveur"))
             }
             item {
-                MenuRow("Taille des sous-titres", {
-                    choice = Choice("Taille des sous-titres", listOf(0.8f to "Petite", 1f to "Normale", 1.2f to "Grande", 1.45f to "Très grande"),
+                MenuRow(L.t("Taille des sous-titres"), {
+                    choice = Choice(L.t("Taille des sous-titres"), listOf(0.8f to L.t("Petite"), 1f to L.t("Normale"), 1.2f to L.t("Grande"), 1.45f to L.t("Très grande")),
                         settings.subtitleScale) { s, v -> s.copy(subtitleScale = v) }
-                }, supporting = when { settings.subtitleScale < 0.9f -> "Petite"; settings.subtitleScale < 1.1f -> "Normale"; settings.subtitleScale < 1.3f -> "Grande"; else -> "Très grande" })
+                }, supporting = when { settings.subtitleScale < 0.9f -> L.t("Petite"); settings.subtitleScale < 1.1f -> L.t("Normale"); settings.subtitleScale < 1.3f -> L.t("Grande"); else -> L.t("Très grande") })
             }
             item {
-                MenuRow("Style des sous-titres", {
-                    choice = Choice("Style des sous-titres", SubtitleBackground.entries.map { it to it.label }, settings.subtitleBackground) { s, v -> s.copy(subtitleBackground = v) }
+                MenuRow(L.t("Style des sous-titres"), {
+                    choice = Choice(L.t("Style des sous-titres"), SubtitleBackground.entries.map { it to it.label }, settings.subtitleBackground) { s, v -> s.copy(subtitleBackground = v) }
                 }, supporting = settings.subtitleBackground.label)
             }
 
-            item { SectionTitle("Écran d’accueil Android TV") }
-            item { SwitchRow("« Continuer à regarder »", "Vos lectures en cours sur l’écran d’accueil du téléviseur", settings.watchNext) { update { it.copy(watchNext = !it.watchNext) } } }
+            item { SectionTitle(L.t("Écran d’accueil Android TV")) }
+            item { SwitchRow(L.t("« Continuer à regarder »"), L.t("Vos lectures en cours sur l’écran d’accueil du téléviseur"), settings.watchNext) { update { it.copy(watchNext = !it.watchNext) } } }
 
-            item { SectionTitle("Application") }
-            item { MenuRow("Rechercher une mise à jour", { dialog = "update" }, icon = Icons.Rounded.SystemUpdate, supporting = "Version ${AppServices.version}") }
+            item { SectionTitle(L.t("Application")) }
+            item { MenuRow(L.t("Rechercher une mise à jour"), { dialog = "update" }, icon = Icons.Rounded.SystemUpdate, supporting = L.f("Version {0}", AppServices.version)) }
             item {
-                MenuRow("Vider le cache", {
+                MenuRow(L.t("Vider le cache"), {
                     scope.launch {
                         SingletonImageLoader.get(AppServices.context).let { it.memoryCache?.clear(); it.diskCache?.clear() }
                         AppServices.home?.clearCache()
-                        AppServices.notice("Cache vidé")
+                        AppServices.notice(L.t("Cache vidé"))
                     }
-                }, icon = Icons.Rounded.CleaningServices, supporting = "Images et accueil enregistrés")
+                }, icon = Icons.Rounded.CleaningServices, supporting = L.t("Images et accueil enregistrés"))
             }
-            item { MenuRow("Journaux", { nav.logs() }, icon = Icons.Rounded.Description, supporting = "Diagnostic de lecture et de connexion") }
-            item { SwitchRow("Mode debug", "Journal détaillé et informations de lecture dans le lecteur", settings.debugMode) { update { it.copy(debugMode = !it.debugMode) } } }
-            item { MenuRow("À propos", { dialog = "about" }, icon = Icons.Rounded.Info, supporting = "OptiFin TV ${AppServices.version} · ${AppServices.capabilities.model}") }
+            item { MenuRow(L.t("Journaux"), { nav.logs() }, icon = Icons.Rounded.Description, supporting = L.t("Diagnostic de lecture et de connexion")) }
+            item { SwitchRow(L.t("Mode debug"), L.t("Journal détaillé et informations de lecture dans le lecteur"), settings.debugMode) { update { it.copy(debugMode = !it.debugMode) } } }
+            item { MenuRow(L.t("À propos"), { dialog = "about" }, icon = Icons.Rounded.Info, supporting = "OptiFin TV ${AppServices.version} · ${AppServices.capabilities.model}") }
         }
     }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
@@ -175,15 +176,15 @@ fun SettingsScreen(nav: AppNav) {
     choice?.let { c -> ChoiceDialog(c, onDismiss = { choice = null }) }
     when (dialog) {
         "update" -> UpdateDialog { dialog = null }
-        "about" -> TvDialog("OptiFin TV", { dialog = null }, subtitle = "Version ${AppServices.version}") {
+        "about" -> TvDialog("OptiFin TV", { dialog = null }, subtitle = L.f("Version {0}", AppServices.version)) {
             Text(
-                "Client Jellyfin pour Android TV.\n\nAppareil : ${AppServices.capabilities.summary}\n\n" +
-                    "Bibliothèques : Jetpack Compose for TV, Media3 (Apache 2.0), extension FFmpeg de Jellyfin (LGPL/GPL), " +
+                L.f("Client Jellyfin pour Android TV.\n\nAppareil : {0}\n\n", AppServices.capabilities.summary) +
+                    L.t("Bibliothèques : ") + "Jetpack Compose for TV, Media3 (Apache 2.0), extension FFmpeg de Jellyfin (LGPL/GPL), " +
                     "libmpv (LGPL), OkHttp, Coil, kotlinx.serialization (Apache 2.0).",
                 style = MaterialTheme.typography.bodyMedium, color = OF.TextSecondary,
             )
             Spacer(Modifier.height(16.dp))
-            TvButton("Fermer", { dialog = null }, primary = true)
+            TvButton(L.t("Fermer"), { dialog = null }, primary = true)
         }
     }
 }
@@ -210,7 +211,7 @@ private fun <T> ChoiceDialog(choice: Choice<T>, onDismiss: () -> Unit) {
 /** Mise à jour : dernière version publiée sur GitHub, téléchargement puis installation. */
 @Composable
 private fun UpdateDialog(onDismiss: () -> Unit) {
-    var state by remember { mutableStateOf("Recherche d’une mise à jour…") }
+    var state by remember { mutableStateOf(L.t("Recherche d’une mise à jour…")) }
     var update by remember { mutableStateOf<AppUpdater.Update?>(null) }
     var progress by remember { mutableStateOf<Float?>(null) }
     val scope = rememberCoroutineScope()
@@ -218,18 +219,18 @@ private fun UpdateDialog(onDismiss: () -> Unit) {
         try {
             val found = AppUpdater.check()
             update = found
-            state = if (found == null) "OptiFin TV est à jour (${AppServices.version})." else "Version ${found.version} disponible (${found.sizeMb} Mo)."
+            state = if (found == null) L.f("OptiFin TV est à jour ({0}).", AppServices.version) else L.f("Version {0} disponible ({1} Mo).", found.version, found.sizeMb)
         } catch (e: Exception) {
             state = e.userMessage()
         }
     }
-    TvDialog("Mise à jour", onDismiss) {
+    TvDialog(L.t("Mise à jour"), onDismiss) {
         Text(state, style = MaterialTheme.typography.bodyLarge, color = OF.TextSecondary)
-        progress?.let { Text("Téléchargement : ${(it * 100).toInt()} %", style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary) }
+        progress?.let { Text(L.f("Téléchargement : {0} %", (it * 100).toInt()), style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary) }
         Spacer(Modifier.height(16.dp))
         val u = update
         if (u != null && progress == null) {
-            TvButton("Installer", {
+            TvButton(L.t("Installer"), {
                 progress = 0f
                 scope.launch {
                     try {
@@ -241,7 +242,7 @@ private fun UpdateDialog(onDismiss: () -> Unit) {
                 }
             }, primary = true)
         } else {
-            TvButton("Fermer", onDismiss, primary = u == null)
+            TvButton(L.t("Fermer"), onDismiss, primary = u == null)
         }
     }
 }
@@ -254,7 +255,7 @@ fun AccountScreen(nav: AppNav) {
     val accounts = remember(session) { AppServices.accounts.accounts().filter { it.account.id != session?.account?.id } }
     val first = remember { FocusRequester() }
     Column(Modifier.fillMaxSize().padding(top = OF.SafeY + 8.dp, start = OF.Gutter - 12.dp, end = OF.Gutter)) {
-        Text("Compte", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(start = 12.dp, bottom = 16.dp))
+        Text(L.t("Compte"), style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(start = 12.dp, bottom = 16.dp))
         session?.let { s ->
             Row(Modifier.padding(start = 12.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 Avatar(s.account.userName, AppServices.images?.userAvatar(s.account.userId, 200, s.account.avatarTag), 84.dp)
@@ -266,10 +267,10 @@ fun AccountScreen(nav: AppNav) {
             }
         }
         LazyColumn(Modifier.width(900.dp)) {
-            if (accounts.isNotEmpty()) item { SectionTitle("Changer de compte") }
+            if (accounts.isNotEmpty()) item { SectionTitle(L.t("Changer de compte")) }
             items(accounts, key = { it.account.id }) { a ->
                 MenuRow(a.account.userName, {
-                    if (AppServices.switchTo(a.account.id)) AppServices.notice("Connecté en tant que ${a.account.userName}")
+                    if (AppServices.switchTo(a.account.id)) AppServices.notice(L.f("Connecté en tant que {0}", a.account.userName))
                     else {
                         app.optifin.tv.ui.auth.AuthFlow.pendingServer = a.server
                         app.optifin.tv.ui.auth.AuthFlow.presetUser = a.account.userName
@@ -279,9 +280,9 @@ fun AccountScreen(nav: AppNav) {
                     Avatar(a.account.userName, ImageUrls(a.server.baseUrl).userAvatar(a.account.userId, 96, a.account.avatarTag), 36.dp)
                 })
             }
-            item { SectionTitle("Gérer") }
-            item { MenuRow("Ajouter un compte", nav.addAccount, if (accounts.isEmpty()) Modifier.focusRequester(first) else Modifier, Icons.Rounded.Add, supporting = "Autre utilisateur ou autre serveur") }
-            item { MenuRow("Se déconnecter", { scope.launch { AppServices.signOut() } }, icon = Icons.AutoMirrored.Rounded.Logout, supporting = "Le compte reste proposé à la connexion") }
+            item { SectionTitle(L.t("Gérer")) }
+            item { MenuRow(L.t("Ajouter un compte"), nav.addAccount, if (accounts.isEmpty()) Modifier.focusRequester(first) else Modifier, Icons.Rounded.Add, supporting = L.t("Autre utilisateur ou autre serveur")) }
+            item { MenuRow(L.t("Se déconnecter"), { scope.launch { AppServices.signOut() } }, icon = Icons.AutoMirrored.Rounded.Logout, supporting = L.t("Le compte reste proposé à la connexion")) }
         }
     }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
@@ -298,20 +299,20 @@ fun LogsScreen(@Suppress("UNUSED_PARAMETER") nav: AppNav) {
     val shown = entries.filter { it.level >= level }
     LaunchedEffect(shown.size) { if (shown.isNotEmpty()) list.scrollToItem(shown.lastIndex) }
     Column(Modifier.fillMaxSize().padding(top = OF.SafeY + 8.dp, start = OF.Gutter, end = OF.Gutter)) {
-        Text("Journaux", style = MaterialTheme.typography.displaySmall, maxLines = 1)
+        Text(L.t("Journaux"), style = MaterialTheme.typography.displaySmall, maxLines = 1)
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            for (l in listOf(LogLevel.Debug to "Tout", LogLevel.Info to "Infos", LogLevel.Warning to "Avertissements", LogLevel.Error to "Erreurs")) {
+            for (l in listOf(LogLevel.Debug to L.t("Tout"), LogLevel.Info to L.t("Infos"), LogLevel.Warning to L.t("Avertissements"), LogLevel.Error to L.t("Erreurs"))) {
                 TvButton(l.second, { level = l.first }, primary = level == l.first)
             }
-            TvButton("Envoyer", {
+            TvButton(L.t("Envoyer"), {
                 val client = AppServices.client ?: return@TvButton
                 scope.launch {
                     try {
                         val text = (AppLog.logFile?.takeIf { it.exists() }?.readText() ?: AppLog.text()).takeLast(900_000)
                         val r = client.send("POST", "ClientLog/Document", emptyList(), text.toRequestBody("text/plain".toMediaType()))
                         val name = Regex("\"FileName\"\\s*:\\s*\"([^\"]+)\"").find(r)?.groupValues?.get(1)
-                        AppServices.notice("Journal envoyé au serveur${name?.let { " : $it" } ?: ""}")
+                        AppServices.notice(name?.let { L.f("Journal envoyé au serveur : {0}", it) } ?: L.t("Journal envoyé au serveur"))
                     } catch (e: Exception) {
                         AppServices.notice(e.userMessage())
                     }

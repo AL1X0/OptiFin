@@ -1,5 +1,6 @@
 package app.optifin.tv.ui.components
 
+import app.optifin.tv.core.L
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -89,7 +90,7 @@ fun cardSubtitle(item: MediaItem, style: CardStyle): String? = when {
     item.kind == MediaKind.Episode -> if (style == CardStyle.Landscape) listOfNotNull(item.episodeLabel, item.name).joinToString(" · ") else item.episodeLabel
     item.kind == MediaKind.Series && (item.user.unplayedCount ?: 0) > 0 -> {
         val n = item.user.unplayedCount!!
-        "$n épisode${if (n > 1) "s" else ""} non vu${if (n > 1) "s" else ""}"
+        L.count(n, "{0} épisode non vu", "{0} épisodes non vus")
     }
     item.kind == MediaKind.Person -> item.overview?.takeIf { false }
     else -> item.year?.toString()

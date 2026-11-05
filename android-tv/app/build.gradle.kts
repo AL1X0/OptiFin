@@ -78,6 +78,8 @@ android {
         unitTests {
             isIncludeAndroidResources = true
             isReturnDefaultValues = true
+            // Textes français attendus par les tests, quelle que soit la langue du poste.
+            all { it.systemProperty("optifin.language", "fr") }
         }
     }
 }

@@ -1,12 +1,13 @@
 package app.optifin.tv.core.playback
 
+import app.optifin.tv.core.L
 import app.optifin.tv.core.api.RemoteSubtitleInfo
 import app.optifin.tv.core.media.MediaItem
 
 enum class PlayMethod(val apiName: String, val label: String) {
-    DirectPlay("DirectPlay", "Lecture directe"),
+    DirectPlay("DirectPlay", L.t("Lecture directe")),
     DirectStream("DirectStream", "Remux"),
-    Transcode("Transcode", "Transcodage"),
+    Transcode("Transcode", L.t("Transcodage")),
 }
 
 enum class TrackType { Audio, Subtitle }
@@ -60,11 +61,11 @@ data class PlaybackPlan(
 }
 
 enum class SegmentType(val skipLabel: String) {
-    Intro("Passer l’intro"),
-    Recap("Passer le récapitulatif"),
-    Preview("Passer l’aperçu"),
-    Commercial("Passer la publicité"),
-    Outro("Passer le générique"),
+    Intro(L.t("Passer l’intro")),
+    Recap(L.t("Passer le récapitulatif")),
+    Preview(L.t("Passer l’aperçu")),
+    Commercial(L.t("Passer la publicité")),
+    Outro(L.t("Passer le générique")),
 }
 
 data class MediaSegment(val type: SegmentType, val startMs: Long, val endMs: Long) {
@@ -120,16 +121,16 @@ data class RemoteSubtitle(
 ) {
     val details: String
         get() = listOfNotNull(
-            provider, format?.uppercase(), downloads?.takeIf { it > 0 }?.let { "$it téléchargements" },
-            if (hashMatch) "correspond au fichier" else null, if (hearingImpaired) "malentendants" else null,
-            if (forced) "forcés" else null,
+            provider, format?.uppercase(), downloads?.takeIf { it > 0 }?.let { L.f("{0} téléchargements", it) },
+            if (hashMatch) L.t("correspond au fichier") else null, if (hearingImpaired) "malentendants" else null,
+            if (forced) L.t("forcés") else null,
         ).joinToString(" · ")
 
     companion object {
         fun from(list: List<RemoteSubtitleInfo>): List<RemoteSubtitle> = list
             .filter { !it.id.isNullOrEmpty() }
             .map {
-                RemoteSubtitle(it.id!!, it.name?.trim()?.ifEmpty { null } ?: "Sous-titre ${it.id}", it.providerName, it.format,
+                RemoteSubtitle(it.id!!, it.name?.trim()?.ifEmpty { null } ?: L.f("Sous-titre {0}", it.id), it.providerName, it.format,
                     it.downloadCount, it.isHashMatch == true, it.hearingImpaired == true, it.forced == true)
             }
             .sortedWith(compareByDescending<RemoteSubtitle> { it.hashMatch }.thenByDescending { it.downloads ?: 0 })

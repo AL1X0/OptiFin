@@ -1,5 +1,6 @@
 package app.optifin.tv.core.media
 
+import app.optifin.tv.core.L
 import app.optifin.tv.core.api.BaseItemDto
 import java.time.OffsetDateTime
 
@@ -123,7 +124,7 @@ data class MediaItem(
         get() {
             if (kind != MediaKind.Episode) return null
             if (parentIndexNumber == null && indexNumber == null) return null
-            if (parentIndexNumber == 0) return indexNumber?.let { "Spécial $it" } ?: "Spécial"
+            if (parentIndexNumber == 0) return indexNumber?.let { L.f("Spécial {0}", it) } ?: L.t("Spécial")
             return listOfNotNull(parentIndexNumber?.let { "S$it" }, indexNumber?.let { "É$it" }).joinToString(" · ")
         }
 }

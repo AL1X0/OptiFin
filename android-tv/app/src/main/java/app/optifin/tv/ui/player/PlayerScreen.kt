@@ -1,5 +1,6 @@
 package app.optifin.tv.ui.player
 
+import app.optifin.tv.core.L
 import android.app.Activity
 import android.graphics.Bitmap
 import android.view.WindowManager
@@ -352,7 +353,7 @@ private fun Preparing(ui: PlayerUiState) {
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Spinner()
             Spacer(Modifier.height(24.dp))
-            Text(item?.let { if (it.kind == MediaKind.Episode) "${it.seriesName ?: ""} · ${it.episodeLabel ?: ""}" else it.name } ?: "Préparation…",
+            Text(item?.let { if (it.kind == MediaKind.Episode) "${it.seriesName ?: ""} · ${it.episodeLabel ?: ""}" else it.name } ?: L.t("Préparation…"),
                 style = MaterialTheme.typography.titleLarge, color = OF.TextPrimary)
             ui.notice?.let {
                 Spacer(Modifier.height(8.dp))
@@ -367,15 +368,15 @@ private fun ErrorView(ui: PlayerUiState, onRetry: () -> Unit, onBack: () -> Unit
     val focus = remember { FocusRequester() }
     Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(max = 900.dp)) {
-            Text(ui.error ?: "Lecture impossible.", style = MaterialTheme.typography.headlineSmall, color = OF.TextPrimary)
+            Text(ui.error ?: L.t("Lecture impossible."), style = MaterialTheme.typography.headlineSmall, color = OF.TextPrimary)
             ui.technicalError?.let {
                 Spacer(Modifier.height(12.dp))
                 Text(it, style = MaterialTheme.typography.bodySmall, color = OF.TextTertiary, maxLines = 8)
             }
             Spacer(Modifier.height(28.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                TvButton("Réessayer", onRetry, Modifier.focusRequester(focus), primary = true)
-                TvButton("Retour", onBack, icon = Icons.AutoMirrored.Rounded.ArrowBack)
+                TvButton(L.t("Réessayer"), onRetry, Modifier.focusRequester(focus), primary = true)
+                TvButton(L.t("Retour"), onBack, icon = Icons.AutoMirrored.Rounded.ArrowBack)
             }
         }
     }
@@ -413,7 +414,7 @@ private fun Controls(
                 Text(MediaFormat.clock(position), style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"))
                 Spacer(Modifier.width(16.dp))
                 Text(chapter?.name ?: "", style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (duration > 0) Text("Fin à $endsAt", style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary)
+                if (duration > 0) Text(L.f("Fin à {0}", endsAt), style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary)
                 Spacer(Modifier.width(20.dp))
                 Text("−${MediaFormat.clock(remaining)}", style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"))
             }
@@ -421,12 +422,12 @@ private fun Controls(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ControlButton(Icons.Rounded.Replay10, "−10 s", { controller.seekBy(-10_000) })
                 Spacer(Modifier.width(10.dp))
-                ControlButton(if (s.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (s.playing) "Pause" else "Lecture", controller::togglePlay, Modifier.focusRequester(playFocus))
+                ControlButton(if (s.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (s.playing) L.t("Pause") else L.t("Lecture"), controller::togglePlay, Modifier.focusRequester(playFocus))
                 Spacer(Modifier.width(10.dp))
                 ControlButton(Icons.Rounded.Forward10, "+10 s", { controller.seekBy(10_000) })
                 if (ui.extras.nextEpisode != null) {
                     Spacer(Modifier.width(10.dp))
-                    ControlButton(Icons.Rounded.SkipNext, "Épisode suivant", controller::playNext)
+                    ControlButton(Icons.Rounded.SkipNext, L.t("Épisode suivant"), controller::playNext)
                 }
                 Spacer(Modifier.weight(1f))
                 ControlButton(Icons.Rounded.ClosedCaption, "Sous-titres", { onPanel(Panel.Subtitles) })
@@ -436,10 +437,10 @@ private fun Controls(
                     Spacer(Modifier.width(10.dp))
                 }
                 if (ui.extras.chapters.size > 1) {
-                    ControlButton(Icons.Rounded.List, "Chapitres", { onPanel(Panel.Chapters) })
+                    ControlButton(Icons.Rounded.List, L.t("Chapitres"), { onPanel(Panel.Chapters) })
                     Spacer(Modifier.width(10.dp))
                 }
-                ControlButton(Icons.Rounded.Tune, "Réglages", { onPanel(Panel.Settings) })
+                ControlButton(Icons.Rounded.Tune, L.t("Réglages"), { onPanel(Panel.Settings) })
             }
         }
     }
@@ -575,12 +576,12 @@ private fun UpNextCard(next: app.optifin.tv.core.media.MediaItem, s: EngineState
             AsyncImage(AppServices.images?.maybe(next.landscape, 480), null, contentScale = ContentScale.Crop,
                 modifier = Modifier.width(200.dp).height(112.dp).clip(RoundedCornerShape(10.dp)).background(OF.SurfaceRaised))
             Column(Modifier.width(300.dp)) {
-                Text("Épisode suivant${if (remaining in 1..60) " dans $remaining s" else ""}", style = MaterialTheme.typography.labelLarge, color = OF.TextSecondary)
+                Text(if (remaining in 1..60) L.f("Épisode suivant dans {0} s", remaining) else L.t("Épisode suivant"), style = MaterialTheme.typography.labelLarge, color = OF.TextSecondary)
                 Text(listOfNotNull(next.episodeLabel, next.name).joinToString(" · "), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TvButton("Lire", onPlay, Modifier.focusRequester(focus), icon = Icons.Rounded.PlayArrow, primary = true)
-                    TvButton("Masquer", onDismiss)
+                    TvButton(L.t("Lire"), onPlay, Modifier.focusRequester(focus), icon = Icons.Rounded.PlayArrow, primary = true)
+                    TvButton(L.t("Masquer"), onDismiss)
                 }
             }
         }
@@ -621,15 +622,15 @@ private fun SidePanel(panel: Panel, ui: PlayerUiState, controller: PlayerControl
         val title = when (panel) {
             Panel.Subtitles -> "Sous-titres"
             Panel.Audio -> "Audio"
-            Panel.Chapters -> "Chapitres"
-            Panel.Settings -> "Réglages"
-            Panel.Speed -> "Vitesse de lecture"
-            Panel.SubtitleDelay -> "Décalage des sous-titres"
-            Panel.AudioDelay -> "Décalage audio"
-            Panel.Style -> "Style des sous-titres"
-            Panel.Fit -> "Format de l’image"
-            Panel.Engine -> "Lecteur"
-            Panel.Search -> "Sous-titres en ligne"
+            Panel.Chapters -> L.t("Chapitres")
+            Panel.Settings -> L.t("Réglages")
+            Panel.Speed -> L.t("Vitesse de lecture")
+            Panel.SubtitleDelay -> L.t("Décalage des sous-titres")
+            Panel.AudioDelay -> L.t("Décalage audio")
+            Panel.Style -> L.t("Style des sous-titres")
+            Panel.Fit -> L.t("Format de l’image")
+            Panel.Engine -> L.t("Lecteur")
+            Panel.Search -> L.t("Sous-titres en ligne")
         }
         Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(start = 12.dp, bottom = 14.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -637,14 +638,14 @@ private fun SidePanel(panel: Panel, ui: PlayerUiState, controller: PlayerControl
             when (panel) {
                 Panel.Subtitles -> {
                     val current = plan?.subtitleIndex
-                    item { MenuRow("Désactivés", { controller.selectTrack(TrackType.Subtitle, null); onClose() }, if (current == null) Modifier.focusRequester(focus) else Modifier, selected = current == null, trailing = check(current == null)) }
+                    item { MenuRow(L.t("Désactivés"), { controller.selectTrack(TrackType.Subtitle, null); onClose() }, if (current == null) Modifier.focusRequester(focus) else Modifier, selected = current == null, trailing = check(current == null)) }
                     items(plan?.subtitleTracks ?: emptyList(), key = { it.index }) { t ->
                         MenuRow(trackLabel(t), { controller.selectTrack(TrackType.Subtitle, t); onClose() },
                             if (t.index == current) Modifier.focusRequester(focus) else Modifier, supporting = trackDetails(t), selected = t.index == current, trailing = check(t.index == current))
                     }
-                    item { MenuRow("Rechercher en ligne…", { onNavigate(Panel.Search) }, supporting = "Fournisseurs du serveur (OpenSubtitles…)") }
-                    item { MenuRow("Style des sous-titres", { onNavigate(Panel.Style) }, supporting = "Taille ${(settings.subtitleScale * 100).toInt()} % · ${settings.subtitleBackground.label}") }
-                    if (engine?.capabilities?.subtitleDelay == true) item { MenuRow("Décalage", { onNavigate(Panel.SubtitleDelay) }, supporting = delayLabel(ui.subtitleDelayMs)) }
+                    item { MenuRow(L.t("Rechercher en ligne…"), { onNavigate(Panel.Search) }, supporting = L.t("Fournisseurs du serveur (OpenSubtitles…)")) }
+                    item { MenuRow(L.t("Style des sous-titres"), { onNavigate(Panel.Style) }, supporting = L.f("Taille {0} % · {1}", (settings.subtitleScale * 100).toInt(), settings.subtitleBackground.label)) }
+                    if (engine?.capabilities?.subtitleDelay == true) item { MenuRow(L.t("Décalage"), { onNavigate(Panel.SubtitleDelay) }, supporting = delayLabel(ui.subtitleDelayMs)) }
                 }
                 Panel.Audio -> {
                     val current = plan?.audioIndex
@@ -653,7 +654,7 @@ private fun SidePanel(panel: Panel, ui: PlayerUiState, controller: PlayerControl
                             if (t.index == current || (current == null && t == plan?.audioTracks?.first())) Modifier.focusRequester(focus) else Modifier,
                             supporting = trackDetails(t), selected = t.index == current, trailing = check(t.index == current))
                     }
-                    if (engine?.capabilities?.audioDelay == true) item { MenuRow("Décalage audio", { onNavigate(Panel.AudioDelay) }, supporting = delayLabel(ui.audioDelayMs)) }
+                    if (engine?.capabilities?.audioDelay == true) item { MenuRow(L.t("Décalage audio"), { onNavigate(Panel.AudioDelay) }, supporting = delayLabel(ui.audioDelayMs)) }
                 }
                 Panel.Chapters -> {
                     val position = engine?.state?.value?.positionMs ?: 0
@@ -664,11 +665,11 @@ private fun SidePanel(panel: Panel, ui: PlayerUiState, controller: PlayerControl
                     }
                 }
                 Panel.Settings -> {
-                    item { MenuRow("Vitesse", { onNavigate(Panel.Speed) }, Modifier.focusRequester(focus), supporting = "×${engine?.state?.value?.rate ?: 1f}") }
-                    item { MenuRow("Format de l’image", { onNavigate(Panel.Fit) }, icon = Icons.Rounded.AspectRatio, supporting = ui.fit.label) }
-                    item { MenuRow("Lecteur", { onNavigate(Panel.Engine) }, supporting = "${engine?.name ?: "?"} · ${ui.decision?.delivery?.label ?: ""}") }
+                    item { MenuRow(L.t("Vitesse"), { onNavigate(Panel.Speed) }, Modifier.focusRequester(focus), supporting = "×${engine?.state?.value?.rate ?: 1f}") }
+                    item { MenuRow(L.t("Format de l’image"), { onNavigate(Panel.Fit) }, icon = Icons.Rounded.AspectRatio, supporting = ui.fit.label) }
+                    item { MenuRow(L.t("Lecteur"), { onNavigate(Panel.Engine) }, supporting = "${engine?.name ?: "?"} · ${ui.decision?.delivery?.label ?: ""}") }
                     item {
-                        MenuRow("Informations de lecture", {
+                        MenuRow(L.t("Informations de lecture"), {
                             AppServices.settings.update { it.copy(debugMode = !it.debugMode) }
                             onClose()
                         }, icon = Icons.Rounded.Info, trailing = check(settings.debugMode))
@@ -683,9 +684,9 @@ private fun SidePanel(panel: Panel, ui: PlayerUiState, controller: PlayerControl
                 }
                 Panel.Engine -> items(EngineKind.entries) { k ->
                     val current = ui.decision?.engine == k
-                    MenuRow(if (k == EngineKind.Native) "Lecteur natif (Media3)" else "mpv", { if (!current) controller.switchEngine(k); onClose() },
+                    MenuRow(if (k == EngineKind.Native) L.t("Lecteur natif (Media3)") else "mpv", { if (!current) controller.switchEngine(k); onClose() },
                         if (current) Modifier.focusRequester(focus) else Modifier, selected = current, trailing = check(current),
-                        supporting = if (k == EngineKind.Native) "HDR, Dolby Vision, passthrough audio" else "Lit presque tout, sous-titres ASS fidèles")
+                        supporting = if (k == EngineKind.Native) L.t("HDR, Dolby Vision, passthrough audio") else L.t("Lit presque tout, sous-titres ASS fidèles"))
                 }
                 Panel.SubtitleDelay, Panel.AudioDelay -> {
                     val subtitle = panel == Panel.SubtitleDelay
@@ -696,12 +697,12 @@ private fun SidePanel(panel: Panel, ui: PlayerUiState, controller: PlayerControl
                     }
                 }
                 Panel.Style -> {
-                    item { Text("Taille", style = MaterialTheme.typography.titleSmall, color = OF.TextTertiary, modifier = Modifier.padding(start = 12.dp, top = 6.dp)) }
-                    items(listOf(0.8f to "Petite", 1f to "Normale", 1.2f to "Grande", 1.45f to "Très grande")) { (v, label) ->
+                    item { Text(L.t("Taille"), style = MaterialTheme.typography.titleSmall, color = OF.TextTertiary, modifier = Modifier.padding(start = 12.dp, top = 6.dp)) }
+                    items(listOf(0.8f to L.t("Petite"), 1f to L.t("Normale"), 1.2f to L.t("Grande"), 1.45f to L.t("Très grande"))) { (v, label) ->
                         MenuRow(label, { AppServices.settings.update { it.copy(subtitleScale = v) }; controller.applySubtitleStyle() },
                             if (v == settings.subtitleScale) Modifier.focusRequester(focus) else Modifier, selected = v == settings.subtitleScale, trailing = check(v == settings.subtitleScale))
                     }
-                    item { Text("Style", style = MaterialTheme.typography.titleSmall, color = OF.TextTertiary, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) }
+                    item { Text(L.t("Style"), style = MaterialTheme.typography.titleSmall, color = OF.TextTertiary, modifier = Modifier.padding(start = 12.dp, top = 12.dp)) }
                     items(SubtitleBackground.entries) { b ->
                         MenuRow(b.label, { AppServices.settings.update { it.copy(subtitleBackground = b) }; controller.applySubtitleStyle() },
                             selected = b == settings.subtitleBackground, trailing = check(b == settings.subtitleBackground))
@@ -726,16 +727,16 @@ private fun SubtitleSearch(ui: PlayerUiState, controller: PlayerController, focu
         message = null
         try {
             results = AppServices.playback?.searchSubtitles(plan.itemId, language)
-            if (results.isNullOrEmpty()) message = "Aucun sous-titre trouvé."
+            if (results.isNullOrEmpty()) message = L.t("Aucun sous-titre trouvé.")
         } catch (e: Exception) {
             message = e.userMessage()
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        MenuRow("Langue : ${PreferredLanguages[language] ?: language}", {
+        MenuRow(L.f("Langue : {0}", PreferredLanguages[language] ?: language), {
             val keys = PreferredLanguages.keys.toList()
             language = keys[(keys.indexOf(language) + 1) % keys.size]
-        }, Modifier.focusRequester(focus), supporting = "OK pour changer")
+        }, Modifier.focusRequester(focus), supporting = L.t("OK pour changer"))
         message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary, modifier = Modifier.padding(12.dp)) }
         if (results == null && message == null) Text("Recherche…", style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary, modifier = Modifier.padding(12.dp))
         results?.take(25)?.forEach { r ->
@@ -743,7 +744,7 @@ private fun SubtitleSearch(ui: PlayerUiState, controller: PlayerController, focu
                 scope.launch {
                     try {
                         AppServices.playback?.downloadSubtitle(plan.itemId, r.id)
-                        AppServices.notice("Sous-titre téléchargé")
+                        AppServices.notice(L.t("Sous-titre téléchargé"))
                         controller.reloadAfterSubtitleDownload()
                         onClose()
                     } catch (e: Exception) {
@@ -755,14 +756,14 @@ private fun SubtitleSearch(ui: PlayerUiState, controller: PlayerController, focu
     }
 }
 
-private fun trackLabel(t: MediaTrack) = t.label + if (t.isForced) " (forcés)" else ""
+private fun trackLabel(t: MediaTrack) = t.label + if (t.isForced) L.t(" (forcés)") else ""
 
 private fun trackDetails(t: MediaTrack): String? = listOfNotNull(
-    t.codec?.uppercase(), t.channels?.let { "$it can." }, if (t.isExternal) "externe" else null, if (t.isDefault) "par défaut" else null,
+    t.codec?.uppercase(), t.channels?.let { "$it can." }, if (t.isExternal) L.t("externe") else null, if (t.isDefault) L.t("par défaut") else null,
 ).joinToString(" · ").ifEmpty { null }
 
 private fun delayLabel(ms: Long) = when {
-    ms == 0L -> "Aucun"
-    ms > 0 -> "+${ms} ms (plus tard)"
-    else -> "${ms} ms (plus tôt)"
+    ms == 0L -> L.t("Aucun")
+    ms > 0 -> L.f("+{0} ms (plus tard)", ms)
+    else -> L.f("{0} ms (plus tôt)", ms)
 }

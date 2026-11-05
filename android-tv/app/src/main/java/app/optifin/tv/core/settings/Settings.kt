@@ -1,5 +1,6 @@
 package app.optifin.tv.core.settings
 
+import app.optifin.tv.core.L
 import app.optifin.tv.core.AppLog
 import app.optifin.tv.core.api.JellyfinJson
 import app.optifin.tv.core.playback.EnginePreference
@@ -11,19 +12,19 @@ import kotlinx.serialization.Serializable
 
 /** Comportement des sous-titres au démarrage d'une lecture. */
 enum class SubtitleMode(val label: String) {
-    Server("Réglage du serveur"),
-    Always("Toujours"),
-    ForcedOnly("Forcés uniquement"),
-    None("Jamais"),
+    Server(L.t("Réglage du serveur")),
+    Always(L.t("Toujours")),
+    ForcedOnly(L.t("Forcés uniquement")),
+    None(L.t("Jamais")),
 }
 
-enum class SubtitleBackground(val label: String) { None("Contour"), Shadow("Ombre"), Box("Bandeau") }
+enum class SubtitleBackground(val label: String) { None(L.t("Contour")), Shadow(L.t("Ombre")), Box(L.t("Bandeau")) }
 
 /** Langues proposées (code ISO 639-2 utilisé par Jellyfin). */
 val PreferredLanguages = linkedMapOf(
-    "fre" to "Français", "eng" to "Anglais", "spa" to "Espagnol", "ger" to "Allemand", "ita" to "Italien",
-    "por" to "Portugais", "jpn" to "Japonais", "kor" to "Coréen", "chi" to "Chinois", "rus" to "Russe",
-    "ara" to "Arabe", "dut" to "Néerlandais",
+    "fre" to L.t("Français"), "eng" to L.t("Anglais"), "spa" to L.t("Espagnol"), "ger" to L.t("Allemand"), "ita" to L.t("Italien"),
+    "por" to L.t("Portugais"), "jpn" to L.t("Japonais"), "kor" to L.t("Coréen"), "chi" to L.t("Chinois"), "rus" to L.t("Russe"),
+    "ara" to L.t("Arabe"), "dut" to L.t("Néerlandais"),
 )
 
 /** Débits proposés (bits/s). 0 = pas de limite côté client (le serveur plafonne). */

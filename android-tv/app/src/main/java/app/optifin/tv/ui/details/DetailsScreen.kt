@@ -1,5 +1,6 @@
 package app.optifin.tv.ui.details
 
+import app.optifin.tv.core.L
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -154,7 +155,7 @@ fun DetailsScreen(id: String, nav: AppNav) {
     Box(Modifier.fillMaxSize()) {
         AmbientBackdrop(current?.item?.let { images?.maybe(it.backdrop, 1920) }, strength = 0.95f)
         when {
-            current == null && error != null -> StatusMessage(error!!, action = "Réessayer", onAction = { scope.launch { load() } })
+            current == null && error != null -> StatusMessage(error!!, action = L.t("Réessayer"), onAction = { scope.launch { load() } })
             current == null -> DetailsSkeleton()
             else -> {
                 val pivot = remember { PivotSpec(0.12f) }
@@ -176,7 +177,7 @@ fun DetailsScreen(id: String, nav: AppNav) {
                         if (current.seasons.isNotEmpty()) item(key = "seasons") { Seasons(current.item, current.seasons, current.nextUp, nav) { actions = it } }
                         if (current.children.isNotEmpty()) {
                             item(key = "children") {
-                                MediaRow(if (current.item.kind == MediaKind.Playlist) "Contenu" else "Dans la collection", current.children, CardStyle.Poster,
+                                MediaRow(if (current.item.kind == MediaKind.Playlist) L.t("Contenu") else L.t("Dans la collection"), current.children, CardStyle.Poster,
                                     onClick = { nav.open(it) }, onLongClick = { actions = it })
                             }
                         }
@@ -184,7 +185,7 @@ fun DetailsScreen(id: String, nav: AppNav) {
                         if (cast.isNotEmpty()) item(key = "cast") { CastRow(cast, nav) }
                         if (current.similar.isNotEmpty()) {
                             item(key = "similar") {
-                                MediaRow("Titres similaires", current.similar, CardStyle.Poster, onClick = { nav.open(it) }, onLongClick = { actions = it })
+                                MediaRow(L.t("Titres similaires"), current.similar, CardStyle.Poster, onClick = { nav.open(it) }, onLongClick = { actions = it })
                             }
                         }
                         if (current.item.streams.isNotEmpty()) item(key = "tech") { TechnicalInfo(current.item.streams) }
@@ -199,7 +200,7 @@ fun DetailsScreen(id: String, nav: AppNav) {
         TvDialog(current.item.name, onDismiss = { overview = false }) {
             Text(current.item.overview ?: "", style = MaterialTheme.typography.bodyLarge, color = OF.TextPrimary)
             Spacer(Modifier.height(16.dp))
-            TvButton("Fermer", { overview = false }, primary = true)
+            TvButton(L.t("Fermer"), { overview = false }, primary = true)
         }
     }
 }
@@ -267,24 +268,24 @@ private fun Header(data: DetailsData, nav: AppNav, firstFocus: FocusRequester, o
             when {
                 item.kind.isPlayableVideo -> {
                     val resume = user.positionTicks > 0
-                    TvButton(if (resume) "Reprendre" else "Lecture", { nav.play(item.id, false) }, Modifier.focusRequester(firstFocus),
+                    TvButton(if (resume) L.t("Reprendre") else L.t("Lecture"), { nav.play(item.id, false) }, Modifier.focusRequester(firstFocus),
                         icon = Icons.Rounded.PlayArrow, primary = true)
-                    if (resume) TvIconButton(Icons.Rounded.Replay, "Lire depuis le début", { nav.play(item.id, true) })
+                    if (resume) TvIconButton(Icons.Rounded.Replay, L.t("Lire depuis le début"), { nav.play(item.id, true) })
                 }
                 item.kind == MediaKind.Series && data.nextUp != null -> {
                     val next = data.nextUp
-                    val label = (if (next.user.positionTicks > 0) "Reprendre" else "Lecture") + (next.episodeLabel?.let { " $it" } ?: "")
+                    val label = (if (next.user.positionTicks > 0) L.t("Reprendre") else L.t("Lecture")) + (next.episodeLabel?.let { " $it" } ?: "")
                     TvButton(label, { nav.play(next.id, false) }, Modifier.focusRequester(firstFocus), icon = Icons.Rounded.PlayArrow, primary = true)
                 }
                 else -> Spacer(Modifier.size(0.dp).focusRequester(firstFocus))
             }
             if (item.kind != MediaKind.Person && item.kind != MediaKind.BoxSet) {
                 TvIconButton(if (user.played) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                    if (user.played) "Marquer comme non vu" else "Marquer comme vu", { toggle(played = !user.played) },
+                    if (user.played) L.t("Marquer comme non vu") else L.t("Marquer comme vu"), { toggle(played = !user.played) },
                     tint = if (user.played) OF.Accent else null)
             }
             TvIconButton(if (user.favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                if (user.favorite) "Retirer des favoris" else "Ajouter aux favoris", { toggle(favorite = !user.favorite) },
+                if (user.favorite) L.t("Retirer des favoris") else L.t("Ajouter aux favoris"), { toggle(favorite = !user.favorite) },
                 tint = if (user.favorite) OF.Danger else null)
             val localTrailer = data.localTrailers.firstOrNull()
             val remoteTrailer = item.trailers.firstOrNull()
@@ -292,11 +293,11 @@ private fun Header(data: DetailsData, nav: AppNav, firstFocus: FocusRequester, o
                 TvIconButton(Icons.Rounded.Movie, "Bande-annonce", {
                     if (localTrailer != null) nav.play(localTrailer.id, true)
                     else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(remoteTrailer!!.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                        .onFailure { AppServices.notice("Aucune appli ne peut lire cette bande-annonce.") }
+                        .onFailure { AppServices.notice(L.t("Aucune appli ne peut lire cette bande-annonce.")) }
                 })
             }
             val seriesId = item.seriesId
-            if (item.kind == MediaKind.Episode && seriesId != null) TvIconButton(Icons.Rounded.Tv, "Voir la série", { nav.details(seriesId) })
+            if (item.kind == MediaKind.Episode && seriesId != null) TvIconButton(Icons.Rounded.Tv, L.t("Voir la série"), { nav.details(seriesId) })
             if (item.kind.isPlayableVideo) {
                 MediaFormat.remaining(item.copy(user = user))?.let { remaining ->
                     Column(Modifier.padding(start = 8.dp).width(160.dp)) {
@@ -380,7 +381,7 @@ private fun CastRow(cast: List<PersonCredit>, nav: AppNav) {
     val gutterPx = with(LocalDensity.current) { OF.Gutter.toPx() }
     val rowSpec = remember { PivotSpec(0f, gutterPx) }
     Column {
-        Text("Distribution", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(start = OF.Gutter, bottom = 14.dp))
+        Text(L.t("Distribution"), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(start = OF.Gutter, bottom = 14.dp))
         CompositionLocalProvider(LocalBringIntoViewSpec provides rowSpec) {
             LazyRow(Modifier.focusRestorer(), contentPadding = PaddingValues(horizontal = OF.Gutter, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                 items(cast, key = { it.id + it.role }) { p ->
@@ -407,7 +408,7 @@ private fun CastRow(cast: List<PersonCredit>, nav: AppNav) {
 @Composable
 private fun TechnicalInfo(streams: List<StreamSummary>) {
     Column(Modifier.padding(horizontal = OF.Gutter)) {
-        Text("Informations techniques", style = MaterialTheme.typography.headlineSmall)
+        Text(L.t("Informations techniques"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
         streams.filter { it.isVideo }.take(1).forEach { v ->
             val range = when (v.videoRange) {
@@ -417,7 +418,7 @@ private fun TechnicalInfo(streams: List<StreamSummary>) {
                 VideoRange.Hlg -> "HLG"
                 VideoRange.Sdr -> "SDR"
             }
-            InfoLine("Vidéo", listOfNotNull(v.codec.uppercase(), QualityBadges.resolutionLabel(v.width, v.height),
+            InfoLine(L.t("Vidéo"), listOfNotNull(v.codec.uppercase(), QualityBadges.resolutionLabel(v.width, v.height),
                 if (v.width != null && v.height != null) "${v.width}×${v.height}" else null, v.bitDepth?.let { "$it bits" }, range).joinToString(" · "))
         }
         streams.filter { !it.isVideo }.take(6).forEachIndexed { i, a ->
@@ -489,14 +490,14 @@ fun PersonScreen(id: String, nav: AppNav) {
                         Column(Modifier.weight(1f)) {
                             Text(p.name, style = MaterialTheme.typography.displaySmall)
                             Spacer(Modifier.height(12.dp))
-                            p.premiereDate?.let { Text("Né(e) le ${it.toLocalDate()}", style = MaterialTheme.typography.titleSmall, color = OF.TextSecondary) }
+                            p.premiereDate?.let { Text(L.f("Né(e) le {0}", it.toLocalDate()), style = MaterialTheme.typography.titleSmall, color = OF.TextSecondary) }
                             Spacer(Modifier.height(12.dp))
                             p.overview?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = OF.TextSecondary, maxLines = 9, overflow = TextOverflow.Ellipsis) }
                         }
                     }
                 }
                 if (credits.isNotEmpty()) item {
-                    MediaRow("Filmographie", credits, CardStyle.Poster, onClick = { nav.open(it) }, onLongClick = { actions = it },
+                    MediaRow(L.t("Filmographie"), credits, CardStyle.Poster, onClick = { nav.open(it) }, onLongClick = { actions = it },
                         modifier = Modifier.focusRequester(focus))
                 }
             }

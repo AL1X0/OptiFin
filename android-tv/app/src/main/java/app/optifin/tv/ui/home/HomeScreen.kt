@@ -1,5 +1,6 @@
 package app.optifin.tv.ui.home
 
+import app.optifin.tv.core.L
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -138,9 +139,9 @@ fun HomeScreen(nav: AppNav) {
         AmbientBackdrop(backdrop)
         val current = data
         when {
-            current == null && error != null -> StatusMessage(error!!, action = "Réessayer", onAction = ::load)
+            current == null && error != null -> StatusMessage(error!!, action = L.t("Réessayer"), onAction = ::load)
             current == null -> HomeSkeleton()
-            current.isEmpty -> StatusMessage("Votre serveur ne contient encore rien à afficher.")
+            current.isEmpty -> StatusMessage(L.t("Votre serveur ne contient encore rien à afficher."))
             else -> {
                 val pivot = remember { PivotSpec(0.1f) }
                 val list = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -229,10 +230,10 @@ private fun Featured(items: List<MediaItem>, nav: AppNav, modifier: Modifier, on
                     }
                     Spacer(Modifier.height(22.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        TvButton(if (shown.kind == MediaKind.Series) "Regarder" else "Lecture",
+                        TvButton(if (shown.kind == MediaKind.Series) L.t("Regarder") else L.t("Lecture"),
                             { if (shown.kind.isPlayableVideo) nav.play(shown.id, false) else nav.details(shown.id) },
                             icon = Icons.Rounded.PlayArrow, primary = true)
-                        TvButton("Infos", { nav.details(shown.id) }, icon = Icons.Rounded.Info)
+                        TvButton(L.t("Infos"), { nav.details(shown.id) }, icon = Icons.Rounded.Info)
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package app.optifin.tv.core.media
 
+import app.optifin.tv.core.L
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -9,7 +10,7 @@ import kotlin.math.roundToInt
 
 /** Mise en forme des métadonnées (mêmes règles que sur iPhone, Android et PC). */
 object MediaFormat {
-    private val rating = DecimalFormat("0.0", DecimalFormatSymbols(Locale.FRANCE))
+    private val rating = DecimalFormat("0.0", DecimalFormatSymbols(if (L.isEnglish) Locale.US else Locale.FRANCE))
 
     /** « 2 h 14 min », « 48 min » ; null si moins d'une minute. */
     fun duration(ms: Long?): String? {
@@ -50,7 +51,7 @@ object MediaFormat {
         val parts = mutableListOf<String>()
         years(item)?.let(parts::add)
         val seasons = item.childCount
-        if (item.kind == MediaKind.Series && seasons != null) parts.add("$seasons saison${if (seasons > 1) "s" else ""}")
+        if (item.kind == MediaKind.Series && seasons != null) parts.add(L.count(seasons, "{0} saison", "{0} saisons"))
         else duration(item.runtimeMs)?.let(parts::add)
         item.officialRating?.takeIf { it.isNotEmpty() }?.let(parts::add)
         rating(item.communityRating)?.let { parts.add("★ $it") }
@@ -61,11 +62,11 @@ object MediaFormat {
     fun remaining(item: MediaItem): String? {
         val total = item.runtimeMs ?: return null
         if (item.user.positionTicks <= 0) return null
-        return duration(total - item.resumeMs)?.let { "$it restantes" }
+        return duration(total - item.resumeMs)?.let { L.f("{0} restantes", it) }
     }
 
     /** « 12,5 Mb/s ». */
-    fun bitrate(bps: Long?): String? = bps?.let { if (it >= 10_000_000) "${it / 1_000_000} Mb/s" else "${"%.1f".format(Locale.FRANCE, it / 1e6)} Mb/s" }
+    fun bitrate(bps: Long?): String? = bps?.let { if (it >= 10_000_000) "${it / 1_000_000} Mb/s" else "${"%.1f".format(if (L.isEnglish) Locale.US else Locale.FRANCE, it / 1e6)} Mb/s" }
 }
 
 /** Badges qualité : résolution, dynamique, audio, canaux (un par catégorie). */

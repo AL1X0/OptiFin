@@ -1,5 +1,6 @@
 package app.optifin.tv.core.playback
 
+import app.optifin.tv.core.L
 import app.optifin.tv.core.AppLog
 import app.optifin.tv.core.api.ApiErrorKind
 import app.optifin.tv.core.api.ApiException
@@ -133,7 +134,7 @@ class PlaybackService(private val api: JellyfinClient, private val userId: Strin
             return MediaTrack(
                 index = s.index!!,
                 type = type,
-                label = s.displayTitle?.takeIf { it.isNotEmpty() } ?: fallback.ifEmpty { "Piste ${s.index}" },
+                label = s.displayTitle?.takeIf { it.isNotEmpty() } ?: fallback.ifEmpty { L.f("Piste {0}", s.index) },
                 language = language,
                 codec = codec,
                 isDefault = s.isDefault ?: false,
@@ -148,7 +149,7 @@ class PlaybackService(private val api: JellyfinClient, private val userId: Strin
 
         fun chaptersFrom(chapters: List<app.optifin.tv.core.api.ChapterInfo>?): List<Chapter> =
             chapters.orEmpty().mapIndexed { i, c ->
-                Chapter(i, (c.startPositionTicks ?: 0) / 10_000, c.name?.trim()?.ifEmpty { null } ?: "Chapitre ${i + 1}", c.imageTag)
+                Chapter(i, (c.startPositionTicks ?: 0) / 10_000, c.name?.trim()?.ifEmpty { null } ?: L.f("Chapitre {0}", i + 1), c.imageTag)
             }.sortedBy { it.startMs }
 
         fun segmentsFrom(items: List<app.optifin.tv.core.api.MediaSegmentDto>): List<MediaSegment> = items.mapNotNull { d ->

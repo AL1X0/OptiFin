@@ -1,5 +1,6 @@
 package app.optifin.tv
 
+import app.optifin.tv.core.L
 import app.optifin.tv.core.AppLog
 import app.optifin.tv.core.api.JellyfinClient
 import app.optifin.tv.core.api.userMessage
@@ -96,23 +97,23 @@ object WatchParty {
             is GroupJoined -> {
                 created = creating
                 creating = false
-                AppServices.notice("Vous avez rejoint « ${message.group.name} »")
+                AppServices.notice(L.f("Vous avez rejoint « {0} »", message.group.name))
             }
             is GroupLeft -> {
                 openedPlaylistItem = null
                 pending = null
                 resetHost()
-                AppServices.notice("Vous avez quitté la soirée")
+                AppServices.notice(L.t("Vous avez quitté la soirée"))
             }
-            is UserJoined -> AppServices.notice("${message.userName} a rejoint la soirée")
-            is UserLeft -> AppServices.notice("${message.userName} a quitté la soirée")
+            is UserJoined -> AppServices.notice(L.f("{0} a rejoint la soirée", message.userName))
+            is UserLeft -> AppServices.notice(L.f("{0} a quitté la soirée", message.userName))
             is SyncPlayError -> AppServices.notice(message.userMessage)
             is StateChanged -> _states.tryEmit(message.state)
             is CommandReceived -> {
                 val c = message.command
                 if (c.kind == SyncCommandKind.Stop) {
                     openedPlaylistItem = null
-                    if (!stopping && c.playlistItemId.replace("0", "").isNotEmpty() && playerOpen) AppServices.notice("L’hôte a arrêté la lecture")
+                    if (!stopping && c.playlistItemId.replace("0", "").isNotEmpty() && playerOpen) AppServices.notice(L.t("L’hôte a arrêté la lecture"))
                     stopping = false
                 }
                 _commands.tryEmit(c)

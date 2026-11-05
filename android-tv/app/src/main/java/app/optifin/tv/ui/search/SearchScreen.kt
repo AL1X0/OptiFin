@@ -1,5 +1,6 @@
 package app.optifin.tv.ui.search
 
+import app.optifin.tv.core.L
 import android.app.Activity
 import android.content.Intent
 import android.speech.RecognizerIntent
@@ -90,20 +91,20 @@ fun SearchScreen(nav: AppNav) {
 
     Column(Modifier.fillMaxSize().padding(top = OF.SafeY + 8.dp)) {
         Row(Modifier.padding(horizontal = OF.Gutter), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            TvTextField(term, { term = it }, "Films, séries, épisodes, personnes…", Modifier.weight(1f), imeAction = ImeAction.Search, focusRequester = field)
+            TvTextField(term, { term = it }, L.t("Films, séries, épisodes, personnes…"), Modifier.weight(1f), imeAction = ImeAction.Search, focusRequester = field)
             if (voiceAvailable) {
-                TvIconButton(Icons.Rounded.Mic, "Recherche vocale", {
+                TvIconButton(Icons.Rounded.Mic, L.t("Recherche vocale"), {
                     voice.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                         .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                        .putExtra(RecognizerIntent.EXTRA_PROMPT, "Que voulez-vous regarder ?"))
+                        .putExtra(RecognizerIntent.EXTRA_PROMPT, L.t("Que voulez-vous regarder ?")))
                 })
             }
         }
         val r = results
         when {
             error != null -> StatusMessage(error!!)
-            r == null -> StatusMessage(if (searching) "Recherche…" else "Tapez au moins deux lettres, ou utilisez le micro de la télécommande.")
-            r.isEmpty -> StatusMessage("Aucun résultat pour « ${term.trim()} ».")
+            r == null -> StatusMessage(if (searching) "Recherche…" else L.t("Tapez au moins deux lettres, ou utilisez le micro de la télécommande."))
+            r.isEmpty -> StatusMessage(L.f("Aucun résultat pour « {0} ».", term.trim()))
             else -> {
                 val pivot = remember { PivotSpec(0.3f) }
                 CompositionLocalProvider(LocalBringIntoViewSpec provides pivot) {
@@ -113,11 +114,11 @@ fun SearchScreen(nav: AppNav) {
                                 MediaRow(title, items, style, onClick = { nav.open(it) }, onLongClick = { actions = it })
                             }
                         }
-                        row("movies", "Films", r.movies, CardStyle.Poster)
-                        row("series", "Séries", r.series, CardStyle.Poster)
-                        row("episodes", "Épisodes", r.episodes, CardStyle.Landscape)
-                        row("people", "Personnes", r.people, CardStyle.Person)
-                        row("others", "Autres", r.others, CardStyle.Poster)
+                        row("movies", L.t("Films"), r.movies, CardStyle.Poster)
+                        row("series", L.t("Séries"), r.series, CardStyle.Poster)
+                        row("episodes", L.t("Épisodes"), r.episodes, CardStyle.Landscape)
+                        row("people", L.t("Personnes"), r.people, CardStyle.Person)
+                        row("others", L.t("Autres"), r.others, CardStyle.Poster)
                     }
                 }
             }

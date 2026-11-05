@@ -1,5 +1,6 @@
 package app.optifin.tv.core.playback
 
+import app.optifin.tv.core.L
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
@@ -20,17 +21,17 @@ import kotlinx.serialization.json.put
  * 5. Transcodage serveur en dernier recours.
  * Chaque décision a ses replis (bascule automatique) : l'autre moteur, puis le transcodage.
  */
-enum class EngineKind(val label: String) { Native("Natif"), Mpv("mpv") }
+enum class EngineKind(val label: String) { Native(L.t("Natif")), Mpv("mpv") }
 
-enum class Delivery(val label: String) { DirectPlay("Lecture directe"), Remux("Remux"), Transcode("Transcodage") }
+enum class Delivery(val label: String) { DirectPlay(L.t("Lecture directe")), Remux("Remux"), Transcode(L.t("Transcodage")) }
 
 /** Affichage du sous-titre choisi. */
 enum class SubtitleRoute { None, Engine, BurnIn }
 
-enum class EnginePreference(val label: String) { Auto("Automatique"), Native("Lecteur natif"), Mpv("mpv") }
+enum class EnginePreference(val label: String) { Auto(L.t("Automatique")), Native(L.t("Lecteur natif")), Mpv("mpv") }
 
 /** Sous-titres image (PGS, VobSub) quand ils ne peuvent pas rester dans le flux. */
-enum class ImageSubtitlePolicy(val label: String) { Auto("Automatique (mpv)"), BurnIn("Incruster (serveur)") }
+enum class ImageSubtitlePolicy(val label: String) { Auto(L.t("Automatique (mpv)")), BurnIn(L.t("Incruster (serveur)")) }
 
 data class EngineDecision(
     val engine: EngineKind,

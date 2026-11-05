@@ -1,5 +1,6 @@
 package app.optifin.tv.core.syncplay
 
+import app.optifin.tv.core.L
 import app.optifin.tv.core.AppLog
 import app.optifin.tv.core.api.JellyfinClient
 import java.time.Duration
@@ -86,18 +87,18 @@ object SyncPlayParser {
             "UserLeft" -> UserLeft((data as? JsonPrimitive)?.contentOrNull ?: "")
             "StateUpdate" -> StateChanged(state(data?.jsonObject?.str("State")), data?.jsonObject?.str("Reason") ?: "")
             "PlayQueue" -> QueueChanged(queue(data!!.jsonObject))
-            "NotInGroup" -> SyncPlayError(type, "Vous ne faites plus partie de cette soirée.")
-            "GroupDoesNotExist" -> SyncPlayError(type, "Cette soirée n’existe plus.")
-            "CreateGroupDenied" -> SyncPlayError(type, "Votre compte n’a pas le droit de créer une soirée (réglage SyncPlay du serveur).")
-            "JoinGroupDenied" -> SyncPlayError(type, "Votre compte n’a pas le droit de rejoindre une soirée (réglage SyncPlay du serveur).")
-            "LibraryAccessDenied" -> SyncPlayError(type, "Un participant n’a pas accès à ce titre dans ses bibliothèques.")
+            "NotInGroup" -> SyncPlayError(type, L.t("Vous ne faites plus partie de cette soirée."))
+            "GroupDoesNotExist" -> SyncPlayError(type, L.t("Cette soirée n’existe plus."))
+            "CreateGroupDenied" -> SyncPlayError(type, L.t("Votre compte n’a pas le droit de créer une soirée (réglage SyncPlay du serveur)."))
+            "JoinGroupDenied" -> SyncPlayError(type, L.t("Votre compte n’a pas le droit de rejoindre une soirée (réglage SyncPlay du serveur)."))
+            "LibraryAccessDenied" -> SyncPlayError(type, L.t("Un participant n’a pas accès à ce titre dans ses bibliothèques."))
             else -> null
         }
     }
 
     fun group(e: JsonObject) = GroupInfo(
-        e.str("GroupId") ?: "", e.str("GroupName") ?: "Soirée", state(e.str("State")),
-        (e["Participants"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf { s -> s.isNotEmpty() } } ?: emptyList(),
+        e.str("GroupId") ?: "", e.str("GroupName") ?: L.t("Soirée"), state(e.str("State")),
+        (e[L.t("Participants")] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf { s -> s.isNotEmpty() } } ?: emptyList(),
     )
 
     fun groups(e: JsonElement): List<GroupInfo> = (e as? JsonArray)?.map { group(it.jsonObject) } ?: emptyList()

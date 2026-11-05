@@ -1,5 +1,6 @@
 package app.optifin.tv.ui.library
 
+import app.optifin.tv.core.L
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
@@ -84,14 +85,14 @@ fun LibrariesScreen(nav: AppNav) {
         }
     }
     Column(Modifier.fillMaxSize().padding(top = OF.SafeY + 12.dp)) {
-        Text("Bibliothèques", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(start = OF.Gutter, bottom = 20.dp))
+        Text(L.t("Bibliothèques"), style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(start = OF.Gutter, bottom = 20.dp))
         val list = libraries
         when {
             list == null && error != null -> StatusMessage(error!!)
             list == null -> Row(Modifier.padding(start = OF.Gutter), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 repeat(4) { Skeleton(Modifier.width(320.dp).aspectRatio(16f / 9f)) }
             }
-            list.isEmpty() -> StatusMessage("Aucune bibliothèque.")
+            list.isEmpty() -> StatusMessage(L.t("Aucune bibliothèque."))
             else -> {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(260.dp),
@@ -204,11 +205,11 @@ fun LibraryScreen(id: String, nav: AppNav) {
         Row(Modifier.fillMaxWidth().padding(horizontal = OF.Gutter), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f)) {
                 Text(lib?.name ?: "", style = MaterialTheme.typography.displaySmall)
-                if (total >= 0) Text("$total titre${if (total > 1) "s" else ""}", style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary)
+                if (total >= 0) Text(L.count(total, "{0} titre", "{0} titres"), style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary)
             }
             if (q != null) {
                 TvButton("${q.sort.label} ${if (q.descending) "↓" else "↑"}", { dialog = "sort" }, icon = Icons.Rounded.SwapVert)
-                TvButton(if (q.activeFilterCount > 0) "Filtres (${q.activeFilterCount})" else "Filtres", {
+                TvButton(if (q.activeFilterCount > 0) L.f("Filtres ({0})", q.activeFilterCount) else L.t("Filtres"), {
                     dialog = "filters"
                     if (filters == null) scope.launch { filters = runCatching { AppServices.media?.filterOptions(q) }.getOrNull() }
                 }, icon = Icons.Rounded.FilterList)
@@ -217,8 +218,8 @@ fun LibraryScreen(id: String, nav: AppNav) {
         }
         Spacer(Modifier.height(12.dp))
         when {
-            error != null && items.isEmpty() -> StatusMessage(error!!, action = "Réessayer", onAction = { generation++; loading.clear(); loadPage(0) })
-            total == 0 -> StatusMessage(if ((q?.activeFilterCount ?: 0) > 0) "Aucun titre ne correspond à ces filtres." else "Cette bibliothèque est vide.")
+            error != null && items.isEmpty() -> StatusMessage(error!!, action = L.t("Réessayer"), onAction = { generation++; loading.clear(); loadPage(0) })
+            total == 0 -> StatusMessage(if ((q?.activeFilterCount ?: 0) > 0) L.t("Aucun titre ne correspond à ces filtres.") else L.t("Cette bibliothèque est vide."))
             else -> {
                 val pivot = remember { PivotSpec(0.18f) }
                 CompositionLocalProvider(LocalBringIntoViewSpec provides pivot) {
@@ -250,12 +251,12 @@ fun LibraryScreen(id: String, nav: AppNav) {
     }
 
     if (q != null) when (dialog) {
-        "sort" -> TvDialog("Trier par", { dialog = null }) {
+        "sort" -> TvDialog(L.t("Trier par"), { dialog = null }) {
             LazyColumn(Modifier.heightIn(max = 520.dp)) {
                 items(LibrarySort.entries) { sort ->
                     val selected = sort == q.sort
                     MenuRow(
-                        sort.label + if (selected) "  ${if (q.descending) "↓ décroissant" else "↑ croissant"}" else "",
+                        sort.label + if (selected) "  " + L.t(if (q.descending) "↓ décroissant" else "↑ croissant") else "",
                         {
                             query = if (selected) q.copy(descending = !q.descending) else q.copy(sort = sort, descending = sort.defaultDescending)
                             dialog = null
@@ -266,7 +267,7 @@ fun LibraryScreen(id: String, nav: AppNav) {
             }
         }
         "filters" -> FiltersDialog(q, filters, onChange = { query = it }, onDismiss = { dialog = null })
-        "letters" -> TvDialog("Aller à la lettre", { dialog = null }) {
+        "letters" -> TvDialog(L.t("Aller à la lettre"), { dialog = null }) {
             LazyVerticalGrid(GridCells.Fixed(7), Modifier.heightIn(max = 420.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(LETTERS) { letter ->
                     TvButton(letter, {
@@ -289,24 +290,24 @@ fun LibraryScreen(id: String, nav: AppNav) {
 /** Filtres : vus / non vus, favoris, genres, années, résolution. */
 @Composable
 private fun FiltersDialog(q: LibraryQuery, options: LibraryFilterOptions?, onChange: (LibraryQuery) -> Unit, onDismiss: () -> Unit) {
-    TvDialog("Filtres", onDismiss) {
+    TvDialog(L.t("Filtres"), onDismiss) {
         LazyColumn(Modifier.heightIn(max = 560.dp)) {
             item {
-                MenuRow("Vus", { onChange(q.copy(played = when (q.played) { null -> false; false -> true; true -> null })) },
-                    supporting = when (q.played) { null -> "Tous"; false -> "Non vus"; true -> "Vus" })
+                MenuRow(L.t("Vus"), { onChange(q.copy(played = when (q.played) { null -> false; false -> true; true -> null })) },
+                    supporting = when (q.played) { null -> L.t("Tous"); false -> L.t("Non vus"); true -> L.t("Vus") })
             }
             item {
-                MenuRow("Favoris uniquement", { onChange(q.copy(favoritesOnly = !q.favoritesOnly)) },
+                MenuRow(L.t("Favoris uniquement"), { onChange(q.copy(favoritesOnly = !q.favoritesOnly)) },
                     trailing = if (q.favoritesOnly) { { Icon(Icons.Rounded.Check, null) } } else null)
             }
             item {
-                MenuRow("Résolution", {
+                MenuRow(L.t("Résolution"), {
                     val all = ResolutionFilter.entries
                     onChange(q.copy(resolution = all[(all.indexOf(q.resolution) + 1) % all.size]))
                 }, supporting = q.resolution.label)
             }
-            if (q.activeFilterCount > 0) item { MenuRow("Réinitialiser les filtres", { onChange(LibraryQuery(q.parentId, q.kinds, q.recursive, q.sort, q.descending)) }) }
-            if (options == null) item { Text("Chargement des genres…", style = MaterialTheme.typography.bodySmall, color = OF.TextTertiary, modifier = Modifier.padding(12.dp)) }
+            if (q.activeFilterCount > 0) item { MenuRow(L.t("Réinitialiser les filtres"), { onChange(LibraryQuery(q.parentId, q.kinds, q.recursive, q.sort, q.descending)) }) }
+            if (options == null) item { Text(L.t("Chargement des genres…"), style = MaterialTheme.typography.bodySmall, color = OF.TextTertiary, modifier = Modifier.padding(12.dp)) }
             options?.let { o ->
                 if (o.genres.isNotEmpty()) item { Text("Genres", style = MaterialTheme.typography.titleSmall, color = OF.TextTertiary, modifier = Modifier.padding(start = 12.dp, top = 14.dp)) }
                 items(o.genres, key = { "g" + it.id }) { g ->
@@ -314,7 +315,7 @@ private fun FiltersDialog(q: LibraryQuery, options: LibraryFilterOptions?, onCha
                     MenuRow(g.name, { onChange(q.copy(genreIds = if (on) q.genreIds - g.id else q.genreIds + g.id)) },
                         trailing = if (on) { { Icon(Icons.Rounded.Check, null) } } else null)
                 }
-                if (o.years.isNotEmpty()) item { Text("Années", style = MaterialTheme.typography.titleSmall, color = OF.TextTertiary, modifier = Modifier.padding(start = 12.dp, top = 14.dp)) }
+                if (o.years.isNotEmpty()) item { Text(L.t("Années"), style = MaterialTheme.typography.titleSmall, color = OF.TextTertiary, modifier = Modifier.padding(start = 12.dp, top = 14.dp)) }
                 items(o.years, key = { "y$it" }) { y ->
                     val on = y in q.years
                     MenuRow(y.toString(), { onChange(q.copy(years = if (on) q.years - y else q.years + y)) },

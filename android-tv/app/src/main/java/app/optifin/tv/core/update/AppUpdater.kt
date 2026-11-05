@@ -1,5 +1,6 @@
 package app.optifin.tv.core.update
 
+import app.optifin.tv.core.L
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -73,7 +74,7 @@ object AppUpdater {
         if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
             context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            throw UserFacingException("Autorisez OptiFin à installer des applis, puis relancez la mise à jour.")
+            throw UserFacingException(L.t("Autorisez OptiFin à installer des applis, puis relancez la mise à jour."))
         }
         val dir = File(context.cacheDir, "updates").apply { mkdirs() }
         val file = File(dir, ASSET)

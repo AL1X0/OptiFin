@@ -1,5 +1,6 @@
 package app.optifin.tv.ui.shell
 
+import app.optifin.tv.core.L
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -101,10 +102,10 @@ class AppNav(private val nav: NavHostController, val play: (String, Boolean) -> 
 private data class DrawerEntry(val route: String, val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
 
 private val entries = listOf(
-    DrawerEntry(Screens.SEARCH, "Recherche", Icons.Outlined.Search, Icons.Rounded.Search),
-    DrawerEntry(Screens.HOME, "Accueil", Icons.Outlined.Home, Icons.Rounded.Home),
-    DrawerEntry(Screens.LIBRARIES, "Bibliothèques", Icons.Outlined.VideoLibrary, Icons.Rounded.VideoLibrary),
-    DrawerEntry(Screens.PARTY, "Soirée", Icons.Outlined.Groups, Icons.Rounded.Groups),
+    DrawerEntry(Screens.SEARCH, L.t("Recherche"), Icons.Outlined.Search, Icons.Rounded.Search),
+    DrawerEntry(Screens.HOME, L.t("Accueil"), Icons.Outlined.Home, Icons.Rounded.Home),
+    DrawerEntry(Screens.LIBRARIES, L.t("Bibliothèques"), Icons.Outlined.VideoLibrary, Icons.Rounded.VideoLibrary),
+    DrawerEntry(Screens.PARTY, L.t("Soirée"), Icons.Outlined.Groups, Icons.Rounded.Groups),
 )
 
 /**
@@ -125,7 +126,7 @@ fun MainShell(launchItem: MutableStateFlow<String?>, onPlay: (String, Boolean) -
     // Mise à jour publiée : annonce discrète au démarrage.
     LaunchedEffect(Unit) {
         runCatching { app.optifin.tv.core.update.AppUpdater.check() }.getOrNull()?.let {
-            AppServices.notice("OptiFin TV ${it.version} est disponible : Réglages › Rechercher une mise à jour")
+            AppServices.notice(L.f("OptiFin TV {0} est disponible : Réglages › Rechercher une mise à jour", it.version))
         }
     }
 
@@ -212,14 +213,14 @@ private fun NavigationDrawerScope.DrawerContent(value: DrawerValue, route: Strin
                     Avatar(userName, session?.let { images?.userAvatar(it.account.userId, 96, it.account.avatarTag) }, 28.dp)
                 },
                 colors = drawerColors(),
-            ) { Text(userName.ifEmpty { "Compte" }) }
+            ) { Text(userName.ifEmpty { L.t("Compte") }) }
             NavigationDrawerItem(
                 modifier = Modifier.activeFocus(Screens.SETTINGS),
                 selected = route == Screens.SETTINGS || route == Screens.LOGS,
                 onClick = { nav.section(Screens.SETTINGS) },
                 leadingContent = { Icon(if (route == Screens.SETTINGS) Icons.Rounded.Settings else Icons.Outlined.Settings, null) },
                 colors = drawerColors(),
-            ) { Text("Réglages") }
+            ) { Text(L.t("Réglages")) }
             Spacer(Modifier.weight(1.4f))
         }
     }

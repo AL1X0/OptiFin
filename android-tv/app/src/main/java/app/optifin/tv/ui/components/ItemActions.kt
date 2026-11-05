@@ -1,5 +1,6 @@
 package app.optifin.tv.ui.components
 
+import app.optifin.tv.core.L
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -109,26 +110,26 @@ fun ItemActionsDialog(item: MediaItem, onDismiss: () -> Unit, onPlay: (String, B
         val media = AppServices.media
         if (item.kind.isPlayableVideo) {
             val resume = item.user.positionTicks > 0
-            MenuRow(if (resume) "Reprendre" else "Lecture", { onDismiss(); onPlay(item.id, false) }, Modifier.focusRequester(first), Icons.Rounded.PlayArrow)
-            if (resume) MenuRow("Lire depuis le début", { onDismiss(); onPlay(item.id, true) }, icon = Icons.Rounded.Replay)
+            MenuRow(if (resume) L.t("Reprendre") else L.t("Lecture"), { onDismiss(); onPlay(item.id, false) }, Modifier.focusRequester(first), Icons.Rounded.PlayArrow)
+            if (resume) MenuRow(L.t("Lire depuis le début"), { onDismiss(); onPlay(item.id, true) }, icon = Icons.Rounded.Replay)
         }
-        MenuRow("Afficher la fiche", { onDismiss(); onDetails(item.id) },
+        MenuRow(L.t("Afficher la fiche"), { onDismiss(); onDetails(item.id) },
             if (!item.kind.isPlayableVideo) Modifier.focusRequester(first) else Modifier, Icons.Rounded.Info)
         val seriesId = item.seriesId
         if ((item.kind == MediaKind.Episode || item.kind == MediaKind.Season) && seriesId != null) {
-            MenuRow("Voir la série", { onDismiss(); onDetails(seriesId) }, icon = Icons.Rounded.Tv)
+            MenuRow(L.t("Voir la série"), { onDismiss(); onDetails(seriesId) }, icon = Icons.Rounded.Tv)
         }
         if (media != null && item.kind != MediaKind.Person && item.kind != MediaKind.CollectionFolder) {
             if (item.kind != MediaKind.BoxSet) {
                 MenuRow(
-                    if (item.user.played) "Marquer comme non vu" else "Marquer comme vu",
-                    { update({ media.setPlayed(item.id, !item.user.played) }, if (item.user.played) "Marqué comme non vu" else "Marqué comme vu") },
+                    if (item.user.played) L.t("Marquer comme non vu") else L.t("Marquer comme vu"),
+                    { update({ media.setPlayed(item.id, !item.user.played) }, if (item.user.played) L.t("Marqué comme non vu") else L.t("Marqué comme vu")) },
                     icon = if (item.user.played) Icons.Rounded.RadioButtonUnchecked else Icons.Rounded.CheckCircle,
                 )
             }
             MenuRow(
-                if (item.user.favorite) "Retirer des favoris" else "Ajouter aux favoris",
-                { update({ media.setFavorite(item.id, !item.user.favorite) }, if (item.user.favorite) "Retiré des favoris" else "Ajouté aux favoris") },
+                if (item.user.favorite) L.t("Retirer des favoris") else L.t("Ajouter aux favoris"),
+                { update({ media.setFavorite(item.id, !item.user.favorite) }, if (item.user.favorite) L.t("Retiré des favoris") else L.t("Ajouté aux favoris")) },
                 icon = if (item.user.favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
             )
         }

@@ -1,5 +1,6 @@
 package app.optifin.tv.player
 
+import app.optifin.tv.core.L
 import android.content.Context
 import android.graphics.Color as AndroidColor
 import android.view.SurfaceHolder
@@ -34,7 +35,7 @@ import dev.jdtech.mpv.MPVLib
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-enum class VideoFit(val label: String) { Fit("Adapté"), Zoom("Zoom"), Fill("Étiré") }
+enum class VideoFit(val label: String) { Fit(L.t("Adapté")), Zoom("Zoom"), Fill(L.t("Étiré")) }
 
 /** Ce qu'un moteur sait faire (menus proposés). */
 data class EngineCapabilities(val subtitleDelay: Boolean, val audioDelay: Boolean, val assRendering: Boolean)
@@ -109,7 +110,7 @@ interface PlaybackEngine {
 /** Lecteur natif : ExoPlayer + extension FFmpeg (audio Dolby, DTS, TrueHD…), rendu SurfaceView (HDR). */
 @OptIn(UnstableApi::class)
 class ExoEngine(context: Context) : PlaybackEngine {
-    override val name = "Natif"
+    override val name = L.t("Natif")
     override val capabilities = EngineCapabilities(subtitleDelay = false, audioDelay = false, assRendering = false)
     private val _state = MutableStateFlow(EngineState())
     override val state: StateFlow<EngineState> = _state
@@ -573,7 +574,7 @@ class MpvEngine(context: Context) : PlaybackEngine, MPVLib.EventObserver, MPVLib
                 started = true
                 _state.value = _state.value.copy(ready = true, buffering = false)
             }
-            MPV_EVENT_END_FILE -> if (!started) _state.value = _state.value.copy(error = "mpv n’a pas pu ouvrir ce fichier")
+            MPV_EVENT_END_FILE -> if (!started) _state.value = _state.value.copy(error = L.t("mpv n’a pas pu ouvrir ce fichier"))
         }
     }
 

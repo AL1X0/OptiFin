@@ -1,5 +1,6 @@
 package app.optifin.tv.core.api
 
+import app.optifin.tv.core.L
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -21,23 +22,23 @@ class ApiException(
 
     val userMessage: String
         get() = when (kind) {
-            ApiErrorKind.Unreachable -> "Serveur injoignable. Vérifiez l’adresse et votre connexion."
-            ApiErrorKind.Timeout -> "Le serveur met trop de temps à répondre."
-            ApiErrorKind.Certificate -> "Certificat HTTPS invalide pour ce serveur."
-            ApiErrorKind.Unauthorized -> "Identifiant ou mot de passe incorrect."
-            ApiErrorKind.Forbidden -> "Accès refusé par le serveur."
-            ApiErrorKind.Server -> "Erreur du serveur ($status). Réessayez plus tard."
-            ApiErrorKind.NotJellyfin -> "Cette adresse ne correspond pas à un serveur Jellyfin."
-            ApiErrorKind.UnsupportedVersion -> "Jellyfin $detail n’est pas pris en charge (10.9 minimum)."
-            ApiErrorKind.QuickConnectDisabled -> "Quick Connect est désactivé sur ce serveur."
-            ApiErrorKind.NotFound -> "Élément introuvable sur le serveur."
+            ApiErrorKind.Unreachable -> L.t("Serveur injoignable. Vérifiez l’adresse et votre connexion.")
+            ApiErrorKind.Timeout -> L.t("Le serveur met trop de temps à répondre.")
+            ApiErrorKind.Certificate -> L.t("Certificat HTTPS invalide pour ce serveur.")
+            ApiErrorKind.Unauthorized -> L.t("Identifiant ou mot de passe incorrect.")
+            ApiErrorKind.Forbidden -> L.t("Accès refusé par le serveur.")
+            ApiErrorKind.Server -> L.f("Erreur du serveur ({0}). Réessayez plus tard.", status)
+            ApiErrorKind.NotJellyfin -> L.t("Cette adresse ne correspond pas à un serveur Jellyfin.")
+            ApiErrorKind.UnsupportedVersion -> L.f("Jellyfin {0} n’est pas pris en charge (10.9 minimum).", detail)
+            ApiErrorKind.QuickConnectDisabled -> L.t("Quick Connect est désactivé sur ce serveur.")
+            ApiErrorKind.NotFound -> L.t("Élément introuvable sur le serveur.")
             ApiErrorKind.PlaybackDenied -> when (detail) {
-                "NotAllowed" -> "La lecture de ce contenu n’est pas autorisée pour votre compte."
-                "NoCompatibleStream" -> "Aucun flux compatible : le serveur ne peut pas préparer ce fichier."
-                "RateLimitExceeded" -> "Limite de débit du serveur atteinte. Réessayez plus tard."
-                else -> "Le serveur a refusé la lecture ($detail)."
+                "NotAllowed" -> L.t("La lecture de ce contenu n’est pas autorisée pour votre compte.")
+                "NoCompatibleStream" -> L.t("Aucun flux compatible : le serveur ne peut pas préparer ce fichier.")
+                "RateLimitExceeded" -> L.t("Limite de débit du serveur atteinte. Réessayez plus tard.")
+                else -> L.f("Le serveur a refusé la lecture ({0}).", detail)
             }
-            ApiErrorKind.Unexpected -> "Une erreur inattendue est survenue."
+            ApiErrorKind.Unexpected -> L.t("Une erreur inattendue est survenue.")
         }
 
     companion object {
