@@ -495,7 +495,7 @@ public sealed partial class PlayerWindow : Window
         // Titre changé entre-temps (épisode suivant) : chapitres et segments de l'ancien ignorés.
         if (generation != _loadGeneration || _closing) return;
         _extras = extras;
-        AppLog.Info("extras", $"{_extras.Chapters.Count} chapitres, {_extras.Segments.Count} segments" +
+        AppLog.Info("extras", $"{_extras.Chapters.Count} chapitres, {_extras.Segments.Count} segments, vignettes {(_extras.Trickplay is { } t ? $"{t.Width} px" : "aucune")}" +
                               (_extras.NextEpisode is { } n ? $", suivant : « {n.Name} »" : ""));
     }
 
@@ -658,12 +658,80 @@ public sealed partial class PlayerWindow : Window
         var at = At(x);
         var chapter = _extras.ChapterAt(at);
         HoverText.Text = chapter is null ? MediaFormat.Clock(at) : $"{MediaFormat.Clock(at)} · {chapter.Name}";
+        ShowPreview(at);
         HoverLabel.Visibility = Visibility.Visible;
         HoverLabel.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
         var w = HoverLabel.DesiredSize.Width;
         // Déplacement par translation : une marge gauche changeante faisait recalculer la mise en page de la
         // barre, et l'étiquette restait en retard sur le curseur dans la moitié droite.
         _hoverShift.X = Math.Clamp(x - w / 2, 0, Math.Max(0, Scrubber.ActualWidth - w));
+    }
+
+    private const double PreviewWidth = 240;
+
+    /// <summary>Planches déjà chargées (trois au plus : chacune occupe plusieurs dizaines de Mo une fois décodée).</summary>
+    private readonly Dictionary<(string Item, int Sheet), Task<Microsoft.UI.Xaml.Media.Imaging.BitmapImage?>> _sheets = [];
+    private readonly Microsoft.UI.Xaml.Media.TranslateTransform _previewShift = new();
+    private readonly Microsoft.UI.Xaml.Media.RectangleGeometry _previewClip = new();
+    private (string Item, int Sheet) _previewSheet;
+
+    private void ShowPreview(TimeSpan at)
+    {
+        if (_extras.Trickplay is not { } t || _plan is not { } plan)
+        {
+            HoverPreview.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var tile = t.TileAt(at);
+        var height = PreviewWidth * t.Height / t.Width;
+        HoverPreview.Width = PreviewWidth;
+        HoverPreview.Height = height;
+        _previewClip.Rect = new Windows.Foundation.Rect(0, 0, PreviewWidth, height);
+        HoverPreview.Clip = _previewClip;
+        HoverImage.Width = PreviewWidth * t.TileWidth;
+        HoverImage.Height = height * t.TileHeight;
+        HoverImage.RenderTransform = _previewShift;
+        _previewShift.X = -tile.Column * PreviewWidth;
+        _previewShift.Y = -tile.Row * height;
+        HoverPreview.Visibility = Visibility.Visible;
+        var key = (plan.ItemId, tile.Sheet);
+        if (_previewSheet == key) return;
+        _previewSheet = key;
+        HoverImage.Source = null;
+        _ = ShowSheetAsync(key, t, plan);
+    }
+
+    private async Task ShowSheetAsync((string Item, int Sheet) key, TrickplayManifest t, PlaybackPlan plan)
+    {
+        if (!_sheets.TryGetValue(key, out var sheet))
+        {
+            if (_sheets.Count >= 3) _sheets.Clear();
+            _sheets[key] = sheet = LoadSheetAsync(key, t, plan);
+        }
+        var image = await sheet;
+        // Le curseur a pu changer de planche entre-temps.
+        if (_previewSheet != key) return;
+        if (image is null) HoverPreview.Visibility = Visibility.Collapsed;
+        else HoverImage.Source = image;
+    }
+
+    private static async Task<Microsoft.UI.Xaml.Media.Imaging.BitmapImage?> LoadSheetAsync((string Item, int Sheet) key, TrickplayManifest t, PlaybackPlan plan)
+    {
+        try
+        {
+            var bytes = await AppServices.Playback!.TrickplaySheetAsync(key.Item, plan.MediaSourceId, t.Width, key.Sheet);
+            using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+            await stream.WriteAsync(System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.AsBuffer(bytes));
+            stream.Seek(0);
+            var image = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
+            await image.SetSourceAsync(stream);
+            return image;
+        }
+        catch (Exception e)
+        {
+            AppLog.Debug("extras", $"Vignettes indisponibles (planche {key.Sheet}) : {e.Message}");
+            return null;
+        }
     }
 
     private void OnKey(object sender, KeyRoutedEventArgs e)

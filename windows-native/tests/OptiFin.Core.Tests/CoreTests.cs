@@ -302,6 +302,26 @@ public class PlaybackTests
     public void Segments_etEpisodeSuivant()
     {
         var next = new MediaItem { Id = "n", Name = "Suite", Kind = MediaKind.Episode };
+        var trickplay = new TrickplayManifest(320, 180, 10, 10, 250, TimeSpan.FromSeconds(10));
+        Assert.Equal((0, 0, 0), trickplay.TileAt(TimeSpan.Zero));
+        Assert.Equal((0, 3, 1), trickplay.TileAt(TimeSpan.FromSeconds(135)));
+        Assert.Equal((1, 5, 0), trickplay.TileAt(TimeSpan.FromSeconds(1050)));
+        // Au-delà de la dernière vignette : on reste dessus, sans demander une planche inexistante.
+        Assert.Equal((2, 9, 4), trickplay.TileAt(TimeSpan.FromHours(10)));
+        var chosen = PlaybackService.TrickplayFrom(new BaseItemDto
+        {
+            Trickplay = new()
+            {
+                ["source"] = new()
+                {
+                    ["160"] = new TrickplayInfoDto { Width = 160, Height = 90, Interval = 10000, ThumbnailCount = 10 },
+                    ["320"] = new TrickplayInfoDto { Width = 320, Height = 180, TileWidth = 8, TileHeight = 6, Interval = 5000, ThumbnailCount = 40 },
+                },
+            },
+        }, "source");
+        Assert.Equal(new TrickplayManifest(320, 180, 8, 6, 40, TimeSpan.FromSeconds(5)), chosen);
+        Assert.Null(PlaybackService.TrickplayFrom(new BaseItemDto(), "source"));
+
         var extras = new PlaybackExtras([],
             [
                 new MediaSegment(SegmentType.Intro, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(150)),

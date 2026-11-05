@@ -152,6 +152,26 @@ fun ConnectScreen(onServer: () -> Unit, onSignedIn: () -> Unit) {
         }
     }
 
+    // Pas encore de serveur : découverte sur le serveur public de Jellyfin (compte sans mot de passe).
+    fun tryDemo() {
+        if (busy) return
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                val server = AppServices.auth.probe("https://demo.jellyfin.org/stable")
+                AppServices.signIn(AppServices.auth.login(server, "demo", ""))
+                onSignedIn()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = "Le serveur de démonstration ne répond pas. Réessayez plus tard."
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     fun resume(stored: StoredAccount) {
         if (AppServices.switchTo(stored.account.id)) {
             onSignedIn()
@@ -194,6 +214,7 @@ fun ConnectScreen(onServer: () -> Unit, onSignedIn: () -> Unit) {
                 Spacer(Modifier.height(10.dp))
                 TvButton(if (busy) "Connexion…" else "Continuer", { connect(address) }, primary = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
+            item { TvButton("Essayer avec le serveur de démonstration", ::tryDemo, enabled = !busy, modifier = Modifier.fillMaxWidth()) }
             error?.let { item { Text(it, style = MaterialTheme.typography.bodyMedium, color = OF.Danger, modifier = Modifier.padding(top = 8.dp)) } }
         }
     }

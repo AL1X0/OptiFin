@@ -5,6 +5,8 @@ plus). Écrire la section de la version à venir avant de publier : `publish.sh`
 
 ## 1.1.20
 
+- Aperçu de l'image en survolant la barre de lecture
+- Nouveau bouton pour essayer OptiFin avec le serveur de démonstration, sans avoir son propre serveur
 - Démarrage plus rapide sur les PC où Windows met du temps à vérifier le format d'image WebP
 - La fenêtre de mise à jour affiche maintenant les nouveautés de la version
 - Mise à jour automatique plus sûre : un installateur impossible à vérifier n'est plus lancé

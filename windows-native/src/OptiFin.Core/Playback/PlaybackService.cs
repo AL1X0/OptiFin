@@ -208,17 +208,34 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
         }
 
         var chapters = Safe<BaseItemDtoQueryResult>("chapitres", async () => await api.GetAsync($"Users/{userId}/Items", JellyfinJson.Default.BaseItemDtoQueryResult,
-            [new("Ids", item.Id), new("Fields", "Chapters"), new("EnableImages", "false"), new("EnableTotalRecordCount", "false")], ct));
+            [new("Ids", item.Id), new("Fields", "Chapters,Trickplay"), new("EnableImages", "false"), new("EnableTotalRecordCount", "false")], ct));
         var segments = Safe<MediaSegmentDtoQueryResult>("segments", async () => await api.GetAsync($"MediaSegments/{item.Id}", JellyfinJson.Default.MediaSegmentDtoQueryResult, ct: ct));
         var next = item.Kind == MediaKind.Episode
             ? Safe<MediaItem>("épisode suivant", () => media.NextEpisodeAsync(item, ct))
             : Task.FromResult<MediaItem?>(null);
         await Task.WhenAll(chapters, segments, next);
+        var dto = chapters.Result?.Items?.FirstOrDefault();
         return new PlaybackExtras(
-            ChaptersFrom(chapters.Result?.Items?.FirstOrDefault()),
+            ChaptersFrom(dto),
             SegmentsFrom(segments.Result?.Items ?? []),
-            next.Result);
+            next.Result,
+            TrickplayFrom(dto, item.Id));
     }
+
+    /// <summary>Résolution de vignettes la plus proche de 320 px (lisible et légère), comme sur mobile.</summary>
+    public static TrickplayManifest? TrickplayFrom(BaseItemDto? dto, string mediaSourceId)
+    {
+        var all = dto?.Trickplay;
+        if (all is null || all.Count == 0) return null;
+        var byWidth = all.TryGetValue(mediaSourceId, out var own) ? own : all.Values.FirstOrDefault();
+        var info = byWidth?.Values.Where(i => i.Width > 0 && i.Interval > 0).OrderBy(i => Math.Abs(i.Width!.Value - 320)).FirstOrDefault();
+        return info is null ? null : new TrickplayManifest(info.Width!.Value, info.Height ?? info.Width.Value * 9 / 16,
+            info.TileWidth ?? 10, info.TileHeight ?? 10, info.ThumbnailCount ?? 0, TimeSpan.FromMilliseconds(info.Interval!.Value));
+    }
+
+    /// <summary>Planche de vignettes (JPEG) ; le serveur exige l'authentification.</summary>
+    public Task<byte[]> TrickplaySheetAsync(string itemId, string? mediaSourceId, int width, int sheet, CancellationToken ct = default) =>
+        api.GetBytesAsync($"Videos/{itemId}/Trickplay/{width}/{sheet}.jpg", [new("mediaSourceId", mediaSourceId)], ct);
 
     public static IReadOnlyList<Chapter> ChaptersFrom(BaseItemDto? dto) =>
         [.. (dto?.Chapters ?? []).Select((c, i) => new Chapter(i, TimeSpan.FromTicks(c.StartPositionTicks ?? 0),

@@ -60,6 +60,10 @@ public sealed partial class ConnectPage : Page
         _continue.Margin = new Thickness(0, 8, 0, 0);
         _continue.Click += (_, _) => _ = ConnectAsync(_address.Text);
         Choices.Children.Add(_continue);
+        var demo = Ui.Secondary("Essayer avec le serveur de démonstration");
+        demo.HorizontalAlignment = HorizontalAlignment.Stretch;
+        demo.Click += (_, _) => _ = DemoAsync();
+        Choices.Children.Add(demo);
         Choices.Children.Add(_progress);
 
         _ = DiscoverAsync();
@@ -124,6 +128,31 @@ public sealed partial class ConnectPage : Page
         catch (ApiException e)
         {
             ShowError(e.UserMessage);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _continue.IsEnabled = true;
+            _progress.IsActive = false;
+        }
+    }
+
+    /// <summary>Pas encore de serveur : découverte sur le serveur public de Jellyfin (compte sans mot de passe).</summary>
+    private async Task DemoAsync()
+    {
+        _error.Visibility = Visibility.Collapsed;
+        _continue.IsEnabled = false;
+        _progress.IsActive = true;
+        try
+        {
+            var server = await AppServices.Auth.ProbeAsync("https://demo.jellyfin.org/stable", _cts.Token);
+            AppServices.SignIn(await AppServices.Auth.LoginAsync(server, "demo", ""));
+        }
+        catch (ApiException)
+        {
+            ShowError("Le serveur de démonstration ne répond pas. Réessayez plus tard.");
         }
         catch (OperationCanceledException)
         {

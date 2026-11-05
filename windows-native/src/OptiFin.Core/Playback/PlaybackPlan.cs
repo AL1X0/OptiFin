@@ -94,11 +94,29 @@ public sealed record MediaSegment(SegmentType Type, TimeSpan Start, TimeSpan End
 
 public sealed record Chapter(int Index, TimeSpan Start, string Name, string? ImageTag);
 
+/// <summary>
+/// Vignettes d'aperçu d'une vidéo (trickplay) : planches JPEG de <see cref="TileWidth"/> × <see cref="TileHeight"/>
+/// images de <see cref="Width"/> × <see cref="Height"/> pixels, une toutes les <see cref="Interval"/>.
+/// </summary>
+public sealed record TrickplayManifest(int Width, int Height, int TileWidth, int TileHeight, int ThumbnailCount, TimeSpan Interval)
+{
+    /// <summary>Planche, colonne et ligne de la vignette à afficher pour une position.</summary>
+    public (int Sheet, int Column, int Row) TileAt(TimeSpan position)
+    {
+        var last = Math.Max(0, ThumbnailCount - 1);
+        var index = Math.Clamp((long)(position.TotalMilliseconds / Math.Max(1, Interval.TotalMilliseconds)), 0, last);
+        var perSheet = TileWidth * TileHeight;
+        var inSheet = (int)(index % perSheet);
+        return ((int)(index / perSheet), inSheet % TileWidth, inSheet / TileWidth);
+    }
+}
+
 /// <summary>Compléments d'une lecture (facultatifs : absents du serveur → listes vides).</summary>
 public sealed record PlaybackExtras(
     IReadOnlyList<Chapter> Chapters,
     IReadOnlyList<MediaSegment> Segments,
-    Media.MediaItem? NextEpisode)
+    Media.MediaItem? NextEpisode,
+    TrickplayManifest? Trickplay = null)
 {
     public static readonly PlaybackExtras Empty = new([], [], null);
 

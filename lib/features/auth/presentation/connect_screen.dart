@@ -52,6 +52,25 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
     }
   }
 
+  /// Pas encore de serveur : découverte sur le serveur public de Jellyfin (compte sans mot de passe).
+  Future<void> _tryDemo() async {
+    setState(() {
+      _probing = true;
+      _error = null;
+    });
+    try {
+      final auth = ref.read(authRepositoryProvider);
+      final server = await auth.probe('https://demo.jellyfin.org/stable');
+      final session = await auth.login(server, username: 'demo', password: '');
+      await ref.read(sessionControllerProvider.notifier).signIn(session);
+      if (mounted) context.go(Routes.home);
+    } on ApiFailure {
+      if (mounted) setState(() => _error = 'Le serveur de démonstration ne répond pas. Réessayez plus tard.');
+    } finally {
+      if (mounted) setState(() => _probing = false);
+    }
+  }
+
   Future<void> _resume(StoredAccount stored) async {
     final ok = await ref.read(sessionControllerProvider.notifier).switchTo(stored.account.id);
     if (!mounted) return;
@@ -147,6 +166,12 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                     expand: true,
                     loading: _probing,
                     onPressed: () => _connect(_address.text),
+                  ),
+                  const SizedBox(height: OFSpacing.sm),
+                  OFButton.secondary(
+                    label: 'Essayer avec le serveur de démonstration',
+                    expand: true,
+                    onPressed: _probing ? null : _tryDemo,
                   ),
                 ],
               ),

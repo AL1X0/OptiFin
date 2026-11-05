@@ -78,6 +78,23 @@ public partial class DemoServerPlaybackTests
         return _server = new Server(api, userId, new PlaybackService(api, userId), new MediaRepository(api, userId));
     }
 
+    [Fact]
+    public async Task Vignettes_d_apercu_telechargees()
+    {
+        var s = await ConnectAsync();
+        var videos = await VideosAsync(s);
+        foreach (var video in videos.Take(20))
+        {
+            var item = await s.Media.ItemAsync(video.Id!);
+            var extras = await s.Playback.ExtrasAsync(item, s.Media);
+            if (extras.Trickplay is not { } t) continue;
+            var bytes = await s.Playback.TrickplaySheetAsync(item.Id, item.Id, t.Width, 0);
+            Assert.True(bytes is [0xFF, 0xD8, ..], "la planche doit être un JPEG");
+            return;
+        }
+        Assert.Skip("Aucune vignette sur ce serveur.");
+    }
+
     private static async Task<List<BaseItemDto>> VideosAsync(Server s) =>
         (await s.Api.GetAsync($"Users/{s.UserId}/Items", JellyfinJson.Default.BaseItemDtoQueryResult,
             [new("Recursive", "true"), new("IncludeItemTypes", "Movie,Episode"), new("Fields", "MediaStreams,MediaSources"), new("Limit", "200")]))

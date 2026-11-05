@@ -90,6 +90,12 @@ public sealed class JellyfinClient
         using var response = await SendRawAsync(HttpMethod.Delete, path, null, null, ct).ConfigureAwait(false);
     }
 
+    public async Task<byte[]> GetBytesAsync(string path, IEnumerable<KeyValuePair<string, string?>>? query = null, CancellationToken ct = default)
+    {
+        using var response = await SendRawAsync(HttpMethod.Get, path, query, null, ct).ConfigureAwait(false);
+        return await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+    }
+
     public static HttpContent Json<T>(T value, JsonTypeInfo<T> type) =>
         new StringContent(JsonSerializer.Serialize(value, type), Encoding.UTF8, "application/json");
 

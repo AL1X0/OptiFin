@@ -100,8 +100,14 @@
                         <Border x:Name="BufferedBar" Height="5" CornerRadius="3" Background="#40FFFFFF" HorizontalAlignment="Left" VerticalAlignment="Center" Width="0" />
                         <Border x:Name="PlayedBar" Height="5" CornerRadius="3" Background="#F2FFFFFF" HorizontalAlignment="Left" VerticalAlignment="Center" Width="0" />
                         <Border x:Name="HoverLabel" Background="#E6000000" CornerRadius="6" Padding="8,3,8,3" HorizontalAlignment="Left"
-                                VerticalAlignment="Top" Margin="0,-30,0,0" Visibility="Collapsed">
-                            <TextBlock x:Name="HoverText" FontSize="12" FontWeight="SemiBold" />
+                                VerticalAlignment="Bottom" Margin="0,-300,0,28" Visibility="Collapsed" IsHitTestVisible="False">
+                            <StackPanel Spacing="4">
+                                <!-- Vignette d'aperçu : une case de la planche, le reste masqué par la découpe. -->
+                                <Canvas x:Name="HoverPreview" Visibility="Collapsed" Margin="-4,4,-4,0" Background="#FF1C1C1E">
+                                    <Image x:Name="HoverImage" Stretch="Fill" />
+                                </Canvas>
+                                <TextBlock x:Name="HoverText" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            </StackPanel>
                         </Border>
                     </Grid>
                     <TextBlock x:Name="RemainingText" Grid.Column="2" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="52"
