@@ -110,6 +110,7 @@ class PlayerController(private val context: Context, val itemId: String, private
 
     /** Lecture lancée par une soirée : synchronisation avec le groupe. */
     private fun setupParty() {
+        scope.launch { WatchParty.remoteCommands.collect(::applyRemote) }
         val start = if (partyMode) WatchParty.partyFor(itemId) else null
         val client = WatchParty.syncClient
         if (start == null || client == null) return
@@ -137,6 +138,21 @@ class PlayerController(private val context: Context, val itemId: String, private
             }
         }
         scope.launch { WatchParty.group.collect { updatePartyBadge() } }
+    }
+
+    /** Ordre d'un autre appareil (« Lire sur… ») ; en soirée, c'est le groupe qui décide. */
+    private fun applyRemote(remote: app.optifin.tv.core.syncplay.RemoteCommand) {
+        val e = engine
+        if (sync != null || e == null) return
+        AppLog.i("remote", "Commande reçue : ${remote.command}")
+        when (remote.command) {
+            "Pause" -> e.pause()
+            "Unpause" -> e.play()
+            "PlayPause" -> togglePlay()
+            "Stop" -> onFinished?.invoke()
+            "Seek" -> remote.seekMs?.let { seekTo(it) }
+            "NextTrack" -> playNext()
+        }
     }
 
     private fun updatePartyBadge() {

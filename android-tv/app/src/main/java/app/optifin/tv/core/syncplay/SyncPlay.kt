@@ -62,6 +62,10 @@ data class QueueChanged(val queue: PlayQueue) : SyncPlayMessage
 data class CommandReceived(val command: SyncCommand) : SyncPlayMessage
 data class SyncPlayError(val kind: String, val userMessage: String) : SyncPlayMessage
 data class KeepAliveRequest(val seconds: Int) : SyncPlayMessage
+/** Un autre appareil demande de lire ce titre ici (« Lire sur… »). */
+data class RemotePlay(val itemId: String, val startMs: Long) : SyncPlayMessage
+/** Un autre appareil pilote la lecture en cours : Pause, Unpause, PlayPause, Stop, Seek, NextTrack. */
+data class RemoteCommand(val command: String, val seekMs: Long?) : SyncPlayMessage
 
 /** Lecture des messages de la connexion temps réel (/socket). */
 object SyncPlayParser {
@@ -72,6 +76,19 @@ object SyncPlayParser {
             "ForceKeepAlive" -> KeepAliveRequest((data as? JsonPrimitive)?.intOrNull ?: 60)
             "SyncPlayCommand" -> CommandReceived(command(data!!.jsonObject))
             "SyncPlayGroupUpdate" -> groupUpdate(data!!.jsonObject)
+            "Play" -> {
+                val play = data!!.jsonObject
+                val id = (play["ItemIds"] as? kotlinx.serialization.json.JsonArray)?.firstOrNull()?.let { (it as? JsonPrimitive)?.contentOrNull }
+                val mode = play.str("PlayCommand")
+                if (id == null || (mode != null && mode != "PlayNow")) null
+                else RemotePlay(id, ((play["StartPositionTicks"] as? JsonPrimitive)?.contentOrNull?.toLongOrNull() ?: 0L) / 10_000)
+            }
+            "Playstate" -> {
+                val state = data!!.jsonObject
+                state.str("Command")?.let { command ->
+                    RemoteCommand(command, (state["SeekPositionTicks"] as? JsonPrimitive)?.contentOrNull?.toLongOrNull()?.div(10_000))
+                }
+            }
             else -> null
         }
     } catch (e: Exception) {
@@ -181,6 +198,7 @@ class SyncPlayClient(private val api: JellyfinClient, val time: TimeSync = TimeS
                         backoff = 2_000L
                         AppLog.i("syncplay", "Connexion temps réel établie")
                         scope.launch { runCatching { syncTime() } }
+                        scope.launch { runCatching { registerForRemoteControl() } }
                     }
 
                     override fun onMessage(webSocket: WebSocket, text: String) = handle(text)
@@ -208,6 +226,17 @@ class SyncPlayClient(private val api: JellyfinClient, val time: TimeSync = TimeS
                 backoff = minOf(30_000L, backoff * 2)
             }
         }
+    }
+
+    /** Annonce au serveur que cet appareil lit des vidéos et se laisse piloter (« Lire sur… »). */
+    private suspend fun registerForRemoteControl() {
+        fun strings(vararg values: String) = kotlinx.serialization.json.JsonArray(values.map { JsonPrimitive(it) })
+        api.postUnit("Sessions/Capabilities/Full", JellyfinClient.json(buildJsonObject {
+            put("PlayableMediaTypes", strings("Video"))
+            put("SupportedCommands", strings("Play", "Playstate"))
+            put("SupportsMediaControl", true)
+            put("SupportsPersistentIdentifier", true)
+        }))
     }
 
     private fun handle(text: String) {

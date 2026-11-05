@@ -125,6 +125,12 @@ data class SearchResults(
     val isEmpty: Boolean get() = movies.isEmpty() && series.isEmpty() && episodes.isEmpty() && people.isEmpty() && others.isEmpty()
 }
 
+/** Premier titre tiré qui respecte la durée, en évitant celui qu'on vient de proposer si possible. */
+fun pickSurprise(drawn: List<MediaItem>, maxMinutes: Int?, excludeId: String?): MediaItem? {
+    val fitting = drawn.filter { i -> maxMinutes == null || i.runtimeMs?.let { it <= maxMinutes * 60_000L } == true }
+    return fitting.firstOrNull { it.id != excludeId } ?: fitting.firstOrNull()
+}
+
 /** Accès aux contenus de l'utilisateur courant ; erreurs en [ApiException]. */
 class MediaRepository(val api: JellyfinClient, val userId: String) {
     private companion object {
@@ -169,6 +175,29 @@ class MediaRepository(val api: JellyfinClient, val userId: String) {
         "HasOverview" to "true", "SortBy" to "Random", "Limit" to "$limit", "Fields" to FEATURED_FIELDS,
         "EnableImageTypes" to "Backdrop,Logo,Primary", "ImageTypeLimit" to "1", "EnableTotalRecordCount" to "false",
     )).items.orEmpty()
+
+    /**
+     * Film ou série au hasard, non vu de préférence (tout vu : n'importe quel titre). Le serveur ne
+     * filtre pas sur la durée : elle est vérifiée ici sur un tirage de 40 titres, films seulement.
+     */
+    suspend fun surprise(genreId: String?, maxMinutes: Int?, excludeId: String?): MediaItem? {
+        for (unwatchedOnly in listOf(true, false)) {
+            val drawn = items(buildList {
+                add("Recursive" to "true")
+                add("IncludeItemTypes" to if (maxMinutes == null) "Movie,Series" else "Movie")
+                add("SortBy" to "Random")
+                add("Limit" to "40")
+                add("Fields" to FEATURED_FIELDS)
+                add("EnableImageTypes" to CARD_IMAGES)
+                add("ImageTypeLimit" to "1")
+                add("EnableTotalRecordCount" to "false")
+                if (unwatchedOnly) add("Filters" to "IsUnplayed")
+                if (genreId != null) add("GenreIds" to genreId)
+            }).items
+            pickSurprise(map(drawn), maxMinutes, excludeId)?.let { return it }
+        }
+        return null
+    }
 
     suspend fun favoritesRaw(limit: Int = 24): List<BaseItemDto> = items(listOf(
         "Recursive" to "true", "IsFavorite" to "true", "IncludeItemTypes" to "Movie,Series,Episode,BoxSet",

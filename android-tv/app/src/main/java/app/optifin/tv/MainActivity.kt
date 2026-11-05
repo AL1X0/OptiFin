@@ -85,6 +85,16 @@ private fun AppNavigation(launchItem: MutableStateFlow<String?>) {
             }
         }
     }
+    // « Lire sur… » depuis un autre appareil : même ouverture, position 0 = depuis le début.
+    LaunchedEffect(Unit) {
+        WatchParty.remotePlays.collect { request ->
+            app.optifin.tv.core.AppLog.i("remote", "Lecture demandée par un autre appareil : ${request.itemId}")
+            val inPlayer = nav.currentDestination?.route == Routes.PLAYER
+            nav.navigate(Routes.player(request.itemId, request.startMs == 0L)) {
+                if (inPlayer) popUpTo(Routes.PLAYER) { inclusive = true }
+            }
+        }
+    }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     fun play(id: String, fromStart: Boolean) {
         if (!WatchParty.inParty) {

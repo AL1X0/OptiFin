@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -100,6 +101,7 @@ fun HomeScreen(nav: AppNav) {
     var error by remember { mutableStateOf<String?>(null) }
     var backdrop by remember { mutableStateOf<String?>(null) }
     var actions by remember { mutableStateOf<MediaItem?>(null) }
+    var surprise by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var job by remember { mutableStateOf<Job?>(null) }
     val images = AppServices.images
@@ -158,7 +160,7 @@ fun HomeScreen(nav: AppNav) {
                                 // Retour sur le carrousel : la page remonte tout en haut.
                                 Featured(current.featured, nav, Modifier.focusRequester(firstFocus).onFocusChanged {
                                     if (it.hasFocus) scope.launch { list.animateScrollToItem(0) }
-                                }) { item ->
+                                }, onSurprise = { surprise = true }) { item ->
                                     backdrop = images?.maybe(item.backdrop, 1920)
                                 }
                             }
@@ -184,12 +186,13 @@ fun HomeScreen(nav: AppNav) {
     actions?.let { item ->
         ItemActionsDialog(item, onDismiss = { actions = null }, onPlay = nav.play, onDetails = { nav.details(it) })
     }
+    if (surprise) SurpriseDialog(onDismiss = { surprise = false }, onDetails = { nav.details(it) })
 }
 
 /** Carrousel « À la une » : fond plein écran, logo ou titre, synopsis, Lecture / Infos. */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun Featured(items: List<MediaItem>, nav: AppNav, modifier: Modifier, onShown: (MediaItem) -> Unit) {
+private fun Featured(items: List<MediaItem>, nav: AppNav, modifier: Modifier, onSurprise: () -> Unit, onShown: (MediaItem) -> Unit) {
     val state = rememberCarouselState()
     val images = AppServices.images
     val height = (LocalConfiguration.current.screenHeightDp * 0.72f).dp
@@ -234,6 +237,7 @@ private fun Featured(items: List<MediaItem>, nav: AppNav, modifier: Modifier, on
                             { if (shown.kind.isPlayableVideo) nav.play(shown.id, false) else nav.details(shown.id) },
                             icon = Icons.Rounded.PlayArrow, primary = true)
                         TvButton(L.t("Infos"), { nav.details(shown.id) }, icon = Icons.Rounded.Info)
+                        TvButton(L.t("Surprends-moi"), onSurprise, icon = Icons.Rounded.Shuffle)
                     }
                 }
             }

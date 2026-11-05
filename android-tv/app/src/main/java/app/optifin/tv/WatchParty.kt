@@ -11,6 +11,8 @@ import app.optifin.tv.core.syncplay.GroupLeft
 import app.optifin.tv.core.syncplay.GroupState
 import app.optifin.tv.core.syncplay.PlayQueue
 import app.optifin.tv.core.syncplay.QueueChanged
+import app.optifin.tv.core.syncplay.RemoteCommand
+import app.optifin.tv.core.syncplay.RemotePlay
 import app.optifin.tv.core.syncplay.StateChanged
 import app.optifin.tv.core.syncplay.SyncCommand
 import app.optifin.tv.core.syncplay.SyncCommandKind
@@ -50,6 +52,12 @@ object WatchParty {
     /** Lecteur à ouvrir (navigation) quand le groupe lance un titre. */
     private val _open = MutableSharedFlow<PartyStart>(extraBufferCapacity = 4)
     val open: SharedFlow<PartyStart> = _open
+
+    /** « Lire sur… » depuis un autre appareil : lecteur à ouvrir, commandes de la lecture en cours. */
+    private val _remotePlays = MutableSharedFlow<RemotePlay>(extraBufferCapacity = 4)
+    val remotePlays: SharedFlow<RemotePlay> = _remotePlays
+    private val _remoteCommands = MutableSharedFlow<RemoteCommand>(extraBufferCapacity = 16)
+    val remoteCommands: SharedFlow<RemoteCommand> = _remoteCommands
 
     private var openedPlaylistItem: String? = null
     private var pending: PartyStart? = null
@@ -119,6 +127,8 @@ object WatchParty {
                 _commands.tryEmit(c)
             }
             is QueueChanged -> onQueue(message.queue)
+            is RemotePlay -> if (!inParty) _remotePlays.tryEmit(message)
+            is RemoteCommand -> if (!inParty) _remoteCommands.tryEmit(message)
             else -> {}
         }
     }

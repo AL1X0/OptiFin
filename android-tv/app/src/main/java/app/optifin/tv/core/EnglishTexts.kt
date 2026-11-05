@@ -36,6 +36,8 @@ val EnglishTexts: Map<String, String> = mapOf(
     // Fiches et accueil
     "{0} saison" to "{0} season", "{0} saisons" to "{0} seasons", "{0} restantes" to "{0} left", "Spécial" to "Special", "Spécial {0}" to "Special {0}",
     "Titre" to "Title", "Date d’ajout" to "Date added", "Date de sortie" to "Release date", "Note" to "Rating", "Durée" to "Runtime", "Année" to "Year", "Toutes" to "All",
+    "Chargement…" to "Loading…", "Surprends-moi" to "Surprise me", "Peu importe la durée" to "Any length", "Moins de 1 h 30" to "Under 1 h 30", "Moins de 2 h" to "Under 2 h",
+    "Tous les genres" to "All genres", "Voir la fiche" to "View details", "Encore" to "Another one", "Aucun titre ne correspond." to "No matching title.",
     "Reprendre" to "Resume", "À suivre" to "Next up", "Ajouts récents · {0}" to "Recently added · {0}", "Favoris" to "Favorites",
     "{0} épisode non vu" to "{0} unwatched episode", "{0} épisodes non vus" to "{0} unwatched episodes",
     "Lecture" to "Play", "Lecture " to "Playback", "Lire depuis le début" to "Play from the beginning", "Afficher la fiche" to "View details", "Voir la série" to "View series",

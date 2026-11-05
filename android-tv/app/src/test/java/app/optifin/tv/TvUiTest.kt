@@ -74,6 +74,9 @@ class TvUiTest {
         .fetchSemanticsNodes().isNotEmpty() || compose.onAllNodes(isFocused()).fetchSemanticsNodes()
         .any { node -> node.config.getOrNull(SemanticsProperties.Text)?.any { it.text == text } == true }
 
+    /** Le carrousel est tiré au sort : « Regarder » pour une série, « Lecture » pour un film. */
+    private fun onPlayButton() = focused("Regarder") || focused("Lecture")
+
     private fun exists(text: String) = compose.onAllNodes(hasText(text), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
 
     private fun capture(name: String) {
@@ -106,20 +109,20 @@ class TvUiTest {
         }
         waitMs(6000)
         capture("01-accueil")
-        assertTrue("au démarrage, le focus est sur « Regarder »", focused("Regarder"))
+        assertTrue("au démarrage, le focus est sur le bouton de lecture", onPlayButton())
         press(Key.DirectionDown)
         capture("02-accueil-rangee")
-        assertFalse("▼ quitte le carrousel pour la première rangée", focused("Regarder"))
+        assertFalse("▼ quitte le carrousel pour la première rangée", onPlayButton())
         press(Key.DirectionDown)
         capture("03-accueil-rangee2")
         press(Key.DirectionUp, 3)
         capture("04-accueil-haut")
-        assertTrue("▲ ramène toujours en haut de page", focused("Regarder"))
+        assertTrue("▲ ramène toujours en haut de page", onPlayButton())
         press(Key.DirectionLeft)
         capture("05-menu")
         assertTrue("◀ depuis le bord gauche ouvre le menu sur la page active", focused("Accueil"))
         press(Key.DirectionRight)
-        assertTrue("▶ depuis le menu revient au contenu", focused("Regarder"))
+        assertTrue("▶ depuis le menu revient au contenu", onPlayButton())
         press(Key.DirectionDown)
         press(Key.DirectionCenter)
         waitMs(5000)
