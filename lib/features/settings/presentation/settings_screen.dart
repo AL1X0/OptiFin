@@ -13,6 +13,7 @@ import '../../player/domain/playback_engine.dart';
 import '../../player/presentation/playback_providers.dart';
 import '../domain/app_settings.dart';
 import 'settings_providers.dart';
+import '../../../core/l10n/l.dart';
 
 /// Paramètres : lecture, langues, sous-titres, stockage, compte, debug.
 class SettingsScreen extends ConsumerWidget {
@@ -58,29 +59,29 @@ class SettingsScreen extends ConsumerWidget {
     }
 
     // Clé sentinelle pour « choix du serveur » (null ne passe pas par pop()).
-    const serverDefault = '';
-    final languages = {serverDefault: 'Choix du serveur', ...preferredLanguages};
+    final serverDefault = '';
+    final languages = {serverDefault: L.t('Choix du serveur'), ...preferredLanguages};
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: OFColors.background,
         leading: IconButton(
-          tooltip: 'Retour',
+          tooltip: L.t('Retour'),
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Paramètres', style: OFTypography.headline),
+        title: Text(L.t('Paramètres'), style: OFTypography.headline),
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: OFSpacing.xxxl),
         children: [
-          const _Section('Lecture'),
+          _Section(L.t('Lecture ').trim()),
           _Tile(
             icon: Icons.wifi_rounded,
-            title: 'Qualité maximale en Wi-Fi',
+            title: L.t('Qualité maximale en Wi-Fi'),
             value: bitrateChoices[settings.maxBitrateWifi] ?? '${settings.maxBitrateWifi}',
             onTap: () => pick<int>(
-              title: 'Qualité maximale en Wi-Fi',
+              title: L.t('Qualité maximale en Wi-Fi'),
               options: bitrateChoices,
               current: settings.maxBitrateWifi,
               onSelected: (v) => controller.update((s) => s.copyWith(maxBitrateWifi: v)),
@@ -88,10 +89,10 @@ class SettingsScreen extends ConsumerWidget {
           ),
           _Tile(
             icon: Icons.signal_cellular_alt_rounded,
-            title: 'Qualité maximale en cellulaire',
+            title: L.t('Qualité maximale en cellulaire'),
             value: bitrateChoices[settings.maxBitrateCellular] ?? '${settings.maxBitrateCellular}',
             onTap: () => pick<int>(
-              title: 'Qualité maximale en cellulaire',
+              title: L.t('Qualité maximale en cellulaire'),
               options: bitrateChoices,
               current: settings.maxBitrateCellular,
               onSelected: (v) => controller.update((s) => s.copyWith(maxBitrateCellular: v)),
@@ -99,18 +100,18 @@ class SettingsScreen extends ConsumerWidget {
           ),
           _Tile(
             icon: Icons.memory_rounded,
-            title: 'Moteur de lecture',
+            title: L.t('Moteur de lecture'),
             value: switch (settings.enginePreference) {
-              EnginePreference.auto => 'Automatique (recommandé)',
-              EnginePreference.native => 'Natif (AVPlayer / Media3)',
+              EnginePreference.auto => L.t('Automatique (recommandé)'),
+              EnginePreference.native => L.t('Natif (AVPlayer / Media3)'),
               EnginePreference.mpv => 'mpv',
             },
             onTap: () => pick<EnginePreference>(
-              title: 'Moteur de lecture',
-              options: const {
-                EnginePreference.auto: 'Automatique : le meilleur moteur pour chaque fichier',
-                EnginePreference.native: 'Natif : HDR, Dolby Vision, économie de batterie',
-                EnginePreference.mpv: 'mpv : lit tout, sous-titres ASS fidèles',
+              title: L.t('Moteur de lecture'),
+              options: {
+                EnginePreference.auto: L.t('Automatique : le meilleur moteur pour chaque fichier'),
+                EnginePreference.native: L.t('Natif : HDR, Dolby Vision, économie de batterie'),
+                EnginePreference.mpv: L.t('mpv : lit tout, sous-titres ASS fidèles'),
               },
               current: settings.enginePreference,
               onSelected: (v) => controller.update((s) => s.copyWith(enginePreference: v)),
@@ -118,28 +119,28 @@ class SettingsScreen extends ConsumerWidget {
           ),
           _Tile(
             icon: Icons.closed_caption_outlined,
-            title: 'Sous-titres image (PGS) sur du HDR',
+            title: L.t('Sous-titres image (PGS) sur du HDR'),
             value: switch (settings.imageSubtitles) {
-              ImageSubtitlePolicy.auto => 'Rendus par mpv',
-              ImageSubtitlePolicy.burnIn => 'Incrustés par le serveur',
+              ImageSubtitlePolicy.auto => L.t('Rendus par mpv'),
+              ImageSubtitlePolicy.burnIn => L.t('Incrustés par le serveur'),
             },
             onTap: () => pick<ImageSubtitlePolicy>(
-              title: 'Sous-titres image sur une vidéo HDR / Dolby Vision',
-              options: const {
-                ImageSubtitlePolicy.auto: 'Rendus par mpv (aucune charge serveur)',
-                ImageSubtitlePolicy.burnIn: 'Incrustés par le serveur (garde le lecteur natif)',
+              title: L.t('Sous-titres image sur une vidéo HDR / Dolby Vision'),
+              options: {
+                ImageSubtitlePolicy.auto: L.t('Rendus par mpv (aucune charge serveur)'),
+                ImageSubtitlePolicy.burnIn: L.t('Incrustés par le serveur (garde le lecteur natif)'),
               },
               current: settings.imageSubtitles,
               onSelected: (v) => controller.update((s) => s.copyWith(imageSubtitles: v)),
             ),
           ),
-          const _Section('Langues'),
+          _Section(L.t('Langues')),
           _Tile(
             icon: Icons.record_voice_over_outlined,
-            title: 'Langue audio préférée',
+            title: L.t('Langue audio préférée'),
             value: languages[settings.audioLanguage ?? serverDefault]!,
             onTap: () => pick<String>(
-              title: 'Langue audio préférée',
+              title: L.t('Langue audio préférée'),
               options: languages,
               current: settings.audioLanguage ?? serverDefault,
               onSelected: (v) => controller.update((s) => s.copyWith(audioLanguage: () => v.isEmpty ? null : v)),
@@ -150,7 +151,7 @@ class SettingsScreen extends ConsumerWidget {
             title: 'Sous-titres',
             value: settings.subtitleMode.label,
             onTap: () => pick<SubtitleMode>(
-              title: 'Sous-titres au démarrage',
+              title: L.t('Sous-titres au démarrage'),
               options: {for (final m in SubtitleMode.values) m: m.label},
               current: settings.subtitleMode,
               onSelected: (v) => controller.update((s) => s.copyWith(subtitleMode: v)),
@@ -158,21 +159,21 @@ class SettingsScreen extends ConsumerWidget {
           ),
           _Tile(
             icon: Icons.translate_rounded,
-            title: 'Langue des sous-titres',
+            title: L.t('Langue des sous-titres'),
             value: languages[settings.subtitleLanguage ?? serverDefault]!,
             onTap: () => pick<String>(
-              title: 'Langue des sous-titres',
+              title: L.t('Langue des sous-titres'),
               options: languages,
               current: settings.subtitleLanguage ?? serverDefault,
               onSelected: (v) => controller.update((s) => s.copyWith(subtitleLanguage: () => v.isEmpty ? null : v)),
             ),
           ),
-          const _Section('Séries'),
+          _Section(L.t('Séries')),
           SwitchListTile(
             secondary: const Icon(Icons.fast_forward_outlined, color: OFColors.textSecondary),
-            title: const Text('Passer les intros automatiquement', style: OFTypography.body),
+            title: Text(L.t('Passer les intros automatiquement'), style: OFTypography.body),
             subtitle: Text(
-              'Intros, récapitulatifs et aperçus détectés par le serveur (sinon, un bouton « Passer »).',
+              L.t('Intros, récapitulatifs et aperçus détectés par le serveur (sinon, un bouton « Passer »).'),
               style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
             ),
             value: settings.autoSkipSegments,
@@ -180,21 +181,21 @@ class SettingsScreen extends ConsumerWidget {
           ),
           SwitchListTile(
             secondary: const Icon(Icons.skip_next_outlined, color: OFColors.textSecondary),
-            title: const Text('Épisode suivant automatique', style: OFTypography.body),
+            title: Text(L.t('Épisode suivant automatique'), style: OFTypography.body),
             subtitle: Text(
-              'Enchaîne après un compte à rebours de 10 s pendant le générique.',
+              L.t('Enchaîne après un compte à rebours de 10 s pendant le générique.'),
               style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
             ),
             value: settings.autoPlayNext,
             onChanged: (v) => controller.update((s) => s.copyWith(autoPlayNext: v)),
           ),
-          const _Section('Apparence des sous-titres'),
+          _Section(L.t('Apparence des sous-titres')),
           _Tile(
             icon: Icons.format_size_rounded,
-            title: 'Taille',
+            title: L.t('Taille'),
             value: _scaleLabel(settings.subtitleScale),
             onTap: () => pick<double>(
-              title: 'Taille des sous-titres',
+              title: L.t('Taille des sous-titres'),
               options: {
                 for (final v in const [0.8, 1.0, 1.25, 1.5]) v: _scaleLabel(v),
               },
@@ -204,21 +205,21 @@ class SettingsScreen extends ConsumerWidget {
           ),
           _Tile(
             icon: Icons.format_color_fill_rounded,
-            title: 'Fond',
+            title: L.t('Fond'),
             value: _backgroundLabel(settings.subtitleBackground),
             onTap: () => pick<SubtitleBackground>(
-              title: 'Fond des sous-titres',
+              title: L.t('Fond des sous-titres'),
               options: {for (final b in SubtitleBackground.values) b: _backgroundLabel(b)},
               current: settings.subtitleBackground,
               onSelected: (v) => controller.update((s) => s.copyWith(subtitleBackground: v)),
             ),
           ),
-          const _Section('Stockage'),
+          _Section(L.t('Stockage')),
           SwitchListTile(
             secondary: const Icon(Icons.wifi_rounded, color: OFColors.textSecondary),
-            title: const Text('Télécharger en Wi-Fi uniquement', style: OFTypography.body),
+            title: Text(L.t('Télécharger en Wi-Fi uniquement'), style: OFTypography.body),
             subtitle: Text(
-              'Les films et épisodes téléchargés attendent le Wi-Fi (pas de données mobiles).',
+              L.t('Les films et épisodes téléchargés attendent le Wi-Fi (pas de données mobiles).'),
               style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
             ),
             value: settings.downloadWifiOnly,
@@ -226,17 +227,17 @@ class SettingsScreen extends ConsumerWidget {
           ),
           _Tile(
             icon: Icons.image_outlined,
-            title: 'Vider le cache des images',
+            title: L.t('Vider le cache des images'),
             onTap: () async {
               await DefaultCacheManager().emptyCache();
               PaintingBinding.instance.imageCache.clear();
               ref.invalidate(homeProvider);
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cache des images vidé.')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(L.t('Cache des images vidé.'))));
               }
             },
           ),
-          const _Section('Compte'),
+          _Section(L.t('Compte')),
           if (session != null)
             _Tile(
               icon: Icons.person_outline_rounded,
@@ -244,12 +245,12 @@ class SettingsScreen extends ConsumerWidget {
               value: '${session.server.name} · Jellyfin ${session.server.version}',
               onTap: () => showOFSheet<void>(context, builder: (_) => const AccountSwitcherSheet()),
             ),
-          const _Section('Avancé'),
+          _Section(L.t('Avancé')),
           SwitchListTile(
             secondary: const Icon(Icons.bug_report_outlined, color: OFColors.textSecondary),
-            title: const Text('Mode debug', style: OFTypography.body),
+            title: Text(L.t('Mode debug'), style: OFTypography.body),
             subtitle: Text(
-              'Journaux détaillés (requêtes, lecteur, mpv) et infos techniques dans le lecteur.',
+              L.t('Journaux détaillés (requêtes, lecteur, mpv) et infos techniques dans le lecteur.'),
               style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
             ),
             value: settings.debugMode,
@@ -257,17 +258,17 @@ class SettingsScreen extends ConsumerWidget {
           ),
           _Tile(
             icon: Icons.receipt_long_outlined,
-            title: 'Journaux',
-            value: 'Afficher, copier, effacer',
+            title: L.t('Journaux'),
+            value: L.t('Afficher, copier, effacer'),
             onTap: () => context.push(Routes.logs),
           ),
           if (device != null)
-            _Tile(icon: Icons.developer_board_rounded, title: 'Capacités de l’appareil', value: device.summary),
-          const _Section('À propos'),
-          _Tile(icon: Icons.info_outline_rounded, title: 'OptiFin', value: 'Version ${identity.version}'),
+            _Tile(icon: Icons.developer_board_rounded, title: L.t('Capacités de l’appareil'), value: device.summary),
+          _Section(L.t('À propos')),
+          _Tile(icon: Icons.info_outline_rounded, title: 'OptiFin', value: L.f('Version {0}', [identity.version])),
           _Tile(
             icon: Icons.description_outlined,
-            title: 'Licences',
+            title: L.t('Licences'),
             onTap: () =>
                 showLicensePage(context: context, applicationName: 'OptiFin', applicationVersion: identity.version),
           ),
@@ -277,16 +278,16 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   static String _scaleLabel(double v) => switch (v) {
-    0.8 => 'Petite',
-    1.0 => 'Normale',
-    1.25 => 'Grande',
-    _ => 'Très grande',
+    0.8 => L.t('Petite'),
+    1.0 => L.t('Normale'),
+    1.25 => L.t('Grande'),
+    _ => L.t('Très grande'),
   };
 
   static String _backgroundLabel(SubtitleBackground b) => switch (b) {
-    SubtitleBackground.none => 'Contour',
-    SubtitleBackground.shadow => 'Ombre',
-    SubtitleBackground.box => 'Bandeau',
+    SubtitleBackground.none => L.t('Contour'),
+    SubtitleBackground.shadow => L.t('Ombre'),
+    SubtitleBackground.box => L.t('Bandeau'),
   };
 }
 

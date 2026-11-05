@@ -14,6 +14,7 @@ import '../../common/presentation/media_cards.dart';
 import '../domain/download.dart';
 import 'download_button.dart';
 import 'downloads_providers.dart';
+import '../../../core/l10n/l.dart';
 
 /// Onglet « Téléchargements » : films et séries disponibles hors connexion, transferts en
 /// cours (progression, pause, reprise), espace occupé ; glisser une ligne pour la supprimer.
@@ -31,12 +32,12 @@ class DownloadsScreen extends ConsumerWidget {
         body: CustomScrollView(
           slivers: [
             OFLargeTitleSliver(
-              title: 'Téléchargements',
+              title: L.t('Téléchargements'),
               actions: [
                 if (groups.value?.isNotEmpty ?? false)
                   OFIconButton(
                     icon: Icons.delete_sweep_outlined,
-                    tooltip: 'Tout supprimer',
+                    tooltip: L.t('Tout supprimer'),
                     onPressed: () => _confirmDeleteAll(context, ref),
                   ),
               ],
@@ -65,10 +66,10 @@ class DownloadsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              AsyncError() => const SliverFillRemaining(
+              AsyncError() => SliverFillRemaining(
                 child: StatusMessage(
                   icon: Icons.error_outline_rounded,
-                  text: 'Impossible de lire les téléchargements.',
+                  text: L.t('Impossible de lire les téléchargements.'),
                 ),
               ),
               _ => const SliverFillRemaining(child: Center(child: OFLoader())),
@@ -83,13 +84,13 @@ class DownloadsScreen extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
-        title: const Text('Tout supprimer ?'),
-        content: const Text('Tous les films et épisodes téléchargés seront effacés de cet appareil.'),
+        title: Text(L.t('Tout supprimer ?')),
+        content: Text(L.t('Tous les films et épisodes téléchargés seront effacés de cet appareil.')),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: Text(L.t('Annuler'))),
           TextButton(
             onPressed: () => Navigator.of(dialog).pop(true),
-            child: const Text('Supprimer', style: TextStyle(color: OFColors.danger)),
+            child: Text(L.t('Supprimer'), style: const TextStyle(color: OFColors.danger)),
           ),
         ],
       ),
@@ -109,11 +110,11 @@ class _EmptyState extends StatelessWidget {
       children: [
         const Icon(Icons.download_for_offline_outlined, size: 56, color: OFColors.textTertiary),
         const SizedBox(height: OFSpacing.lg),
-        const Text('Aucun téléchargement', style: OFTypography.title2),
+        Text(L.t('Aucun téléchargement'), style: OFTypography.title2),
         const SizedBox(height: OFSpacing.sm),
         Text(
-          'Appuyez sur le bouton de téléchargement d’un film ou d’un épisode pour le regarder '
-          'sans connexion, en avion ou en déplacement.',
+          L.t('Appuyez sur le bouton de téléchargement d’un film ou d’un épisode pour le regarder ') +
+              L.t('sans connexion, en avion ou en déplacement.'),
           textAlign: TextAlign.center,
           style: OFTypography.callout.copyWith(color: OFColors.textSecondary),
         ),
@@ -136,10 +137,10 @@ class _Summary extends StatelessWidget {
     final active = groups.expand((g) => g.entries).where((e) => !e.isComplete).length;
     return Text(
       [
-        if (films > 0) '$films film${films > 1 ? 's' : ''}',
-        if (series > 0) '$series série${series > 1 ? 's' : ''}',
+        if (films > 0) L.count(films, '{0} film', '{0} films'),
+        if (series > 0) L.count(series, '{0} série', '{0} séries'),
         formatBytes(bytes),
-        if (active > 0) '$active en cours',
+        if (active > 0) L.f('{0} en cours', [active]),
       ].join('  ·  '),
       style: OFTypography.callout.copyWith(color: OFColors.textSecondary),
     );
@@ -166,14 +167,14 @@ class _SeriesGroup extends ConsumerWidget {
                 children: [
                   Text(group.title, style: OFTypography.title2, maxLines: 1, overflow: TextOverflow.ellipsis),
                   Text(
-                    '$n épisode${n > 1 ? 's' : ''}  ·  ${formatBytes(group.totalBytes)}',
+                    L.f(n > 1 ? '{0} épisodes  ·  {1}' : '{0} épisode  ·  {1}', [n, formatBytes(group.totalBytes)]),
                     style: OFTypography.caption.copyWith(color: OFColors.textSecondary),
                   ),
                 ],
               ),
             ),
             IconButton(
-              tooltip: 'Supprimer la série',
+              tooltip: L.t('Supprimer la série'),
               icon: const Icon(Icons.delete_outline_rounded, color: OFColors.textSecondary),
               onPressed: () {
                 HapticFeedback.mediumImpact();
@@ -283,7 +284,7 @@ class _DownloadRow extends ConsumerWidget {
               ),
               const SizedBox(width: OFSpacing.sm),
               if (entry.isComplete)
-                OFIconButton(icon: Icons.play_arrow_rounded, tooltip: 'Lire', onPressed: () => context.play(item.id))
+                OFIconButton(icon: Icons.play_arrow_rounded, tooltip: L.t('Lire'), onPressed: () => context.play(item.id))
               else
                 DownloadButton(itemId: item.id, size: 40),
             ],

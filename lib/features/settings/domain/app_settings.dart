@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../player/domain/engine_selector.dart';
 import '../../player/domain/playback_engine.dart';
+import '../../../core/l10n/l.dart';
 
 /// Comportement des sous-titres au démarrage d'une lecture.
 enum SubtitleMode {
@@ -10,24 +11,26 @@ enum SubtitleMode {
   forcedOnly('Forcés uniquement'),
   none('Jamais');
 
-  const SubtitleMode(this.label);
-  final String label;
+  SubtitleMode(this._label);
+  final String _label;
+
+  String get label => L.t(_label);
 }
 
 /// Langues proposées (code ISO 639-2 utilisé par Jellyfin).
-const preferredLanguages = <String, String>{
-  'fre': 'Français',
-  'eng': 'Anglais',
-  'spa': 'Espagnol',
-  'ger': 'Allemand',
-  'ita': 'Italien',
-  'por': 'Portugais',
-  'jpn': 'Japonais',
-  'kor': 'Coréen',
-  'chi': 'Chinois',
-  'rus': 'Russe',
-  'ara': 'Arabe',
-  'dut': 'Néerlandais',
+final preferredLanguages = <String, String>{
+  'fre': L.t('Français'),
+  'eng': L.t('Anglais'),
+  'spa': L.t('Espagnol'),
+  'ger': L.t('Allemand'),
+  'ita': L.t('Italien'),
+  'por': L.t('Portugais'),
+  'jpn': L.t('Japonais'),
+  'kor': L.t('Coréen'),
+  'chi': L.t('Chinois'),
+  'rus': L.t('Russe'),
+  'ara': L.t('Arabe'),
+  'dut': L.t('Néerlandais'),
 };
 
 /// Débits proposés (bits/s). 0 = pas de limite côté client (le serveur plafonne).

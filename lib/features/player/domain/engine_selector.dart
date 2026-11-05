@@ -21,13 +21,16 @@ library;
 
 import 'device_capabilities.dart';
 import 'source_profile.dart';
+import '../../../core/l10n/l.dart';
 
 enum EngineKind {
   native('Natif'),
   mpv('mpv');
 
-  const EngineKind(this.label);
-  final String label;
+  const EngineKind(this._label);
+  final String _label;
+
+  String get label => L.t(_label);
 }
 
 enum Delivery {
@@ -35,8 +38,10 @@ enum Delivery {
   remux('Remux'),
   transcode('Transcodage');
 
-  const Delivery(this.label);
-  final String label;
+  const Delivery(this._label);
+  final String _label;
+
+  String get label => L.t(_label);
 }
 
 /// Comment le sous-titre choisi sera affiché.
@@ -59,8 +64,10 @@ enum EnginePreference {
   native('Natif'),
   mpv('mpv');
 
-  const EnginePreference(this.label);
-  final String label;
+  const EnginePreference(this._label);
+  final String _label;
+
+  String get label => L.t(_label);
 }
 
 /// Sous-titres image (PGS, VobSub) sur une vidéo que le lecteur natif devrait lire.
@@ -71,8 +78,10 @@ enum ImageSubtitlePolicy {
   /// Incrustation par le serveur (garde le lecteur natif, coûte du CPU serveur).
   burnIn('Incruster (serveur)');
 
-  const ImageSubtitlePolicy(this.label);
-  final String label;
+  const ImageSubtitlePolicy(this._label);
+  final String _label;
+
+  String get label => L.t(_label);
 }
 
 class EngineDecision {

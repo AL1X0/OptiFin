@@ -7,20 +7,21 @@ import 'package:go_router/go_router.dart';
 import 'package:optifin_native_player/optifin_native_player.dart' show NativeGlassView;
 
 import '../core/design_system/design_system.dart';
+import '../core/l10n/l.dart';
 
 class _Tab {
-  const _Tab(this.label, this.icon, this.selectedIcon);
+  _Tab(this.label, this.icon, this.selectedIcon);
 
   final String label;
   final IconData icon;
   final IconData selectedIcon;
 }
 
-const _tabs = [
-  _Tab('Accueil', Icons.home_outlined, Icons.home_rounded),
-  _Tab('Bibliothèques', Icons.video_library_outlined, Icons.video_library_rounded),
-  _Tab('Recherche', Icons.search_rounded, Icons.search_rounded),
-  _Tab('Téléchargements', Icons.download_for_offline_outlined, Icons.download_for_offline_rounded),
+final _tabs = [
+  _Tab(L.t('Accueil'), Icons.home_outlined, Icons.home_rounded),
+  _Tab(L.t('Bibliothèques'), Icons.video_library_outlined, Icons.video_library_rounded),
+  _Tab(L.t('Recherche'), Icons.search_rounded, Icons.search_rounded),
+  _Tab(L.t('Téléchargements'), Icons.download_for_offline_outlined, Icons.download_for_offline_rounded),
 ];
 
 /// Coquille de navigation : barre d'onglets flottante en pilule de verre, centrée en bas,

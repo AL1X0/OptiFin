@@ -11,6 +11,7 @@ import '../../../core/network/image_url.dart';
 import '../../../core/providers.dart';
 import '../data/account_store.dart';
 import 'auth_providers.dart';
+import '../../../core/l10n/l.dart';
 
 /// Écran d'accueil de connexion : comptes enregistrés, serveurs découverts, saisie manuelle.
 class ConnectScreen extends ConsumerStatefulWidget {
@@ -33,7 +34,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
 
   Future<void> _connect(String input) async {
     if (input.trim().isEmpty) {
-      setState(() => _error = 'Saisissez l’adresse de votre serveur.');
+      setState(() => _error = L.t('Saisissez l’adresse de votre serveur.'));
       return;
     }
     setState(() {
@@ -65,7 +66,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
       await ref.read(sessionControllerProvider.notifier).signIn(session);
       if (mounted) context.go(Routes.home);
     } on ApiFailure {
-      if (mounted) setState(() => _error = 'Le serveur de démonstration ne répond pas. Réessayez plus tard.');
+      if (mounted) setState(() => _error = L.t('Le serveur de démonstration ne répond pas. Réessayez plus tard.'));
     } finally {
       if (mounted) setState(() => _probing = false);
     }
@@ -104,27 +105,27 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                   if (canPop)
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: OFIconButton(icon: Icons.close_rounded, tooltip: 'Fermer', onPressed: () => context.pop()),
+                      child: OFIconButton(icon: Icons.close_rounded, tooltip: L.t('Fermer'), onPressed: () => context.pop()),
                     ),
                   const SizedBox(height: OFSpacing.xl),
                   Semantics(header: true, child: const Text('OptiFin', style: OFTypography.display)),
                   const SizedBox(height: OFSpacing.sm),
                   Text(
-                    'Connectez-vous à votre serveur Jellyfin.',
+                    L.t('Connectez-vous à votre serveur Jellyfin.'),
                     style: OFTypography.body.copyWith(color: OFColors.textSecondary),
                   ),
                   if (accounts.isNotEmpty) ...[
                     const SizedBox(height: OFSpacing.xxl),
-                    const _SectionTitle('Comptes'),
+                    _SectionTitle(L.t('Comptes')),
                     for (final a in accounts) _AccountTile(stored: a, onTap: () => _resume(a)),
                   ],
                   const SizedBox(height: OFSpacing.xxl),
                   _SectionTitle(
-                    'Sur ce réseau',
+                    L.t('Sur ce réseau'),
                     trailing: discovered.isLoading
                         ? const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2))
                         : IconButton(
-                            tooltip: 'Relancer la recherche',
+                            tooltip: L.t('Relancer la recherche'),
                             icon: const Icon(Icons.refresh_rounded, size: 20, color: OFColors.textSecondary),
                             onPressed: () => ref.invalidate(discoveredServersProvider),
                           ),
@@ -134,7 +135,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: OFSpacing.sm),
                         child: Text(
-                          'Aucun serveur détecté automatiquement.',
+                          L.t('Aucun serveur détecté automatiquement.'),
                           style: OFTypography.callout.copyWith(color: OFColors.textTertiary),
                         ),
                       ),
@@ -150,7 +151,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                     _ => const [],
                   },
                   const SizedBox(height: OFSpacing.xxl),
-                  const _SectionTitle('Adresse du serveur'),
+                  _SectionTitle(L.t('Adresse du serveur')),
                   OFTextField(
                     label: 'https://jellyfin.exemple.fr',
                     controller: _address,
@@ -162,14 +163,14 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
                   ),
                   const SizedBox(height: OFSpacing.lg),
                   OFButton(
-                    label: 'Continuer',
+                    label: L.t('Continuer'),
                     expand: true,
                     loading: _probing,
                     onPressed: () => _connect(_address.text),
                   ),
                   const SizedBox(height: OFSpacing.sm),
                   OFButton.secondary(
-                    label: 'Essayer avec le serveur de démonstration',
+                    label: L.t('Essayer avec le serveur de démonstration'),
                     expand: true,
                     onPressed: _probing ? null : _tryDemo,
                   ),

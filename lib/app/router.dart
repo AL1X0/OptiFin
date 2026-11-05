@@ -19,6 +19,7 @@ import '../features/settings/presentation/logs_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import 'app_shell.dart';
 import 'route_titles.dart';
+import '../core/l10n/l.dart';
 
 abstract final class Routes {
   static const home = '/home';
@@ -108,7 +109,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               appRoute(
                 Routes.home,
-                (_) => const OFRouteTitle(title: 'Accueil', child: HomeScreen()),
+                (_) => OFRouteTitle(title: L.t('Accueil'), child: const HomeScreen()),
                 routes: _contentRoutes(),
               ),
             ],
@@ -117,7 +118,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               appRoute(
                 Routes.libraries,
-                (_) => const OFRouteTitle(title: 'Bibliothèques', child: LibrariesScreen()),
+                (_) => OFRouteTitle(title: L.t('Bibliothèques'), child: const LibrariesScreen()),
                 routes: _contentRoutes(),
               ),
             ],
@@ -126,7 +127,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               appRoute(
                 Routes.search,
-                (_) => const OFRouteTitle(title: 'Recherche', child: SearchScreen()),
+                (_) => OFRouteTitle(title: L.t('Recherche'), child: const SearchScreen()),
                 routes: _contentRoutes(),
               ),
             ],
@@ -135,7 +136,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               appRoute(
                 Routes.downloads,
-                (_) => const OFRouteTitle(title: 'Téléchargements', child: DownloadsScreen()),
+                (_) => OFRouteTitle(title: L.t('Téléchargements'), child: const DownloadsScreen()),
                 routes: _contentRoutes(),
               ),
             ],

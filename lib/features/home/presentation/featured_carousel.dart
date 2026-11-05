@@ -12,6 +12,7 @@ import '../../../core/media/media_item.dart';
 import '../../../core/network/image_url.dart';
 import '../../../core/providers.dart';
 import '../../player/presentation/playback_providers.dart';
+import '../../../core/l10n/l.dart';
 
 /// Au-delà, décoder plus large n'apporte rien à l'œil et coûte des images saccadées.
 const _maxDecodeWidth = 2400;
@@ -378,7 +379,7 @@ class _FeaturedPage extends ConsumerWidget {
                       skipTraversal: true,
                       onKeyEvent: _edge(LogicalKeyboardKey.arrowLeft, -1),
                       child: OFButton(
-                        label: 'Lecture',
+                        label: L.t('Lecture'),
                         icon: Icons.play_arrow_rounded,
                         focusNode: playFocus,
                         // Film : lecture directe. Série : la fiche choisit l'épisode à suivre.
@@ -391,7 +392,7 @@ class _FeaturedPage extends ConsumerWidget {
                       skipTraversal: true,
                       onKeyEvent: _edge(LogicalKeyboardKey.arrowRight, 1),
                       child: OFButton.secondary(
-                        label: 'Infos',
+                        label: L.t('Infos'),
                         icon: Icons.info_outline_rounded,
                         onPressed: () => context.openItem(item),
                       ),

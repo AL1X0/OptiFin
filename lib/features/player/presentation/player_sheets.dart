@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../core/design_system/design_system.dart';
 import '../domain/playback_engine.dart';
 import 'player_controller.dart';
+import '../../../core/l10n/l.dart';
 
 /// Overlay de debug (appui long sur le titre) : moteur, mode, codecs, débit.
 class DebugOverlay extends StatelessWidget {
@@ -19,19 +20,19 @@ class DebugOverlay extends StatelessWidget {
     final size = snapshot.videoSize;
     final decision = ui.decision;
     final lines = <(String, String)>[
-      ('Moteur', engine.name),
-      if (decision != null) ...[('Décision', decision.label), ('Raison', decision.reason)],
+      (L.t('Moteur'), engine.name),
+      if (decision != null) ...[(L.t('Décision'), decision.label), (L.t('Raison'), decision.reason)],
       if (plan != null) ...[
         ('Mode', plan.method.label),
-        ('Conteneur', plan.container ?? '?'),
-        ('Vidéo', plan.videoCodec ?? '?'),
-        if (plan.bitrate != null) ('Débit', '${(plan.bitrate! / 1e6).toStringAsFixed(1)} Mb/s'),
+        (L.t('Conteneur'), plan.container ?? '?'),
+        (L.t('Vidéo'), plan.videoCodec ?? '?'),
+        if (plan.bitrate != null) (L.t('Débit'), '${(plan.bitrate! / 1e6).toStringAsFixed(1)} Mb/s'),
         ('Audio', plan.currentAudio?.label ?? '—'),
-        ('Sous-titres', plan.currentSubtitle?.label ?? 'Aucun'),
+        ('Sous-titres', plan.currentSubtitle?.label ?? L.t('Aucun')),
       ],
-      if (size != null) ('Image', '${size.width.toInt()}×${size.height.toInt()}'),
-      ('Tampon', '${(snapshot.buffered - snapshot.position).inSeconds.clamp(0, 9999)} s'),
-      if (snapshot.droppedFrames != null) ('Images perdues', '${snapshot.droppedFrames}'),
+      if (size != null) (L.t('Image'), '${size.width.toInt()}×${size.height.toInt()}'),
+      (L.t('Tampon'), '${(snapshot.buffered - snapshot.position).inSeconds.clamp(0, 9999)} s'),
+      if (snapshot.droppedFrames != null) (L.t('Images perdues'), '${snapshot.droppedFrames}'),
       if (plan?.source?.video != null) ('Source', plan!.source!.video!.summary),
     ];
     return Container(
@@ -100,7 +101,7 @@ class DelayStepper extends StatelessWidget {
         children: [
           Row(
             children: [
-              step(Icons.remove_rounded, 'Moins 0,1 s', -_step),
+              step(Icons.remove_rounded, L.t('Moins 0,1 s'), -_step),
               Expanded(
                 child: TextButton(
                   onPressed: ms == 0 ? null : () => onChanged(Duration.zero),
@@ -110,7 +111,7 @@ class DelayStepper extends StatelessWidget {
                   ),
                 ),
               ),
-              step(Icons.add_rounded, 'Plus 0,1 s', _step),
+              step(Icons.add_rounded, L.t('Plus 0,1 s'), _step),
             ],
           ),
           Padding(

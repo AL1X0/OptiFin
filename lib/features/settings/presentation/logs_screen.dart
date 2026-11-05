@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/logging/app_log.dart';
 import '../../../core/providers.dart';
+import '../../../core/l10n/l.dart';
 
 /// Journaux de l'application : lecture, filtre par niveau, copie en un geste.
 /// Les secrets sont déjà masqués dans le journal (voir [AppLog.redact]).
@@ -31,11 +32,11 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
 
   Future<void> _copy() async {
     final text = AppLog.instance.export(minLevel: _minLevel);
-    await Clipboard.setData(ClipboardData(text: text.isEmpty ? '(journal vide)' : text));
+    await Clipboard.setData(ClipboardData(text: text.isEmpty ? L.t('(journal vide)') : text));
     if (!mounted) return;
     unawaited(HapticFeedback.mediumImpact());
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('${text.split('\n').length} lignes copiées dans le presse-papiers')));
+        .showSnackBar(SnackBar(content: Text(L.f('{0} lignes copiées dans le presse-papiers', [text.split('\n').length]))));
   }
 
   /// Envoie le journal au serveur Jellyfin (Tableau de bord › Journaux, fichier
@@ -51,11 +52,11 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
             options: Options(contentType: 'text/plain'),
           );
       final name = response.data?['FileName'] ?? 'journal';
-      messenger.showSnackBar(SnackBar(content: Text('Envoyé au serveur : $name (Tableau de bord › Journaux)')));
+      messenger.showSnackBar(SnackBar(content: Text(L.f('Envoyé au serveur : {0} (Tableau de bord › Journaux)', [name]))));
     } catch (e) {
       AppLog.w('log', 'Envoi du journal impossible : $e');
       messenger.showSnackBar(
-        const SnackBar(content: Text('Envoi impossible (serveur hors ligne ou envoi désactivé).')),
+        SnackBar(content: Text(L.t('Envoi impossible (serveur hors ligne ou envoi désactivé).'))),
       );
     }
   }
@@ -74,16 +75,16 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
       appBar: AppBar(
         backgroundColor: OFColors.background,
         leading: IconButton(
-          tooltip: 'Retour',
+          tooltip: L.t('Retour'),
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Journaux', style: OFTypography.headline),
+        title: Text(L.t('Journaux'), style: OFTypography.headline),
         actions: [
-          IconButton(tooltip: 'Envoyer au serveur', icon: const Icon(Icons.cloud_upload_outlined), onPressed: _upload),
-          IconButton(tooltip: 'Tout copier', icon: const Icon(Icons.copy_all_rounded), onPressed: _copy),
+          IconButton(tooltip: L.t('Envoyer au serveur'), icon: const Icon(Icons.cloud_upload_outlined), onPressed: _upload),
+          IconButton(tooltip: L.t('Tout copier'), icon: const Icon(Icons.copy_all_rounded), onPressed: _copy),
           IconButton(
-            tooltip: 'Effacer',
+            tooltip: L.t('Effacer'),
             icon: const Icon(Icons.delete_sweep_outlined),
             onPressed: AppLog.instance.clear,
           ),
@@ -98,10 +99,10 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: OFSpacing.lg, vertical: OFSpacing.sm),
               children: [
                 for (final (level, label) in [
-                  (LogLevel.debug, 'Tout'),
-                  (LogLevel.info, 'Infos'),
-                  (LogLevel.warning, 'Avertissements'),
-                  (LogLevel.error, 'Erreurs'),
+                  (LogLevel.debug, L.t('Tout')),
+                  (LogLevel.info, L.t('Infos')),
+                  (LogLevel.warning, L.t('Avertissements')),
+                  (LogLevel.error, L.t('Erreurs')),
                 ])
                   Padding(
                     padding: const EdgeInsets.only(right: OFSpacing.sm),
@@ -131,8 +132,8 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
                   return Center(
                     child: Text(
                       AppLog.instance.verbose
-                          ? 'Journal vide.'
-                          : 'Journal vide. Activez le mode debug pour plus de détails.',
+                          ? L.t('Journal vide.')
+                          : L.t('Journal vide. Activez le mode debug pour plus de détails.'),
                       style: OFTypography.callout.copyWith(color: OFColors.textTertiary),
                     ),
                   );
@@ -171,7 +172,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
         backgroundColor: OFColors.textPrimary,
         foregroundColor: OFColors.background,
         icon: const Icon(Icons.copy_rounded),
-        label: const Text('Copier'),
+        label: Text(L.t('Copier')),
       ),
     );
   }

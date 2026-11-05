@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../tokens.dart';
 import 'glass_surface.dart';
+import '../../../core/l10n/l.dart';
 
 /// Indicateur de chargement OptiFin : un arc fin en dégradé (traînée de comète)
 /// qui tourne, dont la longueur respire. Reste animé même avec « Réduire les
@@ -39,7 +40,7 @@ class _OFLoaderState extends State<OFLoader> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Chargement',
+      label: L.t('Chargement'),
       child: RepaintBoundary(
         child: SizedBox.square(
           dimension: widget.size,

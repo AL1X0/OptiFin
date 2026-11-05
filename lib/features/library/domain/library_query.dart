@@ -1,4 +1,5 @@
 import '../../../core/media/media_item.dart';
+import '../../../core/l10n/l.dart';
 
 enum LibrarySort {
   title('Titre'),
@@ -8,8 +9,10 @@ enum LibrarySort {
   runtime('Durée'),
   year('Année');
 
-  const LibrarySort(this.label);
-  final String label;
+  const LibrarySort(this._label);
+  final String _label;
+
+  String get label => L.t(_label);
 
   /// Sens par défaut quand on choisit ce tri (récent/meilleur d'abord).
   bool get defaultDescending => this != title;

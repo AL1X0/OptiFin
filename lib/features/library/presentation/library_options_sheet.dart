@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design_system/design_system.dart';
 import '../domain/library_query.dart';
 import 'library_providers.dart';
+import '../../../core/l10n/l.dart';
 
 /// Feuille « Trier et filtrer » : chaque changement s'applique immédiatement.
 class LibraryOptionsSheet extends ConsumerStatefulWidget {
@@ -53,12 +54,12 @@ class _LibraryOptionsSheetState extends ConsumerState<LibraryOptionsSheet> {
         children: [
           Row(
             children: [
-              const Expanded(child: Text('Trier et filtrer', style: OFTypography.title2)),
+              Expanded(child: Text(L.t('Trier et filtrer'), style: OFTypography.title2)),
               if (_q.activeFilterCount > 0)
-                TextButton(onPressed: () => _update(_q.clearFilters()), child: const Text('Réinitialiser')),
+                TextButton(onPressed: () => _update(_q.clearFilters()), child: Text(L.t('Réinitialiser'))),
             ],
           ),
-          const _Section('Trier par'),
+          _Section(L.t('Trier par')),
           Wrap(
             children: [
               for (final s in LibrarySort.values)
@@ -66,27 +67,27 @@ class _LibraryOptionsSheetState extends ConsumerState<LibraryOptionsSheet> {
             ],
           ),
           SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('Croissant'), icon: Icon(Icons.arrow_upward_rounded)),
-              ButtonSegment(value: true, label: Text('Décroissant'), icon: Icon(Icons.arrow_downward_rounded)),
+            segments: [
+              ButtonSegment(value: false, label: Text(L.t('Croissant')), icon: const Icon(Icons.arrow_upward_rounded)),
+              ButtonSegment(value: true, label: Text(L.t('Décroissant')), icon: const Icon(Icons.arrow_downward_rounded)),
             ],
             selected: {_q.descending},
             onSelectionChanged: (v) => _update(_q.copyWith(descending: v.first)),
           ),
-          const _Section('Statut'),
+          _Section(L.t('Statut')),
           Wrap(
             children: [
-              chip('Tous', _q.played == null, () => _update(_q.copyWith(played: () => null))),
-              chip('Non vus', _q.played == false, () => _update(_q.copyWith(played: () => false))),
-              chip('Vus', _q.played == true, () => _update(_q.copyWith(played: () => true))),
-              chip('Favoris', _q.favoritesOnly, () => _update(_q.copyWith(favoritesOnly: !_q.favoritesOnly))),
+              chip(L.t('Tous'), _q.played == null, () => _update(_q.copyWith(played: () => null))),
+              chip(L.t('Non vus'), _q.played == false, () => _update(_q.copyWith(played: () => false))),
+              chip(L.t('Vus'), _q.played == true, () => _update(_q.copyWith(played: () => true))),
+              chip(L.t('Favoris'), _q.favoritesOnly, () => _update(_q.copyWith(favoritesOnly: !_q.favoritesOnly))),
             ],
           ),
-          const _Section('Résolution'),
+          _Section(L.t('Résolution')),
           Wrap(
             children: [
               chip(
-                'Toutes',
+                L.t('Toutes'),
                 _q.resolution == ResolutionFilter.any,
                 () => _update(_q.copyWith(resolution: ResolutionFilter.any)),
               ),
@@ -116,7 +117,7 @@ class _LibraryOptionsSheetState extends ConsumerState<LibraryOptionsSheet> {
             ),
           ],
           if (options != null && options.years.isNotEmpty) ...[
-            const _Section('Années'),
+            _Section(L.t('Années')),
             Wrap(
               children: [
                 for (final y in options.years)

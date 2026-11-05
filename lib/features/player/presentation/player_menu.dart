@@ -13,6 +13,7 @@ import '../domain/playback_extras.dart';
 import '../domain/playback_plan.dart';
 import 'player_controller.dart';
 import 'player_sheets.dart' show DelayStepper;
+import '../../../core/l10n/l.dart';
 
 enum PlayerMenuPage { root, audio, subtitles, subtitleStyle, chapters, speed, sync, engine }
 
@@ -162,42 +163,42 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
           _MenuRow(
             icon: Icons.subtitles_outlined,
             label: 'Sous-titres',
-            value: plan.currentSubtitle?.label ?? 'Désactivés',
+            value: plan.currentSubtitle?.label ?? L.t('Désactivés'),
             onTap: () => _open(PlayerMenuPage.subtitles),
           ),
           if (state.extras.chapters.isNotEmpty)
             _MenuRow(
               icon: Icons.format_list_bulleted_rounded,
-              label: 'Chapitres',
+              label: L.t('Chapitres'),
               value: state.extras.chapterAt(s.position)?.name,
               onTap: () => _open(PlayerMenuPage.chapters),
             ),
           if (caps.playbackSpeed)
             _MenuRow(
               icon: Icons.speed_rounded,
-              label: 'Vitesse',
+              label: L.t('Vitesse'),
               value: _rateLabel(s.rate),
               onTap: () => _open(PlayerMenuPage.speed),
             ),
           if (caps.subtitleDelay || caps.audioDelay)
             _MenuRow(
               icon: Icons.av_timer_rounded,
-              label: 'Synchronisation',
+              label: L.t('Synchronisation'),
               value: state.subtitleDelay == Duration.zero && state.audioDelay == Duration.zero
-                  ? 'Aucun décalage'
-                  : 'Ajustée',
+                  ? L.t('Aucun décalage')
+                  : L.t('Ajustée'),
               onTap: () => _open(PlayerMenuPage.sync),
             ),
           _MenuRow(
             icon: Icons.memory_rounded,
-            label: 'Moteur de lecture',
+            label: L.t('Moteur de lecture'),
             value: '${_preferenceLabel(state.preference ?? EnginePreference.auto)} · ${widget.engine.name}',
             onTap: () => _open(PlayerMenuPage.engine),
           ),
           const _MenuDivider(),
           _MenuRow(
             icon: Icons.lock_outline_rounded,
-            label: 'Verrouiller l’écran',
+            label: L.t('Verrouiller l’écran'),
             chevron: false,
             onTap: () {
               HapticFeedback.selectionClick();
@@ -206,7 +207,7 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
           ),
           _MenuRow(
             icon: Icons.info_outline_rounded,
-            label: 'Infos techniques',
+            label: L.t('Infos techniques'),
             chevron: false,
             selected: widget.debug,
             onTap: () {
@@ -235,7 +236,7 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
         onBack: _back,
         children: [
           _MenuRow(
-            label: 'Désactivés',
+            label: L.t('Désactivés'),
             selected: plan.subtitleIndex == null,
             chevron: false,
             onTap: () => _choose(() => c.selectSubtitle(null)),
@@ -252,7 +253,7 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
           if (widget.onSearchSubtitles != null)
             _MenuRow(
               icon: Icons.travel_explore_rounded,
-              label: 'Rechercher en ligne…',
+              label: L.t('Rechercher en ligne…'),
               chevron: false,
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -262,17 +263,17 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
           if (caps.subtitleStyling)
             _MenuRow(
               icon: Icons.format_size_rounded,
-              label: 'Apparence',
+              label: L.t('Apparence'),
               value: _scaleLabel(state.subtitleStyle.scale),
               onTap: () => _open(PlayerMenuPage.subtitleStyle),
             ),
         ],
       ),
       PlayerMenuPage.subtitleStyle => _MenuPageView(
-        title: 'Apparence des sous-titres',
+        title: L.t('Apparence des sous-titres'),
         onBack: _back,
         children: [
-          const _MenuSection('Taille'),
+          _MenuSection(L.t('Taille')),
           for (final v in const [0.8, 1.0, 1.25, 1.5])
             _MenuRow(
               label: _scaleLabel(v),
@@ -283,13 +284,13 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
                 unawaited(c.setSubtitleStyle(state.subtitleStyle.copyWith(scale: v)));
               },
             ),
-          const _MenuSection('Fond'),
+          _MenuSection(L.t('Fond')),
           for (final v in SubtitleBackground.values)
             _MenuRow(
               label: switch (v) {
-                SubtitleBackground.none => 'Contour',
-                SubtitleBackground.shadow => 'Ombre',
-                SubtitleBackground.box => 'Bandeau',
+                SubtitleBackground.none => L.t('Contour'),
+                SubtitleBackground.shadow => L.t('Ombre'),
+                SubtitleBackground.box => L.t('Bandeau'),
               },
               selected: state.subtitleStyle.background == v,
               chevron: false,
@@ -301,7 +302,7 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
         ],
       ),
       PlayerMenuPage.chapters => _MenuPageView(
-        title: 'Chapitres',
+        title: L.t('Chapitres'),
         onBack: _back,
         children: [
           for (final ch in state.extras.chapters)
@@ -314,7 +315,7 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
         ],
       ),
       PlayerMenuPage.speed => _MenuPageView(
-        title: 'Vitesse',
+        title: L.t('Vitesse'),
         onBack: _back,
         children: [
           for (final v in const [0.5, 0.75, 1.0, 1.25, 1.5, 2.0])
@@ -327,35 +328,35 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
         ],
       ),
       PlayerMenuPage.sync => _MenuPageView(
-        title: 'Synchronisation',
+        title: L.t('Synchronisation'),
         onBack: _back,
         children: [
           if (caps.subtitleDelay) ...[
-            const _MenuSection('Décalage des sous-titres'),
+            _MenuSection(L.t('Décalage des sous-titres')),
             DelayStepper(
               value: state.subtitleDelay,
               onChanged: c.setSubtitleDelay,
-              hint: 'Positif : les sous-titres apparaissent plus tard.',
+              hint: L.t('Positif : les sous-titres apparaissent plus tard.'),
             ),
           ],
           if (caps.audioDelay) ...[
-            const _MenuSection('Décalage audio'),
-            DelayStepper(value: state.audioDelay, onChanged: c.setAudioDelay, hint: 'Positif : le son est retardé.'),
+            _MenuSection(L.t('Décalage audio')),
+            DelayStepper(value: state.audioDelay, onChanged: c.setAudioDelay, hint: L.t('Positif : le son est retardé.')),
           ],
           const SizedBox(height: OFSpacing.sm),
         ],
       ),
       PlayerMenuPage.engine => _MenuPageView(
-        title: 'Moteur de lecture',
+        title: L.t('Moteur de lecture'),
         onBack: _back,
         children: [
           for (final p in EnginePreference.values)
             _MenuRow(
               label: _preferenceLabel(p),
               detail: switch (p) {
-                EnginePreference.auto => 'Le meilleur moteur pour chaque fichier',
+                EnginePreference.auto => L.t('Le meilleur moteur pour chaque fichier'),
                 EnginePreference.native => 'AVPlayer / Media3 : HDR, PiP, AirPlay',
-                EnginePreference.mpv => 'Lit presque tout, sous-titres stylés',
+                EnginePreference.mpv => L.t('Lit presque tout, sous-titres stylés'),
               },
               selected: (state.preference ?? EnginePreference.auto) == p,
               chevron: false,
@@ -364,7 +365,7 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
           Padding(
             padding: const EdgeInsets.fromLTRB(OFSpacing.lg, OFSpacing.sm, OFSpacing.lg, OFSpacing.sm),
             child: Text(
-              'En cours : ${widget.engine.name} · ${plan.method.label}',
+              L.f('En cours : {0} · {1}', [widget.engine.name, plan.method.label]),
               style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
             ),
           ),
@@ -374,27 +375,27 @@ class _PlayerSettingsMenuState extends ConsumerState<PlayerSettingsMenu> {
   }
 }
 
-String _rateLabel(double v) => v == 1 ? 'Normale' : '${v.toString().replaceAll('.', ',')}×';
+String _rateLabel(double v) => v == 1 ? L.t('Normale') : '${v.toString().replaceAll('.', ',')}×';
 
 String _scaleLabel(double v) => switch (v) {
-  0.8 => 'Petite',
-  1.0 => 'Normale',
-  1.25 => 'Grande',
-  _ => 'Très grande',
+  0.8 => L.t('Petite'),
+  1.0 => L.t('Normale'),
+  1.25 => L.t('Grande'),
+  _ => L.t('Très grande'),
 };
 
 String _preferenceLabel(EnginePreference p) => switch (p) {
   EnginePreference.auto => 'Auto',
-  EnginePreference.native => 'Natif',
+  EnginePreference.native => L.t('Natif'),
   EnginePreference.mpv => 'mpv',
 };
 
 String? _trackDetail(MediaTrack t) {
   final parts = [
-    if (t.isDefault) 'Par défaut',
-    if (t.isForced) 'Forcés',
-    if (t.isExternal) 'Externe',
-    if (t.type == TrackType.subtitle && t.isBitmap) 'Image',
+    if (t.isDefault) L.t('Par défaut'),
+    if (t.isForced) L.t('Forcés'),
+    if (t.isExternal) L.t('Externe'),
+    if (t.type == TrackType.subtitle && t.isBitmap) L.t('Image'),
   ];
   return parts.isEmpty ? null : parts.join(' · ');
 }
@@ -420,7 +421,7 @@ class _MenuPageView extends StatelessWidget {
               children: [
                 Semantics(
                   button: true,
-                  label: 'Retour',
+                  label: L.t('Retour'),
                   excludeSemantics: true,
                   onTap: onBack,
                   child: InkResponse(

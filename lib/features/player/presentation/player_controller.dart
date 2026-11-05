@@ -22,6 +22,7 @@ import '../domain/playback_plan.dart';
 import '../domain/playback_reporter.dart';
 import '../domain/source_profile.dart';
 import 'playback_providers.dart';
+import '../../../core/l10n/l.dart';
 
 export 'playback_providers.dart';
 
@@ -407,7 +408,7 @@ class PlayerController extends Notifier<PlayerUiState> {
       added = refreshed.subtitleTracks.where((t) => !known.contains(t.index)).firstOrNull;
     }
     if (_closed || refreshed == null) return;
-    if (added == null) throw const UnexpectedFailure('Le serveur n’a pas encore ajouté ce sous-titre. Réessayez.');
+    if (added == null) throw UnexpectedFailure(L.t('Le serveur n’a pas encore ajouté ce sous-titre. Réessayez.'));
     AppLog.i('player', 'Sous-titre téléchargé : ${added.label} (index ${added.index})');
     final updated = state.plan!.withSubtitleTracks(refreshed.subtitleTracks);
     _prepared = PreparedPlayback(
@@ -474,7 +475,7 @@ class PlayerController extends Notifier<PlayerUiState> {
       unawaited(_reporter.stop(failed: true));
       state = state.copyWith(
         phase: PlayerPhase.error,
-        error: 'Le lecteur n’a pas pu lire ce fichier.',
+        error: L.t('Le lecteur n’a pas pu lire ce fichier.'),
         technicalError: _failures.join('\n'),
         notice: () => null,
       );
@@ -494,7 +495,7 @@ class PlayerController extends Notifier<PlayerUiState> {
       );
       if (_closed) return;
       AppLog.i('player', 'Bascule automatique → ${next.decision.label} (${next.decision.reason})');
-      state = state.copyWith(notice: () => 'Bascule vers ${next.decision.label}…');
+      state = state.copyWith(notice: () => L.f('Bascule vers {0}…', [next.decision.label]));
       await _launch(next, start: _startPosition);
     } catch (e, stack) {
       _fail(e, stack);
@@ -521,7 +522,7 @@ class PlayerController extends Notifier<PlayerUiState> {
     if (_closed) return;
     state = state.copyWith(
       phase: PlayerPhase.error,
-      error: error is ApiFailure ? error.userMessage : 'La lecture n’a pas pu démarrer.',
+      error: error is ApiFailure ? error.userMessage : L.t('La lecture n’a pas pu démarrer.'),
       technicalError: error is UnexpectedFailure ? error.technicalDetail : error.toString(),
       notice: () => null,
     );
@@ -543,7 +544,7 @@ class PlayerController extends Notifier<PlayerUiState> {
         unawaited(_reporter.stop(failed: true));
         state = state.copyWith(
           phase: PlayerPhase.error,
-          error: 'Le lecteur n’a pas pu lire ce fichier.',
+          error: L.t('Le lecteur n’a pas pu lire ce fichier.'),
           technicalError: '${_engine?.name} : $message',
         );
     }
@@ -665,8 +666,8 @@ class PlayerController extends Notifier<PlayerUiState> {
       party: () => group == null
           ? null
           : _sync!.waiting && group.state == GroupState.waiting
-          ? '${group.name} · en attente des autres…'
-          : '${group.name} · $count participant${count > 1 ? 's' : ''}',
+          ? L.f('{0} · en attente des autres…', [group.name])
+          : L.f(count > 1 ? '{0} · {1} participants' : '{0} · {1} participant', [group.name, count]),
     );
   }
 

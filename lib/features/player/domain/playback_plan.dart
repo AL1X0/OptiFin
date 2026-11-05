@@ -4,15 +4,18 @@
 library;
 
 import 'source_profile.dart';
+import '../../../core/l10n/l.dart';
 
 enum PlayMethod {
   directPlay('DirectPlay', 'Lecture directe'),
   directStream('DirectStream', 'Remux (Direct Stream)'),
   transcode('Transcode', 'Transcodage');
 
-  const PlayMethod(this.apiName, this.label);
+  const PlayMethod(this.apiName, this._label);
   final String apiName;
-  final String label;
+  final String _label;
+
+  String get label => L.t(_label);
 }
 
 enum TrackType { audio, subtitle }

@@ -1,4 +1,5 @@
 import '../../../core/media/media_item.dart';
+import '../../../core/l10n/l.dart';
 
 /// État d'un téléchargement.
 enum DownloadStatus {
@@ -8,8 +9,10 @@ enum DownloadStatus {
   complete('Téléchargé'),
   failed('Échec');
 
-  const DownloadStatus(this.label);
-  final String label;
+  const DownloadStatus(this._label);
+  final String _label;
+
+  String get label => L.t(_label);
 
   bool get active => this == queued || this == running;
 

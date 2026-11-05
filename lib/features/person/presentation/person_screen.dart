@@ -11,6 +11,7 @@ import '../../common/presentation/media_cards.dart';
 import '../../details/presentation/item_details_screen.dart';
 import '../../home/domain/home_data.dart';
 import '../../library/domain/library_query.dart';
+import '../../../core/l10n/l.dart';
 
 final personProvider = FutureProvider.autoDispose.family<MediaItem, String>(
   (ref, id) => ref.watch(mediaRepositoryProvider).person(id),
@@ -64,7 +65,7 @@ class PersonScreen extends ConsumerWidget {
                   backgroundColor: OFColors.background.withValues(alpha: 0.9),
                   leading: context.canPop()
                       ? IconButton(
-                          tooltip: 'Retour',
+                          tooltip: L.t('Retour'),
                           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
                           onPressed: () => context.pop(),
                         )
@@ -91,7 +92,7 @@ class PersonScreen extends ConsumerWidget {
                                 Semantics(header: true, child: Text(value.name, style: OFTypography.title1)),
                                 if (value.premiereDate != null)
                                   Text(
-                                    'Né(e) en ${value.premiereDate!.year}',
+                                    L.f('Né(e) en {0}', [value.premiereDate!.year]),
                                     style: OFTypography.callout.copyWith(color: OFColors.textSecondary),
                                   ),
                                 if (value.overview != null) ...[
@@ -104,7 +105,7 @@ class PersonScreen extends ConsumerWidget {
                         ],
                       ),
                       AsyncError(:final error) => StatusMessage(
-                        text: error is ApiFailure ? error.userMessage : 'Personne introuvable.',
+                        text: error is ApiFailure ? error.userMessage : L.t('Personne introuvable.'),
                         onRetry: () => ref.invalidate(personProvider(personId)),
                       ),
                       _ => const SizedBox(height: 112, child: Center(child: OFLoader())),
@@ -113,11 +114,11 @@ class PersonScreen extends ConsumerWidget {
                 ),
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(gutter, OFSpacing.xxl, gutter, OFSpacing.md),
-                  sliver: const SliverToBoxAdapter(child: Text('Filmographie', style: OFTypography.title2)),
+                  sliver: SliverToBoxAdapter(child: Text(L.t('Filmographie'), style: OFTypography.title2)),
                 ),
                 switch (films) {
-                  AsyncData(:final value) when value.isEmpty => const SliverToBoxAdapter(
-                    child: StatusMessage(text: 'Aucun titre dans votre bibliothèque.'),
+                  AsyncData(:final value) when value.isEmpty => SliverToBoxAdapter(
+                    child: StatusMessage(text: L.t('Aucun titre dans votre bibliothèque.')),
                   ),
                   AsyncData(:final value) => SliverPadding(
                     padding: EdgeInsets.fromLTRB(gutter, 0, gutter, MediaQuery.paddingOf(context).bottom + 96),
@@ -142,7 +143,7 @@ class PersonScreen extends ConsumerWidget {
                   ),
                   AsyncError() => SliverToBoxAdapter(
                     child: StatusMessage(
-                      text: 'Impossible de charger la filmographie.',
+                      text: L.t('Impossible de charger la filmographie.'),
                       onRetry: () => ref.invalidate(filmographyProvider(personId)),
                     ),
                   ),

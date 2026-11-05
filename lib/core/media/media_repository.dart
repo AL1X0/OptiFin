@@ -6,6 +6,7 @@ import '../network/api_failure.dart';
 import 'item_fields.dart';
 import 'media_item.dart';
 import 'media_mapper.dart';
+import '../../core/l10n/l.dart';
 
 /// Filtres disponibles pour une bibliothèque.
 class LibraryFilterOptions {
@@ -166,7 +167,7 @@ class MediaRepository {
       enableTotalRecordCount: false,
     );
     final dto = r.items?.firstOrNull;
-    if (dto == null) throw const UnexpectedFailure('Élément introuvable');
+    if (dto == null) throw UnexpectedFailure(L.t('Élément introuvable'));
     return dto;
   });
 

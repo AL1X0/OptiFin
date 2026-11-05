@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../tokens.dart';
 import 'motion.dart';
+import '../../../core/l10n/l.dart';
 
 /// Rangée horizontale virtualisée (titre + « Tout voir »).
 class MediaRow extends StatelessWidget {
@@ -49,7 +50,7 @@ class MediaRow extends StatelessWidget {
               if (onSeeAll != null)
                 TextButton(
                   onPressed: onSeeAll,
-                  child: Text('Tout voir', style: OFTypography.callout.copyWith(color: OFColors.textSecondary)),
+                  child: Text(L.t('Tout voir'), style: OFTypography.callout.copyWith(color: OFColors.textSecondary)),
                 ),
             ],
           ),

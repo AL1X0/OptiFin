@@ -1,4 +1,5 @@
 import 'media_item.dart';
+import '../../core/l10n/l.dart';
 
 /// Mise en forme des métadonnées (FR).
 abstract final class MediaFormat {
@@ -39,7 +40,7 @@ abstract final class MediaFormat {
   static List<String> metadataLine(MediaItem item) => [
     ?years(item),
     if (item.kind == MediaKind.series && item.childCount != null)
-      '${item.childCount} saison${item.childCount! > 1 ? 's' : ''}'
+      L.count(item.childCount!, '{0} saison', '{0} saisons')
     else
       ?duration(item.runtime),
     if (item.officialRating?.isNotEmpty ?? false) item.officialRating!,
@@ -52,6 +53,6 @@ abstract final class MediaFormat {
     if (total == null || item.user.positionTicks <= 0) return null;
     final left = total - item.resumePosition;
     final label = duration(left);
-    return label == null ? null : '$label restantes';
+    return label == null ? null : L.f('{0} restantes', [label]);
   }
 }

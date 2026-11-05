@@ -10,6 +10,7 @@ import '../../../core/network/jellyfin_auth.dart';
 import '../../../core/providers.dart';
 import '../data/syncplay_client.dart';
 import '../domain/syncplay_models.dart';
+import '../../../core/l10n/l.dart';
 
 /// Messages éphémères (arrivée d'un participant, erreur de soirée), affichés partout dans l'appli.
 final rootMessengerKey = GlobalKey<ScaffoldMessengerState>(debugLabel: 'messages');
@@ -109,16 +110,16 @@ class WatchPartyController extends Notifier<WatchPartyState> {
       case GroupJoined(:final group):
         _created = _creating;
         _creating = false;
-        _notice('Vous avez rejoint « ${group.name} »');
+        _notice(L.f('Vous avez rejoint « {0} »', [group.name]));
       case GroupLeft():
         _openedPlaylistItem = null;
         pending = null;
         _resetHost();
         _notice('Vous avez quitté la soirée');
       case UserJoined(:final userName):
-        _notice('$userName a rejoint la soirée');
+        _notice(L.f('{0} a rejoint la soirée', [userName]));
       case UserLeft(:final userName):
-        _notice('$userName a quitté la soirée');
+        _notice(L.f('{0} a quitté la soirée', [userName]));
       case SyncPlayError(:final userMessage):
         _notice(userMessage);
       case StateChanged(state: final s):
@@ -232,7 +233,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
       await action();
     } catch (e) {
       AppLog.w('syncplay', '$e');
-      _notice(e is ApiFailure ? e.userMessage : 'La soirée n’a pas pu être mise à jour.');
+      _notice(e is ApiFailure ? e.userMessage : L.t('La soirée n’a pas pu être mise à jour.'));
     }
   }
 }

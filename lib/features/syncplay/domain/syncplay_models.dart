@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/l10n/l.dart';
 
 /// État d'une soirée (groupe SyncPlay) côté serveur.
 enum GroupState { idle, waiting, paused, playing }
@@ -16,7 +17,7 @@ class GroupInfo {
 
   factory GroupInfo.fromJson(Map<String, dynamic> j) => GroupInfo(
     id: j['GroupId'] as String? ?? '',
-    name: j['GroupName'] as String? ?? 'Soirée',
+    name: j['GroupName'] as String? ?? L.t('Soirée'),
     state: _state(j['State']),
     participants: [
       for (final p in (j['Participants'] as List? ?? const []))
@@ -174,17 +175,17 @@ SyncPlayMessage? _groupUpdate(Map<String, dynamic> update) {
       data['Reason'] as String? ?? '',
     ),
     'PlayQueue' when data is Map<String, dynamic> => QueueChanged(PlayQueue.fromJson(data)),
-    'NotInGroup' => SyncPlayError(type, 'Vous ne faites plus partie de cette soirée.'),
-    'GroupDoesNotExist' => SyncPlayError(type, 'Cette soirée n’existe plus.'),
+    'NotInGroup' => SyncPlayError(type, L.t('Vous ne faites plus partie de cette soirée.')),
+    'GroupDoesNotExist' => SyncPlayError(type, L.t('Cette soirée n’existe plus.')),
     'CreateGroupDenied' => SyncPlayError(
       type,
-      'Votre compte n’a pas le droit de créer une soirée (réglage SyncPlay du serveur).',
+      L.t('Votre compte n’a pas le droit de créer une soirée (réglage SyncPlay du serveur).'),
     ),
     'JoinGroupDenied' => SyncPlayError(
       type,
-      'Votre compte n’a pas le droit de rejoindre une soirée (réglage SyncPlay du serveur).',
+      L.t('Votre compte n’a pas le droit de rejoindre une soirée (réglage SyncPlay du serveur).'),
     ),
-    'LibraryAccessDenied' => SyncPlayError(type, 'Un participant n’a pas accès à ce titre dans ses bibliothèques.'),
+    'LibraryAccessDenied' => SyncPlayError(type, L.t('Un participant n’a pas accès à ce titre dans ses bibliothèques.')),
     _ => null,
   };
 }

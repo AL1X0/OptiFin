@@ -13,6 +13,7 @@ import '../../settings/domain/app_settings.dart';
 import '../../settings/presentation/settings_providers.dart';
 import '../domain/playback_extras.dart';
 import 'player_controller.dart';
+import '../../../core/l10n/l.dart';
 
 /// Bouton « Passer l'intro » (et récap, aperçu, générique) : visible même contrôles masqués.
 class SkipSegmentButton extends StatelessWidget {
@@ -81,7 +82,7 @@ class _UpNextCardState extends ConsumerState<UpNextCard> with SingleTickerProvid
     const width = 300.0;
     return Semantics(
       container: true,
-      label: 'Épisode suivant : ${next.name}',
+      label: L.f('Épisode suivant : {0}', [next.name]),
       child: LiquidGlass(
         borderRadius: const BorderRadius.all(Radius.circular(22)),
         shade: 0.55,
@@ -127,7 +128,7 @@ class _UpNextCardState extends ConsumerState<UpNextCard> with SingleTickerProvid
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'ÉPISODE SUIVANT',
+                          L.t('ÉPISODE SUIVANT'),
                           style: OFTypography.caption.copyWith(color: OFColors.textTertiary, letterSpacing: 1.2),
                         ),
                         const SizedBox(height: OFSpacing.xs),
@@ -147,8 +148,8 @@ class _UpNextCardState extends ConsumerState<UpNextCard> with SingleTickerProvid
                                   final left = widget.countdown * (1 - _progress.value);
                                   return OFButton(
                                     label: widget.autoPlay && _progress.isAnimating
-                                        ? 'Lecture dans ${left.inSeconds + 1} s'
-                                        : 'Lire',
+                                        ? L.f('Lecture dans {0} s', [left.inSeconds + 1])
+                                        : L.t('Lire'),
                                     icon: Icons.play_arrow_rounded,
                                     expand: true,
                                     onPressed: widget.onPlay,
@@ -159,7 +160,7 @@ class _UpNextCardState extends ConsumerState<UpNextCard> with SingleTickerProvid
                             const SizedBox(width: OFSpacing.sm),
                             OFGlassButton(
                               icon: Icons.close_rounded,
-                              label: 'Continuer le générique',
+                              label: L.t('Continuer le générique'),
                               size: 48,
                               iconSize: 22,
                               onPressed: widget.onDismiss,
@@ -347,7 +348,7 @@ class _SubtitleSearchSheetState extends ConsumerState<SubtitleSearchSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e is ApiFailure ? e.userMessage : 'Téléchargement impossible.')));
+          .showSnackBar(SnackBar(content: Text(e is ApiFailure ? e.userMessage : L.t('Téléchargement impossible.'))));
     } finally {
       if (mounted) setState(() => _downloading = null);
     }
@@ -364,9 +365,9 @@ class _SubtitleSearchSheetState extends ConsumerState<SubtitleSearchSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Padding(
-              padding: EdgeInsets.all(OFSpacing.sm),
-              child: Text('Rechercher des sous-titres', style: OFTypography.title2),
+            Padding(
+              padding: const EdgeInsets.all(OFSpacing.sm),
+              child: Text(L.t('Rechercher des sous-titres'), style: OFTypography.title2),
             ),
             SizedBox(
               height: 44,
@@ -409,14 +410,14 @@ class _SubtitleSearchSheetState extends ConsumerState<SubtitleSearchSheet> {
                   if (snap.hasError) {
                     final e = snap.error;
                     return StatusMessage(
-                      text: e is ApiFailure ? e.userMessage : 'Recherche impossible.',
+                      text: e is ApiFailure ? e.userMessage : L.t('Recherche impossible.'),
                       onRetry: _search,
                     );
                   }
                   final list = snap.data ?? const [];
                   if (list.isEmpty) {
-                    return const StatusMessage(
-                      text: 'Aucun sous-titre trouvé. Un fournisseur (ex. OpenSubtitles) doit être installé sur le serveur.',
+                    return StatusMessage(
+                      text: L.t('Aucun sous-titre trouvé. Un fournisseur (ex. OpenSubtitles) doit être installé sur le serveur.'),
                     );
                   }
                   return ListView.builder(

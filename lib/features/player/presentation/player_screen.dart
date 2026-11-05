@@ -19,6 +19,7 @@ import 'player_controller.dart';
 import 'player_overlays.dart';
 import 'player_menu.dart';
 import 'player_sheets.dart';
+import '../../../core/l10n/l.dart';
 
 /// Lecteur plein écran. Même UI quel que soit le moteur : tout passe par
 /// [PlayerController] et l'interface [PlaybackEngine].
@@ -119,7 +120,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   ),
                 switch (state.phase) {
                   PlayerPhase.error => _ErrorView(
-                    message: state.error ?? 'Erreur de lecture.',
+                    message: state.error ?? L.t('Erreur de lecture.'),
                     // Mode debug : détail technique + accès direct aux journaux.
                     detail: ref.watch(settingsProvider).debugMode ? state.technicalError : null,
                     onLogs: ref.watch(settingsProvider).debugMode ? () => context.push(Routes.logs) : null,
@@ -274,8 +275,8 @@ class _ErrorView extends StatelessWidget {
               spacing: OFSpacing.md,
               children: [
                 if (onLogs != null)
-                  OFButton.secondary(label: 'Journaux', icon: Icons.receipt_long_outlined, onPressed: onLogs),
-                OFButton.secondary(label: 'Fermer', onPressed: onClose),
+                  OFButton.secondary(label: L.t('Journaux'), icon: Icons.receipt_long_outlined, onPressed: onLogs),
+                OFButton.secondary(label: L.t('Fermer'), onPressed: onClose),
               ],
             ),
           ],
@@ -294,7 +295,7 @@ class _CloseButton extends StatelessWidget {
   Widget build(BuildContext context) => SafeArea(
     child: Padding(
       padding: const EdgeInsets.all(OFSpacing.md),
-      child: OFGlassButton(icon: Icons.close_rounded, label: 'Fermer le lecteur', onPressed: onClose),
+      child: OFGlassButton(icon: Icons.close_rounded, label: L.t('Fermer le lecteur'), onPressed: onClose),
     ),
   );
 }
@@ -673,7 +674,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     final ok = await widget.controller.enterPictureInPicture();
     if (!ok && mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Picture-in-Picture indisponible pour cette lecture.')));
+          .showSnackBar(SnackBar(content: Text(L.t('Picture-in-Picture indisponible pour cette lecture.'))));
     }
   }
 
@@ -871,7 +872,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                           child: IgnorePointer(
                             ignoring: !_showUnlock,
                             child: OFGlassButton(
-                              label: 'Déverrouiller',
+                              label: L.t('Déverrouiller'),
                               icon: Icons.lock_open_rounded,
                               iconSize: 22,
                               size: 48,
@@ -1003,9 +1004,9 @@ class _ControlsLayer extends StatelessWidget {
     final position = scrubbing ?? snapshot.position;
     final chapter = ui.extras.chapterAt(position);
     final (fitIcon, fitLabel) = switch (fit) {
-      BoxFit.contain => (Icons.fit_screen_rounded, 'Zoomer (remplir l’écran)'),
-      BoxFit.cover => (Icons.aspect_ratio_rounded, 'Étirer à l’écran'),
-      _ => (Icons.fullscreen_exit_rounded, 'Format d’origine'),
+      BoxFit.contain => (Icons.fit_screen_rounded, L.t('Zoomer (remplir l’écran)')),
+      BoxFit.cover => (Icons.aspect_ratio_rounded, L.t('Étirer à l’écran')),
+      _ => (Icons.fullscreen_exit_rounded, L.t('Format d’origine')),
     };
     final m = metrics;
     final times = OFTypography.caption.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
@@ -1035,7 +1036,7 @@ class _ControlsLayer extends StatelessWidget {
                   children: [
                     OFGlassButton(
                       icon: Icons.close_rounded,
-                      label: 'Fermer le lecteur',
+                      label: L.t('Fermer le lecteur'),
                       size: m.button,
                       iconSize: m.button * 0.5,
                       onPressed: onClose,
@@ -1076,7 +1077,7 @@ class _ControlsLayer extends StatelessWidget {
                         _BareButton(icon: fitIcon, label: fitLabel, size: m.button, onTap: onCycleFit),
                         _BareButton(
                           icon: menuOpen ? Icons.close_rounded : Icons.tune_rounded,
-                          label: 'Réglages',
+                          label: L.t('Réglages'),
                           size: m.button,
                           active: menuOpen,
                           onTap: onSettings,
@@ -1096,7 +1097,7 @@ class _ControlsLayer extends StatelessWidget {
                   children: [
                     _PlainButton(
                       icon: Icons.replay_10_rounded,
-                      label: 'Reculer de 10 secondes',
+                      label: L.t('Reculer de 10 secondes'),
                       size: m.skip,
                       iconSize: m.skip * 0.62,
                       onPressed: () => onSkip(const Duration(seconds: -10)),
@@ -1104,7 +1105,7 @@ class _ControlsLayer extends StatelessWidget {
                     SizedBox(width: m.gap),
                     _PlainButton(
                       icon: snapshot.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      label: snapshot.playing ? 'Pause' : 'Lecture',
+                      label: snapshot.playing ? L.t('Pause') : L.t('Lecture'),
                       size: m.play,
                       iconSize: m.play * 0.72,
                       onPressed: onPlayPause,
@@ -1114,7 +1115,7 @@ class _ControlsLayer extends StatelessWidget {
                     SizedBox(width: m.gap),
                     _PlainButton(
                       icon: Icons.forward_10_rounded,
-                      label: 'Avancer de 10 secondes',
+                      label: L.t('Avancer de 10 secondes'),
                       size: m.skip,
                       iconSize: m.skip * 0.62,
                       onPressed: () => onSkip(const Duration(seconds: 10)),
@@ -1414,7 +1415,7 @@ class _ScrubberState extends State<Scrubber> {
         final width = constraints.maxWidth;
         return Semantics(
           slider: true,
-          label: 'Position de lecture',
+          label: L.t('Position de lecture'),
           value: MediaFormat.clock(widget.position),
           increasedValue: MediaFormat.clock(widget.position + step),
           decreasedValue: MediaFormat.clock(widget.position > step ? widget.position - step : Duration.zero),

@@ -15,6 +15,7 @@ import '../../player/data/playback_repository.dart';
 import '../../player/domain/playback_plan.dart';
 import '../domain/download.dart';
 import 'file_transfers.dart';
+import '../../../core/l10n/l.dart';
 
 /// Fichier local prêt à lire hors connexion.
 class LocalMedia {
@@ -125,13 +126,13 @@ class DownloadsRepository {
   /// Télécharge le fichier d'origine de [itemId] (film ou épisode).
   Future<void> add(String itemId, {bool wifiOnly = true}) async {
     final media = this.media, playback = this.playback, images = this.images;
-    if (media == null || playback == null || images == null) throw StateError('Connexion requise');
+    if (media == null || playback == null || images == null) throw StateError(L.t('Connexion requise'));
     final existing = await (_db.select(_db.downloads)..where((t) => t.itemId.equals(itemId))).getSingleOrNull();
     if (existing != null && DownloadStatus.parse(existing.status) != DownloadStatus.failed) return;
 
     final (dto, info) = await (media.itemRaw(itemId), playback.downloadInfo(itemId)).wait;
     final plan = PlaybackRepository.planFromResponse(info, itemId: itemId, baseUrl: playback.baseUrl);
-    if (plan.method != PlayMethod.directPlay) throw StateError('Fichier non téléchargeable');
+    if (plan.method != PlayMethod.directPlay) throw StateError(L.t('Fichier non téléchargeable'));
     final item = MediaMapper.fromDto(dto);
     final ext = fileExtension(plan.container);
     final path = '$_dir/$itemId.$ext';

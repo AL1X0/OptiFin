@@ -13,6 +13,7 @@ import '../../common/presentation/media_cards.dart';
 import '../../home/domain/home_data.dart';
 import 'details_providers.dart';
 import 'item_details_screen.dart';
+import '../../../core/l10n/l.dart';
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.title);
@@ -67,7 +68,7 @@ class _SeasonsSectionState extends ConsumerState<SeasonsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('Épisodes'),
+        _SectionTitle(L.t('Épisodes')),
         if (seasons.length > 1)
           SizedBox(
             height: 40,
@@ -131,7 +132,7 @@ class _EpisodeList extends ConsumerWidget {
                   onPressed: () => startDownload(context, ref, [for (final e in value) e.id]),
                   icon: const Icon(Icons.download_rounded, size: 20),
                   label: Text(
-                    'Télécharger la saison (${value.length} épisode${value.length > 1 ? 's' : ''})',
+                    L.count(value.length, 'Télécharger la saison ({0} épisode)', 'Télécharger la saison ({0} épisodes)'),
                     style: OFTypography.callout,
                   ),
                 ),
@@ -146,7 +147,7 @@ class _EpisodeList extends ConsumerWidget {
         ),
       ),
       AsyncError() => StatusMessage(
-        text: 'Impossible de charger les épisodes.',
+        text: L.t('Impossible de charger les épisodes.'),
         onRetry: () => ref.invalidate(episodesProvider((seriesId, seasonId))),
       ),
       _ => const Padding(
@@ -278,7 +279,7 @@ class ChildrenSection extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(top: OFSpacing.xxl),
       child: MediaItemsRow(
-        title: parent.kind == MediaKind.playlist ? 'Contenu' : 'Dans cette collection',
+        title: parent.kind == MediaKind.playlist ? L.t('Contenu') : L.t('Dans cette collection'),
         items: children,
         style: childStyle(parent),
         heroScope: 'children',
@@ -305,7 +306,7 @@ class CastSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('Distribution'),
+        _SectionTitle(L.t('Distribution')),
         SizedBox(
           height: size + 52,
           child: ListView.builder(
@@ -378,7 +379,7 @@ class SimilarSection extends ConsumerWidget {
     if (similar == null || similar.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: OFSpacing.xxl),
-      child: MediaItemsRow(title: 'Titres similaires', items: similar, style: CardStyle.poster, heroScope: 'similar'),
+      child: MediaItemsRow(title: L.t('Titres similaires'), items: similar, style: CardStyle.poster, heroScope: 'similar'),
     );
   }
 }
@@ -412,19 +413,19 @@ class TechnicalSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('Informations techniques'),
+        _SectionTitle(L.t('Informations techniques')),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: gutter),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (video != null) _TechRow(label: 'Vidéo', value: videoLine(video)),
+              if (video != null) _TechRow(label: L.t('Vidéo'), value: videoLine(video)),
               for (final (i, a) in audios.take(6).indexed)
                 _TechRow(
                   label: i == 0 ? 'Audio' : '',
                   value: a.title ?? [a.codec.toUpperCase(), ?a.language].join(' · '),
                 ),
-              if (audios.length > 6) _TechRow(label: '', value: '+ ${audios.length - 6} autres pistes'),
+              if (audios.length > 6) _TechRow(label: '', value: L.f('+ {0} autres pistes', [audios.length - 6])),
             ],
           ),
         ),

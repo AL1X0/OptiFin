@@ -11,6 +11,7 @@ import '../../../core/providers.dart';
 import '../../auth/presentation/account_switcher.dart';
 import '../../common/presentation/media_cards.dart';
 import 'library_providers.dart';
+import '../../../core/l10n/l.dart';
 
 /// Onglet Bibliothèques : grille des vues de l'utilisateur.
 class LibrariesScreen extends ConsumerWidget {
@@ -30,18 +31,18 @@ class LibrariesScreen extends ConsumerWidget {
       child: Scaffold(
         body: CustomScrollView(
           slivers: [
-            const OFLargeTitleSliver(
-              title: 'Bibliothèques',
+            OFLargeTitleSliver(
+              title: L.t('Bibliothèques'),
               actions: [
-                _SettingsButton(),
-                SizedBox(width: OFSpacing.md),
-                AccountButton(),
+                const _SettingsButton(),
+                const SizedBox(width: OFSpacing.md),
+                const AccountButton(),
               ],
             ),
             const SliverToBoxAdapter(child: SizedBox(height: OFSpacing.lg)),
             switch (views) {
-              AsyncData(:final value) when value.isEmpty => const SliverFillRemaining(
-                child: StatusMessage(text: 'Aucune bibliothèque.'),
+              AsyncData(:final value) when value.isEmpty => SliverFillRemaining(
+                child: StatusMessage(text: L.t('Aucune bibliothèque.')),
               ),
               AsyncData(:final value) => SliverPadding(
                 padding: EdgeInsets.fromLTRB(gutter, 0, gutter, MediaQuery.paddingOf(context).bottom + 96),
@@ -74,7 +75,7 @@ class LibrariesScreen extends ConsumerWidget {
               ),
               AsyncError(:final error) => SliverFillRemaining(
                 child: StatusMessage(
-                  text: error is ApiFailure ? error.userMessage : 'Impossible de charger les bibliothèques.',
+                  text: error is ApiFailure ? error.userMessage : L.t('Impossible de charger les bibliothèques.'),
                   onRetry: () => ref.invalidate(userViewsProvider),
                 ),
               ),
@@ -93,7 +94,7 @@ class _SettingsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => OFIconButton(
     icon: Icons.settings_outlined,
-    tooltip: 'Paramètres',
+    tooltip: L.t('Paramètres'),
     onPressed: () => context.push(Routes.settings),
   );
 }

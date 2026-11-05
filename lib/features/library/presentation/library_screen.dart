@@ -18,6 +18,7 @@ import '../domain/library_pager.dart';
 import '../domain/library_query.dart';
 import 'library_options_sheet.dart';
 import 'library_providers.dart';
+import '../../../core/l10n/l.dart';
 
 /// Parcours d'une bibliothèque, d'un genre ou d'un studio.
 class LibraryScreen extends ConsumerWidget {
@@ -33,7 +34,7 @@ class LibraryScreen extends ConsumerWidget {
       AsyncError(:final error) => Scaffold(
         appBar: AppBar(backgroundColor: Colors.transparent),
         body: StatusMessage(
-          text: error is ApiFailure ? error.userMessage : 'Bibliothèque indisponible.',
+          text: error is ApiFailure ? error.userMessage : L.t('Bibliothèque indisponible.'),
           onRetry: () => ref.invalidate(libraryContextProvider(source)),
         ),
       ),
@@ -140,7 +141,7 @@ class _LibraryBrowserState extends ConsumerState<_LibraryBrowser> {
                 final e = _pager.error;
                 body = StatusMessage(
                   key: const ValueKey('erreur'),
-                  text: e is ApiFailure ? e.userMessage : 'Impossible de charger le contenu.',
+                  text: e is ApiFailure ? e.userMessage : L.t('Impossible de charger le contenu.'),
                   onRetry: _pager.retry,
                 );
               } else if (total == null) {
@@ -150,8 +151,8 @@ class _LibraryBrowserState extends ConsumerState<_LibraryBrowser> {
                   key: const ValueKey('vide'),
                   icon: Icons.filter_alt_off_rounded,
                   text: _query.activeFilterCount > 0
-                      ? 'Aucun résultat avec ces filtres.'
-                      : 'Cette bibliothèque est vide.',
+                      ? L.t('Aucun résultat avec ces filtres.')
+                      : L.t('Cette bibliothèque est vide.'),
                 );
               } else {
                 body = EntranceScope(
@@ -234,7 +235,7 @@ class _LibraryBrowserState extends ConsumerState<_LibraryBrowser> {
                     right: 0,
                     child: _TopBar(
                       title: widget.context0.title,
-                      subtitle: total == null ? null : '$total élément${total > 1 ? 's' : ''}',
+                      subtitle: total == null ? null : L.count(total, '{0} élément', '{0} éléments'),
                       filterCount: _query.activeFilterCount,
                       listMode: _listMode,
                       onToggleMode: () => setState(() => _listMode = !_listMode),
@@ -314,12 +315,12 @@ class _TopBar extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: listMode ? 'Affichage grille' : 'Affichage liste',
+                tooltip: listMode ? L.t('Affichage grille') : L.t('Affichage liste'),
                 icon: Icon(listMode ? Icons.grid_view_rounded : Icons.view_list_rounded, size: 22),
                 onPressed: onToggleMode,
               ),
               IconButton(
-                tooltip: 'Trier et filtrer',
+                tooltip: L.t('Trier et filtrer'),
                 onPressed: onOptions,
                 icon: Badge(
                   isLabelVisible: filterCount > 0,
@@ -481,7 +482,7 @@ class _AlphabetIndexState extends State<AlphabetIndex> {
       builder: (context, constraints) {
         final h = constraints.maxHeight;
         return Semantics(
-          label: 'Index alphabétique',
+          label: L.t('Index alphabétique'),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onVerticalDragStart: (d) => _select(d.localPosition.dy, h),

@@ -5,6 +5,7 @@ import '../domain/playback_plan.dart';
 import '../domain/playback_reporter.dart';
 import 'device_profiles.dart';
 import 'source_profile_mapper.dart';
+import '../../../core/l10n/l.dart';
 
 /// Lecture refusée par le serveur (droits, aucun flux compatible, limite de débit).
 class PlaybackDeniedFailure extends ApiFailure {
@@ -14,10 +15,10 @@ class PlaybackDeniedFailure extends ApiFailure {
 
   @override
   String get userMessage => switch (reason) {
-    'NotAllowed' => 'La lecture de ce contenu n’est pas autorisée pour votre compte.',
-    'NoCompatibleStream' => 'Aucun flux compatible : le serveur ne peut pas préparer ce fichier.',
-    'RateLimitExceeded' => 'Limite de débit du serveur atteinte. Réessayez plus tard.',
-    _ => 'Le serveur a refusé la lecture ($reason).',
+    'NotAllowed' => L.t('La lecture de ce contenu n’est pas autorisée pour votre compte.'),
+    'NoCompatibleStream' => L.t('Aucun flux compatible : le serveur ne peut pas préparer ce fichier.'),
+    'RateLimitExceeded' => L.t('Limite de débit du serveur atteinte. Réessayez plus tard.'),
+    _ => L.f('Le serveur a refusé la lecture ({0}).', [reason]),
   };
 }
 
@@ -201,7 +202,7 @@ class PlaybackRepository implements PlaybackReportSink {
       type: type,
       label: (s.displayTitle?.isNotEmpty ?? false)
           ? s.displayTitle!
-          : (fallback.isEmpty ? 'Piste ${s.index}' : fallback),
+          : (fallback.isEmpty ? L.f('Piste {0}', [s.index]) : fallback),
       language: language,
       codec: codec,
       isDefault: s.isDefault ?? false,

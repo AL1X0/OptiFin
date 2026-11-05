@@ -17,6 +17,7 @@ import '../../home/domain/home_data.dart';
 import '../../player/presentation/player_controller.dart';
 import 'details_providers.dart';
 import 'details_sections.dart';
+import '../../../core/l10n/l.dart';
 
 /// Fiche film / série / épisode / collection.
 class ItemDetailsScreen extends ConsumerWidget {
@@ -44,7 +45,7 @@ class ItemDetailsScreen extends ConsumerWidget {
             children: [
               StatusMessage(
                 icon: Icons.error_outline_rounded,
-                text: error is ApiFailure ? error.userMessage : 'Impossible d’afficher cet élément.',
+                text: error is ApiFailure ? error.userMessage : L.t('Impossible d’afficher cet élément.'),
                 onRetry: () => ref.invalidate(itemProvider(itemId)),
               ),
               const _BackButton(),
@@ -392,7 +393,7 @@ class _Summary extends ConsumerWidget {
     final writers = item.people.where((p) => p.kind == PersonKind.writer).toList();
 
     String playLabel() {
-      final verb = targetResumable ? 'Reprendre' : 'Lecture';
+      final verb = targetResumable ? L.t('Reprendre') : L.t('Lecture');
       if (nextUp != null) return '$verb ${nextUp.episodeLabel ?? ''}'.trim();
       return verb;
     }
@@ -417,7 +418,7 @@ class _Summary extends ConsumerWidget {
             if (canPlay && targetResumable)
               OFIconButton(
                 icon: Icons.restart_alt_rounded,
-                tooltip: 'Lire depuis le début',
+                tooltip: L.t('Lire depuis le début'),
                 onPressed: () => context.play(playTarget.id, start: Duration.zero),
               ),
             if (item.kind != MediaKind.person)
@@ -425,14 +426,14 @@ class _Summary extends ConsumerWidget {
                 active: user.played,
                 icon: Icons.check_circle_outline_rounded,
                 activeIcon: Icons.check_circle_rounded,
-                label: user.played ? 'Marquer comme non vu' : 'Marquer comme vu',
+                label: user.played ? L.t('Marquer comme non vu') : L.t('Marquer comme vu'),
                 onTap: () => run(() => controller.togglePlayed(user)),
               ),
             _ToggleIcon(
               active: user.favorite,
               icon: Icons.favorite_border_rounded,
               activeIcon: Icons.favorite_rounded,
-              label: user.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
+              label: user.favorite ? L.t('Retirer des favoris') : L.t('Ajouter aux favoris'),
               onTap: () => run(() => controller.toggleFavorite(user)),
             ),
             if (item.kind.isPlayableVideo) DownloadButton(itemId: item.id),
@@ -471,7 +472,7 @@ class _Summary extends ConsumerWidget {
         if (item.kind == MediaKind.episode && item.seriesId != null) ...[
           const SizedBox(height: OFSpacing.lg),
           OFButton.secondary(
-            label: 'Voir la série',
+            label: L.t('Voir la série'),
             icon: Icons.tv_rounded,
             onPressed: () => context.openItemId(item.seriesId!),
           ),
@@ -496,8 +497,8 @@ class _Summary extends ConsumerWidget {
         ],
         if (directors.isNotEmpty || writers.isNotEmpty || item.studios.isNotEmpty) ...[
           const SizedBox(height: OFSpacing.xl),
-          if (directors.isNotEmpty) _InfoLine(label: 'Réalisation', people: directors),
-          if (writers.isNotEmpty) _InfoLine(label: 'Scénario', people: writers),
+          if (directors.isNotEmpty) _InfoLine(label: L.t('Réalisation'), people: directors),
+          if (writers.isNotEmpty) _InfoLine(label: L.t('Scénario'), people: writers),
           if (item.studios.isNotEmpty)
             _InfoLine.named(label: 'Studio', refs: item.studios.take(3).toList(), onTap: context.openStudio),
         ],
@@ -697,7 +698,7 @@ class _ExpandableTextState extends State<ExpandableText> {
                     Padding(
                       padding: const EdgeInsets.only(top: OFSpacing.xs),
                       child: Text(
-                        _expanded ? 'Moins' : 'Plus',
+                        _expanded ? L.t('Moins') : L.t('Plus'),
                         style: OFTypography.callout.copyWith(color: Theme.of(context).colorScheme.primary),
                       ),
                     ),

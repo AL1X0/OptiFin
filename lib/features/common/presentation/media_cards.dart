@@ -6,6 +6,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/media/media_item.dart';
 import '../../../core/providers.dart';
 import '../../home/domain/home_data.dart';
+import '../../../core/l10n/l.dart';
 
 /// Largeur de carte selon le style et la largeur d'écran.
 double cardWidthFor(CardStyle style, double screenWidth) {
@@ -92,7 +93,7 @@ class MediaCard extends ConsumerWidget {
     }
     if (i.kind == MediaKind.series && (i.user.unplayedCount ?? 0) > 0) {
       final n = i.user.unplayedCount!;
-      return '$n épisode${n > 1 ? 's' : ''} non vu${n > 1 ? 's' : ''}';
+      return L.count(n, '{0} épisode non vu', '{0} épisodes non vus');
     }
     return i.year?.toString();
   }
@@ -204,7 +205,7 @@ class StatusMessage extends StatelessWidget {
             ),
             if (onRetry != null) ...[
               const SizedBox(height: OFSpacing.lg),
-              OFButton.secondary(label: 'Réessayer', onPressed: onRetry),
+              OFButton.secondary(label: L.t('Réessayer'), onPressed: onRetry),
             ],
           ],
         ),

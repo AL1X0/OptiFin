@@ -7,6 +7,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/providers.dart';
 import '../domain/syncplay_models.dart';
 import 'watch_party_controller.dart';
+import '../../../core/l10n/l.dart';
 
 /// Ouvre le panneau « Soirée ».
 void showWatchParty(BuildContext context) {
@@ -26,8 +27,8 @@ class WatchPartyButton extends ConsumerWidget {
     return Semantics(
       button: true,
       label: group == null
-          ? 'Soirée : regarder ensemble'
-          : 'Soirée ${group.name}, ${group.participants.length} participants',
+          ? L.t('Soirée : regarder ensemble')
+          : L.f('Soirée {0}, {1} participants', [group.name, group.participants.length]),
       excludeSemantics: true,
       child: OFFocusable(
         onSelect: () => showWatchParty(context),
@@ -82,7 +83,7 @@ class _WatchPartySheetState extends ConsumerState<WatchPartySheet> {
   void initState() {
     super.initState();
     final user = ref.read(sessionControllerProvider)?.account.userName ?? '';
-    _name = TextEditingController(text: 'Soirée de $user');
+    _name = TextEditingController(text: L.f('Soirée de {0}', [user]));
     _refresh();
   }
 
@@ -109,27 +110,27 @@ class _WatchPartySheetState extends ConsumerState<WatchPartySheet> {
       shrinkWrap: true,
       padding: const EdgeInsets.fromLTRB(OFSpacing.xl, OFSpacing.lg, OFSpacing.xl, OFSpacing.xl),
       children: [
-        const Text('Soirée', style: OFTypography.title2),
+        Text(L.t('Soirée'), style: OFTypography.title2),
         const SizedBox(height: OFSpacing.sm),
         if (group != null) ...[
           Text(group.name, style: OFTypography.headline),
           const SizedBox(height: OFSpacing.xs),
           Text(switch (group.state) {
-            GroupState.playing => 'Lecture en cours',
-            GroupState.paused => 'En pause',
-            GroupState.waiting => 'En attente des participants…',
-            GroupState.idle => 'Lancez un film ou un épisode : il démarre chez tout le monde, au même moment.',
+            GroupState.playing => L.t('Lecture en cours'),
+            GroupState.paused => L.t('En pause'),
+            GroupState.waiting => L.t('En attente des participants…'),
+            GroupState.idle => L.t('Lancez un film ou un épisode : il démarre chez tout le monde, au même moment.'),
           }, style: OFTypography.caption.copyWith(color: OFColors.textSecondary)),
           if (!party.connected) ...[
             const SizedBox(height: OFSpacing.xs),
             Text(
-              'Connexion au serveur interrompue, reconnexion…',
+              L.t('Connexion au serveur interrompue, reconnexion…'),
               style: OFTypography.caption.copyWith(color: OFColors.danger),
             ),
           ],
           const SizedBox(height: OFSpacing.lg),
           Text(
-            'PARTICIPANTS (${group.participants.length})',
+            L.f('PARTICIPANTS ({0})', [group.participants.length]),
             style: OFTypography.caption.copyWith(color: OFColors.textTertiary),
           ),
           const SizedBox(height: OFSpacing.sm),
@@ -146,7 +147,7 @@ class _WatchPartySheetState extends ConsumerState<WatchPartySheet> {
             ),
           const SizedBox(height: OFSpacing.lg),
           OFButton.secondary(
-            label: 'Quitter la soirée',
+            label: L.t('Quitter la soirée'),
             icon: Icons.logout_rounded,
             expand: true,
             loading: _busy,
@@ -154,32 +155,32 @@ class _WatchPartySheetState extends ConsumerState<WatchPartySheet> {
           ),
         ] else ...[
           Text(
-            'Regardez un film à plusieurs, chacun chez soi : lecture, pause et avance sont synchronisées.',
+            L.t('Regardez un film à plusieurs, chacun chez soi : lecture, pause et avance sont synchronisées.'),
             style: OFTypography.caption.copyWith(color: OFColors.textSecondary),
           ),
           const SizedBox(height: OFSpacing.lg),
-          OFTextField(label: 'Nom de la soirée', controller: _name, textInputAction: TextInputAction.done),
+          OFTextField(label: L.t('Nom de la soirée'), controller: _name, textInputAction: TextInputAction.done),
           const SizedBox(height: OFSpacing.md),
           OFButton(
-            label: 'Créer une soirée',
+            label: L.t('Créer une soirée'),
             icon: Icons.add_rounded,
             expand: true,
             loading: _busy,
             onPressed: party.connected
-                ? () => _run(() => controller.create(_name.text.trim().isEmpty ? 'Soirée' : _name.text.trim()))
+                ? () => _run(() => controller.create(_name.text.trim().isEmpty ? L.t('Soirée') : _name.text.trim()))
                 : null,
           ),
           if (!party.connected) ...[
             const SizedBox(height: OFSpacing.xs),
-            Text('Connexion au serveur en cours…', style: OFTypography.caption.copyWith(color: OFColors.textTertiary)),
+            Text(L.t('Connexion au serveur en cours…'), style: OFTypography.caption.copyWith(color: OFColors.textTertiary)),
           ],
           const SizedBox(height: OFSpacing.xl),
           Row(
             children: [
               Expanded(
-                child: Text('SOIRÉES EN COURS', style: OFTypography.caption.copyWith(color: OFColors.textTertiary)),
+                child: Text(L.t('SOIRÉES EN COURS'), style: OFTypography.caption.copyWith(color: OFColors.textTertiary)),
               ),
-              OFIconButton(icon: Icons.refresh_rounded, tooltip: 'Actualiser', onPressed: () => setState(_refresh)),
+              OFIconButton(icon: Icons.refresh_rounded, tooltip: L.t('Actualiser'), onPressed: () => setState(_refresh)),
             ],
           ),
           const SizedBox(height: OFSpacing.sm),
@@ -192,7 +193,7 @@ class _WatchPartySheetState extends ConsumerState<WatchPartySheet> {
               final groups = snapshot.data ?? const <GroupInfo>[];
               if (groups.isEmpty) {
                 return Text(
-                  'Aucune soirée pour le moment.',
+                  L.t('Aucune soirée pour le moment.'),
                   style: OFTypography.caption.copyWith(color: OFColors.textSecondary),
                 );
               }
@@ -220,7 +221,7 @@ class _WatchPartySheetState extends ConsumerState<WatchPartySheet> {
                             ),
                           ),
                           OFButton(
-                            label: 'Rejoindre',
+                            label: L.t('Rejoindre'),
                             onPressed: _busy ? null : () => _run(() => controller.join(g.id)),
                           ),
                         ],

@@ -3,6 +3,7 @@
 library;
 
 import '../../../core/media/media_item.dart';
+import '../../../core/l10n/l.dart';
 
 class Chapter {
   const Chapter({required this.index, required this.start, required this.name, this.imageTag});
@@ -118,10 +119,10 @@ class RemoteSubtitle {
   String get detail => [
     ?provider,
     if (format != null) format!.toUpperCase(),
-    if (hashMatch) 'Synchro exacte',
-    if (hearingImpaired) 'Malentendants',
-    if (forced) 'Forcés',
-    if (downloads != null) '$downloads téléchargements',
+    if (hashMatch) L.t('Synchro exacte'),
+    if (hearingImpaired) L.t('Malentendants'),
+    if (forced) L.t('Forcés'),
+    if (downloads != null) L.f('{0} téléchargements', [downloads]),
   ].join(' · ');
 }
 

@@ -6,6 +6,7 @@ import '../../../core/media/item_fields.dart';
 import '../../../core/media/media_item.dart';
 import '../../../core/media/media_mapper.dart';
 import '../domain/playback_extras.dart';
+import '../../../core/l10n/l.dart';
 
 /// Charge les compléments d'une lecture. Chaque partie est facultative : une
 /// fonctionnalité absente du serveur (segments avant 10.10, trickplay non
@@ -99,7 +100,7 @@ class PlaybackExtrasRepository {
         if (i.id != null && i.id!.isNotEmpty)
           RemoteSubtitle(
             id: i.id!,
-            name: (i.name?.trim().isNotEmpty ?? false) ? i.name!.trim() : 'Sous-titre ${i.id}',
+            name: (i.name?.trim().isNotEmpty ?? false) ? i.name!.trim() : L.f('Sous-titre {0}', [i.id]),
             provider: i.providerName,
             format: i.format,
             language: i.threeLetterIsoLanguageName,
@@ -126,7 +127,7 @@ class PlaybackExtrasRepository {
         Chapter(
           index: i,
           start: Duration(microseconds: (c.startPositionTicks ?? 0) ~/ 10),
-          name: (c.name?.trim().isNotEmpty ?? false) ? c.name!.trim() : 'Chapitre ${i + 1}',
+          name: (c.name?.trim().isNotEmpty ?? false) ? c.name!.trim() : L.f('Chapitre {0}', [i + 1]),
           imageTag: c.imageTag,
         ),
     ]..sort((a, b) => a.start.compareTo(b.start));

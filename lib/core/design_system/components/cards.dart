@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../theme.dart';
 import '../tokens.dart';
 import 'of_image.dart';
+import '../../../core/l10n/l.dart';
 
 /// Données minimales d'une carte média, indépendantes du DTO Jellyfin.
 class MediaCardData {
@@ -237,8 +238,8 @@ class _CardFrameState extends State<_CardFrame> {
     final semanticsLabel = [
       data.title,
       if (data.subtitle != null) data.subtitle!,
-      if (progress != null && progress > 0 && progress < 1) '${(progress * 100).round()} % regardé',
-      if (data.played) 'Vu',
+      if (progress != null && progress > 0 && progress < 1) L.f('{0} % regardé', [(progress * 100).round()]),
+      if (data.played) L.t('Vu'),
     ].join(', ');
 
     final onTap = widget.onTap == null

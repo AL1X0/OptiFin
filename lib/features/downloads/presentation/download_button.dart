@@ -8,6 +8,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../settings/presentation/settings_providers.dart';
 import '../domain/download.dart';
 import 'downloads_providers.dart';
+import '../../../core/l10n/l.dart';
 
 /// Lance le téléchargement de [itemIds] (message d'erreur lisible en cas d'échec).
 Future<void> startDownload(BuildContext context, WidgetRef ref, List<String> itemIds) async {
@@ -25,13 +26,13 @@ Future<void> startDownload(BuildContext context, WidgetRef ref, List<String> ite
       SnackBar(
         content: Text(
           itemIds.length == 1
-              ? 'Téléchargement lancé${wifiOnly ? ' (Wi-Fi uniquement)' : ''}.'
-              : '${itemIds.length} épisodes ajoutés aux téléchargements.',
+              ? L.t(wifiOnly ? 'Téléchargement lancé (Wi-Fi uniquement).' : 'Téléchargement lancé.')
+              : L.f('{0} épisodes ajoutés aux téléchargements.', [itemIds.length]),
         ),
       ),
     );
   } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Téléchargement impossible : $e')));
+    messenger.showSnackBar(SnackBar(content: Text(L.f('Téléchargement impossible : {0}', [e]))));
   }
 }
 
@@ -51,12 +52,12 @@ class DownloadButton extends ConsumerWidget {
     final accent = Theme.of(context).colorScheme.primary;
     final status = entry?.status;
     final (icon, label) = switch (status) {
-      null => (Icons.download_rounded, 'Télécharger'),
-      DownloadStatus.queued => (Icons.schedule_rounded, 'Téléchargement en attente'),
-      DownloadStatus.running => (Icons.stop_rounded, 'Téléchargement en cours'),
-      DownloadStatus.paused => (Icons.pause_rounded, 'Téléchargement en pause'),
-      DownloadStatus.complete => (Icons.download_done_rounded, 'Téléchargé'),
-      DownloadStatus.failed => (Icons.error_outline_rounded, 'Échec du téléchargement'),
+      null => (Icons.download_rounded, L.t('Télécharger')),
+      DownloadStatus.queued => (Icons.schedule_rounded, L.t('Téléchargement en attente')),
+      DownloadStatus.running => (Icons.stop_rounded, L.t('Téléchargement en cours')),
+      DownloadStatus.paused => (Icons.pause_rounded, L.t('Téléchargement en pause')),
+      DownloadStatus.complete => (Icons.download_done_rounded, L.t('Téléchargé')),
+      DownloadStatus.failed => (Icons.error_outline_rounded, L.t('Échec du téléchargement')),
     };
 
     return Semantics(
@@ -162,14 +163,14 @@ Future<void> showDownloadActions(BuildContext context, WidgetRef ref, DownloadEn
                   ],
                 ),
               ),
-              if (entry.status.active) action(Icons.pause_rounded, 'Mettre en pause', () => repo.pause(entry.itemId)),
+              if (entry.status.active) action(Icons.pause_rounded, L.t('Mettre en pause'), () => repo.pause(entry.itemId)),
               if (entry.status == DownloadStatus.paused)
-                action(Icons.play_arrow_rounded, 'Reprendre', () => repo.resume(entry.itemId)),
+                action(Icons.play_arrow_rounded, L.t('Reprendre'), () => repo.resume(entry.itemId)),
               if (entry.status == DownloadStatus.failed)
-                action(Icons.refresh_rounded, 'Réessayer', () => repo.resume(entry.itemId)),
+                action(Icons.refresh_rounded, L.t('Réessayer'), () => repo.resume(entry.itemId)),
               action(
                 entry.isComplete ? Icons.delete_outline_rounded : Icons.close_rounded,
-                entry.isComplete ? 'Supprimer le téléchargement' : 'Annuler le téléchargement',
+                entry.isComplete ? L.t('Supprimer le téléchargement') : L.t('Annuler le téléchargement'),
                 () => repo.remove(entry.itemId),
                 danger: true,
               ),

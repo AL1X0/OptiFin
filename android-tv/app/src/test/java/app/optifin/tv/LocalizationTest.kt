@@ -17,7 +17,7 @@ class LocalizationTest {
             .firstOrNull { it.isDirectory } ?: File("src/main/java")
         val call = Regex("""L\.(?:t|f)\(("(?:[^"\\]|\\.)*")|L\.count\([^,"]+,\s*("(?:[^"\\]|\\.)*"),\s*("(?:[^"\\]|\\.)*")\)""")
         val missing = root.walkTopDown().filter { it.extension == "kt" && it.name != "L.kt" }.flatMap { file ->
-            call.findAll(file.readText()).flatMap { m -> m.groupValues.drop(1).filter { it.isNotEmpty() }.map { it.trim('"') } }
+            call.findAll(file.readText()).flatMap { m -> m.groupValues.drop(1).filter { it.isNotEmpty() }.map { it.trim('"').replace("\\n", "\n") } }
                 .filter { it !in EnglishTexts }.map { "${file.name} : $it" }
         }.toSortedSet()
         assertTrue("Sans traduction :\n" + missing.joinToString("\n"), missing.isEmpty())

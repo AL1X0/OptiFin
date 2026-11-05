@@ -11,6 +11,7 @@ import '../domain/home_data.dart';
 import '../../downloads/presentation/downloads_providers.dart';
 import 'featured_carousel.dart';
 import 'home_providers.dart';
+import '../../../core/l10n/l.dart';
 
 /// Accueil : carrousel « à la une » puis rangées (Reprendre, À suivre,
 /// Ajouts récents par bibliothèque, Favoris).
@@ -56,16 +57,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       content = StatusMessage(
         key: const ValueKey('erreur'),
         icon: Icons.cloud_off_rounded,
-        text: error is ApiFailure ? error.userMessage : 'Impossible de charger l’accueil.',
+        text: error is ApiFailure ? error.userMessage : L.t('Impossible de charger l’accueil.'),
         onRetry: () => ref.invalidate(homeProvider),
       );
     } else if (data == null) {
       content = const _HomeSkeleton(key: ValueKey('squelette'));
     } else if (data.isEmpty) {
-      content = const StatusMessage(
-        key: ValueKey('vide'),
+      content = StatusMessage(
+        key: const ValueKey('vide'),
         icon: Icons.movie_filter_outlined,
-        text: 'Votre serveur ne contient encore rien à afficher.',
+        text: L.t('Votre serveur ne contient encore rien à afficher.'),
       );
     } else {
       content = EntranceScope(

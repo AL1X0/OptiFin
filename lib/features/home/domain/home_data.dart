@@ -3,6 +3,7 @@ import 'package:jellyfin_api/jellyfin_api.dart';
 import '../../../core/media/media_item.dart';
 import '../../../core/media/media_mapper.dart';
 import '../data/home_repository.dart';
+import '../../../core/l10n/l.dart';
 
 enum CardStyle { poster, landscape, square }
 
@@ -54,13 +55,13 @@ HomeData buildHome(HomeSnapshot s, {required bool fromCache, List<BaseItemDto> u
   ];
 
   final sections = <HomeSection>[
-    if (resume.isNotEmpty) HomeSection(id: 'resume', title: 'Reprendre', style: CardStyle.landscape, items: resume),
-    if (nextUp.isNotEmpty) HomeSection(id: 'nextUp', title: 'À suivre', style: CardStyle.landscape, items: nextUp),
+    if (resume.isNotEmpty) HomeSection(id: 'resume', title: L.t('Reprendre'), style: CardStyle.landscape, items: resume),
+    if (nextUp.isNotEmpty) HomeSection(id: 'nextUp', title: L.t('À suivre'), style: CardStyle.landscape, items: nextUp),
     for (final lib in libraries)
       if (s.latest[lib.id] case final items? when items.isNotEmpty)
         HomeSection(
           id: 'latest-${lib.id}',
-          title: 'Ajouts récents · ${lib.name}',
+          title: L.f('Ajouts récents · {0}', [lib.name]),
           style: styleForLibrary(lib.libraryType),
           items: [for (final i in items) MediaMapper.fromDto(i)],
           library: lib,
@@ -68,7 +69,7 @@ HomeData buildHome(HomeSnapshot s, {required bool fromCache, List<BaseItemDto> u
     if (s.favorites.isNotEmpty)
       HomeSection(
         id: 'favorites',
-        title: 'Favoris',
+        title: L.t('Favoris'),
         style: CardStyle.poster,
         items: [for (final i in s.favorites) MediaMapper.fromDto(i)],
       ),

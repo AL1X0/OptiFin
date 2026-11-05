@@ -11,6 +11,7 @@ import '../../../core/network/api_failure.dart';
 import '../../../core/providers.dart';
 import '../../common/presentation/media_cards.dart';
 import '../../home/domain/home_data.dart';
+import '../../../core/l10n/l.dart';
 
 /// Terme de recherche courant (déjà « debouncé »).
 final searchTermProvider = NotifierProvider<SearchTerm, String>(SearchTerm.new);
@@ -80,13 +81,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   style: OFTypography.body,
                   cursorColor: accent,
                   decoration: InputDecoration(
-                    hintText: 'Films, séries, personnes, musique…',
+                    hintText: L.t('Films, séries, personnes, musique…'),
                     hintStyle: OFTypography.body.copyWith(color: OFColors.textTertiary),
                     prefixIcon: const Icon(Icons.search_rounded, color: OFColors.textSecondary),
                     suffixIcon: _controller.text.isEmpty
                         ? null
                         : IconButton(
-                            tooltip: 'Effacer',
+                            tooltip: L.t('Effacer'),
                             icon: const Icon(Icons.close_rounded, color: OFColors.textSecondary),
                             onPressed: () {
                               _controller.clear();
@@ -104,21 +105,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               Expanded(
                 child: FadeThroughSwitcher(
                   child: switch (results) {
-                    AsyncData(value: null) => const StatusMessage(
-                      key: ValueKey('accueil'),
+                    AsyncData(value: null) => StatusMessage(
+                      key: const ValueKey('accueil'),
                       icon: Icons.search_rounded,
-                      text: 'Recherchez dans toutes vos bibliothèques.',
+                      text: L.t('Recherchez dans toutes vos bibliothèques.'),
                     ),
                     AsyncData(:final value?) when value.isEmpty => StatusMessage(
                       key: const ValueKey('aucun'),
                       icon: Icons.search_off_rounded,
-                      text: 'Aucun résultat pour « ${ref.read(searchTermProvider)} ».',
+                      text: L.f('Aucun résultat pour « {0} ».', [ref.read(searchTermProvider)]),
                     ),
                     // Nouvelle recherche : nouvelles entrées animées.
                     AsyncData(:final value?) => _Results(key: ValueKey(value), results: value),
                     AsyncError(:final error) => StatusMessage(
                       key: const ValueKey('erreur'),
-                      text: error is ApiFailure ? error.userMessage : 'La recherche a échoué.',
+                      text: error is ApiFailure ? error.userMessage : L.t('La recherche a échoué.'),
                       onRetry: () => ref.invalidate(searchResultsProvider),
                     ),
                     _ => const Center(key: ValueKey('chargement'), child: OFLoader()),
@@ -141,13 +142,13 @@ class _Results extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sections = <(String, List<MediaItem>, CardStyle)>[
-      ('Films', results.movies, CardStyle.poster),
-      ('Séries', results.series, CardStyle.poster),
-      ('Épisodes', results.episodes, CardStyle.landscape),
-      ('Collections et vidéos', results.others, CardStyle.poster),
-      ('Artistes', results.artists, CardStyle.square),
+      (L.t('Films'), results.movies, CardStyle.poster),
+      (L.t('Séries'), results.series, CardStyle.poster),
+      (L.t('Épisodes'), results.episodes, CardStyle.landscape),
+      (L.t('Collections et vidéos'), results.others, CardStyle.poster),
+      (L.t('Artistes'), results.artists, CardStyle.square),
       ('Albums', results.albums, CardStyle.square),
-      ('Morceaux', results.songs, CardStyle.square),
+      (L.t('Morceaux'), results.songs, CardStyle.square),
     ].where((s) => s.$2.isNotEmpty).toList();
 
     return EntranceScope(
@@ -186,7 +187,7 @@ class _PeopleRow extends ConsumerWidget {
     final dpr = MediaQuery.devicePixelRatioOf(context);
     const size = 84.0;
     return MediaRow(
-      title: 'Personnes',
+      title: L.t('Personnes'),
       itemCount: people.length,
       itemExtent: size + OFSpacing.lg,
       height: size + 32,

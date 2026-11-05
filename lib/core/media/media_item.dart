@@ -3,6 +3,8 @@
 /// Ne contient que ce que l'UI affiche : les écrans ne manipulent jamais `BaseItemDto`.
 library;
 
+import '../l10n/l.dart';
+
 enum MediaKind {
   movie,
   series,
@@ -280,7 +282,7 @@ class MediaItem {
     final s = parentIndexNumber;
     final e = indexNumber;
     if (s == null && e == null) return null;
-    if (s == 0) return 'Spécial${e != null ? ' $e' : ''}';
+    if (s == 0) return e != null ? L.f('Spécial {0}', [e]) : L.t('Spécial');
     return [if (s != null) 'S$s', if (e != null) 'É$e'].join(' · ');
   }
 

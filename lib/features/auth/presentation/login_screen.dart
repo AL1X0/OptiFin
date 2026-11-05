@@ -13,6 +13,7 @@ import '../../../core/providers.dart';
 import '../data/auth_repository.dart';
 import '../domain/entities.dart';
 import 'auth_providers.dart';
+import '../../../core/l10n/l.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key, this.initialUsername});
@@ -46,7 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _login(JellyfinServer server) async {
     if (_username.text.trim().isEmpty) {
-      setState(() => _error = 'Saisissez votre nom d’utilisateur.');
+      setState(() => _error = L.t('Saisissez votre nom d’utilisateur.'));
       return;
     }
     setState(() {
@@ -103,7 +104,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       alignment: Alignment.centerLeft,
                       child: OFIconButton(
                         icon: Icons.arrow_back_rounded,
-                        tooltip: 'Retour',
+                        tooltip: L.t('Retour'),
                         onPressed: () => context.pop(),
                       ),
                     ),
@@ -181,14 +182,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                     const SizedBox(height: OFSpacing.xl),
                     OFTextField(
-                      label: 'Nom d’utilisateur',
+                      label: L.t('Nom d’utilisateur'),
                       controller: _username,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.username],
                     ),
                     const SizedBox(height: OFSpacing.md),
                     OFTextField(
-                      label: 'Mot de passe',
+                      label: L.t('Mot de passe'),
                       controller: _password,
                       obscure: true,
                       textInputAction: TextInputAction.done,
@@ -197,11 +198,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       errorText: _error,
                     ),
                     const SizedBox(height: OFSpacing.xl),
-                    OFButton(label: 'Se connecter', expand: true, loading: _busy, onPressed: () => _login(server)),
+                    OFButton(label: L.t('Se connecter'), expand: true, loading: _busy, onPressed: () => _login(server)),
                     if (quickConnect) ...[
                       const SizedBox(height: OFSpacing.md),
                       OFButton.secondary(
-                        label: 'Utiliser Quick Connect',
+                        label: L.t('Utiliser Quick Connect'),
                         icon: Icons.bolt_rounded,
                         expand: true,
                         onPressed: _busy ? null : () => _quickConnect(server),
@@ -256,7 +257,7 @@ class _QuickConnectSheetState extends ConsumerState<_QuickConnectSheet> {
     } on ApiFailure catch (f) {
       if (!_cancelled && mounted) setState(() => _error = f.userMessage);
     } on StateError {
-      if (!_cancelled && mounted) setState(() => _error = 'Le code a expiré. Réessayez.');
+      if (!_cancelled && mounted) setState(() => _error = L.t('Le code a expiré. Réessayez.'));
     }
   }
 
@@ -271,7 +272,7 @@ class _QuickConnectSheetState extends ConsumerState<_QuickConnectSheet> {
           const Text('Quick Connect', style: OFTypography.title2),
           const SizedBox(height: OFSpacing.sm),
           Text(
-            'Sur un appareil déjà connecté, ouvrez Jellyfin › Profil › Quick Connect et saisissez ce code.',
+            L.t('Sur un appareil déjà connecté, ouvrez Jellyfin › Profil › Quick Connect et saisissez ce code.'),
             textAlign: TextAlign.center,
             style: OFTypography.callout.copyWith(color: OFColors.textSecondary),
           ),
@@ -286,7 +287,7 @@ class _QuickConnectSheetState extends ConsumerState<_QuickConnectSheet> {
             const SizedBox(height: 56, child: Center(child: OFLoader()))
           else ...[
             Semantics(
-              label: 'Code ${ticket.code.split('').join(' ')}',
+              label: L.f('Code {0}', [ticket.code.split('').join(' ')]),
               excludeSemantics: true,
               child: SelectableText(
                 ticket.code,
@@ -303,7 +304,7 @@ class _QuickConnectSheetState extends ConsumerState<_QuickConnectSheet> {
               children: [
                 const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2)),
                 const SizedBox(width: OFSpacing.sm),
-                Text('En attente d’autorisation…', style: OFTypography.caption.copyWith(color: OFColors.textTertiary)),
+                Text(L.t('En attente d’autorisation…'), style: OFTypography.caption.copyWith(color: OFColors.textTertiary)),
               ],
             ),
           ],

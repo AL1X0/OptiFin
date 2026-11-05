@@ -7,6 +7,7 @@ import '../../../core/design_system/design_system.dart';
 import '../../../core/network/image_url.dart';
 import '../../../core/providers.dart';
 import '../data/account_store.dart';
+import '../../../core/l10n/l.dart';
 
 /// Sélecteur de comptes : bascule rapide, ajout, déconnexion.
 class AccountSwitcherSheet extends ConsumerWidget {
@@ -22,9 +23,9 @@ class AccountSwitcherSheet extends ConsumerWidget {
       shrinkWrap: true,
       padding: const EdgeInsets.fromLTRB(OFSpacing.lg, OFSpacing.sm, OFSpacing.lg, OFSpacing.xl),
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: OFSpacing.sm, vertical: OFSpacing.sm),
-          child: Text('Comptes', style: OFTypography.title2),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: OFSpacing.sm, vertical: OFSpacing.sm),
+          child: Text(L.t('Comptes'), style: OFTypography.title2),
         ),
         for (final s in accounts)
           ListTile(
@@ -55,7 +56,7 @@ class AccountSwitcherSheet extends ConsumerWidget {
         const Divider(height: OFSpacing.xl),
         ListTile(
           leading: const Icon(Icons.settings_outlined, color: OFColors.textPrimary),
-          title: const Text('Paramètres', style: OFTypography.headline),
+          title: Text(L.t('Paramètres'), style: OFTypography.headline),
           onTap: () {
             Navigator.of(context).pop();
             context.push(Routes.settings);
@@ -63,7 +64,7 @@ class AccountSwitcherSheet extends ConsumerWidget {
         ),
         ListTile(
           leading: const Icon(Icons.person_add_alt_rounded, color: OFColors.textPrimary),
-          title: const Text('Ajouter un compte', style: OFTypography.headline),
+          title: Text(L.t('Ajouter un compte'), style: OFTypography.headline),
           onTap: () {
             Navigator.of(context).pop();
             context.push(Routes.connect);
@@ -71,7 +72,7 @@ class AccountSwitcherSheet extends ConsumerWidget {
         ),
         ListTile(
           leading: const Icon(Icons.logout_rounded, color: OFColors.danger),
-          title: Text('Se déconnecter', style: OFTypography.headline.copyWith(color: OFColors.danger)),
+          title: Text(L.t('Se déconnecter'), style: OFTypography.headline.copyWith(color: OFColors.danger)),
           onTap: () async {
             Navigator.of(context).pop();
             await ref.read(sessionControllerProvider.notifier).signOut();
@@ -97,7 +98,7 @@ class AccountButton extends ConsumerWidget {
     void open() => showOFSheet<void>(context, builder: (_) => const AccountSwitcherSheet());
     return Semantics(
       button: true,
-      label: 'Changer de compte, connecté en tant que ${session.account.userName}',
+      label: L.f('Changer de compte, connecté en tant que {0}', [session.account.userName]),
       excludeSemantics: true,
       onTap: open,
       child: GestureDetector(

@@ -6,6 +6,7 @@ import '../tokens.dart';
 import 'focusable.dart';
 import 'glass_surface.dart';
 import 'of_button.dart';
+import '../../../core/l10n/l.dart';
 
 /// Bouton retour OptiFin façon iOS : icône chevron seule ou pilule de verre
 /// affichant le titre de l'écran précédent.
@@ -27,16 +28,16 @@ class OFBackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = previousTitle;
     if (title == null || title.isEmpty) {
-      return OFIconButton(icon: Icons.arrow_back_ios_new_rounded, tooltip: 'Retour', onPressed: onPressed);
+      return OFIconButton(icon: Icons.arrow_back_ios_new_rounded, tooltip: L.t('Retour'), onPressed: onPressed);
     }
 
     const radius = BorderRadius.all(Radius.circular(22));
 
     return Tooltip(
-      message: 'Retour',
+      message: L.t('Retour'),
       child: Semantics(
         button: true,
-        label: 'Retour à $title',
+        label: L.f('Retour à {0}', [title]),
         excludeSemantics: true,
         child: OFFocusable(
           onSelect: _handleTap,
