@@ -7,6 +7,7 @@ using OptiFin.App.Services;
 using OptiFin.Core.Api;
 using OptiFin.Core.Auth;
 using OptiFin.Core.Media;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Pages;
 
@@ -14,15 +15,16 @@ namespace OptiFin.App.Pages;
 public sealed partial class LoginPage : Page
 {
     private JellyfinServer _server = null!;
-    private readonly TextBox _username = new() { PlaceholderText = "Nom d’utilisateur", FontSize = 16, Padding = new Thickness(14, 10, 14, 10), CornerRadius = new CornerRadius(12) };
-    private readonly PasswordBox _password = new() { PlaceholderText = "Mot de passe", FontSize = 16, Padding = new Thickness(14, 10, 14, 10), CornerRadius = new CornerRadius(12) };
+    private readonly TextBox _username = new() { PlaceholderText = L.T("Nom d’utilisateur"), FontSize = 16, Padding = new Thickness(14, 10, 14, 10), CornerRadius = new CornerRadius(12) };
+    private readonly PasswordBox _password = new() { PlaceholderText = L.T("Mot de passe"), FontSize = 16, Padding = new Thickness(14, 10, 14, 10), CornerRadius = new CornerRadius(12) };
     private readonly TextBlock _error = new() { Foreground = Ui.Res("OFDangerBrush"), TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
-    private readonly Button _signIn = Ui.Primary("Se connecter");
+    private readonly Button _signIn = Ui.Primary(L.T("Se connecter"));
     private readonly StackPanel _users = new() { Orientation = Orientation.Horizontal, Spacing = 20, HorizontalAlignment = HorizontalAlignment.Center };
 
     public LoginPage()
     {
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(this);
         RootGrid.Children.Insert(0, new WelcomeBackdrop());
         Column.Children.Insert(0, new WelcomeLogo());
     }
@@ -42,23 +44,23 @@ public sealed partial class LoginPage : Page
         var quickConnect = AppServices.Auth.IsQuickConnectEnabledAsync(_server);
         var users = AppServices.Auth.PublicUsersAsync(_server);
 
-        var back = Ui.Secondary("Changer de serveur", "");
+        var back = Ui.Secondary(L.T("Changer de serveur"), "");
         back.Click += (_, _) => Nav.Root(typeof(ConnectPage));
 
         if (await quickConnect)
         {
-            Subtitle.Text = "Le plus simple : Quick Connect.";
-            var qc = Ui.Primary("Se connecter avec Quick Connect", "");
+            Subtitle.Text = L.T("Le plus simple : Quick Connect.");
+            var qc = Ui.Primary(L.T("Se connecter avec Quick Connect"), "");
             qc.HorizontalAlignment = HorizontalAlignment.Stretch;
             qc.Click += (_, _) => _ = QuickConnectAsync();
             Form.Children.Add(qc);
             Form.Children.Add(new TextBlock
             {
-                Text = "Un code s’affiche : validez-le depuis Jellyfin sur votre téléphone.",
+                Text = L.T("Un code s’affiche : validez-le depuis Jellyfin sur votre téléphone."),
                 Style = Ui.StyleOf("OFCaption"),
                 TextWrapping = TextWrapping.Wrap,
             });
-            Form.Children.Add(Ui.Section("Ou avec un mot de passe"));
+            Form.Children.Add(Ui.Section(L.T("Ou avec un mot de passe")));
         }
 
         var list = await users;
@@ -109,7 +111,7 @@ public sealed partial class LoginPage : Page
     {
         if (string.IsNullOrWhiteSpace(_username.Text))
         {
-            ShowError("Saisissez votre nom d’utilisateur.");
+            ShowError(L.T("Saisissez votre nom d’utilisateur."));
             return;
         }
         _error.Visibility = Visibility.Collapsed;
@@ -142,7 +144,7 @@ public sealed partial class LoginPage : Page
         var content = new StackPanel { Spacing = 16, Width = 420 };
         content.Children.Add(new TextBlock
         {
-            Text = "Sur un appareil déjà connecté, ouvrez Jellyfin › Profil › Quick Connect et saisissez ce code.",
+            Text = L.T("Sur un appareil déjà connecté, ouvrez Jellyfin › Profil › Quick Connect et saisissez ce code."),
             TextWrapping = TextWrapping.Wrap,
             Foreground = Ui.Res("OFTextSecondaryBrush"),
         });
@@ -153,7 +155,7 @@ public sealed partial class LoginPage : Page
         {
             Title = "Quick Connect",
             Content = content,
-            CloseButtonText = "Annuler",
+            CloseButtonText = L.T("Annuler"),
             XamlRoot = XamlRoot,
             RequestedTheme = ElementTheme.Dark,
         };
@@ -183,7 +185,7 @@ public sealed partial class LoginPage : Page
         }
         catch (TimeoutException)
         {
-            status.Text = "Le code a expiré. Réessayez.";
+            status.Text = L.T("Le code a expiré. Réessayez.");
         }
         catch (OperationCanceledException)
         {

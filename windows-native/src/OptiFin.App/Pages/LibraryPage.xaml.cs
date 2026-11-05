@@ -9,6 +9,7 @@ using OptiFin.App.Services;
 using OptiFin.Core.Api;
 using OptiFin.Core.Logging;
 using OptiFin.Core.Media;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Pages;
 
@@ -33,6 +34,7 @@ public sealed partial class LibraryPage : Page
     public LibraryPage()
     {
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(this);
         Items.ItemsSource = _items;
         Items.ContainerContentChanging += (_, args) =>
         {
@@ -73,7 +75,7 @@ public sealed partial class LibraryPage : Page
             var hit = new HandGrid { Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
             hit.Children.Add(b);
             hit.Tapped += (_, _) => _ = JumpToLetterAsync(letter);
-            ToolTipService.SetToolTip(hit, letter == "#" ? "Début" : letter);
+            ToolTipService.SetToolTip(hit, letter == "#" ? L.T("Début") : letter);
             AlphaIndex.Children.Add(hit);
         }
         Items.Loaded += (_, _) =>
@@ -110,7 +112,7 @@ public sealed partial class LibraryPage : Page
         Spinner.IsActive = false;
         if (_items.Count == 0 && Empty.Visibility == Visibility.Collapsed) // (erreur déjà affichée sinon)
         {
-            Empty.Text = _query.ActiveFilterCount > 0 ? "Aucun élément ne correspond à ces filtres." : "Cette bibliothèque est vide.";
+            Empty.Text = _query.ActiveFilterCount > 0 ? L.T("Aucun élément ne correspond à ces filtres.") : L.T("Cette bibliothèque est vide.");
             Empty.Visibility = Visibility.Visible;
         }
     }
@@ -128,7 +130,7 @@ public sealed partial class LibraryPage : Page
             var first = _items.Count;
             foreach (var item in page.Items) _items.Add(item);
             AppLog.Timing("library", $"Page {first}–{_items.Count} / {_total} affichée", started);
-            Count.Text = _total == 1 ? "1 élément" : $"{_total} éléments";
+            Count.Text = L.Count(_total, "{0} élément", "{0} éléments");
         }
         catch (ApiException e)
         {
@@ -180,7 +182,7 @@ public sealed partial class LibraryPage : Page
         };
         Toolbar.Children.Add(sort);
 
-        var order = Ui.Round(_query.Descending ? "" : "", _query.Descending ? "Décroissant" : "Croissant", 36);
+        var order = Ui.Round(_query.Descending ? "" : "", _query.Descending ? L.T("Décroissant") : L.T("Croissant"), 36);
         order.Click += (_, _) =>
         {
             _query = _query with { Descending = !_query.Descending };
@@ -190,9 +192,9 @@ public sealed partial class LibraryPage : Page
         Toolbar.Children.Add(order);
 
         var played = new ComboBox { MinWidth = 140, CornerRadius = new CornerRadius(18) };
-        played.Items.Add("Tous");
-        played.Items.Add("Non vus");
-        played.Items.Add("Vus");
+        played.Items.Add(L.T("Tous"));
+        played.Items.Add(L.T("Non vus"));
+        played.Items.Add(L.T("Vus"));
         played.SelectedIndex = _query.Played switch { false => 1, true => 2, _ => 0 };
         played.SelectionChanged += (_, _) =>
         {
@@ -201,7 +203,7 @@ public sealed partial class LibraryPage : Page
         };
         Toolbar.Children.Add(played);
 
-        var favorites = new ToggleButton { Content = "Favoris", IsChecked = _query.FavoritesOnly, CornerRadius = new CornerRadius(18) };
+        var favorites = new ToggleButton { Content = L.T("Favoris"), IsChecked = _query.FavoritesOnly, CornerRadius = new CornerRadius(18) };
         favorites.Click += (_, _) =>
         {
             _query = _query with { FavoritesOnly = favorites.IsChecked == true };
@@ -210,7 +212,7 @@ public sealed partial class LibraryPage : Page
         Toolbar.Children.Add(favorites);
 
         var resolution = new ComboBox { MinWidth = 130, CornerRadius = new CornerRadius(18) };
-        resolution.Items.Add("Toutes résolutions");
+        resolution.Items.Add(L.T("Toutes résolutions"));
         resolution.Items.Add("HD");
         resolution.Items.Add("4K");
         resolution.SelectedIndex = (int)_query.Resolution;
@@ -223,7 +225,7 @@ public sealed partial class LibraryPage : Page
 
         var genres = new DropDownButton
         {
-            Content = _query.GenreIds.Count == 0 ? "Genres" : $"Genres ({_query.GenreIds.Count})",
+            Content = _query.GenreIds.Count == 0 ? "Genres" : L.F("Genres ({0})", _query.GenreIds.Count),
             CornerRadius = new CornerRadius(18),
         };
         genres.Click += async (_, _) => await ShowGenresAsync(genres);
@@ -231,7 +233,7 @@ public sealed partial class LibraryPage : Page
 
         var years = new DropDownButton
         {
-            Content = _query.Years.Count == 0 ? "Années" : $"Années ({_query.Years.Count})",
+            Content = _query.Years.Count == 0 ? L.T("Années") : L.F("Années ({0})", _query.Years.Count),
             CornerRadius = new CornerRadius(18),
         };
         years.Click += async (_, _) => await ShowYearsAsync(years);
@@ -239,7 +241,7 @@ public sealed partial class LibraryPage : Page
 
         if (_query.ActiveFilterCount > 0)
         {
-            var reset = Ui.Secondary("Réinitialiser", "\uE72C");
+            var reset = Ui.Secondary(L.T("Réinitialiser"), "\uE72C");
             reset.Click += (_, _) =>
             {
                 _query = LibraryQuery.For(_library) with { Sort = _query.Sort, Descending = _query.Descending };
@@ -249,7 +251,7 @@ public sealed partial class LibraryPage : Page
             Toolbar.Children.Add(reset);
         }
 
-        var view = Ui.Round(_listView ? "" : "", _listView ? "Affichage grille" : "Affichage liste", 36);
+        var view = Ui.Round(_listView ? "" : "", _listView ? L.T("Affichage grille") : L.T("Affichage liste"), 36);
         view.Click += (_, _) =>
         {
             _listView = !_listView;
@@ -342,7 +344,7 @@ public sealed partial class LibraryPage : Page
             };
             flyout.Items.Add(item);
         }
-        if (options.Years.Count == 0) flyout.Items.Add(new MenuFlyoutItem { Text = "Aucune année", IsEnabled = false });
+        if (options.Years.Count == 0) flyout.Items.Add(new MenuFlyoutItem { Text = L.T("Aucune année"), IsEnabled = false });
         flyout.ShowAt(anchor);
     }
 
@@ -376,7 +378,7 @@ public sealed partial class LibraryPage : Page
         if (_query.GenreIds.Count > 0)
         {
             flyout.Items.Add(new MenuFlyoutSeparator());
-            var clear = new MenuFlyoutItem { Text = "Tous les genres" };
+            var clear = new MenuFlyoutItem { Text = L.T("Tous les genres") };
             clear.Click += (_, _) =>
             {
                 _query = _query with { GenreIds = [] };

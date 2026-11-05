@@ -1,6 +1,7 @@
 using OptiFin.Core.Api;
 using OptiFin.Core.Logging;
 using OptiFin.Core.Media;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Services;
 
@@ -54,11 +55,11 @@ public static class MediaActions
 
     public static Task SetPlayedAsync(IReadOnlyList<MediaItem> items, bool played) =>
         ApplyAsync(items.Where(CanMarkPlayed).ToList(), (m, id) => m.SetPlayedAsync(id, played),
-            n => played ? $"{n} élément{S(n)} marqué{S(n)} comme vu{S(n)}" : $"{n} élément{S(n)} marqué{S(n)} comme non vu{S(n)}");
+            n => played ? L.Count(n, "{0} élément marqué comme vu", "{0} éléments marqués comme vus") : L.Count(n, "{0} élément marqué comme non vu", "{0} éléments marqués comme non vus"));
 
     public static Task SetFavoriteAsync(IReadOnlyList<MediaItem> items, bool favorite) =>
         ApplyAsync(items.Where(CanFavorite).ToList(), (m, id) => m.SetFavoriteAsync(id, favorite),
-            n => favorite ? $"{n} élément{S(n)} ajouté{S(n)} aux favoris" : $"{n} élément{S(n)} retiré{S(n)} des favoris");
+            n => favorite ? L.Count(n, "{0} élément ajouté aux favoris", "{0} éléments ajoutés aux favoris") : L.Count(n, "{0} élément retiré des favoris", "{0} éléments retirés des favoris"));
 
     private static string S(int n) => n > 1 ? "s" : "";
 
@@ -77,7 +78,7 @@ public static class MediaActions
             catch (Exception e)
             {
                 AppLog.Warn("actions", $"« {item.Name} » : {e.Message}");
-                Notice?.Invoke(e is ApiException api ? api.UserMessage : $"« {item.Name} » n’a pas pu être modifié.");
+                Notice?.Invoke(e is ApiException api ? api.UserMessage : L.F("« {0} » n’a pas pu être modifié.", item.Name));
                 return;
             }
         }

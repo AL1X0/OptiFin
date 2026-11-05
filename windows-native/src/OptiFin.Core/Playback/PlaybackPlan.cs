@@ -1,3 +1,5 @@
+using OptiFin.Core.Localization;
+
 namespace OptiFin.Core.Playback;
 
 public enum PlayMethod { DirectPlay, DirectStream, Transcode }
@@ -8,9 +10,9 @@ public static class PlayMethodExtensions
 
     public static string Label(this PlayMethod m) => m switch
     {
-        PlayMethod.DirectPlay => "Lecture directe",
+        PlayMethod.DirectPlay => L.T("Lecture directe"),
         PlayMethod.DirectStream => "Remux",
-        _ => "Transcodage",
+        _ => L.T("Transcodage"),
     };
 }
 
@@ -79,11 +81,11 @@ public sealed record MediaSegment(SegmentType Type, TimeSpan Start, TimeSpan End
 {
     public string SkipLabel => Type switch
     {
-        SegmentType.Intro => "Passer l’intro",
-        SegmentType.Recap => "Passer le récapitulatif",
-        SegmentType.Preview => "Passer l’aperçu",
-        SegmentType.Commercial => "Passer la publicité",
-        _ => "Passer le générique",
+        SegmentType.Intro => L.T("Passer l’intro"),
+        SegmentType.Recap => L.T("Passer le récapitulatif"),
+        SegmentType.Preview => L.T("Passer l’aperçu"),
+        SegmentType.Commercial => L.T("Passer la publicité"),
+        _ => L.T("Passer le générique"),
     };
 
     /// <summary>Trop court pour mériter un bouton (moins de 3 s).</summary>
@@ -158,10 +160,10 @@ public sealed record RemoteSubtitle(string Id, string Name, string? Provider, st
     {
         Provider,
         Format?.ToUpperInvariant(),
-        Downloads is > 0 and var d ? $"{d} téléchargements" : null,
-        HashMatch ? "correspond au fichier" : null,
+        Downloads is > 0 and var d ? L.F("{0} téléchargements", d) : null,
+        HashMatch ? L.T("correspond au fichier") : null,
         HearingImpaired ? "malentendants" : null,
-        Forced ? "forcés" : null,
+        Forced ? L.T("forcés") : null,
     }.Where(x => !string.IsNullOrEmpty(x)));
 
     /// <summary>Résultats du serveur, les plus sûrs d'abord (correspondance exacte, puis popularité).</summary>
@@ -178,7 +180,7 @@ public sealed record RemoteSubtitle(string Id, string Name, string? Provider, st
             .Where(e => !string.IsNullOrEmpty(S(e, "Id")))
             .Select(e => new RemoteSubtitle(
                 S(e, "Id")!,
-                S(e, "Name")?.Trim() is { Length: > 0 } name ? name : $"Sous-titre {S(e, "Id")}",
+                S(e, "Name")?.Trim() is { Length: > 0 } name ? name : L.F("Sous-titre {0}", S(e, "Id")),
                 S(e, "ProviderName"), S(e, "Format"), (int?)D(e, "DownloadCount"), D(e, "CommunityRating"),
                 B(e, "IsHashMatch"), B(e, "HearingImpaired"), B(e, "Forced")))
             .OrderByDescending(r => r.HashMatch)

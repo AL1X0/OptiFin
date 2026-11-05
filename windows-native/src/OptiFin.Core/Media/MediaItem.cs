@@ -1,3 +1,5 @@
+using OptiFin.Core.Localization;
+
 namespace OptiFin.Core.Media;
 
 public enum MediaKind
@@ -135,7 +137,7 @@ public sealed record MediaItem
         {
             if (Kind != MediaKind.Episode) return null;
             if (ParentIndexNumber is null && IndexNumber is null) return null;
-            if (ParentIndexNumber == 0) return IndexNumber is { } e ? $"Spécial {e}" : "Spécial";
+            if (ParentIndexNumber == 0) return IndexNumber is { } e ? L.F("Spécial {0}", e) : L.T("Spécial");
             var parts = new List<string>();
             if (ParentIndexNumber is { } s) parts.Add($"S{s}");
             if (IndexNumber is { } n) parts.Add($"É{n}");

@@ -1,3 +1,5 @@
+using OptiFin.Core.Localization;
+
 namespace OptiFin.Core.Media;
 
 /// <summary>Badges qualité d'une fiche : résolution, dynamique, audio, canaux (un par catégorie).</summary>
@@ -100,7 +102,7 @@ public static class MediaFormat
         return end is null || end == start ? start.ToString() : $"{start} – {end}";
     }
 
-    public static string? Rating(double? r) => r is > 0 ? r.Value.ToString("0.0", French) : null;
+    public static string? Rating(double? r) => r is > 0 ? r.Value.ToString("0.0", L.Culture) : null;
 
     /// <summary>« 2021 · 2 h 35 min · 12 · ★ 8,1 ».</summary>
     public static IReadOnlyList<string> MetadataLine(MediaItem item)
@@ -108,7 +110,7 @@ public static class MediaFormat
         var parts = new List<string>();
         if (Years(item) is { } y) parts.Add(y);
         if (item.Kind == MediaKind.Series && item.ChildCount is { } c)
-            parts.Add($"{c} saison{(c > 1 ? "s" : "")}");
+            parts.Add(L.Count(c, "{0} saison", "{0} saisons"));
         else if (Duration(item.Runtime) is { } d)
             parts.Add(d);
         if (!string.IsNullOrEmpty(item.OfficialRating)) parts.Add(item.OfficialRating!);
@@ -120,6 +122,6 @@ public static class MediaFormat
     public static string? Remaining(MediaItem item)
     {
         if (item.Runtime is not { } total || item.User.PositionTicks <= 0) return null;
-        return Duration(total - item.ResumePosition) is { } label ? $"{label} restantes" : null;
+        return Duration(total - item.ResumePosition) is { } label ? L.F("{0} restantes", label) : null;
     }
 }

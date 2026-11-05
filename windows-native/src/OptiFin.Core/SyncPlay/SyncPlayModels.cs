@@ -1,4 +1,5 @@
 using System.Text.Json;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.Core.SyncPlay;
 
@@ -70,18 +71,18 @@ public static class SyncPlayParser
             "UserLeft" => new UserLeftMessage(data.GetString() ?? ""),
             "StateUpdate" => new StateMessage(State(Str(data, "State")), Str(data, "Reason") ?? ""),
             "PlayQueue" => new QueueMessage(Queue(data)),
-            "NotInGroup" => new ErrorMessage(type, "Vous ne faites plus partie de cette soirée."),
-            "GroupDoesNotExist" => new ErrorMessage(type, "Cette soirée n’existe plus."),
-            "CreateGroupDenied" => new ErrorMessage(type, "Votre compte n’a pas le droit de créer une soirée (réglage SyncPlay du serveur)."),
-            "JoinGroupDenied" => new ErrorMessage(type, "Votre compte n’a pas le droit de rejoindre une soirée (réglage SyncPlay du serveur)."),
-            "LibraryAccessDenied" => new ErrorMessage(type, "Un participant n’a pas accès à ce titre dans ses bibliothèques."),
+            "NotInGroup" => new ErrorMessage(type, L.T("Vous ne faites plus partie de cette soirée.")),
+            "GroupDoesNotExist" => new ErrorMessage(type, L.T("Cette soirée n’existe plus.")),
+            "CreateGroupDenied" => new ErrorMessage(type, L.T("Votre compte n’a pas le droit de créer une soirée (réglage SyncPlay du serveur).")),
+            "JoinGroupDenied" => new ErrorMessage(type, L.T("Votre compte n’a pas le droit de rejoindre une soirée (réglage SyncPlay du serveur).")),
+            "LibraryAccessDenied" => new ErrorMessage(type, L.T("Un participant n’a pas accès à ce titre dans ses bibliothèques.")),
             _ => null,
         };
     }
 
     public static GroupInfo Group(JsonElement e) => new(
         Str(e, "GroupId") ?? "",
-        Str(e, "GroupName") ?? "Soirée",
+        Str(e, "GroupName") ?? L.T("Soirée"),
         State(Str(e, "State")),
         e.TryGetProperty("Participants", out var p) && p.ValueKind == JsonValueKind.Array
             ? [.. p.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0)]

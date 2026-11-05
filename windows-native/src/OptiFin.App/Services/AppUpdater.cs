@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using OptiFin.Core.Logging;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Services;
 
@@ -99,7 +100,7 @@ public static partial class AppUpdater
     {
         // L'installateur s'exécute tout seul : sans empreinte annoncée, rien ne garantit son contenu.
         if (update.Sha256 is not { } expected)
-            throw new InvalidOperationException("Mise à jour impossible à vérifier : téléchargez-la sur la page GitHub d'OptiFin.");
+            throw new InvalidOperationException(L.T("Mise à jour impossible à vérifier : téléchargez-la sur la page GitHub d'OptiFin."));
         var path = Path.Combine(Path.GetTempPath(), $"OptiFin-{update.Version}-setup.exe");
         using (var response = await Http.GetAsync(update.Url, HttpCompletionOption.ResponseHeadersRead))
         {
@@ -122,7 +123,7 @@ public static partial class AppUpdater
         if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase))
         {
             File.Delete(path);
-            throw new InvalidOperationException("Installateur corrompu (empreinte inattendue) : téléchargement annulé.");
+            throw new InvalidOperationException(L.T("Installateur corrompu (empreinte inattendue) : téléchargement annulé."));
         }
         AppLog.Info("update", $"Installation de la version {update.Version}");
         Process.Start(new ProcessStartInfo(path, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS") { UseShellExecute = true });
@@ -137,7 +138,7 @@ public static class UpdateDialog
     {
         var text = new TextBlock
         {
-            Text = $"Une nouvelle version est disponible ({update.Size / 1024 / 1024} Mo). OptiFin se fermera, s’installera puis se relancera tout seul.",
+            Text = L.F("Une nouvelle version est disponible ({0} Mo). OptiFin se fermera, s’installera puis se relancera tout seul.", update.Size / 1024 / 1024),
             TextWrapping = TextWrapping.Wrap,
         };
         var bar = new ProgressBar { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 12, 0, 0) };
@@ -157,8 +158,8 @@ public static class UpdateDialog
         {
             Title = $"OptiFin {update.Version}",
             Content = panel,
-            PrimaryButtonText = "Installer",
-            CloseButtonText = "Plus tard",
+            PrimaryButtonText = L.T("Installer"),
+            CloseButtonText = L.T("Plus tard"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = root,
             RequestedTheme = ElementTheme.Dark,
@@ -174,12 +175,12 @@ public static class UpdateDialog
                 await AppUpdater.InstallAsync(update, new Progress<double>(p =>
                 {
                     bar.Value = p * 100;
-                    text.Text = $"Téléchargement… {(int)(p * 100)} %";
+                    text.Text = L.F("Téléchargement… {0} %", (int)(p * 100));
                 }));
             }
             catch (Exception e)
             {
-                text.Text = e is InvalidOperationException ? e.Message : "Téléchargement impossible. Réessayez plus tard.";
+                text.Text = e is InvalidOperationException ? e.Message : L.T("Téléchargement impossible. Réessayez plus tard.");
                 dialog.IsPrimaryButtonEnabled = true;
             }
             finally

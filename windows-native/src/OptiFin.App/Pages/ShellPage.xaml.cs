@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using OptiFin.App.Controls;
 using OptiFin.App.Services;
 using Windows.System;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Pages;
 
@@ -23,6 +24,7 @@ public sealed partial class ShellPage : Page
     public ShellPage()
     {
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(this);
         Nav.ContentFrame = ContentFrame;
         Logo.Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "Logo.png")));
         if (AppServices.Session is { } session)
@@ -35,8 +37,8 @@ public sealed partial class ShellPage : Page
             ToolTipService.SetToolTip(Brand, $"{session.Server.Name} · {session.Server.BaseUrl}");
         }
 
-        AddTab("Accueil", "\uE80F", typeof(HomePage));
-        AddTab("Bibliothèques", "\uE8F1", typeof(LibrariesPage));
+        AddTab(L.T("Accueil"), "\uE80F", typeof(HomePage));
+        AddTab(L.T("Bibliothèques"), "\uE8F1", typeof(LibrariesPage));
         ProfileButton.Flyout = ProfileMenu();
         SetupSearch();
         PartyButton.Flyout = new Flyout
@@ -151,7 +153,7 @@ public sealed partial class ShellPage : Page
     private static void FillProfileMenu(MenuFlyout menu)
     {
         menu.Items.Clear();
-        var settings = new MenuFlyoutItem { Text = "Réglages", Icon = new FontIcon { Glyph = "\uE713" } };
+        var settings = new MenuFlyoutItem { Text = L.T("Réglages"), Icon = new FontIcon { Glyph = "\uE713" } };
         settings.Click += (_, _) => Nav.Go(typeof(SettingsPage));
         menu.Items.Add(settings);
         var current = AppServices.Session?.Account.Id;
@@ -175,7 +177,7 @@ public sealed partial class ShellPage : Page
         menu.Items.Add(new MenuFlyoutSeparator());
         var add = new MenuFlyoutItem { Text = "Ajouter un compte", Icon = new FontIcon { Glyph = "\uE8FA" } };
         add.Click += (_, _) => Nav.PushRoot(typeof(ConnectPage));
-        var signOut = new MenuFlyoutItem { Text = "Se déconnecter", Icon = new FontIcon { Glyph = "\uE7E8" } };
+        var signOut = new MenuFlyoutItem { Text = L.T("Se déconnecter"), Icon = new FontIcon { Glyph = "\uE7E8" } };
         signOut.Click += async (_, _) => await AppServices.SignOutAsync();
         menu.Items.Add(add);
         menu.Items.Add(signOut);
@@ -220,7 +222,7 @@ public sealed partial class ShellPage : Page
     private void UpdatePartyButton()
     {
         var group = WatchParty.Group;
-        PartyLabel.Text = group is null ? "Soirée" : $"{group.Name} · {group.Participants.Count}";
+        PartyLabel.Text = group is null ? L.T("Soirée") : $"{group.Name} · {group.Participants.Count}";
         PartyIcon.Foreground = Ui.Res(group is null ? "OFTextPrimaryBrush" : "OFAccentBrush");
         PartyButton.BorderBrush = group is null
             ? new SolidColorBrush(Microsoft.UI.Colors.Transparent)
@@ -237,7 +239,7 @@ public sealed partial class ShellPage : Page
         SelectionUnplayed.Click += (_, _) => _ = MediaActions.SetPlayedAsync([.. MediaActions.Selected], false);
         SelectionFavorite.Click += (_, _) => _ = MediaActions.SetFavoriteAsync([.. MediaActions.Selected], true);
         var more = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Top };
-        var unfavorite = new MenuFlyoutItem { Text = "Retirer des favoris", Icon = new FontIcon { Glyph = "" } };
+        var unfavorite = new MenuFlyoutItem { Text = L.T("Retirer des favoris"), Icon = new FontIcon { Glyph = "" } };
         unfavorite.Click += (_, _) => _ = MediaActions.SetFavoriteAsync([.. MediaActions.Selected], false);
         var clear = new MenuFlyoutItem { Text = "Tout désélectionner", Icon = new FontIcon { Glyph = "" } };
         clear.Click += (_, _) =>
@@ -262,7 +264,7 @@ public sealed partial class ShellPage : Page
     private void UpdateSelectionBar()
     {
         var n = MediaActions.Selected.Count;
-        SelectionCount.Text = n == 0 ? "Sélectionnez des éléments" : $"{n} sélectionné{(n > 1 ? "s" : "")}";
+        SelectionCount.Text = n == 0 ? L.T("Sélectionnez des éléments") : L.Count(n, "{0} sélectionné", "{0} sélectionnés");
         SelectionPlayed.IsEnabled = SelectionUnplayed.IsEnabled = MediaActions.Selected.Any(MediaActions.CanMarkPlayed);
         SelectionFavorite.IsEnabled = SelectionMore.IsEnabled = n > 0;
         if (MediaActions.Selecting) SelectionBar.Visibility = Visibility.Visible;

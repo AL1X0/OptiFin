@@ -5,6 +5,7 @@ plus). Écrire la section de la version à venir avant de publier : `publish.sh`
 
 ## 1.1.20
 
+- OptiFin parle anglais si Windows n'est pas en français
 - Aperçu de l'image en survolant la barre de lecture
 - Nouveau bouton pour essayer OptiFin avec le serveur de démonstration, sans avoir son propre serveur
 - Démarrage plus rapide sur les PC où Windows met du temps à vérifier le format d'image WebP

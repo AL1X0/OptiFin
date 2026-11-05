@@ -14,6 +14,7 @@ public sealed partial class LibrariesPage : Page
     public LibrariesPage()
     {
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(this);
         Nav.TrackScroll(Scroll);
     }
 

@@ -1,3 +1,5 @@
+using OptiFin.Core.Localization;
+
 namespace OptiFin.Core.Media;
 
 public enum LibrarySort { Title, DateAdded, PremiereDate, Rating, Runtime, Year }
@@ -8,12 +10,12 @@ public static class LibrarySortExtensions
 {
     public static string Label(this LibrarySort s) => s switch
     {
-        LibrarySort.Title => "Titre",
-        LibrarySort.DateAdded => "Date d’ajout",
-        LibrarySort.PremiereDate => "Date de sortie",
-        LibrarySort.Rating => "Note",
-        LibrarySort.Runtime => "Durée",
-        _ => "Année",
+        LibrarySort.Title => L.T("Titre"),
+        LibrarySort.DateAdded => L.T("Date d’ajout"),
+        LibrarySort.PremiereDate => L.T("Date de sortie"),
+        LibrarySort.Rating => L.T("Note"),
+        LibrarySort.Runtime => L.T("Durée"),
+        _ => L.T("Année"),
     };
 
     /// <summary>Sens par défaut : récent / meilleur d'abord, sauf le titre.</summary>

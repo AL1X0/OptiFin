@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using OptiFin.Core.Media;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Controls;
 
@@ -36,7 +37,7 @@ public sealed partial class MediaRow : Grid
         {
             var link = new HyperlinkButton
             {
-                Content = "Tout voir",
+                Content = L.T("Tout voir"),
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Foreground = Ui.Res("OFTextSecondaryBrush"),
                 Padding = new Thickness(8, 2, 8, 2),
@@ -119,7 +120,7 @@ public sealed partial class MediaRow : Grid
             IsTabStop = false,
             OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(150) },
         };
-        ToolTipService.SetToolTip(button, direction < 0 ? "Précédents" : "Suivants");
+        ToolTipService.SetToolTip(button, direction < 0 ? L.T("Précédents") : L.T("Suivants"));
         button.Click += (_, _) => Page(direction);
         return button;
     }

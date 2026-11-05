@@ -11,6 +11,7 @@ using OptiFin.Core.Api;
 using OptiFin.Core.Logging;
 using OptiFin.Core.Media;
 using Windows.UI;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Pages;
 
@@ -31,6 +32,7 @@ public sealed partial class DetailsPage : Page
     public DetailsPage()
     {
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(this);
         Nav.TrackScroll(Scroll);
         // Retour du lecteur : bouton « Reprendre », progression et « vu » à jour.
         void Refresh()
@@ -86,7 +88,7 @@ public sealed partial class DetailsPage : Page
             AppLog.Error("details", "Fiche indisponible", e);
             // Rafraîchissement (retour du lecteur…) en échec : la fiche déjà affichée reste visible.
             if (_rendered) return;
-            ErrorText.Text = e is ApiException api ? api.UserMessage : "Cette fiche n’a pas pu être chargée.";
+            ErrorText.Text = e is ApiException api ? api.UserMessage : L.T("Cette fiche n’a pas pu être chargée.");
             ErrorText.Visibility = Visibility.Visible;
         }
     }
@@ -122,7 +124,7 @@ public sealed partial class DetailsPage : Page
             if (item.Overview is { } overview) body.Children.Add(Overview(overview));
             if (item.Kind == MediaKind.Episode && item.SeriesId is { } seriesId)
             {
-                var series = Ui.Secondary("Voir la série", "\uE7F4");
+                var series = Ui.Secondary(L.T("Voir la série"), "\uE7F4");
                 series.Click += (_, _) => Nav.Go(typeof(DetailsPage), new MediaItem { Id = seriesId, Name = item.SeriesName ?? "", Kind = MediaKind.Series });
                 body.Children.Add(series);
             }
@@ -236,7 +238,7 @@ public sealed partial class DetailsPage : Page
             {
                 var expanded = block.MaxLines == 0;
                 block.MaxLines = expanded ? 4 : 0;
-                more.Content = expanded ? "Plus" : "Moins";
+                more.Content = expanded ? L.T("Plus") : L.T("Moins");
             };
             panel.Children.Add(more);
         }
@@ -267,7 +269,7 @@ public sealed partial class DetailsPage : Page
         }
         if (video != null)
         {
-            Add("Vidéo", string.Join(" · ", new[]
+            Add(L.T("Vidéo"), string.Join(" · ", new[]
             {
                 video.Codec.ToUpperInvariant(),
                 QualityBadges.ResolutionLabel(video.Width, video.Height),
@@ -285,7 +287,7 @@ public sealed partial class DetailsPage : Page
         }
         foreach (var (a, i) in audios.Take(6).Select((a, i) => (a, i)))
             Add(i == 0 ? "Audio" : "", a.Title ?? string.Join(" · ", new[] { a.Codec.ToUpperInvariant(), a.Language }.Where(x => !string.IsNullOrEmpty(x))));
-        if (audios.Count > 6) Add("", $"+ {audios.Count - 6} autres pistes");
+        if (audios.Count > 6) Add("", L.F("+ {0} autres pistes", audios.Count - 6));
         var section = new StackPanel { Spacing = 8, Margin = new Thickness(0, 12, 0, 0) };
         section.Children.Add(new TextBlock { Text = "Informations techniques", Style = Ui.StyleOf("OFTitle2") });
         section.Children.Add(grid);
@@ -307,26 +309,26 @@ public sealed partial class DetailsPage : Page
         if (item.Kind.IsPlayableVideo())
         {
             var resume = item.User.PositionTicks > 0;
-            var play = Ui.Primary(resume ? "Reprendre" : "Lecture", "");
+            var play = Ui.Primary(resume ? L.T("Reprendre") : L.T("Lecture"), "");
             play.Click += (_, _) => PlayerLauncher.Play(item);
             _actions.Children.Add(play);
             if (resume)
             {
-                var restart = Ui.Round("", "Lire depuis le début");
+                var restart = Ui.Round("", L.T("Lire depuis le début"));
                 restart.Click += (_, _) => PlayerLauncher.Play(item, fromStart: true);
                 _actions.Children.Add(restart);
             }
         }
         if (item.Kind is not (MediaKind.Person or MediaKind.BoxSet))
         {
-            var played = Ui.Round(item.User.Played ? "" : "", item.User.Played ? "Marquer comme non vu" : "Marquer comme vu");
+            var played = Ui.Round(item.User.Played ? "" : "", item.User.Played ? L.T("Marquer comme non vu") : L.T("Marquer comme vu"));
             if (item.User.Played) played.Background = AccentBrush;
             played.Click += async (_, _) => await Toggle(() => AppServices.Media!.SetPlayedAsync(item.Id, !_item.User.Played));
             _actions.Children.Add(played);
         }
         if (item.Kind != MediaKind.Person)
         {
-            var fav = Ui.Round(item.User.Favorite ? "" : "", item.User.Favorite ? "Retirer des favoris" : "Ajouter aux favoris");
+            var fav = Ui.Round(item.User.Favorite ? "" : "", item.User.Favorite ? L.T("Retirer des favoris") : L.T("Ajouter aux favoris"));
             if (item.User.Favorite) ((FontIcon)fav.Content).Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0x45, 0x3A));
             fav.Click += async (_, _) => await Toggle(() => AppServices.Media!.SetFavoriteAsync(item.Id, !_item.User.Favorite));
             _actions.Children.Add(fav);
@@ -367,9 +369,9 @@ public sealed partial class DetailsPage : Page
         var lines = new List<(string Label, string Value)>();
         if (item.Genres.Count > 0) lines.Add(("Genres", string.Join(", ", item.Genres.Select(g => g.Name))));
         var directors = item.People.Where(p => p.Kind == PersonKind.Director).Select(p => p.Name).ToList();
-        if (directors.Count > 0) lines.Add((directors.Count > 1 ? "Réalisation" : "Réalisation", string.Join(", ", directors)));
+        if (directors.Count > 0) lines.Add((directors.Count > 1 ? L.T("Réalisation") : L.T("Réalisation"), string.Join(", ", directors)));
         var writers = item.People.Where(p => p.Kind == PersonKind.Writer).Select(p => p.Name).Take(3).ToList();
-        if (writers.Count > 0) lines.Add(("Scénario", string.Join(", ", writers)));
+        if (writers.Count > 0) lines.Add((L.T("Scénario"), string.Join(", ", writers)));
         if (item.Studios.Count > 0) lines.Add(("Studio", string.Join(", ", item.Studios.Take(2).Select(s => s.Name))));
         if (lines.Count == 0) return null;
         var grid = new Grid { ColumnSpacing = 24, RowSpacing = 6 };
@@ -402,10 +404,10 @@ public sealed partial class DetailsPage : Page
                 await EpisodesAsync(item.SeriesId, item.Id, media, ct, _extras);
                 break;
             case MediaKind.BoxSet or MediaKind.Folder or MediaKind.Playlist:
-                AddRow("Contenu", await media.ChildrenAsync(item.Id, ct: ct), CardStyle.Poster);
+                AddRow(L.T("Contenu"), await media.ChildrenAsync(item.Id, ct: ct), CardStyle.Poster);
                 break;
             case MediaKind.Person:
-                AddRow("Filmographie", await media.CreditsAsync(item.Id, ct), CardStyle.Poster);
+                AddRow(L.T("Filmographie"), await media.CreditsAsync(item.Id, ct), CardStyle.Poster);
                 return;
         }
         var cast = item.People.Where(p => p.Kind is PersonKind.Actor or PersonKind.GuestStar).Take(30).ToList();
@@ -415,7 +417,7 @@ public sealed partial class DetailsPage : Page
             try
             {
                 var similar = await media.SimilarAsync(item.Id, ct: ct);
-                AddRow("Titres similaires", similar, CardStyle.Poster);
+                AddRow(L.T("Titres similaires"), similar, CardStyle.Poster);
             }
             catch (ApiException)
             {
@@ -439,7 +441,7 @@ public sealed partial class DetailsPage : Page
         var next = await nextTask;
         if (next != null)
         {
-            var label = next.User.PositionTicks > 0 ? "Reprendre" : "Lecture";
+            var label = next.User.PositionTicks > 0 ? L.T("Reprendre") : L.T("Lecture");
             var play = Ui.Primary($"{label} {next.EpisodeLabel}", "");
             play.Click += (_, _) => PlayerLauncher.Play(next);
             _actions.Children.Insert(0, play);
@@ -551,7 +553,7 @@ public sealed partial class DetailsPage : Page
             badge.Visibility = played ? Visibility.Visible : Visibility.Collapsed;
             toggle.Background = played ? AccentBrush : idle;
             ((FontIcon)toggle.Content).Opacity = played ? 1 : 0.5;
-            var tip = played ? "Marquer comme non vu" : "Marquer comme vu";
+            var tip = played ? L.T("Marquer comme non vu") : L.T("Marquer comme vu");
             ToolTipService.SetToolTip(toggle, tip);
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(toggle, tip);
         }
@@ -578,7 +580,7 @@ public sealed partial class DetailsPage : Page
         Ui.Clickable(row, () => PlayerLauncher.Play(e), transparent, Ui.Res("OFSurfaceBrush"));
         row.PointerEntered += (_, _) => playIcon.Opacity = 1;
         row.PointerExited += (_, _) => playIcon.Opacity = 0;
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(row, $"Lire {head}");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(row, L.F("Lire {0}", head));
         return row;
     }
 

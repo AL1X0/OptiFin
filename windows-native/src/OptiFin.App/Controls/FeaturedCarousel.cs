@@ -9,6 +9,7 @@ using OptiFin.App.Player;
 using OptiFin.App.Services;
 using OptiFin.Core.Media;
 using Windows.UI;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Controls;
 
@@ -173,14 +174,14 @@ public sealed partial class FeaturedCarousel : Grid
             });
         }
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 4, 0, 0) };
-        var play = Ui.Primary("Lecture", "");
+        var play = Ui.Primary(L.T("Lecture"), "");
         play.Click += (_, _) =>
         {
             // Film : lecture directe. Série : la fiche choisit l'épisode à suivre.
             if (item.Kind.IsPlayableVideo()) PlayerLauncher.Play(item);
             else HomePage.Open(item);
         };
-        var info = Ui.Secondary("Infos", "");
+        var info = Ui.Secondary(L.T("Infos"), "");
         info.Click += (_, _) => HomePage.Open(item);
         buttons.Children.Add(play);
         buttons.Children.Add(info);

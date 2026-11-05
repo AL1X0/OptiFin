@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using OptiFin.Core.Api;
 using OptiFin.Core.Logging;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.Core.Media;
 
@@ -134,14 +135,14 @@ public sealed class HomeRepository(MediaRepository media, string accountId, stri
         var resumeIds = resume.Select(i => i.Id).ToHashSet();
         var nextUp = Map(s.NextUp.Where(i => !resumeIds.Contains(i.Id)));
         var sections = new List<HomeSection>();
-        if (resume.Count > 0) sections.Add(new HomeSection("Reprendre", resume, Landscape: true));
-        if (nextUp.Count > 0) sections.Add(new HomeSection("À suivre", nextUp, Landscape: true));
+        if (resume.Count > 0) sections.Add(new HomeSection(L.T("Reprendre"), resume, Landscape: true));
+        if (nextUp.Count > 0) sections.Add(new HomeSection(L.T("À suivre"), nextUp, Landscape: true));
         foreach (var lib in libraries)
         {
             if (!s.Latest.TryGetValue(lib.Id, out var items) || items.Count == 0) continue;
-            sections.Add(new HomeSection($"Ajouts récents · {lib.Name}", Map(items), Landscape: false, lib.Id));
+            sections.Add(new HomeSection(L.F("Ajouts récents · {0}", lib.Name), Map(items), Landscape: false, lib.Id));
         }
-        if (s.Favorites.Count > 0) sections.Add(new HomeSection("Favoris", Map(s.Favorites), Landscape: false));
+        if (s.Favorites.Count > 0) sections.Add(new HomeSection(L.T("Favoris"), Map(s.Favorites), Landscape: false));
         // À la une : seulement les titres avec une image de fond.
         var featured = Map(s.Featured).Where(i => i.Backdrops.Count > 0).ToList();
         return new HomeData(featured, sections, libraries, fromCache);

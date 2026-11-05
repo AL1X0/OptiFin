@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Authentication;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.Core.Api;
 
@@ -33,23 +34,23 @@ public sealed class ApiException(ApiErrorKind kind, string? detail = null, int? 
 
     public string UserMessage => Kind switch
     {
-        ApiErrorKind.Unreachable => "Serveur injoignable. Vérifiez l’adresse et votre connexion.",
-        ApiErrorKind.Timeout => "Le serveur met trop de temps à répondre.",
-        ApiErrorKind.Certificate => "Certificat HTTPS invalide pour ce serveur.",
-        ApiErrorKind.Unauthorized => "Identifiant ou mot de passe incorrect.",
-        ApiErrorKind.Forbidden => "Accès refusé par le serveur.",
-        ApiErrorKind.Server => $"Erreur du serveur ({Status}). Réessayez plus tard.",
-        ApiErrorKind.NotJellyfin => "Cette adresse ne correspond pas à un serveur Jellyfin.",
-        ApiErrorKind.UnsupportedVersion => $"Jellyfin {Detail} n’est pas pris en charge (10.9 minimum).",
-        ApiErrorKind.QuickConnectDisabled => "Quick Connect est désactivé sur ce serveur.",
+        ApiErrorKind.Unreachable => L.T("Serveur injoignable. Vérifiez l’adresse et votre connexion."),
+        ApiErrorKind.Timeout => L.T("Le serveur met trop de temps à répondre."),
+        ApiErrorKind.Certificate => L.T("Certificat HTTPS invalide pour ce serveur."),
+        ApiErrorKind.Unauthorized => L.T("Identifiant ou mot de passe incorrect."),
+        ApiErrorKind.Forbidden => L.T("Accès refusé par le serveur."),
+        ApiErrorKind.Server => L.F("Erreur du serveur ({0}). Réessayez plus tard.", Status),
+        ApiErrorKind.NotJellyfin => L.T("Cette adresse ne correspond pas à un serveur Jellyfin."),
+        ApiErrorKind.UnsupportedVersion => L.F("Jellyfin {0} n’est pas pris en charge (10.9 minimum).", Detail),
+        ApiErrorKind.QuickConnectDisabled => L.T("Quick Connect est désactivé sur ce serveur."),
         ApiErrorKind.PlaybackDenied => Detail switch
         {
-            "NotAllowed" => "La lecture de ce contenu n’est pas autorisée pour votre compte.",
-            "NoCompatibleStream" => "Aucun flux compatible : le serveur ne peut pas préparer ce fichier.",
-            "RateLimitExceeded" => "Limite de débit du serveur atteinte. Réessayez plus tard.",
-            _ => $"Le serveur a refusé la lecture ({Detail}).",
+            "NotAllowed" => L.T("La lecture de ce contenu n’est pas autorisée pour votre compte."),
+            "NoCompatibleStream" => L.T("Aucun flux compatible : le serveur ne peut pas préparer ce fichier."),
+            "RateLimitExceeded" => L.T("Limite de débit du serveur atteinte. Réessayez plus tard."),
+            _ => L.F("Le serveur a refusé la lecture ({0}).", Detail),
         },
-        _ => "Une erreur inattendue est survenue.",
+        _ => L.T("Une erreur inattendue est survenue."),
     };
 
     public static ApiException From(Exception error) => error switch

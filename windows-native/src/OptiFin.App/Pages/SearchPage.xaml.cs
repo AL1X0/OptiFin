@@ -6,6 +6,7 @@ using OptiFin.App.Controls;
 using OptiFin.App.Services;
 using OptiFin.Core.Api;
 using OptiFin.Core.Media;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Pages;
 
@@ -18,6 +19,7 @@ public sealed partial class SearchPage : Page
     public SearchPage()
     {
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(this);
         Nav.TrackScroll(Scroll);
         _debounce = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _debounce.Interval = TimeSpan.FromMilliseconds(300);
@@ -41,7 +43,7 @@ public sealed partial class SearchPage : Page
         if (term.Length < 2 || AppServices.Media is not { } media)
         {
             Results.Children.Clear();
-            HintText.Text = "Recherchez dans toutes vos bibliothèques.";
+            HintText.Text = L.T("Recherchez dans toutes vos bibliothèques.");
             Hint.Visibility = Visibility.Visible;
             return;
         }
@@ -54,12 +56,12 @@ public sealed partial class SearchPage : Page
             if (ct.IsCancellationRequested) return;
             Results.Children.Clear();
             Hint.Visibility = r.IsEmpty ? Visibility.Visible : Visibility.Collapsed;
-            HintText.Text = $"Aucun résultat pour « {term} ».";
-            Add("Films", r.Movies, CardStyle.Poster);
-            Add("Séries", r.Series, CardStyle.Poster);
-            Add("Épisodes", r.Episodes, CardStyle.Landscape);
-            Add("Personnes", r.People, CardStyle.Poster);
-            Add("Autres", r.Others, CardStyle.Poster);
+            HintText.Text = L.F("Aucun résultat pour « {0} ».", term);
+            Add(L.T("Films"), r.Movies, CardStyle.Poster);
+            Add(L.T("Séries"), r.Series, CardStyle.Poster);
+            Add(L.T("Épisodes"), r.Episodes, CardStyle.Landscape);
+            Add(L.T("Personnes"), r.People, CardStyle.Poster);
+            Add(L.T("Autres"), r.Others, CardStyle.Poster);
         }
         catch (OperationCanceledException)
         {

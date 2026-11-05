@@ -4,6 +4,7 @@ using OptiFin.Core.Api;
 using OptiFin.Core.Logging;
 using OptiFin.Core.Media;
 using OptiFin.Core.SyncPlay;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Services;
 
@@ -69,18 +70,18 @@ public static class WatchParty
             case GroupJoinedMessage g:
                 _created = _creating;
                 _creating = false;
-                Notice?.Invoke($"Vous avez rejoint « {g.Group.Name} »");
+                Notice?.Invoke(L.F("Vous avez rejoint « {0} »", g.Group.Name));
                 break;
             case GroupLeftMessage:
                 _openedPlaylistItem = null;
                 _created = _launching = _launched = false;
-                Notice?.Invoke("Vous avez quitté la soirée");
+                Notice?.Invoke(L.T("Vous avez quitté la soirée"));
                 break;
             case UserJoinedMessage u:
-                Notice?.Invoke($"{u.UserName} a rejoint la soirée");
+                Notice?.Invoke(L.F("{0} a rejoint la soirée", u.UserName));
                 break;
             case UserLeftMessage u:
-                Notice?.Invoke($"{u.UserName} a quitté la soirée");
+                Notice?.Invoke(L.F("{0} a quitté la soirée", u.UserName));
                 break;
             case ErrorMessage e:
                 Notice?.Invoke(e.UserMessage);
@@ -93,7 +94,7 @@ public static class WatchParty
                 {
                     _openedPlaylistItem = null;
                     if (!_stopping && !string.IsNullOrEmpty(c.Command.PlaylistItemId) && PlayerLauncher.Current != null)
-                        Notice?.Invoke("L’hôte a arrêté la lecture");
+                        Notice?.Invoke(L.T("L’hôte a arrêté la lecture"));
                     _stopping = false;
                 }
                 CommandReceived?.Invoke(c.Command);
@@ -130,7 +131,7 @@ public static class WatchParty
         }
         catch (ApiException e)
         {
-            Notice?.Invoke($"Le titre de la soirée est introuvable : {e.UserMessage}");
+            Notice?.Invoke(L.F("Le titre de la soirée est introuvable : {0}", e.UserMessage));
         }
     }
 
@@ -191,7 +192,7 @@ public static class WatchParty
         catch (Exception e)
         {
             AppLog.Warn("syncplay", e.Message);
-            Notice?.Invoke("La soirée n’a pas pu être mise à jour.");
+            Notice?.Invoke(L.T("La soirée n’a pas pu être mise à jour."));
         }
     }
 

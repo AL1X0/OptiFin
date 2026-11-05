@@ -6,6 +6,7 @@ using OptiFin.App.Services;
 using OptiFin.Core.Api;
 using OptiFin.Core.Auth;
 using OptiFin.Core.Media;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Pages;
 
@@ -22,13 +23,14 @@ public sealed partial class ConnectPage : Page
         InputScope = new Microsoft.UI.Xaml.Input.InputScope { Names = { new Microsoft.UI.Xaml.Input.InputScopeName(Microsoft.UI.Xaml.Input.InputScopeNameValue.Url) } },
     };
     private readonly TextBlock _error = new() { Foreground = Ui.Res("OFDangerBrush"), TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
-    private readonly Button _continue = Ui.Primary("Continuer");
+    private readonly Button _continue = Ui.Primary(L.T("Continuer"));
     private readonly ProgressRing _progress = new() { IsActive = false, Width = 20, Height = 20 };
     private readonly CancellationTokenSource _cts = new();
 
     public ConnectPage()
     {
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(this);
         RootGrid.Children.Insert(0, new WelcomeBackdrop());
         Column.Children.Insert(0, new WelcomeLogo());
         Unloaded += (_, _) => _cts.Cancel();
@@ -36,7 +38,7 @@ public sealed partial class ConnectPage : Page
         var accounts = AppServices.Accounts.Accounts();
         if (accounts.Count > 0)
         {
-            Choices.Children.Add(Ui.Section("Comptes"));
+            Choices.Children.Add(Ui.Section(L.T("Comptes")));
             foreach (var a in accounts)
             {
                 var avatar = new ImageUrls(new Uri(a.BaseUrl)).UserAvatar(a.UserId, 40, 2, a.AvatarTag);
@@ -45,11 +47,11 @@ public sealed partial class ConnectPage : Page
             }
         }
 
-        Choices.Children.Add(Ui.Section("Sur ce réseau"));
+        Choices.Children.Add(Ui.Section(L.T("Sur ce réseau")));
         _servers.Children.Add(new TextBlock { Text = "Recherche…", Style = Ui.StyleOf("OFCaption") });
         Choices.Children.Add(_servers);
 
-        Choices.Children.Add(Ui.Section("Adresse du serveur"));
+        Choices.Children.Add(Ui.Section(L.T("Adresse du serveur")));
         _address.KeyDown += (_, e) =>
         {
             if (e.Key == Windows.System.VirtualKey.Enter) _ = ConnectAsync(_address.Text);
@@ -60,7 +62,7 @@ public sealed partial class ConnectPage : Page
         _continue.Margin = new Thickness(0, 8, 0, 0);
         _continue.Click += (_, _) => _ = ConnectAsync(_address.Text);
         Choices.Children.Add(_continue);
-        var demo = Ui.Secondary("Essayer avec le serveur de démonstration");
+        var demo = Ui.Secondary(L.T("Essayer avec le serveur de démonstration"));
         demo.HorizontalAlignment = HorizontalAlignment.Stretch;
         demo.Click += (_, _) => _ = DemoAsync();
         Choices.Children.Add(demo);
@@ -114,7 +116,7 @@ public sealed partial class ConnectPage : Page
     {
         if (string.IsNullOrWhiteSpace(input))
         {
-            ShowError("Saisissez l’adresse de votre serveur.");
+            ShowError(L.T("Saisissez l’adresse de votre serveur."));
             return;
         }
         _error.Visibility = Visibility.Collapsed;
@@ -152,7 +154,7 @@ public sealed partial class ConnectPage : Page
         }
         catch (ApiException)
         {
-            ShowError("Le serveur de démonstration ne répond pas. Réessayez plus tard.");
+            ShowError(L.T("Le serveur de démonstration ne répond pas. Réessayez plus tard."));
         }
         catch (OperationCanceledException)
         {

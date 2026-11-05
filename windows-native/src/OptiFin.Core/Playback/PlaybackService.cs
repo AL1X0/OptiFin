@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using OptiFin.Core.Api;
 using OptiFin.Core.Logging;
 using OptiFin.Core.Media;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.Core.Playback;
 
@@ -132,7 +133,7 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
         var fallback = string.Join(" · ", fallbackParts);
         return new MediaTrack(
             s.Index!.Value, type,
-            !string.IsNullOrEmpty(s.DisplayTitle) ? s.DisplayTitle! : fallback.Length == 0 ? $"Piste {s.Index}" : fallback,
+            !string.IsNullOrEmpty(s.DisplayTitle) ? s.DisplayTitle! : fallback.Length == 0 ? L.F("Piste {0}", s.Index) : fallback,
             language, codec, s.IsDefault ?? false, s.IsForced ?? false, s.IsExternal ?? false, s.IsTextSubtitleStream ?? true,
             s.DeliveryUrl, s.Channels);
     }
@@ -239,7 +240,7 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
 
     public static IReadOnlyList<Chapter> ChaptersFrom(BaseItemDto? dto) =>
         [.. (dto?.Chapters ?? []).Select((c, i) => new Chapter(i, TimeSpan.FromTicks(c.StartPositionTicks ?? 0),
-            string.IsNullOrWhiteSpace(c.Name) ? $"Chapitre {i + 1}" : c.Name.Trim(), c.ImageTag)).OrderBy(c => c.Start)];
+            string.IsNullOrWhiteSpace(c.Name) ? L.F("Chapitre {0}", i + 1) : c.Name.Trim(), c.ImageTag)).OrderBy(c => c.Start)];
 
     public static IReadOnlyList<MediaSegment> SegmentsFrom(IEnumerable<MediaSegmentDto> dtos)
     {

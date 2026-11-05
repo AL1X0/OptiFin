@@ -21,7 +21,9 @@ public partial class App : Application
     {
         // Déjà ouverte : elle revient au premier plan, ce lancement-ci s'arrête là (journal intact).
         if (!Environment.GetCommandLineArgs().Contains("--capture") && !SingleInstance.Claim()) Environment.Exit(0);
+        OptiFin.Core.Localization.L.UseSystemLanguage();
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(this);
         AppLog.Open();
         // Test de fiabilité (tools/check-player) : ramasse-miettes en continu, pour révéler dès maintenant
         // ce qui ne tient qu'à son passage tardif (minuteur non retenu…) et ne casse que sur certaines machines.

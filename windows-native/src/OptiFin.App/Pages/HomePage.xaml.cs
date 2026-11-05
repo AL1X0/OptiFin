@@ -6,6 +6,7 @@ using OptiFin.App.Services;
 using OptiFin.Core.Api;
 using OptiFin.Core.Logging;
 using OptiFin.Core.Media;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Pages;
 
@@ -20,6 +21,7 @@ public sealed partial class HomePage : Page
     public HomePage()
     {
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(this);
         RetryButton.Click += (_, _) => _ = LoadAsync();
         Nav.TrackScroll(Scroll);
         // Retour du lecteur : « Reprendre » et progression mis à jour une fois la position enregistrée.
@@ -68,7 +70,7 @@ public sealed partial class HomePage : Page
             if (_loaded) return;
             Nav.Window.HideSplash();
             Body.Children.Clear();
-            ErrorText.Text = e is ApiException api ? api.UserMessage : "L’accueil n’a pas pu être chargé.";
+            ErrorText.Text = e is ApiException api ? api.UserMessage : L.T("L’accueil n’a pas pu être chargé.");
             ErrorPanel.Visibility = Visibility.Visible;
             AppLog.Error("home", "Accueil indisponible", e);
         }
@@ -137,7 +139,7 @@ public sealed partial class HomePage : Page
         {
             Body.Children.Add(new TextBlock
             {
-                Text = "Vos bibliothèques sont vides pour l’instant.",
+                Text = L.T("Vos bibliothèques sont vides pour l’instant."),
                 Style = Ui.StyleOf("OFBody"),
                 Margin = new Thickness(Gutter, 80, Gutter, 0),
             });

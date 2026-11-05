@@ -20,6 +20,7 @@ using Windows.System;
 using WinRT.Interop;
 using DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 using DispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Player;
 
@@ -69,6 +70,7 @@ public sealed partial class PlayerWindow : Window
     public PlayerWindow(MediaItem item, bool fromStart, PartyStart? party = null)
     {
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(Root);
         _item = item;
         _hwnd = WindowNative.GetWindowHandle(this);
         SystemBackdrop = new TransparentBackdrop();
@@ -229,7 +231,7 @@ public sealed partial class PlayerWindow : Window
         _startupTimer.Stop();
         try
         {
-            ShowPreparing(forceTranscode ? "Le serveur prépare une version compatible…" : null);
+            ShowPreparing(forceTranscode ? L.T("Le serveur prépare une version compatible…") : null);
             var full = item.Kind.IsPlayableVideo() && item.Overview is null ? await media.ItemAsync(item.Id) : item;
             if (Stale()) return;
             _item = full;
@@ -273,7 +275,7 @@ public sealed partial class PlayerWindow : Window
         catch (Exception e)
         {
             AppLog.Error("player", "Démarrage impossible", e);
-            ShowError("La lecture n’a pas pu démarrer.", e.Message);
+            ShowError(L.T("La lecture n’a pas pu démarrer."), e.Message);
         }
     }
 
@@ -449,7 +451,7 @@ public sealed partial class PlayerWindow : Window
                 LoadStream(current, _position);
                 return;
             }
-            ShowError("La lecture s’est interrompue.", error);
+            ShowError(L.T("La lecture s’est interrompue."), error);
             return;
         }
         if (reason != EndReason.Eof) return;
@@ -480,7 +482,7 @@ public sealed partial class PlayerWindow : Window
         AppLog.Warn("player", $"Échec au démarrage ({_plan?.Method.Label()}) : {reason}");
         if (_transcodeTried || _plan?.Method == PlayMethod.Transcode)
         {
-            ShowError("Le lecteur n’a pas pu lire ce fichier.", reason);
+            ShowError(L.T("Le lecteur n’a pas pu lire ce fichier."), reason);
             return;
         }
         _transcodeTried = true;
@@ -559,7 +561,7 @@ public sealed partial class PlayerWindow : Window
         PositionText.Text = MediaFormat.Clock(_position);
         var remaining = _duration > _position ? _duration - _position : TimeSpan.Zero;
         RemainingText.Text = $"-{MediaFormat.Clock(remaining)}";
-        EndsAtText.Text = _duration > TimeSpan.Zero ? $"Fin à {DateTime.Now.Add(remaining):HH:mm}" : "";
+        EndsAtText.Text = _duration > TimeSpan.Zero ? L.F("Fin à {0:HH:mm}", DateTime.Now.Add(remaining)) : "";
         if (_started && (int)_position.TotalSeconds % 5 == 0) MediaSession.Update(_item, !_paused, _position, _duration);
     }
 
@@ -919,8 +921,8 @@ public sealed partial class PlayerWindow : Window
         }
         PartyBadge.Visibility = Visibility.Visible;
         PartyText.Text = _sync.Waiting && group.State == GroupState.Waiting
-            ? $"{group.Name} · en attente des autres…"
-            : $"{group.Name} · {group.Participants.Count} participant{(group.Participants.Count > 1 ? "s" : "")}";
+            ? L.F("{0} · en attente des autres…", group.Name)
+            : L.F("{0} · {1}", group.Name, L.Count(group.Participants.Count, "{0} participant", "{0} participants"));
         ToolTipService.SetToolTip(PartyBadge, string.Join(", ", group.Participants));
     }
 
@@ -968,7 +970,7 @@ public sealed partial class PlayerWindow : Window
             Style = OptiFin.App.Controls.Ui.StyleOf("OFIconButton"), Width = 36, Height = 36, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
             Content = new FontIcon { Glyph = _muted ? "" : "", FontSize = 15 },
         };
-        ToolTipService.SetToolTip(mute, "Couper le son (M)");
+        ToolTipService.SetToolTip(mute, L.T("Couper le son (M)"));
         var value = new TextBlock { Width = 34, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, FontSize = 13, Text = $"{slider.Value:0}" };
         slider.ValueChanged += (_, e) =>
         {
@@ -1137,18 +1139,18 @@ public sealed partial class PlayerWindow : Window
         var current = type == TrackType.Audio ? plan.AudioIndex : plan.SubtitleIndex;
         if (type == TrackType.Subtitle)
         {
-            var none = new ToggleMenuFlyoutItem { Text = "Désactivés", IsChecked = current is null };
+            var none = new ToggleMenuFlyoutItem { Text = L.T("Désactivés"), IsChecked = current is null };
             none.Click += (_, _) => _ = SwitchTrackAsync(type, null);
             menu.Items.Add(none);
         }
         foreach (var t in tracks)
         {
-            var label = t.IsForced ? $"{t.Label} (forcés)" : t.Label;
+            var label = t.IsForced ? L.F("{0} (forcés)", t.Label) : t.Label;
             var entry = new ToggleMenuFlyoutItem { Text = label, IsChecked = t.Index == current };
             entry.Click += (_, _) => _ = SwitchTrackAsync(type, t);
             menu.Items.Add(entry);
         }
-        if (menu.Items.Count == 0) menu.Items.Add(new MenuFlyoutItem { Text = "Aucune piste", IsEnabled = false });
+        if (menu.Items.Count == 0) menu.Items.Add(new MenuFlyoutItem { Text = L.T("Aucune piste"), IsEnabled = false });
         menu.ShowAt(anchor);
         ShowControls(autoHide: false);
         menu.Closed += (_, _) => ScheduleHide();
@@ -1176,7 +1178,7 @@ public sealed partial class PlayerWindow : Window
         var position = _position;
         var generation = _loadGeneration;
         var stream = ++_streamGeneration;
-        ShowPreparing("Changement de piste…");
+        ShowPreparing(L.T("Changement de piste…"));
         try
         {
             var next = await AppServices.Playback!.PrepareAsync(plan.ItemId, position, audio, subtitle, plan.Method == PlayMethod.Transcode,
@@ -1254,7 +1256,7 @@ public sealed partial class PlayerWindow : Window
         var mpv = _mpv;
         var plan = _plan;
         if (plan != null)
-            rows.Add(("Lecture", $"{plan.Method.Label()}{(plan.Container is { } c ? $" · {c}" : "")}{(plan.Bitrate is { } b ? $" · {b / 1e6:0.#} Mb/s" : "")}"));
+            rows.Add((L.T("Lecture ").Trim(), $"{plan.Method.Label()}{(plan.Container is { } c ? $" · {c}" : "")}{(plan.Bitrate is { } b ? $" · {b / 1e6:0.#} Mb/s" : "")}"));
         if (mpv != null)
         {
             string? G(string name) => mpv.Get(name) is { Length: > 0 } v ? v : null;
@@ -1263,25 +1265,25 @@ public sealed partial class PlayerWindow : Window
             var w = G("video-params/w");
             var h = G("video-params/h");
             var fps = D("container-fps") ?? D("estimated-vf-fps");
-            rows.Add(("Vidéo", string.Join(" · ", new[]
+            rows.Add((L.T("Vidéo"), string.Join(" · ", new[]
             {
                 G("video-codec-name") ?? G("video-format"),
                 w != null && h != null ? $"{w}×{h}" : null,
                 fps is { } f ? $"{f.ToString("0.###", fr)} i/s" : null,
                 G("video-params/pixelformat"),
             }.Where(x => x != null))));
-            rows.Add(("Couleurs", $"{G("video-params/gamma") ?? "?"} · {G("video-params/primaries") ?? "?"}{(G("video-params/max-luma") is { } luma ? $" · {luma} nits" : "")}"));
+            rows.Add((L.T("Couleurs"), $"{G("video-params/gamma") ?? "?"} · {G("video-params/primaries") ?? "?"}{(G("video-params/max-luma") is { } luma ? $" · {luma} nits" : "")}"));
             var hw = G("hwdec-current");
-            rows.Add(("Décodage", hw is null or "no" ? "logiciel (processeur)" : $"matériel ({hw})"));
-            rows.Add(("Sortie", $"{G("current-vo") ?? "?"} · {G("video-target-params/gamma") ?? "?"} · {G("video-target-params/primaries") ?? "?"}"));
+            rows.Add((L.T("Décodage"), hw is null or "no" ? L.T("logiciel (processeur)") : L.F("matériel ({0})", hw)));
+            rows.Add((L.T("Sortie"), $"{G("current-vo") ?? "?"} · {G("video-target-params/gamma") ?? "?"} · {G("video-target-params/primaries") ?? "?"}"));
             var display = D("display-fps");
-            rows.Add(("Écran", $"{G("osd-width")}×{G("osd-height")}{(display is { } d ? $" · {d.ToString("0.##", fr)} Hz" : "")}"));
+            rows.Add((L.T("Écran"), $"{G("osd-width")}×{G("osd-height")}{(display is { } d ? $" · {d.ToString("0.##", fr)} Hz" : "")}"));
             var channels = G("audio-params/channel-count");
             var rate = D("audio-params/samplerate");
             rows.Add(("Audio", string.Join(" · ", new[]
             {
                 G("audio-codec-name"),
-                channels != null ? $"{channels} canaux" : null,
+                channels != null ? L.F("{0} canaux", channels) : null,
                 rate is { } r ? $"{r / 1000:0.#} kHz" : null,
                 G("current-ao"),
             }.Where(x => x != null))));
@@ -1289,13 +1291,13 @@ public sealed partial class PlayerWindow : Window
             var abr = D("audio-bitrate");
             // Débit instantané souvent absent chez mpv : débit moyen du fichier (taille / durée), sinon celui du serveur.
             var average = D("file-size") is > 0 and var size && D("duration") is > 0 and var length ? size * 8 / length : (double?)plan?.Bitrate;
-            var videoRate = vbr is { } v ? $"{v / 1e6:0.0} Mb/s" : average is { } avg ? $"{avg / 1e6:0.0} Mb/s en moyenne" : "?";
-            rows.Add(("Débit", $"vidéo {videoRate} · audio {(abr is { } a ? $"{a / 1e3:0} kb/s" : "?")}"));
+            var videoRate = vbr is { } v ? $"{v / 1e6:0.0} Mb/s" : average is { } avg ? L.F("{0:0.0} Mb/s en moyenne", avg / 1e6) : "?";
+            rows.Add((L.T("Débit"), L.F("vidéo {0} · audio {1}", videoRate, abr is { } a ? $"{a / 1e3:0} kb/s" : "?")));
             var cache = D("demuxer-cache-duration");
             var speed = D("cache-speed");
             rows.Add(("Cache", $"{(cache is { } cd ? $"{cd:0} s" : "?")}{(speed is { } sp ? $" · {sp * 8 / 1e6:0.0} Mb/s" : "")}"));
             var avsync = D("avsync");
-            rows.Add(("Images perdues", $"{mpv.DroppedFrames}{(D("vo-delayed-frame-count") is { } late ? $" · {late:0} en retard" : "")}{(avsync is { } av ? $" · synchro A/V {av * 1000:0} ms" : "")}"));
+            rows.Add((L.T("Images perdues"), $"{mpv.DroppedFrames}{(D("vo-delayed-frame-count") is { } late ? $" · {late:0} en retard" : "")}{(avsync is { } av ? $" · synchro A/V {av * 1000:0} ms" : "")}"));
         }
         StatsGrid.Children.Clear();
         StatsGrid.RowDefinitions.Clear();
@@ -1330,7 +1332,7 @@ public sealed partial class PlayerWindow : Window
             item.Click += (_, _) => set(Math.Round(current() + step, 2));
             menu.Items.Add(item);
         }
-        var reset = new MenuFlyoutItem { Text = "Aucun décalage" };
+        var reset = new MenuFlyoutItem { Text = L.T("Aucun décalage") };
         reset.Click += (_, _) => set(0);
         menu.Items.Add(reset);
         return menu;
@@ -1338,8 +1340,8 @@ public sealed partial class PlayerWindow : Window
 
     private static readonly (string Code, string Name)[] SubtitleLanguages =
     [
-        ("fre", "Français"), ("eng", "Anglais"), ("spa", "Espagnol"), ("ger", "Allemand"), ("ita", "Italien"),
-        ("por", "Portugais"), ("dut", "Néerlandais"), ("jpn", "Japonais"), ("ara", "Arabe"),
+        ("fre", L.T("Français")), ("eng", L.T("Anglais")), ("spa", L.T("Espagnol")), ("ger", L.T("Allemand")), ("ita", L.T("Italien")),
+        ("por", L.T("Portugais")), ("dut", L.T("Néerlandais")), ("jpn", L.T("Japonais")), ("ara", L.T("Arabe")),
     ];
 
     /// <summary>Recherche de sous-titres par les fournisseurs du serveur, puis affichage immédiat.</summary>
@@ -1356,8 +1358,8 @@ public sealed partial class PlayerWindow : Window
         var dialog = new ContentDialog
         {
             XamlRoot = root,
-            Title = "Rechercher des sous-titres",
-            CloseButtonText = "Fermer",
+            Title = L.T("Rechercher des sous-titres"),
+            CloseButtonText = L.T("Fermer"),
             RequestedTheme = ElementTheme.Dark,
             Content = new StackPanel
             {
@@ -1375,11 +1377,11 @@ public sealed partial class PlayerWindow : Window
         async Task SearchAsync()
         {
             results.Children.Clear();
-            status.Text = "Recherche…";
+            status.Text = L.T("Recherche…");
             try
             {
                 var found = await AppServices.Playback!.SearchSubtitlesAsync(plan.ItemId, SubtitleLanguages[language.SelectedIndex].Code);
-                status.Text = found.Count == 0 ? "Aucun sous-titre trouvé dans cette langue." : $"{found.Count} résultat{(found.Count > 1 ? "s" : "")}";
+                status.Text = found.Count == 0 ? L.T("Aucun sous-titre trouvé dans cette langue.") : L.Count(found.Count, "{0} résultat", "{0} résultats");
                 foreach (var subtitle in found.Take(40))
                 {
                     var row = new Button
@@ -1399,7 +1401,7 @@ public sealed partial class PlayerWindow : Window
                     };
                     row.Click += async (_, _) =>
                     {
-                        status.Text = $"Téléchargement de « {subtitle.Name} »…";
+                        status.Text = L.F("Téléchargement de « {0} »…", subtitle.Name);
                         results.IsHitTestVisible = false;
                         try
                         {
@@ -1442,7 +1444,7 @@ public sealed partial class PlayerWindow : Window
                 plan.Method == PlayMethod.Transcode, AppServices.Settings.EffectiveMaxBitrate, plan.MediaSourceId);
             added = refreshed.SubtitleTracks.FirstOrDefault(t => !known.Contains(t.Index));
         }
-        if (added is null || refreshed is null) throw new InvalidOperationException("Le serveur n’a pas encore ajouté ce sous-titre. Réessayez.");
+        if (added is null || refreshed is null) throw new InvalidOperationException(L.T("Le serveur n’a pas encore ajouté ce sous-titre. Réessayez."));
         AppLog.Info("player", $"Sous-titre téléchargé : {added.Label}");
         _plan = _plan! with { SubtitleTracks = refreshed.SubtitleTracks };
         await SwitchTrackAsync(TrackType.Subtitle, added);
@@ -1462,17 +1464,17 @@ public sealed partial class PlayerWindow : Window
     private void ShowSettingsMenu()
     {
         var menu = new MenuFlyout();
-        var speed = new MenuFlyoutSubItem { Text = "Vitesse" };
+        var speed = new MenuFlyoutSubItem { Text = L.T("Vitesse") };
         foreach (var s in new[] { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 })
         {
-            var item = new MenuFlyoutItem { Text = s == 1 ? "Normale" : $"{s.ToString("0.##", CultureInfo.GetCultureInfo("fr-FR"))}×" };
+            var item = new MenuFlyoutItem { Text = s == 1 ? L.T("Normale") : $"{s.ToString("0.##", CultureInfo.GetCultureInfo("fr-FR"))}×" };
             item.Click += (_, _) => SetSpeed(s);
             speed.Items.Add(item);
         }
         menu.Items.Add(speed);
         if (_extras.Chapters.Count > 0)
         {
-            var chapters = new MenuFlyoutSubItem { Text = "Chapitres" };
+            var chapters = new MenuFlyoutSubItem { Text = L.T("Chapitres") };
             foreach (var c in _extras.Chapters)
             {
                 var item = new MenuFlyoutItem { Text = $"{MediaFormat.Clock(c.Start)}  {c.Name}" };
@@ -1481,7 +1483,7 @@ public sealed partial class PlayerWindow : Window
             }
             menu.Items.Add(chapters);
         }
-        var size = new MenuFlyoutSubItem { Text = "Taille des sous-titres" };
+        var size = new MenuFlyoutSubItem { Text = L.T("Taille des sous-titres") };
         foreach (var scale in new[] { 0.8, 1.0, 1.2, 1.5 })
         {
             var item = new ToggleMenuFlyoutItem { Text = $"{scale * 100:0} %", IsChecked = Math.Abs(AppServices.Settings.SubtitleScale - scale) < 0.01 };
@@ -1494,8 +1496,8 @@ public sealed partial class PlayerWindow : Window
             size.Items.Add(item);
         }
         menu.Items.Add(size);
-        var background = new MenuFlyoutSubItem { Text = "Fond des sous-titres" };
-        foreach (var (mode, label) in new[] { (SubtitleBackground.None, "Contour"), (SubtitleBackground.Shadow, "Ombre"), (SubtitleBackground.Box, "Bandeau") })
+        var background = new MenuFlyoutSubItem { Text = L.T("Fond des sous-titres") };
+        foreach (var (mode, label) in new[] { (SubtitleBackground.None, L.T("Contour")), (SubtitleBackground.Shadow, L.T("Ombre")), (SubtitleBackground.Box, L.T("Bandeau")) })
         {
             var item = new ToggleMenuFlyoutItem { Text = label, IsChecked = AppServices.Settings.SubtitleBackground == mode };
             item.Click += (_, _) =>
@@ -1509,23 +1511,23 @@ public sealed partial class PlayerWindow : Window
         menu.Items.Add(background);
 
         // Synchronisation : décalage des sous-titres et du son (comme sur mobile).
-        var sync = new MenuFlyoutSubItem { Text = "Synchronisation" };
-        sync.Items.Add(DelayMenu("Décalage des sous-titres", "Positif : les sous-titres apparaissent plus tard.", () => _subtitleDelay, d =>
+        var sync = new MenuFlyoutSubItem { Text = L.T("Synchronisation") };
+        sync.Items.Add(DelayMenu(L.T("Décalage des sous-titres"), L.T("Positif : les sous-titres apparaissent plus tard."), () => _subtitleDelay, d =>
         {
             _subtitleDelay = d;
             _mpv?.TrySet("sub-delay", d.ToString("0.###", CultureInfo.InvariantCulture));
         }));
-        sync.Items.Add(DelayMenu("Décalage du son", "Positif : le son est retardé.", () => _audioDelay, d =>
+        sync.Items.Add(DelayMenu(L.T("Décalage du son"), L.T("Positif : le son est retardé."), () => _audioDelay, d =>
         {
             _audioDelay = d;
             _mpv?.TrySet("audio-delay", d.ToString("0.###", CultureInfo.InvariantCulture));
         }));
         menu.Items.Add(sync);
-        var online = new MenuFlyoutItem { Text = "Rechercher des sous-titres en ligne…", IsEnabled = _plan != null };
+        var online = new MenuFlyoutItem { Text = L.T("Rechercher des sous-titres en ligne…"), IsEnabled = _plan != null };
         online.Click += (_, _) => _ = SearchSubtitlesAsync();
         menu.Items.Add(online);
         menu.Items.Add(new MenuFlyoutSeparator());
-        var transcode = new MenuFlyoutItem { Text = "Lire via le serveur (transcodage)", IsEnabled = _plan?.Method == PlayMethod.DirectPlay };
+        var transcode = new MenuFlyoutItem { Text = L.T("Lire via le serveur (transcodage)"), IsEnabled = _plan?.Method == PlayMethod.DirectPlay };
         transcode.Click += (_, _) =>
         {
             _transcodeTried = true;
@@ -1533,7 +1535,7 @@ public sealed partial class PlayerWindow : Window
             _ = StartAsync(_item, _position, forceTranscode: true);
         };
         menu.Items.Add(transcode);
-        var stats = new ToggleMenuFlyoutItem { Text = "Infos de lecture", IsChecked = _stats };
+        var stats = new ToggleMenuFlyoutItem { Text = L.T("Infos de lecture"), IsChecked = _stats };
         stats.Click += (_, _) => ToggleStats(stats.IsChecked);
         menu.Items.Add(stats);
         menu.ShowAt(SettingsButton);

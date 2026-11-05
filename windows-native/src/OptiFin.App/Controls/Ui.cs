@@ -13,6 +13,40 @@ namespace OptiFin.App.Controls;
 /// <summary>Petits éléments d'interface réutilisés (style OptiFin), construits en code.</summary>
 public static class Ui
 {
+    // ---------------------------------------------------------------- Langue
+
+    /// <summary>Traduit les textes écrits dans le XAML d'une page (appelé après InitializeComponent).</summary>
+    public static void Translate(object? node)
+    {
+        if (!OptiFin.Core.Localization.L.IsEnglish || node is null) return;
+        if (node is UIElement element && ToolTipService.GetToolTip(element) is string tip)
+            ToolTipService.SetToolTip(element, OptiFin.Core.Localization.L.T(tip));
+        switch (node)
+        {
+            case TextBlock text:
+                text.Text = OptiFin.Core.Localization.L.T(text.Text);
+                break;
+            case TextBox box:
+                box.PlaceholderText = OptiFin.Core.Localization.L.T(box.PlaceholderText);
+                break;
+            case ContentControl { Content: string label } control:
+                control.Content = OptiFin.Core.Localization.L.T(label);
+                break;
+            case ContentControl control:
+                Translate(control.Content);
+                break;
+            case UserControl user:
+                Translate(user.Content);
+                break;
+            case Border border:
+                Translate(border.Child);
+                break;
+            case Panel panel:
+                foreach (var child in panel.Children) Translate(child);
+                break;
+        }
+    }
+
     // ---------------------------------------------------------------- Minuteurs
 
     private static readonly HashSet<Microsoft.UI.Dispatching.DispatcherQueueTimer> PendingTimers = [];

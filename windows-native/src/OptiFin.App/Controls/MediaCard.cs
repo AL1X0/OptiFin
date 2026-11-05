@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using OptiFin.App.Services;
 using OptiFin.Core.Media;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Controls;
 
@@ -131,7 +132,7 @@ public sealed partial class MediaCard : Grid
                 if (MediaActions.Selecting) MediaActions.Toggle(Item);
                 else _ = PlayAsync();
             };
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_play, "Lecture");
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_play, L.T("Lecture"));
             artwork.Children.Add(_play);
         }
 
@@ -328,36 +329,36 @@ public sealed partial class MediaCard : Grid
         {
             var selection = MediaActions.Selected.ToList();
             var n = selection.Count;
-            menu.Items.Add(new MenuFlyoutItem { Text = $"{n} élément{(n > 1 ? "s" : "")} sélectionné{(n > 1 ? "s" : "")}", IsEnabled = false });
+            menu.Items.Add(new MenuFlyoutItem { Text = L.Count(n, "{0} élément sélectionné", "{0} éléments sélectionnés"), IsEnabled = false });
             menu.Items.Add(new MenuFlyoutSeparator());
             if (selection.Any(MediaActions.CanMarkPlayed))
             {
-                menu.Items.Add(MenuItem("Marquer comme vus", "\uE73E", () => _ = MediaActions.SetPlayedAsync(selection, true)));
-                menu.Items.Add(MenuItem("Marquer comme non vus", "\uE711", () => _ = MediaActions.SetPlayedAsync(selection, false)));
+                menu.Items.Add(MenuItem(L.T("Marquer comme vus"), "\uE73E", () => _ = MediaActions.SetPlayedAsync(selection, true)));
+                menu.Items.Add(MenuItem(L.T("Marquer comme non vus"), "\uE711", () => _ = MediaActions.SetPlayedAsync(selection, false)));
             }
             if (selection.Any(MediaActions.CanFavorite))
             {
-                menu.Items.Add(MenuItem("Ajouter aux favoris", "\uEB51", () => _ = MediaActions.SetFavoriteAsync(selection, true)));
-                menu.Items.Add(MenuItem("Retirer des favoris", "\uEA92", () => _ = MediaActions.SetFavoriteAsync(selection, false)));
+                menu.Items.Add(MenuItem(L.T("Ajouter aux favoris"), "\uEB51", () => _ = MediaActions.SetFavoriteAsync(selection, true)));
+                menu.Items.Add(MenuItem(L.T("Retirer des favoris"), "\uEA92", () => _ = MediaActions.SetFavoriteAsync(selection, false)));
             }
             menu.Items.Add(new MenuFlyoutSeparator());
-            menu.Items.Add(MenuItem("Quitter la sélection", "\uE8E6", MediaActions.EndSelection));
+            menu.Items.Add(MenuItem(L.T("Quitter la sélection"), "\uE8E6", MediaActions.EndSelection));
             return;
         }
 
         if (item.Kind.IsPlayableVideo())
         {
             var resume = item.User.PositionTicks > 0;
-            menu.Items.Add(MenuItem(resume ? "Reprendre" : "Lecture", "\uE768", () => Player.PlayerLauncher.Play(item)));
-            if (resume) menu.Items.Add(MenuItem("Lire depuis le début", "\uE72C", () => Player.PlayerLauncher.Play(item, fromStart: true)));
+            menu.Items.Add(MenuItem(resume ? L.T("Reprendre") : L.T("Lecture"), "\uE768", () => Player.PlayerLauncher.Play(item)));
+            if (resume) menu.Items.Add(MenuItem(L.T("Lire depuis le début"), "\uE72C", () => Player.PlayerLauncher.Play(item, fromStart: true)));
         }
         else if (item.Kind == MediaKind.Series)
         {
-            menu.Items.Add(MenuItem("Lire l’épisode suivant", "\uE768", () => _ = PlayAsync()));
+            menu.Items.Add(MenuItem(L.T("Lire l’épisode suivant"), "\uE768", () => _ = PlayAsync()));
         }
-        menu.Items.Add(MenuItem("Afficher la fiche", "\uE946", () => Activated?.Invoke(item)));
+        menu.Items.Add(MenuItem(L.T("Afficher la fiche"), "\uE946", () => Activated?.Invoke(item)));
         if (item.Kind is MediaKind.Episode or MediaKind.Season && item.SeriesId is { } seriesId)
-            menu.Items.Add(MenuItem("Voir la série", "\uE7F4", () => _ = OpenAsync(seriesId)));
+            menu.Items.Add(MenuItem(L.T("Voir la série"), "\uE7F4", () => _ = OpenAsync(seriesId)));
 
         var played = MediaActions.CanMarkPlayed(item);
         var favorite = MediaActions.CanFavorite(item);
@@ -365,21 +366,21 @@ public sealed partial class MediaCard : Grid
         if (played)
         {
             menu.Items.Add(item.User.Played
-                ? MenuItem("Marquer comme non vu", "\uE711", () => _ = MediaActions.SetPlayedAsync([item], false))
-                : MenuItem("Marquer comme vu", "\uE73E", () => _ = MediaActions.SetPlayedAsync([item], true)));
+                ? MenuItem(L.T("Marquer comme non vu"), "\uE711", () => _ = MediaActions.SetPlayedAsync([item], false))
+                : MenuItem(L.T("Marquer comme vu"), "\uE73E", () => _ = MediaActions.SetPlayedAsync([item], true)));
         }
         if (favorite)
         {
             menu.Items.Add(item.User.Favorite
-                ? MenuItem("Retirer des favoris", "\uEA92", () => _ = MediaActions.SetFavoriteAsync([item], false))
-                : MenuItem("Ajouter aux favoris", "\uEB51", () => _ = MediaActions.SetFavoriteAsync([item], true)));
+                ? MenuItem(L.T("Retirer des favoris"), "\uEA92", () => _ = MediaActions.SetFavoriteAsync([item], false))
+                : MenuItem(L.T("Ajouter aux favoris"), "\uEB51", () => _ = MediaActions.SetFavoriteAsync([item], true)));
         }
         if (played || favorite)
         {
             menu.Items.Add(new MenuFlyoutSeparator());
             menu.Items.Add(MediaActions.Selecting
-                ? MenuItem("Ajouter à la sélection", "\uE762", () => MediaActions.Toggle(item))
-                : MenuItem("Sélectionner", "\uE762", () => MediaActions.StartSelection(item)));
+                ? MenuItem(L.T("Ajouter à la sélection"), "\uE762", () => MediaActions.Toggle(item))
+                : MenuItem(L.T("Sélectionner"), "\uE762", () => MediaActions.StartSelection(item)));
         }
     }
 
@@ -482,7 +483,7 @@ public sealed partial class MediaCard : Grid
                 : i.EpisodeLabel;
         }
         if (i.Kind == MediaKind.Series && i.User.UnplayedCount is > 0 and var n)
-            return $"{n} épisode{(n > 1 ? "s" : "")} non vu{(n > 1 ? "s" : "")}";
+            return L.Count(n, "{0} épisode non vu", "{0} épisodes non vus");
         return i.Year?.ToString();
     }
 }

@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using OptiFin.Core.Logging;
 using OptiFin.Core.Playback;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.Core.Settings;
 
@@ -30,18 +31,18 @@ public sealed class AppSettings
 
     public static string Label(SubtitleMode m) => m switch
     {
-        SubtitleMode.Server => "Réglage du serveur",
-        SubtitleMode.Always => "Toujours",
-        SubtitleMode.ForcedOnly => "Forcés uniquement",
-        _ => "Jamais",
+        SubtitleMode.Server => L.T("Réglage du serveur"),
+        SubtitleMode.Always => L.T("Toujours"),
+        SubtitleMode.ForcedOnly => L.T("Forcés uniquement"),
+        _ => L.T("Jamais"),
     };
 
     /// <summary>Langues proposées (codes ISO 639-2 de Jellyfin).</summary>
     public static readonly IReadOnlyList<(string Code, string Name)> Languages =
     [
-        ("fre", "Français"), ("eng", "Anglais"), ("spa", "Espagnol"), ("ger", "Allemand"), ("ita", "Italien"),
-        ("por", "Portugais"), ("jpn", "Japonais"), ("kor", "Coréen"), ("chi", "Chinois"), ("rus", "Russe"),
-        ("ara", "Arabe"), ("dut", "Néerlandais"),
+        ("fre", L.T("Français")), ("eng", L.T("Anglais")), ("spa", L.T("Espagnol")), ("ger", L.T("Allemand")), ("ita", L.T("Italien")),
+        ("por", L.T("Portugais")), ("jpn", L.T("Japonais")), ("kor", L.T("Coréen")), ("chi", L.T("Chinois")), ("rus", L.T("Russe")),
+        ("ara", L.T("Arabe")), ("dut", L.T("Néerlandais")),
     ];
 
     /// <summary>Débits proposés (bits/s). 0 = maximum (le serveur plafonne).</summary>

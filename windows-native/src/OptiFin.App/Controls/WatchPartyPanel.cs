@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using OptiFin.App.Services;
 using OptiFin.Core.SyncPlay;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Controls;
 
@@ -33,7 +34,7 @@ public sealed partial class WatchPartyPanel : StackPanel
         _body.Children.Clear();
         if (WatchParty.Client is not { } client)
         {
-            _body.Children.Add(Ui.Text("Connectez-vous à un serveur pour regarder ensemble.", "OFCaption"));
+            _body.Children.Add(Ui.Text(L.T("Connectez-vous à un serveur pour regarder ensemble."), "OFCaption"));
             return;
         }
         if (WatchParty.Group is { } group) RenderGroup(group, client.Connected);
@@ -48,14 +49,14 @@ public sealed partial class WatchPartyPanel : StackPanel
         });
         _body.Children.Add(Ui.Text(group.State switch
         {
-            GroupState.Playing => "Lecture en cours",
-            GroupState.Paused => "En pause",
-            GroupState.Waiting => "En attente des participants…",
-            _ => "Lancez un film ou un épisode : il démarre chez tout le monde, au même moment.",
+            GroupState.Playing => L.T("Lecture en cours"),
+            GroupState.Paused => L.T("En pause"),
+            GroupState.Waiting => L.T("En attente des participants…"),
+            _ => L.T("Lancez un film ou un épisode : il démarre chez tout le monde, au même moment."),
         }, "OFCaption"));
         if (!connected) _body.Children.Add(Ui.Text("Connexion au serveur interrompue, reconnexion…", "OFCaption", Ui.Res("OFDangerBrush")));
 
-        _body.Children.Add(Ui.Section($"Participants ({group.Participants.Count})"));
+        _body.Children.Add(Ui.Section(L.F("Participants ({0})", group.Participants.Count)));
         foreach (var name in group.Participants)
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
@@ -63,7 +64,7 @@ public sealed partial class WatchPartyPanel : StackPanel
             row.Children.Add(new TextBlock { Text = name, VerticalAlignment = VerticalAlignment.Center, FontSize = 14 });
             _body.Children.Add(row);
         }
-        var leave = Ui.Secondary("Quitter la soirée", "\uE711");
+        var leave = Ui.Secondary(L.T("Quitter la soirée"), "\uE711");
         leave.HorizontalAlignment = HorizontalAlignment.Stretch;
         leave.Margin = new Thickness(0, 6, 0, 0);
         leave.Click += async (_, _) =>
@@ -76,27 +77,27 @@ public sealed partial class WatchPartyPanel : StackPanel
 
     private void RenderLobby(bool connected)
     {
-        _body.Children.Add(Ui.Text("Regardez un film à plusieurs, chacun chez soi : lecture, pause et avance sont synchronisées.", "OFCaption"));
+        _body.Children.Add(Ui.Text(L.T("Regardez un film à plusieurs, chacun chez soi : lecture, pause et avance sont synchronisées."), "OFCaption"));
         var name = new TextBox
         {
-            Header = "Nom de la soirée",
-            Text = $"Soirée de {AppServices.Session?.Account.UserName}",
+            Header = L.T("Nom de la soirée"),
+            Text = L.F("Soirée de {0}", AppServices.Session?.Account.UserName),
             CornerRadius = new CornerRadius(10),
         };
-        var create = Ui.Primary("Créer une soirée", "\uE710");
+        var create = Ui.Primary(L.T("Créer une soirée"), "\uE710");
         create.HorizontalAlignment = HorizontalAlignment.Stretch;
         create.IsEnabled = connected;
         create.Click += async (_, _) =>
         {
             create.IsEnabled = false;
-            await WatchParty.CreateAsync(string.IsNullOrWhiteSpace(name.Text) ? "Soirée" : name.Text.Trim());
+            await WatchParty.CreateAsync(string.IsNullOrWhiteSpace(name.Text) ? L.T("Soirée") : name.Text.Trim());
             create.IsEnabled = true;
         };
         _body.Children.Add(name);
         _body.Children.Add(create);
-        if (!connected) _body.Children.Add(Ui.Text("Connexion au serveur en cours…", "OFCaption"));
+        if (!connected) _body.Children.Add(Ui.Text(L.T("Connexion au serveur en cours…"), "OFCaption"));
 
-        _body.Children.Add(Ui.Section("Soirées en cours"));
+        _body.Children.Add(Ui.Section(L.T("Soirées en cours")));
         var list = new StackPanel { Spacing = 8 };
         list.Children.Add(new ProgressRing { IsActive = true, Width = 20, Height = 20, HorizontalAlignment = HorizontalAlignment.Left });
         _body.Children.Add(list);
@@ -117,7 +118,7 @@ public sealed partial class WatchPartyPanel : StackPanel
         list.Children.Clear();
         if (groups.Count == 0)
         {
-            list.Children.Add(Ui.Text("Aucune soirée pour le moment.", "OFCaption"));
+            list.Children.Add(Ui.Text(L.T("Aucune soirée pour le moment."), "OFCaption"));
             return;
         }
         foreach (var g in groups)
@@ -133,7 +134,7 @@ public sealed partial class WatchPartyPanel : StackPanel
             texts.Children.Add(new TextBlock { Text = g.Name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
             texts.Children.Add(Ui.Text(string.Join(", ", g.Participants), "OFCaption"));
             row.Children.Add(texts);
-            var join = Ui.Primary("Rejoindre");
+            var join = Ui.Primary(L.T("Rejoindre"));
             join.Click += async (_, _) =>
             {
                 join.IsEnabled = false;

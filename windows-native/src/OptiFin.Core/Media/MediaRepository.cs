@@ -3,6 +3,7 @@ using OptiFin.Core.Api;
 namespace OptiFin.Core.Media;
 
 using Query = List<KeyValuePair<string, string?>>;
+using OptiFin.Core.Localization;
 
 /// <summary>Accès aux contenus de l'utilisateur courant. Toutes les erreurs sortent en <see cref="ApiException"/>.</summary>
 public sealed class MediaRepository(JellyfinClient api, string userId)
@@ -76,7 +77,7 @@ public sealed class MediaRepository(JellyfinClient api, string userId)
     public async Task<BaseItemDto> ItemRawAsync(string id, CancellationToken ct = default)
     {
         var r = await Items([new("Ids", id), new("Fields", DetailFields), new("EnableTotalRecordCount", "false")], ct);
-        return r.Items?.FirstOrDefault() ?? throw new ApiException(ApiErrorKind.Unexpected, "Élément introuvable");
+        return r.Items?.FirstOrDefault() ?? throw new ApiException(ApiErrorKind.Unexpected, L.T("Élément introuvable"));
     }
 
     public async Task<MediaItem> ItemAsync(string id, CancellationToken ct = default) => MediaMapper.FromDto(await ItemRawAsync(id, ct));

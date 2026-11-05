@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using OptiFin.App.Services;
 using OptiFin.Core.Logging;
 using Windows.ApplicationModel.DataTransfer;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Pages;
 
@@ -13,6 +14,7 @@ public sealed partial class LogsPage : Page
     public LogsPage()
     {
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(this);
         Text.Text = AppLog.Export();
         Text.Loaded += (_, _) => Text.Select(Text.Text.Length, 0);
         CopyButton.Click += (_, _) =>
@@ -20,7 +22,7 @@ public sealed partial class LogsPage : Page
             var package = new DataPackage();
             package.SetText(AppLog.Export());
             Clipboard.SetContent(package);
-            Status.Text = "Copié dans le presse-papiers.";
+            Status.Text = L.T("Copié dans le presse-papiers.");
         };
         FolderButton.Click += (_, _) =>
             Process.Start(new ProcessStartInfo(AppLog.Directory) { UseShellExecute = true });
@@ -32,11 +34,11 @@ public sealed partial class LogsPage : Page
                 var content = new StringContent(AppLog.Export());
                 content.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
                 await client.PostAsync("ClientLog/Document", content);
-                Status.Text = "Envoyé au serveur (Tableau de bord › Journaux).";
+                Status.Text = L.T("Envoyé au serveur (Tableau de bord › Journaux).");
             }
             catch (Exception e)
             {
-                Status.Text = "Envoi impossible (serveur hors ligne ou envoi désactivé).";
+                Status.Text = L.T("Envoi impossible (serveur hors ligne ou envoi désactivé).");
                 AppLog.Warn("log", $"Envoi du journal impossible : {e.Message}");
             }
         };

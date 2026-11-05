@@ -4,6 +4,7 @@ using OptiFin.App.Controls;
 using OptiFin.App.Services;
 using OptiFin.Core.Logging;
 using OptiFin.Core.Settings;
+using OptiFin.Core.Localization;
 
 namespace OptiFin.App.Pages;
 
@@ -15,6 +16,7 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         InitializeComponent();
+        OptiFin.App.Controls.Ui.Translate(this);
         Nav.TrackScroll(Scroll);
         BuildAccount();
         BuildPlayback();
@@ -59,15 +61,15 @@ public sealed partial class SettingsPage : Page
 
     private void BuildAccount()
     {
-        Panel.Children.Add(Ui.Section("Compte"));
+        Panel.Children.Add(Ui.Section(L.T("Compte")));
         if (AppServices.Session is { } s)
         {
             var avatar = Ui.Avatar(s.Account.UserName,
                 s.Account.AvatarTag is null ? null : AppServices.Images?.UserAvatar(s.Account.UserId, 48, 2, s.Account.AvatarTag), 48);
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var change = Ui.Secondary("Changer de compte");
+            var change = Ui.Secondary(L.T("Changer de compte"));
             change.Click += (_, _) => Nav.PushRoot(typeof(ConnectPage));
-            var signOut = Ui.Secondary("Se déconnecter");
+            var signOut = Ui.Secondary(L.T("Se déconnecter"));
             signOut.Click += async (_, _) => await AppServices.SignOutAsync();
             buttons.Children.Add(change);
             buttons.Children.Add(signOut);
@@ -86,30 +88,30 @@ public sealed partial class SettingsPage : Page
 
     private void BuildPlayback()
     {
-        Panel.Children.Add(Ui.Section("Lecture"));
+        Panel.Children.Add(Ui.Section(L.T("Lecture ").Trim()));
         var languages = AppSettings.Languages;
-        var languageLabels = new[] { "Automatique" }.Concat(languages.Select(l => l.Name)).ToList();
+        var languageLabels = new[] { L.T("Automatique") }.Concat(languages.Select(l => l.Name)).ToList();
         int IndexOf(string? code) => code is null ? 0 : languages.ToList().FindIndex(l => l.Code == code) + 1;
 
-        Panel.Children.Add(Row("Langue audio", "Piste choisie si elle existe (sinon celle du serveur).",
+        Panel.Children.Add(Row(L.T("Langue audio"), L.T("Piste choisie si elle existe (sinon celle du serveur)."),
             Choice(languageLabels, IndexOf(S.AudioLanguage), i => { S.AudioLanguage = i == 0 ? null : languages[i - 1].Code; Save(); })));
-        Panel.Children.Add(Row("Sous-titres", null,
+        Panel.Children.Add(Row(L.T("Sous-titres"), null,
             Choice(Enum.GetValues<SubtitleMode>().Select(AppSettings.Label), (int)S.SubtitleMode, i => { S.SubtitleMode = (SubtitleMode)i; Save(); })));
-        Panel.Children.Add(Row("Langue des sous-titres", null,
+        Panel.Children.Add(Row(L.T("Langue des sous-titres"), null,
             Choice(languageLabels, IndexOf(S.SubtitleLanguage), i => { S.SubtitleLanguage = i == 0 ? null : languages[i - 1].Code; Save(); })));
 
         var size = new Slider { Minimum = 60, Maximum = 200, StepFrequency = 10, Value = S.SubtitleScale * 100, Width = 220 };
         size.ValueChanged += (_, e) => { S.SubtitleScale = e.NewValue / 100; Save(); };
-        Panel.Children.Add(Row("Taille des sous-titres", null, size));
-        Panel.Children.Add(Row("Fond des sous-titres", null,
-            Choice(["Contour", "Ombre", "Bandeau"], (int)S.SubtitleBackground, i => { S.SubtitleBackground = (SubtitleBackground)i; Save(); })));
+        Panel.Children.Add(Row(L.T("Taille des sous-titres"), null, size));
+        Panel.Children.Add(Row(L.T("Fond des sous-titres"), null,
+            Choice([L.T("Contour"), L.T("Ombre"), L.T("Bandeau")], (int)S.SubtitleBackground, i => { S.SubtitleBackground = (SubtitleBackground)i; Save(); })));
 
         var bitrates = AppSettings.Bitrates;
-        Panel.Children.Add(Row("Débit maximal", "Au-delà, le serveur adapte la vidéo (utile hors de chez soi).",
+        Panel.Children.Add(Row(L.T("Débit maximal"), L.T("Au-delà, le serveur adapte la vidéo (utile hors de chez soi)."),
             Choice(bitrates.Select(b => b.Label), bitrates.ToList().FindIndex(b => b.Bitrate == S.MaxBitrate), i => { S.MaxBitrate = bitrates[i].Bitrate; Save(); })));
-        Panel.Children.Add(Row("Passer l’intro automatiquement", "Intro, récapitulatif et publicité, quand le serveur les connaît.",
+        Panel.Children.Add(Row(L.T("Passer l’intro automatiquement"), L.T("Intro, récapitulatif et publicité, quand le serveur les connaît."),
             Toggle(S.AutoSkipSegments, v => { S.AutoSkipSegments = v; Save(); })));
-        Panel.Children.Add(Row("Épisode suivant automatique", "Enchaîne l’épisode suivant à la fin du générique.",
+        Panel.Children.Add(Row(L.T("Épisode suivant automatique"), L.T("Enchaîne l’épisode suivant à la fin du générique."),
             Toggle(S.AutoPlayNext, v => { S.AutoPlayNext = v; Save(); })));
     }
 
@@ -117,14 +119,14 @@ public sealed partial class SettingsPage : Page
 
     private void BuildAdvanced()
     {
-        Panel.Children.Add(Ui.Section("Avancé"));
-        Panel.Children.Add(Row("Mode debug", "Infos de lecture affichées dès le lancement d’une vidéo (aussi via le bouton ⓘ ou la touche I du lecteur), journaux détaillés.",
+        Panel.Children.Add(Ui.Section(L.T("Avancé")));
+        Panel.Children.Add(Row(L.T("Mode debug"), L.T("Infos de lecture affichées dès le lancement d’une vidéo (aussi via le bouton ⓘ ou la touche I du lecteur), journaux détaillés."),
             Toggle(S.DebugMode, v => { S.DebugMode = v; AppLog.Verbose = v; Save(); })));
-        var logs = Ui.Secondary("Ouvrir");
+        var logs = Ui.Secondary(L.T("Ouvrir"));
         logs.Click += (_, _) => Nav.Go(typeof(LogsPage));
-        Panel.Children.Add(Row("Journaux", "Pour diagnostiquer un problème (les secrets sont masqués).", logs));
+        Panel.Children.Add(Row(L.T("Journaux"), L.T("Pour diagnostiquer un problème (les secrets sont masqués)."), logs));
 
-        var clear = Ui.Secondary("Vider");
+        var clear = Ui.Secondary(L.T("Vider"));
         var cacheStatus = new TextBlock { Style = Ui.StyleOf("OFCaption"), VerticalAlignment = VerticalAlignment.Center };
         var cacheRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         cacheRow.Children.Add(cacheStatus);
@@ -132,11 +134,11 @@ public sealed partial class SettingsPage : Page
         clear.Click += (_, _) =>
         {
             var freed = ClearCache();
-            cacheStatus.Text = freed > 0 ? $"{freed / 1024.0 / 1024.0:0.#} Mo libérés" : "Cache vidé";
+            cacheStatus.Text = freed > 0 ? L.F("{0:0.#} Mo libérés", freed / 1024.0 / 1024.0) : L.T("Cache vidé");
         };
-        Panel.Children.Add(Row("Vider le cache", "Accueil enregistré pour l’affichage instantané et couleurs des films (recalculés au besoin).", cacheRow));
+        Panel.Children.Add(Row(L.T("Vider le cache"), L.T("Accueil enregistré pour l’affichage instantané et couleurs des films (recalculés au besoin)."), cacheRow));
 
-        Panel.Children.Add(Row("Capacités de l’appareil", DeviceSummary(), new Border()));
+        Panel.Children.Add(Row(L.T("Capacités de l’appareil"), DeviceSummary(), new Border()));
     }
 
     /// <summary>Supprime le cache disque (accueil) et vide les couleurs mémorisées ; renvoie les octets libérés.</summary>
@@ -179,30 +181,30 @@ public sealed partial class SettingsPage : Page
 
     private void BuildAbout()
     {
-        Panel.Children.Add(Ui.Section("À propos"));
-        var check = Ui.Secondary("Rechercher");
+        Panel.Children.Add(Ui.Section(L.T("À propos")));
+        var check = Ui.Secondary(L.T("Rechercher"));
         var status = new TextBlock { Style = Ui.StyleOf("OFCaption"), VerticalAlignment = VerticalAlignment.Center };
         var stack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         stack.Children.Add(status);
         stack.Children.Add(check);
         check.Click += async (_, _) =>
         {
-            status.Text = "Recherche…";
+            status.Text = L.T("Recherche…");
             var update = await AppUpdater.CheckAsync();
             if (update is null)
             {
-                status.Text = "OptiFin est à jour.";
+                status.Text = L.T("OptiFin est à jour.");
                 return;
             }
-            status.Text = $"Version {update.Version} disponible.";
+            status.Text = L.F("Version {0} disponible.", update.Version);
             await UpdateDialog.ShowAsync(XamlRoot, update);
         };
         Panel.Children.Add(AppUpdater.ByStore
             ? Row($"OptiFin {AppServices.Version}", "Lecteur Jellyfin pour Windows · mises à jour par le Microsoft Store.", new TextBlock())
             : Row($"OptiFin {AppServices.Version}", "Lecteur Jellyfin pour Windows · mises à jour automatiques.", stack));
-        var licences = Ui.Secondary("Afficher");
+        var licences = Ui.Secondary(L.T("Afficher"));
         licences.Click += async (_, _) => await ShowLicencesAsync();
-        Panel.Children.Add(Row("Licences", "Composants libres utilisés par OptiFin.", licences));
+        Panel.Children.Add(Row(L.T("Licences"), L.T("Composants libres utilisés par OptiFin."), licences));
     }
 
     private async Task ShowLicencesAsync()
@@ -225,8 +227,8 @@ public sealed partial class SettingsPage : Page
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = "Licences",
-            CloseButtonText = "Fermer",
+            Title = L.T("Licences"),
+            CloseButtonText = L.T("Fermer"),
             RequestedTheme = ElementTheme.Dark,
             Content = new ScrollViewer { Content = list, MaxHeight = 420, Width = 480 },
         };
