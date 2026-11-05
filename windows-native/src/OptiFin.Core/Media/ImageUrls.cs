@@ -15,6 +15,10 @@ public sealed class ImageUrls(Uri baseUrl)
     /// </summary>
     public static string Format { get; set; } = "Webp";
 
+    /// <summary>JPEG n'a pas de transparence : logos et illustrations détourées passent alors en PNG (sinon, fond noir).</summary>
+    private static string FormatFor(ImageKind kind) =>
+        Format == "Jpg" && kind is ImageKind.Logo or ImageKind.Art ? "Png" : Format;
+
     public static readonly int[] WidthBuckets = [120, 180, 240, 320, 480, 640, 800, 1080, 1280, 1920, 2560, 3840];
 
     public static int BucketFor(double logicalWidth, double scale)
@@ -33,7 +37,7 @@ public sealed class ImageUrls(Uri baseUrl)
         [
             new("maxWidth", BucketFor(logicalWidth, scale).ToString()),
             new("quality", quality.ToString()),
-            new("format", format ?? Format),
+            new("format", format ?? FormatFor(r.Type)),
             new("tag", r.Tag),
         ]);
     }

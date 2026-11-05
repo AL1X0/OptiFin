@@ -187,6 +187,25 @@ public class MediaTests
     }
 
     [Fact]
+    public void Logos_gardent_leur_transparence_sans_decodeur_WebP()
+    {
+        var urls = new ImageUrls(new Uri("https://h.fr"));
+        ImageUrls.Format = "Jpg";
+        try
+        {
+            Assert.Contains("format=Png", urls.Image(new ImageRef("i", ImageKind.Logo, "t"), 400).ToString());
+            Assert.Contains("format=Png", urls.Image(new ImageRef("i", ImageKind.Art, "t"), 400).ToString());
+            Assert.Contains("format=Jpg", urls.Image(new ImageRef("i", ImageKind.Primary, "t"), 400).ToString());
+            Assert.Contains("format=Jpg", urls.Image(new ImageRef("i", ImageKind.Backdrop, "t"), 400).ToString());
+        }
+        finally
+        {
+            ImageUrls.Format = "Webp";
+        }
+        Assert.Contains("format=Webp", urls.Image(new ImageRef("i", ImageKind.Logo, "t"), 400).ToString());
+    }
+
+    [Fact]
     public void Accueil_aSuivreSansDoublonsEtVitrineAvecFond()
     {
         var snapshot = new HomeSnapshot

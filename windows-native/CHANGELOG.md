@@ -10,6 +10,7 @@ plus). Écrire la section de la version à venir avant de publier : `publish.sh`
 - Fenêtre flottante : le film reste visible par-dessus vos autres applis (touche P)
 - Passthrough audio : le son Dolby et DTS part tel quel vers l'ampli ou la barre de son (réglage à activer)
 - Téléchargez une saison ou une série entière d'un coup
+- Les logos des films retrouvent leur fond transparent au lieu d'un rectangle noir
 - Sans connexion, votre position est gardée puis envoyée au serveur au retour du réseau, et l'épisode suivant téléchargé s'enchaîne
 
 ## 1.1.20
