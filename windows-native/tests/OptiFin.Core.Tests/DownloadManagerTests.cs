@@ -198,6 +198,140 @@ public sealed class DownloadManagerTests : IDisposable
         Assert.Null(manager.CompletedFile("movie"));
     }
 
+    /// <summary>Serveur minimal de synchronisation : fiche avec date de dernière lecture, rapports reçus.</summary>
+    private sealed class SyncServer : IDisposable
+    {
+        private readonly HttpListener _listener = new();
+        public string Url { get; }
+        public string? LastPlayed { get; set; }
+        public bool Offline { get; set; }
+        public List<string> Reports { get; } = [];
+
+        public SyncServer()
+        {
+            var port = 23_000 + Random.Shared.Next(2000);
+            Url = $"http://127.0.0.1:{port}/";
+            _listener.Prefixes.Add(Url);
+            _listener.Start();
+            _ = Task.Run(async () =>
+            {
+                while (_listener.IsListening)
+                {
+                    try
+                    {
+                        var c = await _listener.GetContextAsync();
+                        if (Offline)
+                        {
+                            c.Response.Abort();
+                            continue;
+                        }
+                        if (c.Request.HttpMethod == "POST")
+                        {
+                            using var reader = new StreamReader(c.Request.InputStream);
+                            var text = await reader.ReadToEndAsync();
+                            lock (Reports) Reports.Add(c.Request.Url!.AbsolutePath + " " + text);
+                            c.Response.StatusCode = 204;
+                        }
+                        else
+                        {
+                            var data = LastPlayed is null ? "{}" : $$"""{"LastPlayedDate":"{{LastPlayed}}","PlaybackPositionTicks":777}""";
+                            var body = System.Text.Encoding.UTF8.GetBytes($$"""{"Items":[{"Id":"movie","Name":"Horizon","Type":"Movie","UserData":{{data}}}]}""");
+                            c.Response.ContentType = "application/json";
+                            await c.Response.OutputStream.WriteAsync(body);
+                        }
+                        c.Response.Close();
+                    }
+                    catch
+                    {
+                        return;
+                    }
+                }
+            });
+        }
+
+        public void Dispose() => _listener.Abort();
+    }
+
+    private static async Task<DownloadManager> WithFinishedDownload(string dir)
+    {
+        using var files = new Server(File8Mb);
+        var manager = new DownloadManager(dir);
+        manager.Attach(Client(files), "compte");
+        manager.Enqueue(Dto());
+        await Until(() => manager.Find("movie")?.Status == DownloadStatus.Complete, "fin");
+        await manager.IdleAsync();
+        return manager;
+    }
+
+    private static JellyfinClient Client(SyncServer server) =>
+        new(new Uri(server.Url), new ClientIdentity("OptiFin", "Tests", "t", "1.0"), () => "secret");
+
+    [Fact]
+    public async Task Position_hors_ligne_gardee_puis_envoyee_au_retour_du_serveur()
+    {
+        var manager = await WithFinishedDownload(_dir);
+        using var server = new SyncServer { Offline = true };
+        manager.Attach(Client(server), "compte", "user");
+        manager.SavePosition("movie", TimeSpan.FromMinutes(12));
+        await manager.SyncPositionsAsync();
+        Assert.True(manager.Find("movie")!.PositionUnsent);
+        // La reprise fonctionne sans serveur, même après un redémarrage de l'appli.
+        var reopened = new DownloadManager(_dir);
+        reopened.Attach(null, "compte");
+        Assert.Equal(TimeSpan.FromMinutes(12), DownloadManager.ItemOf(reopened.Find("movie")!).ResumePosition);
+
+        server.Offline = false;
+        await manager.SyncPositionsAsync();
+        Assert.False(manager.Find("movie")!.PositionUnsent);
+        var report = Assert.Single(server.Reports);
+        Assert.Contains("/Sessions/Playing/Stopped", report);
+        Assert.Contains(TimeSpan.FromMinutes(12).Ticks.ToString(), report);
+    }
+
+    [Fact]
+    public async Task Lecture_plus_recente_sur_un_autre_appareil_non_ecrasee()
+    {
+        var manager = await WithFinishedDownload(_dir);
+        using var server = new SyncServer { LastPlayed = DateTimeOffset.UtcNow.AddHours(1).ToString("O") };
+        manager.Attach(Client(server), "compte", "user");
+        manager.SavePosition("movie", TimeSpan.FromMinutes(12));
+        await manager.SyncPositionsAsync();
+        Assert.Empty(server.Reports);
+        Assert.False(manager.Find("movie")!.PositionUnsent);
+        Assert.Equal(777, manager.Find("movie")!.LocalPositionTicks);
+    }
+
+    [Fact]
+    public async Task Pres_de_la_fin_le_titre_repart_du_debut()
+    {
+        using var files = new Server(File8Mb);
+        var manager = new DownloadManager(_dir);
+        manager.Attach(Client(files), "compte");
+        manager.Enqueue(new BaseItemDto { Id = "movie", Name = "Horizon", Type = "Movie", RunTimeTicks = TimeSpan.FromMinutes(100).Ticks });
+        await Until(() => manager.Find("movie")?.Status == DownloadStatus.Complete, "fin");
+        manager.SavePosition("movie", TimeSpan.FromMinutes(95));
+        var item = DownloadManager.ItemOf(manager.Find("movie")!);
+        Assert.Equal(TimeSpan.Zero, item.ResumePosition);
+        Assert.True(item.User.Played);
+    }
+
+    [Fact]
+    public async Task Episode_suivant_trouve_parmi_les_telechargements()
+    {
+        using var server = new Server(File8Mb);
+        var manager = new DownloadManager(_dir);
+        manager.Attach(Client(server), "compte");
+        BaseItemDto Episode(string id, int season, int number) => new() { Id = id, Name = id, Type = "Episode", SeriesId = "s", ParentIndexNumber = season, IndexNumber = number };
+        manager.Enqueue(Episode("e3", 1, 3));
+        manager.Enqueue(Episode("e1", 1, 1));
+        manager.Enqueue(Episode("s2e1", 2, 1));
+        await Until(() => manager.Records().All(r => r.Status == DownloadStatus.Complete), "fin");
+        var first = DownloadManager.ItemOf(manager.Find("e1")!);
+        Assert.Equal("e3", manager.NextDownloaded(first)?.Id);
+        Assert.Equal("s2e1", manager.NextDownloaded(DownloadManager.ItemOf(manager.Find("e3")!))?.Id);
+        Assert.Null(manager.NextDownloaded(DownloadManager.ItemOf(manager.Find("s2e1")!)));
+    }
+
     [Fact]
     public void Plan_de_lecture_local()
     {

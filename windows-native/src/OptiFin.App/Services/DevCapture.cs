@@ -39,6 +39,8 @@ public static class DevCapture
                         await Task.Delay(2500);
                     }
                     var target = Player.PlayerLauncher.CurrentRoot ?? root;
+                    // Fenêtre de dialogue ouverte : c'est elle qu'on capture (hors de l'arbre de la page).
+                    if (Controls.SurpriseDialog.DevBody is { ActualWidth: > 0 } dialogBody) target = dialogBody;
                     // Captures marketing seulement : le préchargement prend du temps et décalerait les
                     // étapes minutées des tests (tools/check-player).
                     if (Environment.GetEnvironmentVariable("OPTIFIN_CAPTURE_IMAGES") == "1") await LoadImagesAsync(target);

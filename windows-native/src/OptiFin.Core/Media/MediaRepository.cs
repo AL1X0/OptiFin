@@ -95,6 +95,15 @@ public sealed class MediaRepository(JellyfinClient api, string userId)
             [new("UserId", userId), new("SeasonId", seasonId), new("Fields", EpisodeFields), new("EnableImageTypes", "Primary,Thumb"), new("ImageTypeLimit", "1")],
             ct)).Items);
 
+    /// <summary>Épisodes réellement présents d'une saison (ou de toute la série), avec leurs fichiers, pour les télécharger.</summary>
+    public async Task<IReadOnlyList<BaseItemDto>> DownloadableEpisodesAsync(string seriesId, string? seasonId = null, CancellationToken ct = default)
+    {
+        Query query = [new("UserId", userId), new("Fields", DetailFields), new("IsMissing", "false"), new("EnableImageTypes", CardImages), new("ImageTypeLimit", "1")];
+        if (seasonId != null) query.Add(new("SeasonId", seasonId));
+        var r = await api.GetAsync($"Shows/{seriesId}/Episodes", JellyfinJson.Default.BaseItemDtoQueryResult, query, ct);
+        return [.. (r.Items ?? []).Where(e => e.MediaSources is { Count: > 0 })];
+    }
+
     /// <summary>Épisode à reprendre / suivant d'une série (bouton Lecture de la fiche série).</summary>
     public async Task<MediaItem?> NextUpForAsync(string seriesId, CancellationToken ct = default)
     {
@@ -189,6 +198,36 @@ public sealed class MediaRepository(JellyfinClient api, string userId)
             [.. (filters.Result.Genres ?? []).Where(g => g.Id != null && g.Name != null).Select(g => new NamedRef(g.Id!, g.Name!))
                 .OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase)],
             [.. (legacy.Result.Years ?? []).OrderDescending()]);
+    }
+
+    // ---------------------------------------------------------------- Surprends-moi
+
+    /// <summary>Premier titre tiré qui respecte la durée, en évitant celui qu'on vient de proposer si possible.</summary>
+    public static MediaItem? PickSurprise(IEnumerable<MediaItem> drawn, int? maxMinutes, string? excludeId)
+    {
+        var fitting = drawn.Where(i => maxMinutes is not { } max || i.RunTimeTicks is { } t && t <= TimeSpan.FromMinutes(max).Ticks).ToList();
+        return fitting.FirstOrDefault(i => i.Id != excludeId) ?? fitting.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Film ou série au hasard, non vu de préférence (tout vu : n'importe quel titre). Le serveur ne
+    /// filtre pas sur la durée : elle est vérifiée ici sur un tirage de 40 titres, films seulement.
+    /// </summary>
+    public async Task<MediaItem?> SurpriseAsync(string? genreId, int? maxMinutes, string? excludeId, CancellationToken ct = default)
+    {
+        foreach (var unwatchedOnly in new[] { true, false })
+        {
+            Query query =
+            [
+                new("Recursive", "true"), new("IncludeItemTypes", maxMinutes is null ? "Movie,Series" : "Movie"), new("SortBy", "Random"),
+                new("Limit", "40"), new("Fields", FeaturedFields), new("EnableImageTypes", CardImages), new("ImageTypeLimit", "1"),
+                new("EnableTotalRecordCount", "false"),
+            ];
+            if (unwatchedOnly) query.Add(new("Filters", "IsUnplayed"));
+            if (genreId != null) query.Add(new("GenreIds", genreId));
+            if (PickSurprise(Map((await Items(query, ct)).Items), maxMinutes, excludeId) is { } pick) return pick;
+        }
+        return null;
     }
 
     // ---------------------------------------------------------------- Recherche

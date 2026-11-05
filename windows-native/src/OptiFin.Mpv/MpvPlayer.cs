@@ -91,7 +91,8 @@ public sealed unsafe class MpvPlayer : IDisposable
     }
 
     /// <summary>Crée le lecteur dans la fenêtre <paramref name="wid"/> (HWND).</summary>
-    public static MpvPlayer Create(nint wid, bool verbose = false)
+    /// <param name="passthrough">Son envoyé tel quel à l'ampli (Dolby, DTS) ; mpv décode lui-même si la sortie le refuse.</param>
+    public static MpvPlayer Create(nint wid, bool verbose = false, bool passthrough = false)
     {
         var ctx = MpvNative.Create();
         if (ctx == 0) throw new InvalidOperationException("mpv_create a échoué");
@@ -133,6 +134,7 @@ public sealed unsafe class MpvPlayer : IDisposable
         Set("sub-ass-override", "scale");
         Set("sub-font", "Segoe UI");
         Set("sub-use-margins", "no");
+        if (passthrough) Set("audio-spdif", "ac3,eac3,dts,dts-hd,truehd");
         var rc = MpvNative.Initialize(ctx);
         if (rc < 0)
         {

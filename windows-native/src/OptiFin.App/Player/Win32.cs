@@ -26,6 +26,11 @@ internal static unsafe partial class Win32
     public const uint DWM_BB_BLURREGION = 0x2;
     public const int SW_HIDE = 0;
     public const int SW_SHOWNOACTIVATE = 4;
+    public const nint HWND_TOPMOST = -1;
+    public const nint HWND_NOTOPMOST = -2;
+    public const int WS_EX_TOPMOST = 0x00000008;
+    public const uint SWP_NOSIZE = 0x0001;
+    public const uint SWP_NOMOVE = 0x0002;
     public const uint SWP_NOACTIVATE = 0x0010;
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_SHOWWINDOW = 0x0040;
@@ -331,6 +336,12 @@ internal sealed unsafe class VideoHost : IDisposable
 
     public void Place(int x, int y, int width, int height, bool visible) =>
         Win32.SetWindowPos(Hwnd, 0, x, y, width, height, Win32.SWP_NOACTIVATE | Win32.SWP_NOZORDER | (visible ? Win32.SWP_SHOWWINDOW : 0));
+
+    /// <summary>Au-dessus de toutes les fenêtres (fenêtre flottante).</summary>
+    public void SetTopmost(bool topmost) =>
+        Win32.SetWindowPos(Hwnd, topmost ? Win32.HWND_TOPMOST : Win32.HWND_NOTOPMOST, 0, 0, 0, 0, Win32.SWP_NOACTIVATE | Win32.SWP_NOMOVE | Win32.SWP_NOSIZE);
+
+    public bool IsTopmost => (Win32.GetWindowLongPtr(Hwnd, Win32.GWL_EXSTYLE) & Win32.WS_EX_TOPMOST) != 0;
 
     public void Show(bool visible) => Win32.ShowWindow(Hwnd, visible ? Win32.SW_SHOWNOACTIVATE : Win32.SW_HIDE);
 

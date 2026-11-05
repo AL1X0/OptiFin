@@ -185,6 +185,9 @@ public sealed partial class FeaturedCarousel : Grid
         info.Click += (_, _) => HomePage.Open(item);
         buttons.Children.Add(play);
         buttons.Children.Add(info);
+        var surprise = Ui.Secondary(L.T("Surprends-moi"), "");
+        surprise.Click += (_, _) => _ = SurpriseDialog.ShowAsync(XamlRoot);
+        buttons.Children.Add(surprise);
         _info.Children.Add(buttons);
 
         // Point actif aux couleurs du titre affiché (comme sur mobile), blanc en attendant.

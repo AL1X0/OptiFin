@@ -132,6 +132,8 @@ public sealed class SyncPlayClient : IAsyncDisposable
                 SetConnected(true);
                 backoff = TimeSpan.FromSeconds(2);
                 AppLog.Info("syncplay", "Connexion temps réel établie");
+                _ = Remote.RemoteControlClient.RegisterAsync(_api, ct).ContinueWith(t => AppLog.Debug("remote", $"Appareil non annoncé au serveur : {t.Exception?.GetBaseException().Message}"),
+                    ct, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
                 _ = SyncTimeAsync(4, ct).ContinueWith(t => AppLog.Debug("syncplay", $"Horloge : décalage {Time.Offset.TotalMilliseconds:0} ms, aller-retour {Time.RoundTrip.TotalMilliseconds:0} ms"),
                     ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
                 using var keepAlive = new CancellationTokenSource();

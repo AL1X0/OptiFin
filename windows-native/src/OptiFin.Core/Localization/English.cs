@@ -128,6 +128,13 @@ public static class English
         ["Réglage du serveur"] = "Server setting", ["Toujours"] = "Always", ["Forcés uniquement"] = "Forced only", ["Jamais"] = "Never",
         ["Copié dans le presse-papiers."] = "Copied to the clipboard.", ["Envoyé au serveur (Tableau de bord › Journaux)."] = "Sent to the server (Dashboard › Logs).",
         ["Envoi impossible (serveur hors ligne ou envoi désactivé)."] = "Could not send (server offline or sending disabled).",
+        ["Surprends-moi"] = "Surprise me", ["Peu importe la durée"] = "Any length", ["Moins de 1 h 30"] = "Under 1 h 30", ["Moins de 2 h"] = "Under 2 h",
+        ["Tous les genres"] = "All genres", ["Voir la fiche"] = "View details", ["Encore"] = "Another one", ["Aucun titre ne correspond."] = "No matching title.",
+        ["Lire sur…"] = "Play on…", ["Aucun autre appareil disponible. Ouvrez OptiFin ou Jellyfin sur l’autre écran, puis réessayez."] = "No other device available. Open OptiFin or Jellyfin on the other screen, then try again.",
+        ["Reculer de 10 s"] = "Back 10 s", ["Avancer de 10 s"] = "Forward 10 s", ["Lecture / pause"] = "Play / pause", ["Arrêter"] = "Stop", ["Sur {0}"] = "On {0}",
+        ["Passthrough audio"] = "Audio passthrough",
+        ["Envoie le son Dolby et DTS tel quel à l’ampli ou à la barre de son (Atmos, DTS:X). Le volume se règle alors sur l’ampli. S’applique à la prochaine lecture."] = "Sends Dolby and DTS audio untouched to your receiver or soundbar (Atmos, DTS:X). Volume is then set on the receiver. Applies from the next playback.",
+        ["Fenêtre flottante (P)"] = "Floating window (P)", ["Taille normale (P)"] = "Normal size (P)",
         ["Tout copier"] = "Copy all", ["Envoyer au serveur"] = "Send to server", ["Ouvrir le dossier"] = "Open folder",
 
         // Mise à jour
@@ -156,6 +163,10 @@ public static class English
         ["{0:0.0} Go"] = "{0:0.0} GB", ["{0:0} Mo"] = "{0:0} MB", ["Échec du téléchargement"] = "Download failed", ["En pause · {0} / {1}"] = "Paused · {0} / {1}", ["En attente"] = "Queued", ["{0} / {1}"] = "{0} / {1}",
         ["Mettre en pause"] = "Pause", ["Supprimer"] = "Delete", ["Télécharger pour regarder sans connexion"] = "Download to watch offline", ["Téléchargé · voir les téléchargements"] = "Downloaded · view downloads", ["Téléchargement en cours · voir les téléchargements"] = "Downloading · view downloads",
         ["Téléchargement impossible : {0}"] = "Download failed: {0}",
+        ["Télécharger la saison"] = "Download season", ["Télécharger des épisodes"] = "Download episodes", ["Toute la série"] = "Entire series",
+        ["Tous les épisodes disponibles sont déjà téléchargés."] = "All available episodes are already downloaded.", ["{0} · {1}"] = "{0} · {1}",
+        ["Pas assez de place sur le disque : il faut {0}, il reste {1}."] = "Not enough disk space: {0} needed, {1} left.", ["Télécharger"] = "Download",
+        ["{0} épisode"] = "{0} episode", ["{0} épisodes"] = "{0} episodes",
 
         // Phrases à nombre
         ["{0} élément"] = "{0} item", ["{0} éléments"] = "{0} items",

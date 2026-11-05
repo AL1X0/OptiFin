@@ -26,6 +26,9 @@ public sealed class AppSettings
     public bool AutoPlayNext { get; set; } = true;
     public double Volume { get; set; } = 1;
 
+    /// <summary>Son Dolby et DTS envoyé tel quel à l'ampli ou à la barre de son (HDMI, S/PDIF).</summary>
+    public bool AudioPassthrough { get; set; }
+
     /// <summary>Résultat du dernier essai de décodage WebP sur ce PC (null : pas encore essayé).</summary>
     public bool? WebpDecodes { get; set; }
 

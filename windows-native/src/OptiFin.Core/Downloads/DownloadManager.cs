@@ -22,6 +22,11 @@ public sealed class DownloadRecord
     public long DoneBytes { get; set; }
     public DownloadStatus Status { get; set; }
     public string? Error { get; set; }
+    /// <summary>Dernière position lue sur ce PC, et quand.</summary>
+    public long? LocalPositionTicks { get; set; }
+    public DateTimeOffset? LocalWatchedAt { get; set; }
+    /// <summary>Position pas encore transmise au serveur (lecture sans connexion).</summary>
+    public bool PositionUnsent { get; set; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, UseStringEnumConverter = true)]
@@ -40,9 +45,13 @@ public sealed class DownloadManager
     private readonly List<DownloadRecord> _records;
     private JellyfinClient? _api;
     private string? _account;
+    private string? _userId;
     private DownloadRecord? _running;
     private CancellationTokenSource? _cancel;
     private Task _worker = Task.CompletedTask;
+    private int _syncing;
+    /// <summary>Nouvel essai régulier : rien n'annonce le retour du serveur.</summary>
+    private Timer? _syncTimer;
 
     /// <summary>État ou progression modifiés (appelé hors du fil d'interface).</summary>
     public event Action? Changed;
@@ -90,15 +99,109 @@ public sealed class DownloadManager
     }
 
     /// <summary>Compte actif : ses téléchargements en attente reprennent (null à la déconnexion).</summary>
-    public void Attach(JellyfinClient? api, string? accountId)
+    public void Attach(JellyfinClient? api, string? accountId, string? userId = null)
     {
         _cancel?.Cancel();
         lock (_gate)
         {
             _api = api;
             _account = accountId;
+            _userId = userId;
         }
         Pump();
+        if (api is null || userId is null) return;
+        _syncTimer ??= new Timer(_ => _ = SyncPositionsAsync(), null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(2));
+        _ = SyncPositionsAsync();
+    }
+
+    // ------------------------------------------------------------ Position hors ligne
+
+    /// <summary>Retient la position d'une lecture locale (le serveur peut être injoignable).</summary>
+    public void SavePosition(string itemId, TimeSpan position)
+    {
+        lock (_gate)
+        {
+            if (_records.FirstOrDefault(r => r.ItemId == itemId && r.AccountId == _account) is not { } record) return;
+            record.LocalPositionTicks = position.Ticks;
+            record.LocalWatchedAt = DateTimeOffset.UtcNow;
+            record.PositionUnsent = true;
+        }
+        Save();
+    }
+
+    /// <summary>
+    /// Transmet au serveur les positions lues sans connexion. Une lecture plus récente sur un autre
+    /// appareil l'emporte : elle remplace la position locale au lieu d'être écrasée.
+    /// </summary>
+    public async Task SyncPositionsAsync(CancellationToken ct = default)
+    {
+        if (Interlocked.Exchange(ref _syncing, 1) == 1) return;
+        try
+        {
+            JellyfinClient? api;
+            string? userId;
+            List<DownloadRecord> unsent;
+            lock (_gate)
+            {
+                api = _api;
+                userId = _userId;
+                unsent = [.. _records.Where(r => r.AccountId == _account && r.PositionUnsent)];
+            }
+            if (api is null || userId is null) return;
+            foreach (var record in unsent)
+            {
+                var dto = (await api.GetAsync($"Users/{userId}/Items", JellyfinJson.Default.BaseItemDtoQueryResult,
+                    [new("Ids", record.ItemId), new("EnableImages", "false"), new("EnableTotalRecordCount", "false")], ct).ConfigureAwait(false)).Items?.FirstOrDefault();
+                var user = dto?.UserData;
+                if (user?.LastPlayedDate > record.LocalWatchedAt)
+                {
+                    record.LocalPositionTicks = user.PlaybackPositionTicks ?? 0;
+                    AppLog.Info("downloads", $"« {record.Name} » : position plus récente sur le serveur, gardée");
+                }
+                else if (dto != null && record.LocalPositionTicks is { } ticks)
+                {
+                    // Comme une fin de lecture : le serveur enregistre la position et marque « vu » près de la fin.
+                    var report = new PlaybackReportDto { ItemId = record.ItemId, MediaSourceId = record.ItemId, PositionTicks = ticks };
+                    await api.PostAsync("Sessions/Playing/Stopped", JellyfinClient.Json(report, JellyfinJson.Default.PlaybackReportDto), ct: ct).ConfigureAwait(false);
+                    AppLog.Info("downloads", $"« {record.Name} » : position hors ligne envoyée au serveur");
+                }
+                record.PositionUnsent = false;
+                Save();
+            }
+        }
+        catch (Exception e) when (e is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            AppLog.Debug("downloads", $"Positions non envoyées, nouvel essai plus tard : {e.Message}");
+        }
+        finally
+        {
+            Volatile.Write(ref _syncing, 0);
+        }
+    }
+
+    /// <summary>Épisode téléchargé qui suit <paramref name="episode"/> : pour enchaîner sans connexion.</summary>
+    public MediaItem? NextDownloaded(MediaItem episode)
+    {
+        if (episode.SeriesId is null) return null;
+        List<DownloadRecord> complete;
+        lock (_gate) complete = [.. _records.Where(r => r.AccountId == _account && r.Status == DownloadStatus.Complete)];
+        return complete.Select(ItemOf)
+            .Where(i => i.SeriesId == episode.SeriesId && (i.ParentIndexNumber ?? 0, i.IndexNumber ?? 0).CompareTo((episode.ParentIndexNumber ?? 0, episode.IndexNumber ?? 0)) > 0)
+            .OrderBy(i => i.ParentIndexNumber ?? 0).ThenBy(i => i.IndexNumber ?? 0)
+            .FirstOrDefault();
+    }
+
+    /// <summary>Espace libre sur le disque des téléchargements (null si inconnu).</summary>
+    public long? FreeBytes()
+    {
+        try
+        {
+            return new DriveInfo(Path.GetPathRoot(Path.GetFullPath(_directory))!).AvailableFreeSpace;
+        }
+        catch (Exception e) when (e is IOException or ArgumentException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     public IReadOnlyList<DownloadRecord> Records()
@@ -119,9 +222,15 @@ public sealed class DownloadManager
     public string? CompletedFile(string itemId) =>
         Find(itemId) is { Status: DownloadStatus.Complete } r && File.Exists(PathOf(r)) ? PathOf(r) : null;
 
-    /// <summary>Fiche enregistrée au téléchargement.</summary>
-    public static MediaItem ItemOf(DownloadRecord record) =>
-        MediaMapper.FromDto(JsonSerializer.Deserialize(record.ItemJson, JellyfinJson.Default.BaseItemDto)!);
+    /// <summary>Fiche enregistrée au téléchargement, avec la dernière position lue sur ce PC.</summary>
+    public static MediaItem ItemOf(DownloadRecord record)
+    {
+        var item = MediaMapper.FromDto(JsonSerializer.Deserialize(record.ItemJson, JellyfinJson.Default.BaseItemDto)!);
+        if (record.LocalPositionTicks is not { } ticks) return item;
+        // Près de la fin, comme sur le serveur : titre vu, la prochaine lecture repart du début.
+        var finished = item.RunTimeTicks is > 0 and var total && ticks >= total * 9 / 10;
+        return item with { User = item.User with { PositionTicks = finished ? 0 : ticks, Played = item.User.Played || finished } };
+    }
 
     public void Enqueue(BaseItemDto dto)
     {

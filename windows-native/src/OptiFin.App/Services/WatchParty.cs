@@ -102,8 +102,30 @@ public static class WatchParty
             case QueueMessage q:
                 OnQueue(q.Queue);
                 break;
+            case RemotePlayMessage p:
+                _ = PlayFromRemoteAsync(p);
+                break;
+            case RemoteCommandMessage r:
+                PlayerLauncher.Current?.ApplyRemote(r.Command, r.Seek);
+                break;
         }
         Changed?.Invoke();
+    }
+
+    /// <summary>« Lire sur… » depuis un autre appareil : le lecteur s'ouvre ici (jamais pendant une soirée).</summary>
+    private static async Task PlayFromRemoteAsync(RemotePlayMessage request)
+    {
+        if (InParty || AppServices.Media is not { } media) return;
+        try
+        {
+            var item = await media.ItemAsync(request.ItemId);
+            AppLog.Info("remote", $"Lecture demandée par un autre appareil : {item.Name}");
+            PlayerLauncher.Play(item with { User = item.User with { PositionTicks = request.Start.Ticks } });
+        }
+        catch (ApiException e)
+        {
+            AppLog.Warn("remote", $"Lecture demandée impossible : {e.UserMessage}");
+        }
     }
 
     private static void OnQueue(PlayQueue queue)

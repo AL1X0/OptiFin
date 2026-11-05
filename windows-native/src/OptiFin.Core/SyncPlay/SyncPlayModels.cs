@@ -33,6 +33,10 @@ public sealed record QueueMessage(PlayQueue Queue) : SyncPlayMessage;
 public sealed record CommandMessage(SyncCommand Command) : SyncPlayMessage;
 public sealed record ErrorMessage(string Kind, string UserMessage) : SyncPlayMessage;
 public sealed record KeepAliveRequest(int Seconds) : SyncPlayMessage;
+/// <summary>Un autre appareil demande de lire ce titre ici (« Lire sur… »).</summary>
+public sealed record RemotePlayMessage(string ItemId, TimeSpan Start) : SyncPlayMessage;
+/// <summary>Un autre appareil pilote la lecture en cours : Pause, Unpause, PlayPause, Stop, Seek, NextTrack.</summary>
+public sealed record RemoteCommandMessage(string Command, TimeSpan? Seek) : SyncPlayMessage;
 
 /// <summary>Lecture des messages de la connexion temps réel (/socket) : SyncPlay et maintien de la connexion.</summary>
 public static class SyncPlayParser
@@ -50,6 +54,11 @@ public static class SyncPlayParser
                 "ForceKeepAlive" => new KeepAliveRequest(data.ValueKind == JsonValueKind.Number ? data.GetInt32() : 60),
                 "SyncPlayCommand" => new CommandMessage(Command(data)),
                 "SyncPlayGroupUpdate" => GroupUpdate(data),
+                "Play" when data.TryGetProperty("ItemIds", out var ids) && ids.ValueKind == JsonValueKind.Array && ids.GetArrayLength() > 0
+                    && ids[0].GetString() is { Length: > 0 } id && Str(data, "PlayCommand") is null or "PlayNow"
+                    => new RemotePlayMessage(id, TimeSpan.FromTicks(Long(data, "StartPositionTicks"))),
+                "Playstate" when Str(data, "Command") is { } command => new RemoteCommandMessage(command,
+                    data.TryGetProperty("SeekPositionTicks", out var seek) && seek.ValueKind == JsonValueKind.Number ? TimeSpan.FromTicks(seek.GetInt64()) : null),
                 _ => null,
             };
         }

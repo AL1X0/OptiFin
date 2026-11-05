@@ -109,6 +109,7 @@ public sealed partial class PlayerWindow : Window
         _reportTimer = Timer(dispatcher, TimeSpan.FromSeconds(10), () =>
         {
             if (_plan != null && _started) _ = AppServices.Playback!.ReportProgressAsync(_plan, _position, _paused);
+            SaveLocalPosition();
         }, repeating: true);
         _startupTimer = Timer(dispatcher, TimeSpan.FromSeconds(30), () => _ = OnStartupFailureAsync("aucune image après 30 s"));
         _overlayTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(300), () =>
@@ -301,6 +302,12 @@ public sealed partial class PlayerWindow : Window
         }
     }
 
+    /// <summary>Fichier téléchargé : position gardée sur ce PC, le serveur est peut-être injoignable.</summary>
+    private void SaveLocalPosition()
+    {
+        if (_started && _plan is { StreamUrl.IsFile: true } plan) AppServices.Downloads.SavePosition(plan.ItemId, _position);
+    }
+
     /// <summary>Ouvre un flux dans mpv (jamais de première image d'avant : _started remis à zéro).</summary>
     private void LoadStream(PlaybackPlan plan, TimeSpan start, string? title = null)
     {
@@ -329,7 +336,7 @@ public sealed partial class PlayerWindow : Window
 
     private MpvPlayer CreatePlayer()
     {
-        var mpv = MpvPlayer.Create(_video.Hwnd, AppServices.Settings.DebugMode);
+        var mpv = MpvPlayer.Create(_video.Hwnd, AppServices.Settings.DebugMode, AppServices.Settings.AudioPassthrough);
         mpv.SetVolume(AppServices.Settings.Volume);
         mpv.PositionChanged += p => Ui(() => OnPosition(p));
         mpv.DurationChanged += d => Ui(() =>
@@ -518,6 +525,9 @@ public sealed partial class PlayerWindow : Window
         var extras = await AppServices.Playback!.ExtrasAsync(item, AppServices.Media!);
         // Titre changé entre-temps (épisode suivant) : chapitres et segments de l'ancien ignorés.
         if (generation != _loadGeneration || _closing) return;
+        // Sans connexion, le serveur ne dit pas quel épisode suit : celui déjà téléchargé enchaîne.
+        if (extras.NextEpisode is null && item.Kind == MediaKind.Episode && _plan is { StreamUrl.IsFile: true })
+            extras = extras with { NextEpisode = AppServices.Downloads.NextDownloaded(item) };
         _extras = extras;
         AppLog.Info("extras", $"{_extras.Chapters.Count} chapitres, {_extras.Segments.Count} segments, vignettes {(_extras.Trickplay is { } t ? $"{t.Width} px" : "aucune")}" +
                               (_extras.NextEpisode is { } n ? $", suivant : « {n.Name} »" : ""));
@@ -526,6 +536,7 @@ public sealed partial class PlayerWindow : Window
     private async Task PlayNextAsync(MediaItem next)
     {
         if (_closing) return;
+        SaveLocalPosition();
         // Fin de l'épisode signalée sans l'attendre (et une seule fois, même après deux clics).
         var previous = _plan;
         _plan = null;
@@ -566,7 +577,7 @@ public sealed partial class PlayerWindow : Window
             SkipButton.Visibility = Visibility.Collapsed;
         }
         var upNextAt = _extras.UpNextAt(_duration);
-        var showUpNext = upNextAt != null && position >= upNextAt && !_upNextDismissed && _extras.NextEpisode != null;
+        var showUpNext = upNextAt != null && position >= upNextAt && !_upNextDismissed && _extras.NextEpisode != null && !_floating;
         if (showUpNext && UpNext.Visibility != Visibility.Visible)
             UpNextTitle.Text = $"{_extras.NextEpisode!.EpisodeLabel} · {_extras.NextEpisode.Name}";
         UpNext.Visibility = showUpNext ? Visibility.Visible : Visibility.Collapsed;
@@ -598,6 +609,7 @@ public sealed partial class PlayerWindow : Window
         BackButton.Click += (_, _) => SeekBy(-10);
         ForwardButton.Click += (_, _) => SeekBy(10);
         FullscreenButton.Click += (_, _) => ToggleFullscreen();
+        FloatingButton.Click += (_, _) => ToggleFloating();
         SkipButton.Click += (_, _) =>
         {
             if (SkipButton.Tag is MediaSegment s) UserSeek(s.End);
@@ -691,7 +703,7 @@ public sealed partial class PlayerWindow : Window
         _hoverShift.X = Math.Clamp(x - w / 2, 0, Math.Max(0, Scrubber.ActualWidth - w));
     }
 
-    private const double PreviewWidth = 240;
+    private double PreviewWidth => _floating ? 150 : 240;
 
     /// <summary>Planches déjà chargées (trois au plus : chacune occupe plusieurs dizaines de Mo une fois décodée).</summary>
     private readonly Dictionary<(string Item, int Sheet), Task<Microsoft.UI.Xaml.Media.Imaging.BitmapImage?>> _sheets = [];
@@ -818,8 +830,12 @@ public sealed partial class PlayerWindow : Window
             case VirtualKey.F or VirtualKey.F11:
                 ToggleFullscreen();
                 break;
+            case VirtualKey.P:
+                ToggleFloating();
+                break;
             case VirtualKey.Escape:
                 if (_fullscreen) ToggleFullscreen();
+                else if (_floating) ToggleFloating();
                 else RequestClose();
                 break;
             case VirtualKey.I:
@@ -1056,6 +1072,7 @@ public sealed partial class PlayerWindow : Window
     /// </summary>
     private void ToggleFullscreen()
     {
+        if (_floating) ToggleFloating();
         if (OptiFin.App.Controls.Ui.Overlapped(AppWindow) is not { } p)
         {
             AppLog.Warn("player", $"Plein écran impossible : présentateur {AppWindow.Presenter?.Kind}");
@@ -1093,6 +1110,71 @@ public sealed partial class PlayerWindow : Window
         EnsureTaskbarButton();
         FullscreenIcon.Glyph = full ? "" : "";
         SyncVideo();
+    }
+
+    private const double FloatingWidth = 480;
+    private bool _floating;
+    private bool _maximizedBeforeFloating;
+    private Windows.Graphics.RectInt32 _boundsBeforeFloating;
+
+    /// <summary>Outil de développement : bascule fenêtre flottante, et état réel relevé dans les journaux.</summary>
+    internal void DevToggleFloating()
+    {
+        ToggleFloating();
+        AppLog.Info("dev", $"Flottante={_floating} : {AppWindow.Size.Width}×{AppWindow.Size.Height} en {AppWindow.Position.X},{AppWindow.Position.Y}, " +
+                           $"commandes au premier plan={OptiFin.App.Controls.Ui.Overlapped(AppWindow)?.IsAlwaysOnTop}, vidéo au premier plan={_video.IsTopmost}");
+    }
+
+    /// <summary>
+    /// Petite fenêtre en bas à droite, au-dessus des autres applis, pour regarder en faisant autre chose.
+    /// La vidéo et les commandes sont deux fenêtres : toutes deux passent au premier plan.
+    /// </summary>
+    private void ToggleFloating()
+    {
+        if (OptiFin.App.Controls.Ui.Overlapped(AppWindow) is not { } p) return;
+        if (_fullscreen) ToggleFullscreen();
+        var floating = !_floating;
+        if (floating)
+        {
+            _maximizedBeforeFloating = p.State == OverlappedPresenterState.Maximized;
+            if (_maximizedBeforeFloating) p.Restore();
+            _boundsBeforeFloating = new Windows.Graphics.RectInt32(AppWindow.Position.X, AppWindow.Position.Y, AppWindow.Size.Width, AppWindow.Size.Height);
+            var scale = Root.XamlRoot?.RasterizationScale ?? 1;
+            var work = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea;
+            // Proportions de l'image quand elles sont connues : pas de bandes noires autour.
+            var aspect = _mpv?.GetDouble("dwidth") is > 0 and var w && _mpv.GetDouble("dheight") is > 0 and var h ? Math.Clamp(w / h, 1.2, 2.4) : 16.0 / 9;
+            var width = (int)(FloatingWidth * scale);
+            var height = (int)(width / aspect);
+            var margin = (int)(16 * scale);
+            AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(work.X + work.Width - width - margin, work.Y + work.Height - height - margin, width, height));
+        }
+        else
+        {
+            AppWindow.MoveAndResize(_boundsBeforeFloating);
+            if (_maximizedBeforeFloating) p.Maximize();
+        }
+        _floating = floating;
+        p.IsAlwaysOnTop = floating;
+        _video.SetTopmost(floating);
+        // Peu de place : la barre de lecture et l'essentiel, le reste au retour à la taille normale.
+        var extra = floating ? Visibility.Collapsed : Visibility.Visible;
+        foreach (var element in new FrameworkElement[]
+        {
+            BackButton, ForwardButton, VolumeButton, AudioButton, SubtitlesButton, SettingsButton, InfoButton,
+            PositionText, RemainingText, ChapterText, EndsAtText, SubtitleText,
+        })
+            element.Visibility = extra;
+        PlayButton.Width = PlayButton.Height = floating ? 56 : 88;
+        PlayIcon.FontSize = floating ? 30 : 48;
+        SkipButton.Margin = floating ? new Thickness(0, 0, 12, 60) : new Thickness(0, 0, 32, 120);
+        TitleText.FontSize = floating ? 13 : 17;
+        ToolTipService.SetToolTip(FloatingButton, floating ? L.T("Taille normale (P)") : L.T("Fenêtre flottante (P)"));
+        UpNext.Visibility = floating ? Visibility.Collapsed : UpNext.Visibility;
+        if (_stats && floating) ToggleStats(false);
+        UpdateTitleInset();
+        EnsureTaskbarButton();
+        SyncVideo();
+        AppLog.Info("player", floating ? "Fenêtre flottante" : "Fin de la fenêtre flottante");
     }
 
     private bool _overlayVisible = true;
@@ -1308,6 +1390,7 @@ public sealed partial class PlayerWindow : Window
                 channels != null ? L.F("{0} canaux", channels) : null,
                 rate is { } r ? $"{r / 1000:0.#} kHz" : null,
                 G("current-ao"),
+                G("audio-params/format")?.StartsWith("spdif", StringComparison.Ordinal) == true ? "passthrough" : null,
             }.Where(x => x != null))));
             var vbr = D("video-bitrate");
             var abr = D("audio-bitrate");
@@ -1470,6 +1553,36 @@ public sealed partial class PlayerWindow : Window
         AppLog.Info("player", $"Sous-titre téléchargé : {added.Label}");
         _plan = _plan! with { SubtitleTracks = refreshed.SubtitleTracks };
         await SwitchTrackAsync(TrackType.Subtitle, added);
+    }
+
+    /// <summary>Ordre d'un autre appareil (« Lire sur… ») ; en soirée, c'est le groupe qui décide.</summary>
+    internal void ApplyRemote(string command, TimeSpan? seek)
+    {
+        if (_sync != null || _mpv is null) return;
+        AppLog.Info("remote", $"Commande reçue : {command}");
+        switch (command)
+        {
+            case "Pause":
+                _mpv.Pause();
+                break;
+            case "Unpause":
+                _mpv.Play();
+                break;
+            case "PlayPause":
+                TogglePlay();
+                break;
+            case "Stop":
+                RequestClose();
+                break;
+            case "Seek" when seek is { } position:
+                _mpv.Seek(position);
+                // Position à jour tout de suite pour l'appareil qui pilote, sans attendre le rapport suivant.
+                if (_plan != null && _started) _ = AppServices.Playback!.ReportProgressAsync(_plan, position, _paused);
+                break;
+            case "NextTrack" when _extras.NextEpisode is { } next:
+                _ = PlayNextAsync(next);
+                break;
+        }
     }
 
     /// <summary>Outil de capture : saut et fermeture comme le ferait l'utilisateur.</summary>
@@ -1642,6 +1755,7 @@ public sealed partial class PlayerWindow : Window
     private void Shutdown()
     {
         if (_closing) return;
+        SaveLocalPosition();
         _closing = true;
         MediaSession.ButtonPressed -= OnMediaButton;
         WatchParty.CommandReceived -= OnPartyCommand;
@@ -1682,6 +1796,7 @@ public sealed partial class PlayerWindow : Window
             try
             {
                 if (plan != null && started) await AppServices.Playback!.ReportStoppedAsync(plan, position);
+                await AppServices.Downloads.SyncPositionsAsync();
                 Nav.Ui(PlayerLauncher.OnProgressSaved);
             }
             catch (Exception e)

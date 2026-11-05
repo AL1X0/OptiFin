@@ -64,6 +64,7 @@ public sealed class UserItemDataDto
     public long? PlaybackPositionTicks { get; set; }
     public double? PlayedPercentage { get; set; }
     public int? UnplayedItemCount { get; set; }
+    public DateTimeOffset? LastPlayedDate { get; set; }
 }
 
 public sealed class ImageBlurHashes
@@ -116,6 +117,7 @@ public sealed class MediaStream
 public sealed class MediaSourceInfo
 {
     public string? Id { get; set; }
+    public long? Size { get; set; }
     public string? Container { get; set; }
     public long? Bitrate { get; set; }
     public long? RunTimeTicks { get; set; }

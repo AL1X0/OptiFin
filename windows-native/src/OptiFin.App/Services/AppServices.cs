@@ -132,7 +132,7 @@ public static class AppServices
         Playback = new PlaybackService(Client, session.Account.UserId);
         Images = new ImageUrls(session.Server.BaseUrl);
         WatchParty.Attach(Client);
-        Downloads.Attach(Client, session.Account.Id);
+        Downloads.Attach(Client, session.Account.Id, session.Account.UserId);
         AppLog.Info("app", $"Session : {session.Account.UserName} sur {session.Server.Name} (Jellyfin {session.Server.Version})");
     }
 }

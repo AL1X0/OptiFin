@@ -129,6 +129,9 @@
                         <Button x:Name="InfoButton" Style="{StaticResource OFIconButton}" Width="40" Height="40" Background="Transparent" ToolTipService.ToolTip="Infos de lecture (I)">
                             <FontIcon x:Name="InfoIcon" Glyph="&#xE946;" FontSize="16" />
                         </Button>
+                        <Button x:Name="FloatingButton" Style="{StaticResource OFIconButton}" Width="40" Height="40" Background="Transparent" ToolTipService.ToolTip="Fenêtre flottante (P)">
+                            <FontIcon x:Name="FloatingIcon" Glyph="&#xE8A7;" FontSize="16" />
+                        </Button>
                         <Button x:Name="FullscreenButton" Style="{StaticResource OFIconButton}" Width="40" Height="40" Background="Transparent" ToolTipService.ToolTip="Plein écran (F)">
                             <FontIcon x:Name="FullscreenIcon" Glyph="&#xE740;" FontSize="16" />
                         </Button>

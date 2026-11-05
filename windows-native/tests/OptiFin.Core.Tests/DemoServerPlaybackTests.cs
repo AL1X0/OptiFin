@@ -95,6 +95,120 @@ public partial class DemoServerPlaybackTests
         Assert.Skip("Aucune vignette sur ce serveur.");
     }
 
+    /// <summary>La synchronisation hors ligne envoie une fin de lecture sans session ouverte : un vrai serveur doit l'accepter.</summary>
+    [Fact]
+    public async Task Position_hors_ligne_acceptee_par_le_serveur()
+    {
+        var s = await ConnectAsync();
+        var video = (await VideosAsync(s)).First(v => v.RunTimeTicks > TimeSpan.FromMinutes(1).Ticks);
+        var ticks = video.RunTimeTicks!.Value / 3;
+        await s.Api.PostAsync("Sessions/Playing/Stopped", JellyfinClient.Json(
+            new PlaybackReportDto { ItemId = video.Id!, MediaSourceId = video.Id, PositionTicks = ticks }, JellyfinJson.Default.PlaybackReportDto));
+        var after = await s.Media.ItemRawAsync(video.Id!);
+        Assert.Equal(ticks, after.UserData?.PlaybackPositionTicks);
+        Assert.NotNull(after.UserData?.LastPlayedDate);
+    }
+
+    [Fact]
+    public async Task Surprends_moi_respecte_les_filtres_du_serveur()
+    {
+        var s = await ConnectAsync();
+        var any = await s.Media.SurpriseAsync(null, null, null);
+        Assert.NotNull(any);
+        Assert.Contains(any.Kind, new[] { MediaKind.Movie, MediaKind.Series });
+        var options = await s.Media.FilterOptionsAsync(new LibraryQuery { Kinds = [MediaKind.Movie, MediaKind.Series] });
+        if (options.Genres.Count > 0)
+        {
+            var genre = options.Genres[0];
+            var inGenre = await s.Media.SurpriseAsync(genre.Id, null, null);
+            Assert.NotNull(inGenre);
+            Assert.Contains(inGenre.Genres, g => g.Name == genre.Name);
+        }
+        var shortOne = await s.Media.SurpriseAsync(null, 120, null);
+        if (shortOne != null)
+        {
+            Assert.Equal(MediaKind.Movie, shortOne.Kind);
+            Assert.True(shortOne.Runtime <= TimeSpan.FromMinutes(120));
+        }
+    }
+
+    [Fact]
+    public void Surprends_moi_evite_le_titre_precedent_et_les_films_trop_longs()
+    {
+        MediaItem Movie(string id, int minutes) => new() { Id = id, Name = id, Kind = MediaKind.Movie, RunTimeTicks = TimeSpan.FromMinutes(minutes).Ticks };
+        var drawn = new[] { Movie("long", 180), Movie("a", 100), Movie("b", 90) };
+        Assert.Equal("a", MediaRepository.PickSurprise(drawn, 120, null)?.Id);
+        Assert.Equal("b", MediaRepository.PickSurprise(drawn, 120, "a")?.Id);
+        Assert.Equal("long", MediaRepository.PickSurprise(drawn, null, null)?.Id);
+        Assert.Equal("b", MediaRepository.PickSurprise([Movie("b", 90)], 120, "b")?.Id);
+        Assert.Null(MediaRepository.PickSurprise([Movie("long", 180)], 120, null));
+    }
+
+    /// <summary>
+    /// « Lire sur… » de bout en bout sur un vrai serveur : un appareil connecté devient visible depuis
+    /// un autre, reçoit la demande de lecture puis les commandes (pause, saut, arrêt).
+    /// </summary>
+    [Fact]
+    public async Task Lire_sur_un_autre_appareil()
+    {
+        var s = await ConnectAsync();
+        var video = (await VideosAsync(s)).First();
+        var identity = new ClientIdentity("OptiFin", "Salon", "optifin-tests-recepteur-" + Guid.NewGuid().ToString("N"), "1.0");
+        var auth = new AuthService(identity);
+        var session = await auth.LoginAsync(await auth.ProbeAsync(Setting("OPTIFIN_DEMO_SERVER")!), Setting("OPTIFIN_DEMO_USER") ?? "demo", Setting("OPTIFIN_DEMO_PASSWORD") ?? "");
+        var receiverApi = new JellyfinClient(session.Server.BaseUrl, identity, () => session.Token);
+        await using var receiver = new OptiFin.Core.SyncPlay.SyncPlayClient(receiverApi);
+        var messages = new ConcurrentQueue<OptiFin.Core.SyncPlay.SyncPlayMessage>();
+        receiver.MessageReceived += messages.Enqueue;
+        receiver.Start();
+
+        var remote = new OptiFin.Core.Remote.RemoteControlClient(s.Api, s.UserId);
+        OptiFin.Core.Remote.RemoteDevice? device = null;
+        for (var i = 0; i < 40 && device is null; i++)
+        {
+            await Task.Delay(500);
+            device = (await remote.DevicesAsync()).FirstOrDefault(d => d.Name == "Salon");
+        }
+        Assert.NotNull(device);
+
+        async Task<T> Next<T>() where T : class
+        {
+            for (var i = 0; i < 40; i++)
+            {
+                if (messages.FirstOrDefault(m => m is T) is T found) return found;
+                await Task.Delay(250);
+            }
+            throw new TimeoutException($"Message {typeof(T).Name} non reçu.");
+        }
+
+        await remote.PlayAsync(device.SessionId, video.Id!, TimeSpan.FromMinutes(3));
+        var play = await Next<OptiFin.Core.SyncPlay.RemotePlayMessage>();
+        Assert.Equal(video.Id, play.ItemId);
+        Assert.Equal(TimeSpan.FromMinutes(3), play.Start);
+
+        await remote.SeekAsync(device.SessionId, TimeSpan.FromMinutes(5));
+        var seek = await Next<OptiFin.Core.SyncPlay.RemoteCommandMessage>();
+        Assert.Equal("Seek", seek.Command);
+        Assert.Equal(TimeSpan.FromMinutes(5), seek.Seek);
+    }
+
+    /// <summary>Passthrough demandé à mpv tel que le réglage de l'appli le fait.</summary>
+    [Fact]
+    public void Passthrough_transmis_a_mpv()
+    {
+        var hwnd = CreateWindowEx(0, "STATIC", "", 0, 0, 0, 64, 64, 0, 0, 0, 0);
+        try
+        {
+            using (var on = MpvPlayer.Create(hwnd, passthrough: true)) Assert.Contains("truehd", on.Get("audio-spdif"));
+            using var off = MpvPlayer.Create(hwnd);
+            Assert.True(string.IsNullOrEmpty(off.Get("audio-spdif")));
+        }
+        finally
+        {
+            DestroyWindow(hwnd);
+        }
+    }
+
     private static async Task<List<BaseItemDto>> VideosAsync(Server s) =>
         (await s.Api.GetAsync($"Users/{s.UserId}/Items", JellyfinJson.Default.BaseItemDtoQueryResult,
             [new("Recursive", "true"), new("IncludeItemTypes", "Movie,Episode"), new("Fields", "MediaStreams,MediaSources"), new("Limit", "200")]))

@@ -334,6 +334,13 @@ public sealed partial class DetailsPage : Page
             _actions.Children.Add(fav);
         }
         if (item.Kind.IsPlayableVideo()) _actions.Children.Add(DownloadButton(item));
+        if (item.Kind is MediaKind.Series or MediaKind.Season) _actions.Children.Add(DownloadManyButton(item));
+        if (item.Kind.IsPlayableVideo() || item.Kind == MediaKind.Series)
+        {
+            var playOn = Ui.Round("", L.T("Lire sur…"));
+            playOn.Click += (_, _) => _ = RemoteDialog.ShowMenuAsync(playOn, item);
+            _actions.Children.Add(playOn);
+        }
         if (item.Trailers.Count > 0)
         {
             var trailer = Ui.Round("\uE8B2", "Bande-annonce");
@@ -379,6 +386,87 @@ public sealed partial class DetailsPage : Page
         };
         return button;
     }
+
+    /// <summary>Saison : tout de suite. Série : choix d'une saison ou de toute la série.</summary>
+    private Button DownloadManyButton(MediaItem item)
+    {
+        var button = Ui.Round("", item.Kind == MediaKind.Season ? L.T("Télécharger la saison") : L.T("Télécharger des épisodes"));
+        button.Click += async (_, _) =>
+        {
+            if (item.Kind == MediaKind.Season && item.SeriesId is { } parent)
+            {
+                await ConfirmDownloadAsync(parent, item.Id, item.Name);
+                return;
+            }
+            var menu = new MenuFlyout();
+            var all = new MenuFlyoutItem { Text = L.T("Toute la série") };
+            all.Click += (_, _) => _ = ConfirmDownloadAsync(item.Id, null, item.Name);
+            menu.Items.Add(all);
+            try
+            {
+                var seasons = await AppServices.Media!.SeasonsAsync(item.Id);
+                if (seasons.Count > 0) menu.Items.Add(new MenuFlyoutSeparator());
+                foreach (var season in seasons)
+                {
+                    var entry = new MenuFlyoutItem { Text = season.Name };
+                    entry.Click += (_, _) => _ = ConfirmDownloadAsync(item.Id, season.Id, season.Name);
+                    menu.Items.Add(entry);
+                }
+            }
+            catch (ApiException e)
+            {
+                AppLog.Warn("downloads", e.UserMessage);
+            }
+            menu.ShowAt(button);
+        };
+        return button;
+    }
+
+    /// <summary>Annonce le nombre d'épisodes et la place nécessaire avant de lancer la file.</summary>
+    private async Task ConfirmDownloadAsync(string seriesId, string? seasonId, string title)
+    {
+        var downloads = AppServices.Downloads;
+        string? message = null;
+        IReadOnlyList<OptiFin.Core.Api.BaseItemDto> episodes = [];
+        try
+        {
+            episodes = [.. (await AppServices.Media!.DownloadableEpisodesAsync(seriesId, seasonId)).Where(e => downloads.Find(e.Id!) is null)];
+            if (episodes.Count == 0) message = L.T("Tous les épisodes disponibles sont déjà téléchargés.");
+        }
+        catch (ApiException e)
+        {
+            message = e.UserMessage;
+        }
+        var size = episodes.Sum(e => e.MediaSources?.FirstOrDefault()?.Size ?? 0);
+        var enoughSpace = downloads.FreeBytes() is not { } free || size < free;
+        message ??= enoughSpace
+            ? L.F("{0} · {1}", L.Count(episodes.Count, "{0} épisode", "{0} épisodes"), Size(size))
+            : L.F("Pas assez de place sur le disque : il faut {0}, il reste {1}.", Size(size), Size(downloads.FreeBytes() ?? 0));
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = title,
+            Content = message,
+            CloseButtonText = L.T("Annuler"),
+            RequestedTheme = ElementTheme.Dark,
+        };
+        if (episodes.Count > 0 && enoughSpace)
+        {
+            dialog.PrimaryButtonText = L.T("Télécharger");
+            dialog.DefaultButton = ContentDialogButton.Primary;
+        }
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        foreach (var episode in episodes)
+        {
+            downloads.Enqueue(episode);
+            _ = SavePosterAsync(MediaMapper.FromDto(episode));
+        }
+        Nav.Section(typeof(DownloadsPage));
+    }
+
+    private static string Size(long bytes) => bytes >= 1L << 30
+        ? L.F("{0:0.0} Go", bytes / (double)(1L << 30))
+        : L.F("{0:0} Mo", bytes / (double)(1L << 20));
 
     private static readonly HttpClient PosterHttp = new();
 

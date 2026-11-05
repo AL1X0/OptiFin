@@ -100,6 +100,12 @@ public static class DevActions
             case "pleinecran":
                 Player.PlayerLauncher.Current?.DevToggleFullscreen();
                 break;
+            case "surprise" when Nav.ContentFrame?.XamlRoot is { } surpriseRoot:
+                _ = Controls.SurpriseDialog.ShowAsync(surpriseRoot);
+                break;
+            case "flottant":
+                Player.PlayerLauncher.Current?.DevToggleFloating();
+                break;
             case "telecharger" when AppServices.Media is { } media:
                 AppServices.Downloads.Enqueue(await media.ItemRawAsync(arg));
                 break;

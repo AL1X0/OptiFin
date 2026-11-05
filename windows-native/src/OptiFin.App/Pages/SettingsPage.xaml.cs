@@ -113,6 +113,8 @@ public sealed partial class SettingsPage : Page
             Toggle(S.AutoSkipSegments, v => { S.AutoSkipSegments = v; Save(); })));
         Panel.Children.Add(Row(L.T("Épisode suivant automatique"), L.T("Enchaîne l’épisode suivant à la fin du générique."),
             Toggle(S.AutoPlayNext, v => { S.AutoPlayNext = v; Save(); })));
+        Panel.Children.Add(Row(L.T("Passthrough audio"), L.T("Envoie le son Dolby et DTS tel quel à l’ampli ou à la barre de son (Atmos, DTS:X). Le volume se règle alors sur l’ampli. S’applique à la prochaine lecture."),
+            Toggle(S.AudioPassthrough, v => { S.AudioPassthrough = v; Save(); })));
     }
 
     // ------------------------------------------------------------ Avancé
