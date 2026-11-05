@@ -46,7 +46,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 (-PtvMinify=true) : à valider sur un appareil avant de l'activer pour les versions publiées.
+            val minify = project.findProperty("tvMinify") == "true"
+            isMinifyEnabled = minify
+            isShrinkResources = minify
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("release").takeIf { it.storeFile != null }
         }
         debug {

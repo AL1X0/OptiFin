@@ -27,6 +27,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -171,6 +172,15 @@ fun MainShell(launchItem: MutableStateFlow<String?>, onPlay: (String, Boolean) -
 private fun NavigationDrawerScope.DrawerContent(value: DrawerValue, route: String?, userName: String, nav: AppNav) {
     val open = value == DrawerValue.Open
     val session = AppServices.session.value
+    // ◀ ouvre le menu sur la page active (Accueil depuis une page hors menu), pas sur l'entrée la plus
+    // proche : menu fermé, c'est la seule qui peut recevoir le focus.
+    val activeRoute = when (route) {
+        Screens.LIBRARY -> Screens.LIBRARIES
+        Screens.LOGS -> Screens.SETTINGS
+        Screens.ACCOUNT, Screens.SETTINGS -> route
+        else -> entries.firstOrNull { it.route == route }?.route ?: Screens.HOME
+    }
+    fun Modifier.activeFocus(entry: String) = focusProperties { canFocus = open || entry == activeRoute }
     Box(
         Modifier.fillMaxHeight().background(
             if (open) Brush.horizontalGradient(listOf(Color(0xF7000000), Color(0xE6000000), Color(0x00000000)))
@@ -186,6 +196,7 @@ private fun NavigationDrawerScope.DrawerContent(value: DrawerValue, route: Strin
             for (entry in entries) {
                 val selected = route == entry.route || (entry.route == Screens.LIBRARIES && route == Screens.LIBRARY)
                 NavigationDrawerItem(
+                    modifier = Modifier.activeFocus(entry.route),
                     selected = selected,
                     onClick = { nav.section(entry.route) },
                     leadingContent = { Icon(if (selected) entry.selectedIcon else entry.icon, null) },
@@ -193,6 +204,7 @@ private fun NavigationDrawerScope.DrawerContent(value: DrawerValue, route: Strin
                 ) { Text(entry.label) }
             }
             NavigationDrawerItem(
+                modifier = Modifier.activeFocus(Screens.ACCOUNT),
                 selected = route == Screens.ACCOUNT,
                 onClick = { nav.section(Screens.ACCOUNT) },
                 leadingContent = {
@@ -202,6 +214,7 @@ private fun NavigationDrawerScope.DrawerContent(value: DrawerValue, route: Strin
                 colors = drawerColors(),
             ) { Text(userName.ifEmpty { "Compte" }) }
             NavigationDrawerItem(
+                modifier = Modifier.activeFocus(Screens.SETTINGS),
                 selected = route == Screens.SETTINGS || route == Screens.LOGS,
                 onClick = { nav.section(Screens.SETTINGS) },
                 leadingContent = { Icon(if (route == Screens.SETTINGS) Icons.Rounded.Settings else Icons.Outlined.Settings, null) },

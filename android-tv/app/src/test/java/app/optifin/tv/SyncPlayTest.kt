@@ -13,7 +13,6 @@ import app.optifin.tv.core.syncplay.SyncPlayPlayback
 import app.optifin.tv.core.syncplay.SyncRequests
 import app.optifin.tv.core.syncplay.SyncTarget
 import app.optifin.tv.core.syncplay.TimeSync
-import java.io.File
 import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
@@ -21,10 +20,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -92,15 +87,14 @@ class SyncPlayTest {
 
     @Test
     fun `soirée réelle sur le serveur Jellyfin local`() = runBlocking {
-        val path = System.getenv("OPTIFIN_TEST_JELLYFIN")
-        assumeTrue("Serveur Jellyfin de test absent", path != null && File(path).exists())
-        val cfg = Json.parseToJsonElement(File(path!!).readText()).jsonObject
-        val users = cfg["users"]!!.jsonArray.map { it.jsonObject }
+        val users = TestServer.users
+        // Une soirée se teste à deux comptes : le serveur de démonstration public n'en a qu'un.
+        assumeTrue("Il faut deux comptes sur le serveur de test", users.size >= 2)
         suspend fun clientFor(i: Int, device: String): SyncPlayClient {
             val identity = ClientIdentity("OptiFin TV test", device, "tv-test-$device", "1.0")
             val auth = AuthService(identity)
-            val server = auth.probe(cfg["url"]!!.jsonPrimitive.content)
-            val session = auth.login(server, users[i]["name"]!!.jsonPrimitive.content, users[i]["password"]!!.jsonPrimitive.content)
+            val server = auth.probe(TestServer.url)
+            val session = auth.login(server, users[i].name, users[i].password)
             return SyncPlayClient(JellyfinClient(server.baseUrl, identity) { session.token })
         }
         val alice = clientFor(0, "alice")
@@ -117,7 +111,7 @@ class SyncPlayTest {
         withTimeout(10_000) { alice.group.first { (it?.participants?.size ?: 0) >= 2 } }
         // Titre lancé par alice : bob reçoit la file.
         val queue = async { withTimeout(10_000) { bob.messages.first { it is QueueChanged } as QueueChanged } }
-        alice.setQueue(listOf(itemId(cfg)), 0, 5_000)
+        alice.setQueue(listOf(TestServer.testItem), 0, 5_000)
         val q = queue.await().queue
         assertEquals(5_000, q.startMs)
         // Arrêt par l'hôte : bob reçoit l'ordre Stop de l'élément en cours.
@@ -129,8 +123,4 @@ class SyncPlayTest {
         alice.close()
         bob.close()
     }
-
-    /** Premier film du serveur de test (Long Test, 12 min). */
-    private fun itemId(cfg: kotlinx.serialization.json.JsonObject): String =
-        cfg["testItem"]?.jsonPrimitive?.content ?: "fde8185a4a9b78e748dc26306f596e6a"
 }

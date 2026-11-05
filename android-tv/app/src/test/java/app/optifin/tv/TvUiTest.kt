@@ -8,7 +8,11 @@ import androidx.navigation.compose.composable
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
@@ -20,11 +24,9 @@ import app.optifin.tv.ui.theme.OptiFinTheme
 import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import org.junit.Assume.assumeTrue
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeNoException
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -40,9 +42,9 @@ private object PlainCipher : TokenCipher {
 }
 
 /**
- * Parcours de l'interface TV sur le serveur Jellyfin local (données réelles), télécommande
- * simulée, captures d'écran dans build/screens. Ignoré sans serveur de test
- * (OPTIFIN_TEST_JELLYFIN = fichier JSON {url, users:[{name,password}]} hors dépôt).
+ * Parcours de l'interface TV sur un vrai serveur Jellyfin (voir [TestServer]), télécommande
+ * simulée : le focus est vérifié à chaque étape, captures d'écran dans build/screens (sans les
+ * images, que ce banc de test ne charge pas).
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w960dp-h540dp-land-xhdpi")
@@ -55,16 +57,24 @@ class TvUiTest {
 
     @Before
     fun signIn() {
-        val path = System.getenv("OPTIFIN_TEST_JELLYFIN")
-        assumeTrue("Serveur Jellyfin de test absent", path != null && File(path).exists())
-        val cfg = Json.parseToJsonElement(File(path!!).readText()).jsonObject
-        val user = cfg["users"]!!.jsonArray[0].jsonObject
+        val user = TestServer.users[0]
         AppServices.init(ApplicationProvider.getApplicationContext(), PlainCipher)
         runBlocking {
-            val server = AppServices.auth.probe(cfg["url"]!!.jsonPrimitive.content)
-            AppServices.signIn(AppServices.auth.login(server, user["name"]!!.jsonPrimitive.content, user["password"]!!.jsonPrimitive.content))
+            val server = try {
+                AppServices.auth.probe(TestServer.url)
+            } catch (e: Exception) {
+                assumeNoException("Serveur Jellyfin de test injoignable", e)
+                throw e
+            }
+            AppServices.signIn(AppServices.auth.login(server, user.name, user.password))
         }
     }
+
+    private fun focused(text: String) = compose.onAllNodes(hasText(text) and isFocused(), useUnmergedTree = true)
+        .fetchSemanticsNodes().isNotEmpty() || compose.onAllNodes(isFocused()).fetchSemanticsNodes()
+        .any { node -> node.config.getOrNull(SemanticsProperties.Text)?.any { it.text == text } == true }
+
+    private fun exists(text: String) = compose.onAllNodes(hasText(text), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
 
     private fun capture(name: String) {
         compose.waitForIdle()
@@ -96,23 +106,31 @@ class TvUiTest {
         }
         waitMs(6000)
         capture("01-accueil")
+        assertTrue("au démarrage, le focus est sur « Regarder »", focused("Regarder"))
         press(Key.DirectionDown)
         capture("02-accueil-rangee")
+        assertFalse("▼ quitte le carrousel pour la première rangée", focused("Regarder"))
         press(Key.DirectionDown)
         capture("03-accueil-rangee2")
         press(Key.DirectionUp, 3)
         capture("04-accueil-haut")
+        assertTrue("▲ ramène toujours en haut de page", focused("Regarder"))
         press(Key.DirectionLeft)
         capture("05-menu")
+        assertTrue("◀ depuis le bord gauche ouvre le menu sur la page active", focused("Accueil"))
         press(Key.DirectionRight)
+        assertTrue("▶ depuis le menu revient au contenu", focused("Regarder"))
         press(Key.DirectionDown)
         press(Key.DirectionCenter)
         waitMs(5000)
         capture("06-fiche")
+        assertTrue("OK sur une carte ouvre sa fiche, focus sur la lecture", focused("Reprendre") || focused("Regarder") || focused("Lecture"))
+        assertTrue("la fiche détaille le titre", exists("Distribution") || exists("Saisons") || exists("Épisodes"))
         press(Key.DirectionDown, 2)
         capture("07-fiche-bas")
         press(Key.DirectionUp, 3)
         capture("08-fiche-haut")
+        assertTrue("▲ ramène en haut de la fiche", exists("Reprendre") || exists("Regarder") || exists("Lecture"))
     }
 
     @Composable
