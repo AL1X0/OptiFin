@@ -116,6 +116,43 @@ class MediaRepository {
 
   /// Carrousel : recommandations au hasard parmi tous les films et séries non vus
   /// de toutes les bibliothèques (avec backdrop et synopsis pour un bel affichage).
+  /// Premier titre tiré qui respecte la durée, en évitant celui qu'on vient de proposer si possible.
+  static MediaItem? pickSurprise(List<MediaItem> drawn, int? maxMinutes, String? excludeId) {
+    final fitting = [
+      for (final i in drawn)
+        if (maxMinutes == null || (i.runtime != null && i.runtime!.inMinutes <= maxMinutes)) i,
+    ];
+    for (final i in fitting) {
+      if (i.id != excludeId) return i;
+    }
+    return fitting.isEmpty ? null : fitting.first;
+  }
+
+  /// Film ou série au hasard, non vu de préférence (tout vu : n'importe quel titre). Le serveur ne
+  /// filtre pas sur la durée : elle est vérifiée ici sur un tirage de 40 titres, films seulement.
+  Future<MediaItem?> surprise({String? genreId, int? maxMinutes, String? excludeId}) => _guard(() async {
+    for (final unwatchedOnly in const [true, false]) {
+      final r = await _api.library.getItems(
+        userId: userId,
+        recursive: true,
+        includeItemTypes: maxMinutes == null
+            ? const [BaseItemKind.movie, BaseItemKind.series]
+            : const [BaseItemKind.movie],
+        filters: unwatchedOnly ? const [ItemFilter.isUnplayed] : null,
+        genreIds: genreId == null ? null : [genreId],
+        sortBy: const [ItemSortBy.random],
+        limit: 40,
+        fields: ItemFieldSets.featured,
+        enableImageTypes: const [ImageType.backdrop, ImageType.logo, ImageType.primary],
+        imageTypeLimit: 1,
+        enableTotalRecordCount: false,
+      );
+      final pick = pickSurprise(_map(r.items), maxMinutes, excludeId);
+      if (pick != null) return pick;
+    }
+    return null;
+  });
+
   Future<List<BaseItemDto>> featuredRaw({int limit = 12}) => _guard(() async {
     final r = await _api.library.getItems(
       userId: userId,

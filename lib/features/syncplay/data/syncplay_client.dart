@@ -143,6 +143,23 @@ class SyncPlayClient implements SyncRequests {
         backoff = const Duration(seconds: 2);
         AppLog.i('syncplay', 'Connexion temps réel établie');
         unawaited(syncTime().catchError((Object e) => AppLog.d('syncplay', 'Horloge du serveur indisponible : $e')));
+        // Annonce au serveur que cet appareil lit des vidéos et se laisse piloter (« Lire sur… »).
+        unawaited(
+          dio
+              .post<void>(
+                '/Sessions/Capabilities/Full',
+                data: {
+                  'PlayableMediaTypes': ['Video'],
+                  'SupportedCommands': ['Play', 'Playstate'],
+                  'SupportsMediaControl': true,
+                  'SupportsPersistentIdentifier': true,
+                },
+              )
+              .catchError((Object e) {
+                AppLog.d('remote', 'Appareil non annoncé au serveur : $e');
+                return Response<void>(requestOptions: RequestOptions());
+              }),
+        );
         _scheduleKeepAlive();
         await for (final data in socket) {
           if (data is String) _handle(data);

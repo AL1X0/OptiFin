@@ -46,6 +46,11 @@ const englishTexts = <String, String>{
   // Accueil, bibliothèques, recherche
   'À suivre': 'Next up', 'Ajouts récents · {0}': 'Recently added · {0}', 'Favoris': 'Favorites', 'Infos': 'Info', 'Impossible de charger l’accueil.': 'Could not load the home page.',
   'Votre serveur ne contient encore rien à afficher.': 'Your server has nothing to show yet.', 'Titre': 'Title', 'Date d’ajout': 'Date added', 'Date de sortie': 'Release date', 'Note': 'Rating', 'Durée': 'Runtime', 'Année': 'Year',
+  'Chromecast': 'Chromecast', 'Connexion à {0}…': 'Connecting to {0}…', 'Connexion à {0} impossible.': 'Could not connect to {0}.', 'Le Chromecast n’a pas pu lire ce titre.': 'The Chromecast could not play this title.',
+  'Lire sur…': 'Play on…', 'Aucun autre appareil disponible. Ouvrez OptiFin ou Jellyfin sur l’autre écran, puis réessayez.': 'No other device available. Open OptiFin or Jellyfin on the other screen, then try again.',
+  'Reculer de 10 s': 'Back 10 s', 'Avancer de 10 s': 'Forward 10 s', 'Lecture / pause': 'Play / pause', 'Arrêter': 'Stop', 'Sur {0}': 'On {0}',
+  'Surprends-moi': 'Surprise me', 'Peu importe la durée': 'Any length', 'Moins de 1 h 30': 'Under 1 h 30', 'Moins de 2 h': 'Under 2 h',
+  'Tous les genres': 'All genres', 'Voir la fiche': 'View details', 'Encore': 'Another one', 'Aucun titre ne correspond.': 'No matching title.',
   'Aucune bibliothèque.': 'No libraries.', 'Impossible de charger les bibliothèques.': 'Could not load libraries.', 'Trier et filtrer': 'Sort and filter', 'Réinitialiser': 'Reset', 'Trier par': 'Sort by', 'Croissant': 'Ascending', 'Décroissant': 'Descending',
   'Statut': 'Status', 'Tous': 'All', 'Non vus': 'Unwatched', 'Vus': 'Watched', 'Résolution': 'Resolution', 'Toutes': 'All', 'Années': 'Years', 'Bibliothèque indisponible.': 'Library unavailable.', 'Impossible de charger le contenu.': 'Could not load the content.',
   'Aucun résultat avec ces filtres.': 'No results with these filters.', 'Cette bibliothèque est vide.': 'This library is empty.', '{0} élément': '{0} item', '{0} éléments': '{0} items', 'Affichage grille': 'Grid view', 'Affichage liste': 'List view', 'Index alphabétique': 'Alphabetical index',

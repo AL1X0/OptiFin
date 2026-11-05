@@ -5,6 +5,7 @@
 library;
 
 export 'src/airplay_button.dart';
+export 'src/chromecast.dart';
 export 'src/native_player.dart';
 export 'src/native_player_view.dart';
 export 'src/native_glass_view.dart';

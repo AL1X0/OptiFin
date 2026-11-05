@@ -145,6 +145,27 @@ class KeepAliveRequest extends SyncPlayMessage {
   final int seconds;
 }
 
+/// Un autre appareil demande de lire ce titre ici (« Lire sur… »).
+class RemotePlay extends SyncPlayMessage {
+  const RemotePlay(this.itemId, this.start);
+  final String itemId;
+  final Duration start;
+}
+
+/// Un autre appareil pilote la lecture en cours : Pause, Unpause, PlayPause, Stop, Seek.
+class RemoteCommand extends SyncPlayMessage {
+  const RemoteCommand(this.command, this.seek);
+  final String command;
+  final Duration? seek;
+}
+
+SyncPlayMessage? _remotePlay(Map<String, dynamic> data) {
+  final ids = data['ItemIds'];
+  final mode = data['PlayCommand'];
+  if (ids is! List || ids.isEmpty || ids.first is! String || (mode != null && mode != 'PlayNow')) return null;
+  return RemotePlay(ids.first as String, ticksToDuration(data['StartPositionTicks']));
+}
+
 /// Lecture des messages de la connexion temps réel (SyncPlay et maintien de la connexion).
 SyncPlayMessage? parseSyncPlayMessage(String raw) {
   try {
@@ -155,6 +176,11 @@ SyncPlayMessage? parseSyncPlayMessage(String raw) {
       'ForceKeepAlive' => KeepAliveRequest(data is num ? data.toInt() : 60),
       'SyncPlayCommand' when data is Map<String, dynamic> => CommandReceived(SyncCommand.fromJson(data)),
       'SyncPlayGroupUpdate' when data is Map<String, dynamic> => _groupUpdate(data),
+      'Play' when data is Map<String, dynamic> => _remotePlay(data),
+      'Playstate' when data is Map<String, dynamic> && data['Command'] is String => RemoteCommand(
+        data['Command'] as String,
+        data['SeekPositionTicks'] == null ? null : ticksToDuration(data['SeekPositionTicks']),
+      ),
       _ => null,
     };
   } on FormatException {

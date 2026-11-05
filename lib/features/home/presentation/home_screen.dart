@@ -11,6 +11,7 @@ import '../domain/home_data.dart';
 import '../../downloads/presentation/downloads_providers.dart';
 import 'featured_carousel.dart';
 import 'home_providers.dart';
+import 'surprise_sheet.dart';
 import '../../../core/l10n/l.dart';
 
 /// Accueil : carrousel « à la une » puis rangées (Reprendre, À suivre,
@@ -130,6 +131,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  SurpriseButton(),
+                  SizedBox(width: OFSpacing.sm),
                   WatchPartyButton(),
                   SizedBox(width: OFSpacing.sm),
                   AccountButton(),

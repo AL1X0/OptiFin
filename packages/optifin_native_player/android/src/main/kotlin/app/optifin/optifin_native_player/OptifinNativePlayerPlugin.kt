@@ -34,6 +34,7 @@ class OptifinNativePlayerPlugin :
     private lateinit var messenger: BinaryMessenger
     private val players = mutableMapOf<Int, NativePlayer>()
     private var nextId = 1
+    private var castController: CastController? = null
 
     private var activity: Activity? = null
     private var activityBinding: ActivityPluginBinding? = null
@@ -82,6 +83,7 @@ class OptifinNativePlayerPlugin :
         channel.setMethodCallHandler(this)
         pipChannel = EventChannel(messenger, "optifin_native_player/pip")
         pipChannel.setStreamHandler(this)
+        castController = CastController(context, messenger)
         binding.platformViewRegistry.registerViewFactory("optifin_native_player/view", PlayerViewFactory(this))
         instances.add(this)
     }
@@ -200,6 +202,8 @@ class OptifinNativePlayerPlugin :
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         instances.remove(this)
+        castController?.dispose()
+        castController = null
         channel.setMethodCallHandler(null)
         pipChannel.setStreamHandler(null)
         players.values.toList().forEach { it.dispose() }

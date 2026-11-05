@@ -13,6 +13,7 @@ import '../../../core/network/api_failure.dart';
 import '../../../core/providers.dart';
 import '../../common/presentation/media_cards.dart';
 import '../../downloads/presentation/download_button.dart';
+import '../../remote/remote_control.dart';
 import '../../home/domain/home_data.dart';
 import '../../player/presentation/player_controller.dart';
 import 'details_providers.dart';
@@ -437,6 +438,16 @@ class _Summary extends ConsumerWidget {
               onTap: () => run(() => controller.toggleFavorite(user)),
             ),
             if (item.kind.isPlayableVideo) DownloadButton(itemId: item.id),
+            if (canPlay)
+              OFIconButton(
+                icon: Icons.devices_rounded,
+                tooltip: L.t('Lire sur…'),
+                onPressed: () => showPlayOnSheet(
+                  context,
+                  item: playTarget,
+                  start: targetResumable ? playTarget.resumePosition : Duration.zero,
+                ),
+              ),
             if (item.trailers.isNotEmpty)
               OFIconButton(
                 icon: Icons.movie_outlined,

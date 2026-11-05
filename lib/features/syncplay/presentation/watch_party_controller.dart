@@ -50,6 +50,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
   final _subscriptions = <StreamSubscription<Object?>>[];
   final _commands = StreamController<SyncCommand>.broadcast();
   final _states = StreamController<GroupState>.broadcast();
+  final _remoteCommands = StreamController<RemoteCommand>.broadcast();
   String? _openedPlaylistItem;
   bool _creating = false, _created = false, _launching = false;
   bool _launched = false, _stopping = false;
@@ -64,6 +65,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
   SyncPlayClient? get client => _client;
   Stream<SyncCommand> get commands => _commands.stream;
   Stream<GroupState> get groupStates => _states.stream;
+  Stream<RemoteCommand> get remoteCommands => _remoteCommands.stream;
 
   @override
   WatchPartyState build() {
@@ -138,8 +140,22 @@ class WatchPartyController extends Notifier<WatchPartyState> {
         _onQueue(queue);
       case KeepAliveRequest():
         break;
+      case RemotePlay(:final itemId, :final start):
+        _onRemotePlay(itemId, start);
+      case RemoteCommand():
+        if (!state.inParty) _remoteCommands.add(message);
     }
     state = WatchPartyState(group: client.group, connected: client.connected, available: true);
+  }
+
+  /// « Lire sur… » depuis un autre appareil : le lecteur s'ouvre ici (jamais pendant une soirée).
+  void _onRemotePlay(String itemId, Duration start) {
+    if (state.inParty) return;
+    final router = ref.read(routerProvider);
+    final location = Routes.play(itemId, start: start);
+    final inPlayer = router.routerDelegate.currentConfiguration.uri.path.startsWith('/play/');
+    AppLog.i('remote', 'Lecture demandée par un autre appareil : $itemId');
+    unawaited(inPlayer ? router.pushReplacement<void>(location) : router.push<void>(location));
   }
 
   void _onQueue(PlayQueue queue) {

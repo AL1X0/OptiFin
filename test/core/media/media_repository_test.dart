@@ -22,6 +22,37 @@ void main() {
     return MediaRepository(JellyfinClient(dio), 'user1');
   }
 
+  group('surprise', () {
+    test('tire un film non vu assez court dans le genre demandé', () async {
+      final r = repo({'GET http://s/Items': FakeResponse(200, queryResult([dtoJson(id: 'a')], total: 1))});
+      final pick = await r.surprise(genreId: 'g1');
+      expect(pick?.id, 'a');
+      final q = adapter.requests.single.uri.queryParametersAll;
+      expect(q['filters'], ['IsUnplayed']);
+      expect(q['genreIds'], ['g1']);
+      expect(q['sortBy'], ['Random']);
+      expect(q['includeItemTypes'], ['Movie', 'Series']);
+    });
+
+    test('tout est déjà vu : le tirage reprend sur tous les titres', () async {
+      final r = repo({'GET http://s/Items': FakeResponse(200, queryResult(const [], total: 0))});
+      expect(await r.surprise(), isNull);
+      expect(adapter.requests, hasLength(2));
+      expect(adapter.requests.last.uri.queryParametersAll.containsKey('filters'), isFalse);
+    });
+
+    test('durée maximale et titre précédent', () {
+      MediaItem movie(String id, int minutes) =>
+          MediaItem(id: id, name: id, kind: MediaKind.movie, runTimeTicks: minutes * 600000000);
+      final drawn = [movie('long', 180), movie('a', 100), movie('b', 90)];
+      expect(MediaRepository.pickSurprise(drawn, 120, null)?.id, 'a');
+      expect(MediaRepository.pickSurprise(drawn, 120, 'a')?.id, 'b');
+      expect(MediaRepository.pickSurprise(drawn, null, null)?.id, 'long');
+      expect(MediaRepository.pickSurprise([movie('b', 90)], 120, 'b')?.id, 'b');
+      expect(MediaRepository.pickSurprise([movie('long', 180)], 120, null), isNull);
+    });
+  });
+
   group('page', () {
     test('traduit la requête en paramètres Jellyfin', () async {
       final r = repo({'GET http://s/Items': FakeResponse(200, queryResult([dtoJson(id: 'a')], total: 1234))});

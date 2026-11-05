@@ -594,6 +594,7 @@ class PlayerController extends Notifier<PlayerUiState> {
 
   /// Lecture lancée par une soirée : synchronisation avec le groupe (même logique que sous Windows).
   void _setupParty() {
+    _subscriptionsForever.add(ref.read(watchPartyProvider.notifier).remoteCommands.listen(_onRemoteCommand));
     final party = ref.read(watchPartyProvider.notifier).partyFor(args.itemId);
     final client = ref.read(watchPartyProvider.notifier).client;
     if (party == null || client == null) return;
@@ -613,6 +614,25 @@ class PlayerController extends Notifier<PlayerUiState> {
     ref.listen(watchPartyProvider, (_, _) => _updatePartyBadge());
     // Appelé depuis build() : l'état n'existe pas encore, le badge est posé juste après.
     Future.microtask(_updatePartyBadge);
+  }
+
+  /// Ordre d'un autre appareil (« Lire sur… ») ; en soirée, c'est le groupe qui décide.
+  void _onRemoteCommand(RemoteCommand remote) {
+    final e = engine;
+    if (_sync != null || _closed || e == null) return;
+    AppLog.i('remote', 'Commande reçue : ${remote.command}');
+    switch (remote.command) {
+      case 'Pause':
+        unawaited(e.pause());
+      case 'Unpause':
+        unawaited(e.play());
+      case 'PlayPause':
+        unawaited(togglePlay());
+      case 'Stop':
+        unawaited(close());
+      case 'Seek' when remote.seek != null:
+        unawaited(seek(remote.seek!));
+    }
   }
 
   void _onPartyLoaded() {
