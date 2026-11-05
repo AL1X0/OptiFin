@@ -133,9 +133,9 @@ private enum class Panel { Subtitles, Audio, Chapters, Settings, Speed, Subtitle
  * - panneaux à droite : sous-titres, audio, chapitres, réglages.
  */
 @Composable
-fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayItem: (String) -> Unit, party: Boolean = false) {
+fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayItem: (String) -> Unit, party: Boolean = false, startAtMs: Long? = null) {
     val context = LocalContext.current
-    val controller = remember(itemId) { PlayerController(context, itemId, fromStart, party) }
+    val controller = remember(itemId) { PlayerController(context, itemId, fromStart, party, startAtMs) }
     val ui by controller.state.collectAsState()
     var visible by remember { mutableStateOf(true) }
     var panel by remember { mutableStateOf<Panel?>(null) }
@@ -202,17 +202,25 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
         }
     }
 
-    BackHandler {
+    fun onBack() {
         when {
             panel != null -> {
-                panel = null
-                show(focusPlay = true)
+                // Sous-menu : retour au menu dont il vient.
+                panel = when (panel) {
+                    Panel.Speed, Panel.Fit, Panel.Engine -> Panel.Settings
+                    Panel.Style, Panel.Search, Panel.SubtitleDelay -> Panel.Subtitles
+                    Panel.AudioDelay -> Panel.Audio
+                    else -> null
+                }
+                if (panel == null) show(focusPlay = true)
             }
             scrub != null -> scrub = null
             visible && ui.phase == PlayerPhase.Playing -> hide()
             else -> onExit()
         }
     }
+
+    BackHandler(onBack = ::onBack)
 
     // Commandes affichées au démarrage, masquées après la première image.
     LaunchedEffect(engineState.ready) {
@@ -228,6 +236,12 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
             .background(Color.Black)
             .focusRequester(rootFocus)
             .onPreviewKeyEvent { e ->
+                // Traité ici : sinon Compose rend d'abord le focus à cette zone (focusable) et « mange » la touche,
+                // il fallait deux appuis et le panneau restait ouvert sans focus.
+                if (e.key == Key.Back) {
+                    if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) onBack()
+                    return@onPreviewKeyEvent true
+                }
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 val repeat = e.nativeKeyEvent.repeatCount > 0
                 when (e.key) {
@@ -456,11 +470,15 @@ private fun ControlButton(icon: ImageVector, label: String, onClick: () -> Unit,
         shape = ButtonDefaults.shape(RoundedCornerShape(26.dp)),
         colors = ButtonDefaults.colors(containerColor = Color(0x29FFFFFF), contentColor = Color.White, focusedContainerColor = Color.White, focusedContentColor = Color.Black),
         scale = ButtonDefaults.scale(focusedScale = 1.05f),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = if (focused) 20.dp else 14.dp),
+        // 12 dp : bouton parfaitement rond (28 + 2 × 12 = 52) quand il n'a pas le focus.
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = if (focused) 20.dp else 12.dp),
     ) {
-        Icon(icon, label, Modifier.size(28.dp))
-        AnimatedVisibility(focused) {
-            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp))
+        // Hauteur imposée : sans ce Row, le contenu du bouton restait collé en haut.
+        Row(Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, label, Modifier.size(28.dp))
+            AnimatedVisibility(focused) {
+                Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp))
+            }
         }
     }
 }
@@ -620,8 +638,8 @@ private fun SidePanel(panel: Panel, ui: PlayerUiState, controller: PlayerControl
             .padding(horizontal = 24.dp, vertical = OF.SafeY),
     ) {
         val title = when (panel) {
-            Panel.Subtitles -> "Sous-titres"
-            Panel.Audio -> "Audio"
+            Panel.Subtitles -> L.t("Sous-titres")
+            Panel.Audio -> L.t("Audio")
             Panel.Chapters -> L.t("Chapitres")
             Panel.Settings -> L.t("Réglages")
             Panel.Speed -> L.t("Vitesse de lecture")

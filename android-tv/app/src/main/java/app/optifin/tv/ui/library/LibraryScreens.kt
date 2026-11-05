@@ -67,6 +67,7 @@ import app.optifin.tv.ui.shell.AppNav
 import app.optifin.tv.ui.theme.OF
 import app.optifin.tv.ui.theme.PivotSpec
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Bibliothèques de l'utilisateur (cartes paysage). */
@@ -114,6 +115,12 @@ fun LibrariesScreen(nav: AppNav) {
 private const val PAGE = 60
 private val LETTERS = listOf("#") + ('A'..'Z').map { it.toString() }
 
+/** Tri, filtres et titre ouvert par bibliothèque : l'écran est recréé au retour d'une fiche. */
+private object LibraryMemory {
+    val queries = HashMap<String, LibraryQuery>()
+    val opened = HashMap<String, Int>()
+}
+
 /**
  * Une bibliothèque : grille chargée par pages au fil du défilement ; tri, sens, filtres (vus,
  * favoris, genres, années, résolution) et saut à une lettre.
@@ -122,6 +129,8 @@ private val LETTERS = listOf("#") + ('A'..'Z').map { it.toString() }
 @Composable
 fun LibraryScreen(id: String, nav: AppNav) {
     val scope = rememberCoroutineScope()
+    // Titre ouvert avant d'aller sur sa fiche : le focus y revient au retour.
+    var restoreIndex by remember(id) { mutableIntStateOf(LibraryMemory.opened[id] ?: -1) }
     var library by remember(id) { mutableStateOf<MediaItem?>(null) }
     var query by remember(id) { mutableStateOf<LibraryQuery?>(null) }
     val items = remember(id) { mutableStateListOf<MediaItem?>() }
@@ -139,7 +148,7 @@ fun LibraryScreen(id: String, nav: AppNav) {
         try {
             val lib = AppServices.media?.item(id) ?: return@LaunchedEffect
             library = lib
-            query = LibraryQuery.forLibrary(lib)
+            query = LibraryMemory.queries[id] ?: LibraryQuery.forLibrary(lib)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -176,12 +185,19 @@ fun LibraryScreen(id: String, nav: AppNav) {
     // Nouvelle requête (tri, filtres) : liste remise à zéro.
     LaunchedEffect(query) {
         if (query == null) return@LaunchedEffect
+        // Tri ou filtres changés (pas un simple retour de fiche) : on repart du début.
+        if (LibraryMemory.queries[id] != query) {
+            restoreIndex = -1
+            LibraryMemory.opened.remove(id)
+        }
+        LibraryMemory.queries[id] = query!!
         generation++
         loading.clear()
         items.clear()
         total = -1
-        grid.scrollToItem(0)
+        if (restoreIndex < 0) grid.scrollToItem(0)
         loadPage(0)
+        if (restoreIndex >= PAGE) loadPage(restoreIndex / PAGE)
     }
     // Pages chargées à l'approche de la zone visible.
     LaunchedEffect(grid, query) {
@@ -222,6 +238,7 @@ fun LibraryScreen(id: String, nav: AppNav) {
             total == 0 -> StatusMessage(if ((q?.activeFilterCount ?: 0) > 0) L.t("Aucun titre ne correspond à ces filtres.") else L.t("Cette bibliothèque est vide."))
             else -> {
                 val pivot = remember { PivotSpec(0.18f) }
+                val focusIndex = if (restoreIndex in items.indices) restoreIndex else 0
                 CompositionLocalProvider(LocalBringIntoViewSpec provides pivot) {
                     LazyVerticalGrid(
                         state = grid,
@@ -239,13 +256,21 @@ fun LibraryScreen(id: String, nav: AppNav) {
                                     Spacer(Modifier.height(48.dp))
                                 }
                             } else {
-                                MediaCard(item, style, onClick = { nav.open(item) }, onLongClick = { actions = item }, width = style.width,
-                                    modifier = if (i == 0) Modifier.focusRequester(firstFocus) else Modifier)
+                                MediaCard(item, style, onClick = { LibraryMemory.opened[id] = i; nav.open(item) }, onLongClick = { actions = item }, width = style.width,
+                                    modifier = if (i == focusIndex) Modifier.focusRequester(firstFocus) else Modifier)
                             }
                         }
                     }
                 }
-                LaunchedEffect(items.firstOrNull() != null) { if (items.firstOrNull() != null) runCatching { firstFocus.requestFocus() } }
+                // Aussi après un changement de tri ou de filtres (generation) : le focus repart du premier titre.
+                LaunchedEffect(generation, items.getOrNull(focusIndex) != null) {
+                    if (items.getOrNull(focusIndex) == null) return@LaunchedEffect
+                    if (focusIndex > 0) {
+                        grid.scrollToItem(focusIndex)
+                        delay(50)
+                    }
+                    runCatching { firstFocus.requestFocus() }
+                }
             }
         }
     }

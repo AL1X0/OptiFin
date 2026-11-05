@@ -48,6 +48,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
@@ -174,7 +175,12 @@ fun DetailsScreen(id: String, nav: AppNav) {
                                 Header(current, nav, firstFocus, onOverview = { overview = true })
                             }
                         }
-                        if (current.seasons.isNotEmpty()) item(key = "seasons") { Seasons(current.item, current.seasons, current.nextUp, nav) { actions = it } }
+                        if (current.seasons.isNotEmpty()) item(key = "seasons") {
+                            // Toute la rangée visible : le titre et le résumé de l'épisode sont sous sa vignette.
+                            Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { list.animateScrollToItem(1) } }) {
+                                Seasons(current.item, current.seasons, current.nextUp, nav) { actions = it }
+                            }
+                        }
                         if (current.children.isNotEmpty()) {
                             item(key = "children") {
                                 MediaRow(if (current.item.kind == MediaKind.Playlist) L.t("Contenu") else L.t("Dans la collection"), current.children, CardStyle.Poster,
@@ -254,7 +260,9 @@ private fun Header(data: DetailsData, nav: AppNav, firstFocus: FocusRequester, o
             Spacer(Modifier.height(14.dp))
             Surface(
                 onClick = onOverview,
-                modifier = Modifier.widthIn(max = 820.dp),
+                modifier = Modifier.widthIn(max = 820.dp).then(
+                    if (item.kind.isPlayableVideo) Modifier.focusProperties { down = firstFocus } else Modifier,
+                ),
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
                 colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color(0x26FFFFFF)),
                 scale = ClickableSurfaceDefaults.scale(focusedScale = 1.01f),
@@ -290,7 +298,7 @@ private fun Header(data: DetailsData, nav: AppNav, firstFocus: FocusRequester, o
             val localTrailer = data.localTrailers.firstOrNull()
             val remoteTrailer = item.trailers.firstOrNull()
             if (localTrailer != null || remoteTrailer != null) {
-                TvIconButton(Icons.Rounded.Movie, "Bande-annonce", {
+                TvIconButton(Icons.Rounded.Movie, L.t("Bande-annonce"), {
                     if (localTrailer != null) nav.play(localTrailer.id, true)
                     else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(remoteTrailer!!.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                         .onFailure { AppServices.notice(L.t("Aucune appli ne peut lire cette bande-annonce.")) }

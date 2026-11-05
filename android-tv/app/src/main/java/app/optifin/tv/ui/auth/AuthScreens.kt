@@ -82,7 +82,7 @@ private fun AuthLayout(title: String, subtitle: String, footer: String? = null, 
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 96.dp, vertical = 56.dp), horizontalArrangement = Arrangement.spacedBy(80.dp)) {
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-                Image(painterResource(R.drawable.logo_full), null, Modifier.size(132.dp))
+                Image(painterResource(R.drawable.logo_full), null, Modifier.size(84.dp))
                 Spacer(Modifier.height(18.dp))
                 Text(title, style = MaterialTheme.typography.displayMedium, color = OF.TextPrimary)
                 Spacer(Modifier.height(12.dp))
@@ -211,12 +211,13 @@ fun ConnectScreen(onServer: () -> Unit, onSignedIn: () -> Unit) {
                 TvTextField(address, { address = it }, "https://jellyfin.exemple.fr", keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go,
                     onSubmit = { connect(address) }, focusRequester = if (accounts.isEmpty() && discovered.isEmpty()) first else remember { FocusRequester() })
             }
+            // Au-dessus des boutons : en bas de la liste, le message tombait hors de l'écran.
+            error?.let { item { Text(it, style = MaterialTheme.typography.bodyMedium, color = OF.Danger, modifier = Modifier.padding(top = 8.dp)) } }
             item {
                 Spacer(Modifier.height(10.dp))
                 TvButton(if (busy) L.t("Connexion…") else L.t("Continuer"), { connect(address) }, primary = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
             item { TvButton(L.t("Essayer avec le serveur de démonstration"), ::tryDemo, enabled = !busy, modifier = Modifier.fillMaxWidth()) }
-            error?.let { item { Text(it, style = MaterialTheme.typography.bodyMedium, color = OF.Danger, modifier = Modifier.padding(top = 8.dp)) } }
         }
     }
     LaunchedEffect(accounts.size, discovered.isNotEmpty()) { runCatching { first.requestFocus() } }
@@ -352,11 +353,11 @@ fun LoginScreen(onSignedIn: () -> Unit, onBack: () -> Unit) {
                     focusRequester = if (!quickConnect && users.isEmpty()) firstFocus else remember { FocusRequester() })
             }
             item { TvTextField(password, { password = it }, L.t("Mot de passe"), password = true, imeAction = ImeAction.Go, onSubmit = ::login, focusRequester = passwordFocus) }
+            error?.let { item { Text(it, style = MaterialTheme.typography.bodyMedium, color = OF.Danger) } }
             item {
                 TvButton(if (busy) L.t("Connexion…") else L.t("Se connecter"), ::login, icon = Icons.Rounded.Login, primary = !quickConnect,
                     enabled = !busy, modifier = Modifier.fillMaxWidth())
             }
-            error?.let { item { Text(it, style = MaterialTheme.typography.bodyMedium, color = OF.Danger) } }
         }
     }
 }

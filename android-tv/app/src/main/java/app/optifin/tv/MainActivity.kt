@@ -33,8 +33,8 @@ object Routes {
     const val CONNECT = "connect"
     const val LOGIN = "login"
     const val MAIN = "main"
-    const val PLAYER = "player/{id}?fromStart={fromStart}&party={party}"
-    fun player(id: String, fromStart: Boolean = false, party: Boolean = false) = "player/$id?fromStart=$fromStart&party=$party"
+    const val PLAYER = "player/{id}?fromStart={fromStart}&party={party}&startMs={startMs}"
+    fun player(id: String, fromStart: Boolean = false, party: Boolean = false, startMs: Long = -1) = "player/$id?fromStart=$fromStart&party=$party&startMs=$startMs"
 }
 
 class MainActivity : ComponentActivity() {
@@ -85,12 +85,12 @@ private fun AppNavigation(launchItem: MutableStateFlow<String?>) {
             }
         }
     }
-    // « Lire sur… » depuis un autre appareil : même ouverture, position 0 = depuis le début.
+    // « Lire sur… » depuis un autre appareil : le lecteur s'ouvre à la position demandée.
     LaunchedEffect(Unit) {
         WatchParty.remotePlays.collect { request ->
             app.optifin.tv.core.AppLog.i("remote", "Lecture demandée par un autre appareil : ${request.itemId}")
             val inPlayer = nav.currentDestination?.route == Routes.PLAYER
-            nav.navigate(Routes.player(request.itemId, request.startMs == 0L)) {
+            nav.navigate(Routes.player(request.itemId, startMs = request.startMs)) {
                 if (inPlayer) popUpTo(Routes.PLAYER) { inclusive = true }
             }
         }
@@ -128,6 +128,7 @@ private fun AppNavigation(launchItem: MutableStateFlow<String?>) {
                 navArgument("id") { type = NavType.StringType },
                 navArgument("fromStart") { type = NavType.BoolType; defaultValue = false },
                 navArgument("party") { type = NavType.BoolType; defaultValue = false },
+                navArgument("startMs") { type = NavType.LongType; defaultValue = -1L },
             ),
         ) { entry ->
             val args = entry.arguments!!
@@ -135,6 +136,7 @@ private fun AppNavigation(launchItem: MutableStateFlow<String?>) {
                 itemId = args.getString("id")!!,
                 fromStart = args.getBoolean("fromStart"),
                 party = args.getBoolean("party"),
+                startAtMs = args.getLong("startMs").takeIf { it >= 0 },
                 onExit = { nav.popBackStack() },
                 onPlayItem = { next -> nav.navigate(Routes.player(next)) { popUpTo(Routes.PLAYER) { inclusive = true } } },
             )

@@ -334,6 +334,11 @@ class ExoEngine(context: Context) : PlaybackEngine {
  * Lecteur mpv (libmpv d'mpv-android) : rendu OpenGL dans sa propre SurfaceView, comme mpv-android
  * et Kodi ; lit pratiquement tout, sous-titres ASS et PGS fidèles (libass).
  */
+/** Un seul relais par processus : il ne coûte rien tant que mpv ne lit pas. */
+private val streamProxy by lazy {
+    LocalStreamProxy(app.optifin.tv.core.api.JellyfinClient.http.newBuilder().readTimeout(java.time.Duration.ofSeconds(30)).build())
+}
+
 class MpvEngine(context: Context) : PlaybackEngine, MPVLib.EventObserver, MPVLib.LogObserver {
     override val name = "mpv"
     override val capabilities = EngineCapabilities(subtitleDelay = true, audioDelay = true, assRendering = true)
@@ -349,6 +354,11 @@ class MpvEngine(context: Context) : PlaybackEngine, MPVLib.EventObserver, MPVLib
 
     init {
         mpv.setOptionString("config", "no")
+        // Aucun script intégré : ytdl_hook cherchait un youtube-dl absent d'Android avant d'ouvrir chaque fichier.
+        mpv.setOptionString("load-scripts", "no")
+        mpv.setOptionString("ytdl", "no")
+        // Serveur muet : échec en 20 s (repli suivant), pas les 60 s par défaut, qui bloquaient aussi la fermeture.
+        mpv.setOptionString("network-timeout", "20")
         mpv.setOptionString("vo", "gpu")
         mpv.setOptionString("gpu-context", "android")
         mpv.setOptionString("opengl-es", "yes")
@@ -356,8 +366,6 @@ class MpvEngine(context: Context) : PlaybackEngine, MPVLib.EventObserver, MPVLib
         mpv.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
         mpv.setOptionString("ao", "audiotrack,opensles")
         mpv.setOptionString("audio-set-media-role", "yes")
-        mpv.setOptionString("tls-verify", "yes")
-        mpv.setOptionString("tls-ca-file", "/system/etc/security/cacerts")
         mpv.setOptionString("cache", "yes")
         mpv.setOptionString("demuxer-max-bytes", "${64 * 1024 * 1024}")
         mpv.setOptionString("demuxer-max-back-bytes", "${32 * 1024 * 1024}")
@@ -373,7 +381,7 @@ class MpvEngine(context: Context) : PlaybackEngine, MPVLib.EventObserver, MPVLib
         mpv.setOptionString("sub-scale-with-window", "yes")
         mpv.setOptionString("osd-level", "0")
         mpv.setOptionString("input-default-bindings", "no")
-        mpv.setOptionString("msg-level", "all=warn")
+        mpv.setOptionString("msg-level", if (app.optifin.tv.AppServices.settings.value.debugMode) "all=v" else "all=warn")
         mpv.init()
         mpv.addObserver(this)
         mpv.addLogObserver(this)
@@ -406,31 +414,33 @@ class MpvEngine(context: Context) : PlaybackEngine, MPVLib.EventObserver, MPVLib
         mpv.setOptionString("start", "%.3f".format(java.util.Locale.ROOT, media.startMs / 1000.0))
         mpv.setOptionString("aid", media.audioOrdinal?.let { "${it + 1}" } ?: "auto")
         mpv.setOptionString("sid", media.subtitleOrdinal?.let { "${it + 1}" } ?: "no")
-        mpv.command(arrayOf("loadfile", media.url))
+        mpv.command(arrayOf("loadfile", streamProxy.wrap(media.url)))
         pendingExternalSelect = media.selectedExternal
     }
 
     private var pendingExternalSelect: String? = null
 
-    override fun play() = mpv.setPropertyBoolean("pause", false)
-    override fun pause() = mpv.setPropertyBoolean("pause", true)
-    override fun seek(positionMs: Long) = mpv.command(arrayOf("seek", "%.3f".format(java.util.Locale.ROOT, positionMs.coerceAtLeast(0) / 1000.0), "absolute"))
-    override fun setRate(rate: Float) = mpv.setPropertyDouble("speed", rate.toDouble())
-    override fun selectAudio(ordinal: Int?) = mpv.setPropertyString("aid", ordinal?.let { "${it + 1}" } ?: "auto")
+    override fun play() = if (released) Unit else mpv.setPropertyBoolean("pause", false)
+    override fun pause() = if (released) Unit else mpv.setPropertyBoolean("pause", true)
+    override fun seek(positionMs: Long) = if (released) Unit else mpv.command(arrayOf("seek", "%.3f".format(java.util.Locale.ROOT, positionMs.coerceAtLeast(0) / 1000.0), "absolute"))
+    override fun setRate(rate: Float) = if (released) Unit else mpv.setPropertyDouble("speed", rate.toDouble())
+    override fun selectAudio(ordinal: Int?) = if (released) Unit else mpv.setPropertyString("aid", ordinal?.let { "${it + 1}" } ?: "auto")
 
     override fun selectSubtitle(ordinal: Int?, externalId: String?) {
+        if (released) return
         val external = externalId?.let { id -> externals.firstOrNull { it.id == id } }
         if (external != null) {
-            mpv.command(arrayOf("sub-add", external.url, "select", external.title, external.language ?: ""))
+            mpv.command(arrayOf("sub-add", streamProxy.wrap(external.url), "select", external.title, external.language ?: ""))
         } else {
             mpv.setPropertyString("sid", ordinal?.let { "${it + 1}" } ?: "no")
         }
     }
 
-    override fun setSubtitleDelay(ms: Long) = mpv.setPropertyDouble("sub-delay", ms / 1000.0)
-    override fun setAudioDelay(ms: Long) = mpv.setPropertyDouble("audio-delay", ms / 1000.0)
+    override fun setSubtitleDelay(ms: Long) = if (released) Unit else mpv.setPropertyDouble("sub-delay", ms / 1000.0)
+    override fun setAudioDelay(ms: Long) = if (released) Unit else mpv.setPropertyDouble("audio-delay", ms / 1000.0)
 
     override fun setSubtitleStyle(style: SubtitleStyle) {
+        if (released) return
         mpv.setPropertyDouble("sub-scale", style.scale.toDouble())
         when (style.background) {
             SubtitleBackground.None -> {
@@ -449,6 +459,7 @@ class MpvEngine(context: Context) : PlaybackEngine, MPVLib.EventObserver, MPVLib
     }
 
     override fun setFit(fit: VideoFit) {
+        if (released) return
         this.fit = fit
         when (fit) {
             VideoFit.Fit -> { mpv.setPropertyString("keepaspect", "yes"); mpv.setPropertyDouble("panscan", 0.0) }
@@ -457,7 +468,7 @@ class MpvEngine(context: Context) : PlaybackEngine, MPVLib.EventObserver, MPVLib
         }
     }
 
-    override fun debugInfo(): List<String> = listOfNotNull(
+    override fun debugInfo(): List<String> = if (released) emptyList() else listOfNotNull(
         "Vidéo : ${mpv.getPropertyString("video-codec") ?: "?"} ${mpv.getPropertyString("video-params/pixelformat") ?: ""} ${mpv.getPropertyString("video-params/gamma") ?: ""}",
         "Décodage : ${mpv.getPropertyString("hwdec-current") ?: "logiciel"} · sortie ${mpv.getPropertyString("current-vo") ?: "?"}",
         "Audio : ${mpv.getPropertyString("audio-codec-name") ?: "?"} ${mpv.getPropertyString("audio-params/channel-count") ?: ""} can. → ${mpv.getPropertyString("current-ao") ?: "?"}",
@@ -471,17 +482,22 @@ class MpvEngine(context: Context) : PlaybackEngine, MPVLib.EventObserver, MPVLib
         _state.value = _state.value.copy(droppedFrames = dropped)
     }
 
+    /**
+     * Appelé sur le fil d'interface : « released » coupe aussitôt tout nouvel appel à mpv, puis la fermeture
+     * se fait à part, car mpv attend la fin d'une lecture réseau (écran figé jusqu'à 90 s sinon).
+     */
     override fun release() {
         if (released) return
         released = true
-        mpv.removeObserver(this)
-        mpv.removeLogObserver(this)
-        runCatching { mpv.command(arrayOf("stop")) }
-        if (surfaceAttached) {
-            runCatching { mpv.setPropertyString("vo", "null"); mpv.detachSurface() }
-            surfaceAttached = false
-        }
-        runCatching { mpv.destroy() }
+        val hadSurface = surfaceAttached
+        surfaceAttached = false
+        Thread({
+            mpv.removeObserver(this)
+            mpv.removeLogObserver(this)
+            runCatching { mpv.command(arrayOf("stop")) }
+            if (hadSurface) runCatching { mpv.setPropertyString("vo", "null"); mpv.detachSurface() }
+            runCatching { mpv.destroy() }
+        }, "mpv-fermeture").start()
     }
 
     // --- Surface : mpv dessine directement dedans (pas de texture intermédiaire).

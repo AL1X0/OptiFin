@@ -192,7 +192,7 @@ private fun NavigationDrawerScope.DrawerContent(value: DrawerValue, route: Strin
             Modifier.fillMaxHeight().padding(start = 12.dp, end = if (open) 60.dp else 22.dp, top = OF.SafeY, bottom = OF.SafeY),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Image(painterResource(R.drawable.logo_full), null, modifier = Modifier.padding(start = 6.dp).size(44.dp))
+            Image(painterResource(R.drawable.logo_full), null, modifier = Modifier.padding(start = 14.dp).size(28.dp))
             Spacer(Modifier.weight(1f))
             for (entry in entries) {
                 val selected = route == entry.route || (entry.route == Screens.LIBRARIES && route == Screens.LIBRARY)

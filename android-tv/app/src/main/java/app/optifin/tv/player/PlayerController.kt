@@ -65,7 +65,7 @@ data class PlayerUiState(
  * automatique si le moteur échoue avant la première image (autre moteur, puis transcodage),
  * rapports au serveur, pistes, segments, épisode suivant.
  */
-class PlayerController(private val context: Context, val itemId: String, private val fromStart: Boolean, private val partyMode: Boolean = false) {
+class PlayerController(private val context: Context, val itemId: String, private val fromStart: Boolean, private val partyMode: Boolean = false, private val startAtMs: Long? = null) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state
@@ -189,7 +189,7 @@ class PlayerController(private val context: Context, val itemId: String, private
             val item = media.item(itemId)
             _state.value = _state.value.copy(item = item)
             setupParty()
-            startMs = party?.startMs ?: if (fromStart) 0 else item.resumeMs
+            startMs = party?.startMs ?: startAtMs ?: if (fromStart) 0 else item.resumeMs
             val settings = AppServices.settings.value
             val caps = AppServices.capabilities
             // Sonde : profil mpv (tout en lecture directe) pour connaître la source réelle.
