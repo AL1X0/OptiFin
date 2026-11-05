@@ -123,8 +123,10 @@ public sealed unsafe class MpvPlayer : IDisposable
         Set("terminal", "no");
         // Réseau domestique, fichiers 4K à haut débit : tampon généreux.
         Set("cache", "yes");
-        Set("demuxer-max-bytes", "256MiB");
-        Set("demuxer-max-back-bytes", "64MiB");
+        // Moitié moins de cache sur les PC à moins de 8 Go de mémoire.
+        var modest = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes < 8L * 1024 * 1024 * 1024;
+        Set("demuxer-max-bytes", modest ? "128MiB" : "256MiB");
+        Set("demuxer-max-back-bytes", modest ? "32MiB" : "64MiB");
         Set("demuxer-readahead-secs", "30");
         Set("network-timeout", "30");
         // Sous-titres : styles ASS conservés (taille réglable), police de Windows.

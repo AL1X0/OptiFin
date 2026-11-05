@@ -51,7 +51,8 @@ jobs:
           echo "WINDOWS_VERSION=1.1.$N" >> "$GITHUB_ENV"
           echo "Version 1.1.$N"
       - name: Tests
-        run: dotnet test --project tests/OptiFin.Core.Tests -c Release
+        # dotnet run plutôt que dotnet test : avec le SDK 10.0.401, dotnet test exécute les tests mais en signale « zéro ».
+        run: dotnet run --project tests/OptiFin.Core.Tests -c Release
       - name: Compiler (NativeAOT)
         run: dotnet publish src/OptiFin.App/OptiFin.App.csproj -c Release -r win-x64 -p:Platform=x64 -p:Version="$WINDOWS_VERSION" -o out/x64
       - name: Installateur (Inno Setup)

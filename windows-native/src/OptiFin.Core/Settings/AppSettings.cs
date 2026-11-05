@@ -25,6 +25,9 @@ public sealed class AppSettings
     public bool AutoPlayNext { get; set; } = true;
     public double Volume { get; set; } = 1;
 
+    /// <summary>Résultat du dernier essai de décodage WebP sur ce PC (null : pas encore essayé).</summary>
+    public bool? WebpDecodes { get; set; }
+
     public static string Label(SubtitleMode m) => m switch
     {
         SubtitleMode.Server => "Réglage du serveur",

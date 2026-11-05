@@ -16,7 +16,8 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     base=$remote_sha
   fi
   if [ -n "$base" ]; then range="$base..$local_sha"; else range="$local_sha"; fi
-  changed+=$(git diff --name-only "$range" -- windows-native 2>/dev/null)
+  # Le code et ses tests seulement : pas les scripts de publication, les captures ni la documentation.
+  changed+=$(git diff --name-only "$range" -- windows-native/src windows-native/tests 2>/dev/null)
 done
 [ -z "$changed" ] && exit 0
 
@@ -24,8 +25,16 @@ export PATH="/c/Program Files/dotnet:$PATH"
 echo "pre-push : appli Windows modifiée, tests en cours (lecture, formats, serveur de test)…"
 log=$(mktemp)
 # Suivi en direct : titre en cours sur le serveur de test et tests en échec, au fil de l'eau.
-dotnet run --project windows-native/tests/OptiFin.Core.Tests -c Release 2>&1 | tee "$log" | grep --line-buffered -aE "\[serveur |\[FAIL\]"
-status=${PIPESTATUS[0]}
+run_tests() {
+  dotnet run --project windows-native/tests/OptiFin.Core.Tests -c Release 2>&1 | tee "$log" | grep --line-buffered -aE "\[serveur |\[FAIL\]"
+  status=${PIPESTATUS[0]}
+}
+run_tests
+# Serveur de démonstration public parfois indisponible : si seuls ses tests échouent, un second essai.
+if [ $status -ne 0 ] && [[ "${OPTIFIN_DEMO_SERVER:-}" == *demo.jellyfin.org* ]] && ! grep -a "\[FAIL\]" "$log" | grep -qv DemoServerPlaybackTests; then
+  echo "pre-push : échecs sur le serveur public seulement, nouvel essai…"
+  run_tests
+fi
 echo "—"
 grep -aE "\[FAIL\]|\[SKIP\]|^\s{6}[^ ]|Total:" "$log" | grep -v "Stack Trace" | head -60
 if [ $status -ne 0 ] || grep -aq "\[FAIL\]" "$log"; then
@@ -33,4 +42,6 @@ if [ $status -ne 0 ] || grep -aq "\[FAIL\]" "$log"; then
   exit 1
 fi
 rm -f "$log"
+# publish.sh ne les relance pas sur ce commit.
+git rev-parse HEAD > "$(git rev-parse --git-path optifin-tests-ok)"
 echo "pre-push : tests OK."

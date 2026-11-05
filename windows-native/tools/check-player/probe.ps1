@@ -16,8 +16,11 @@ public static class P {
   [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr h, int a, out int v, int s);
   [DllImport("dwmapi.dll", EntryPoint = "DwmGetWindowAttribute")] public static extern int DwmRect(IntPtr h, int a, out RC v, int s);
   [DllImport("user32.dll", EntryPoint = "SendMessageW")] public static extern IntPtr Send(IntPtr h, int m, IntPtr w, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
 }
 "@
+# Vraies coordonnées quelle que soit l'échelle d'affichage (sinon divisées par deux à 200 %).
+[void][P]::SetProcessDPIAware()
 switch ($What) {
   'window' {
     $h = [P]::FindWindow("WinUIDesktopWin32WindowClass", $Title)

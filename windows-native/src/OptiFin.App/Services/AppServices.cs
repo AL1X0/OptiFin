@@ -37,24 +37,27 @@ public static class AppServices
     {
         Settings = SettingsStore.Load();
         AppLog.Verbose = Settings.DebugMode;
-        ImageUrls.Format = CanDecodeWebp() ? "Webp" : "Jpg";
+        ImageUrls.Format = Settings.WebpDecodes == true ? "Webp" : "Jpg";
+        _ = RefreshWebpSupportAsync();
         Identity = new ClientIdentity("OptiFin", Environment.MachineName, Accounts.DeviceId(), Version);
         Auth = new AuthService(Identity);
         if (Accounts.Restore() is { } session) Activate(session);
     }
 
-    /// <summary>Image WebP de 1 × 1 pixel, décodée au démarrage pour vérifier que Windows sait vraiment le faire.</summary>
+    /// <summary>Image WebP de 1 × 1 pixel, décodée pour vérifier que Windows sait vraiment le faire.</summary>
     private const string TinyWebp = "UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=";
 
     /// <summary>
     /// WebP seulement si Windows le décode vraiment : un décodeur peut être déclaré sans fonctionner
-    /// (Windows Server, extension installée mais inutilisable) et aucune image ne s'affichait.
+    /// (Windows Server, extension installée mais inutilisable) et aucune image ne s'affichait. Essai en
+    /// arrière-plan, pour ne jamais retarder le démarrage ; son résultat vaut pour le lancement suivant.
     /// </summary>
-    private static bool CanDecodeWebp()
+    private static async Task RefreshWebpSupportAsync()
     {
+        bool works;
         try
         {
-            var test = Task.Run(async () =>
+            works = await Task.Run(async () =>
             {
                 using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
                 await stream.WriteAsync(System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.AsBuffer(Convert.FromBase64String(TinyWebp)));
@@ -62,15 +65,16 @@ public static class AppServices
                 var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(stream);
                 using var bitmap = await decoder.GetSoftwareBitmapAsync();
                 return bitmap.PixelWidth == 1;
-            });
-            if (test.Wait(TimeSpan.FromSeconds(3)) && test.Result) return true;
-            AppLog.Info("app", "Décodeur WebP absent ou trop lent : images en JPEG");
+            }).WaitAsync(TimeSpan.FromSeconds(10));
         }
         catch (Exception e)
         {
-            AppLog.Info("app", $"Décodeur WebP inutilisable ({e.InnerException?.Message ?? e.Message}) : images en JPEG");
+            works = false;
+            AppLog.Info("app", $"Décodeur WebP inutilisable ({e.Message}) : images en JPEG");
         }
-        return false;
+        if (Settings.WebpDecodes == works) return;
+        Settings.WebpDecodes = works;
+        SaveSettings();
     }
 
     public static void SaveSettings() => SettingsStore.Save(Settings);

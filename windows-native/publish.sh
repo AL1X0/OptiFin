@@ -19,10 +19,16 @@ N=$(( ${LAST:-0} + 1 ))
 VERSION="1.1.$N"
 TAG="windows-$N"
 echo "Publication de OptiFin Windows $VERSION ($TAG)"
+NOTES=$(bash tools/release-notes.sh "$VERSION")
 
 # dotnet run plutôt que dotnet test : avec le SDK 10.0.401, dotnet test exécute les tests mais en signale « zéro ».
 # Comprend la lecture de bout en bout sur le serveur Jellyfin de test (tests/server.env, local).
-dotnet run --project tests/OptiFin.Core.Tests -c Release
+# Déjà passés sur ce commit lors du push (.githooks/pre-push) : inutile de les relancer.
+if [ "$(cat "$(git rev-parse --git-path optifin-tests-ok)" 2>/dev/null)" = "$(git rev-parse HEAD)" ]; then
+  echo "Tests déjà passés sur ce commit."
+else
+  dotnet run --project tests/OptiFin.Core.Tests -c Release
+fi
 rm -rf out/x64 out/installer
 dotnet publish src/OptiFin.App/OptiFin.App.csproj -c Release -r win-x64 -p:Platform=x64 -p:Version="$VERSION" -o out/x64
 # Le binaire livré est vérifié en vrai (lecteur, plein écran, barre des tâches, instance unique) :
@@ -38,7 +44,7 @@ TV=$(gh release list --limit 50 --json tagName --jq '.[].tagName' | grep '^tv-' 
 [ -n "$TV" ] && gh release download "$TV" --dir "$DIST" --pattern 'OptiFin-androidtv.apk' || true
 
 gh release create "$TAG" "$DIST"/* --draft --target "$(git rev-parse HEAD)" \
-  --title "OptiFin Windows $VERSION" --notes "$(git log -1 --pretty=%B)"
+  --title "OptiFin Windows $VERSION" --notes "$NOTES"
 gh release edit "$TAG" --draft=false --latest
 rm -rf "$DIST"
 

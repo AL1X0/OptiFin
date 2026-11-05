@@ -8,7 +8,7 @@ using OptiFin.Core.Logging;
 
 namespace OptiFin.App.Services;
 
-public sealed record AppUpdate(string Version, Uri Url, long Size, string? Sha256);
+public sealed record AppUpdate(string Version, Uri Url, long Size, string? Sha256, string? Notes);
 
 /// <summary>
 /// Mise à jour automatique : la CI publie chaque version dans les Releases GitHub
@@ -67,10 +67,11 @@ public static partial class AppUpdater
                     var digest = asset.TryGetProperty("digest", out var d) ? d.GetString() : null;
                     best = new AppUpdate(match.Value, new Uri(asset.GetProperty("browser_download_url").GetString()!),
                         asset.GetProperty("size").GetInt64(),
-                        digest is not null && digest.StartsWith("sha256:", StringComparison.Ordinal) ? digest[7..] : null);
+                        digest is not null && digest.StartsWith("sha256:", StringComparison.Ordinal) ? digest[7..] : null,
+                        release.TryGetProperty("body", out var body) ? body.GetString()?.Trim() : null);
                 }
             }
-            if (best != null) AppLog.Info("update", $"Nouvelle version disponible : {best.Version} (installée : {AppServices.Version})");
+            if (best != null) AppLog.Info("update", $"Nouvelle version disponible : {best.Version} (installée : {AppServices.Version}, nouveautés : {best.Notes?.Length ?? 0} caractères)");
             return best;
         }
         catch (Exception e)
@@ -96,6 +97,9 @@ public static partial class AppUpdater
 
     public static async Task InstallAsync(AppUpdate update, IProgress<double> progress)
     {
+        // L'installateur s'exécute tout seul : sans empreinte annoncée, rien ne garantit son contenu.
+        if (update.Sha256 is not { } expected)
+            throw new InvalidOperationException("Mise à jour impossible à vérifier : téléchargez-la sur la page GitHub d'OptiFin.");
         var path = Path.Combine(Path.GetTempPath(), $"OptiFin-{update.Version}-setup.exe");
         using (var response = await Http.GetAsync(update.Url, HttpCompletionOption.ResponseHeadersRead))
         {
@@ -113,15 +117,12 @@ public static partial class AppUpdater
                 if (total > 0) progress.Report((double)done / total);
             }
         }
-        if (update.Sha256 is { } expected)
+        string actual;
+        await using (var file = File.OpenRead(path)) actual = Convert.ToHexString(await SHA256.HashDataAsync(file));
+        if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase))
         {
-            await using var file = File.OpenRead(path);
-            var actual = Convert.ToHexString(await SHA256.HashDataAsync(file));
-            if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase))
-            {
-                File.Delete(path);
-                throw new InvalidOperationException("Installateur corrompu (empreinte inattendue) : téléchargement annulé.");
-            }
+            File.Delete(path);
+            throw new InvalidOperationException("Installateur corrompu (empreinte inattendue) : téléchargement annulé.");
         }
         AppLog.Info("update", $"Installation de la version {update.Version}");
         Process.Start(new ProcessStartInfo(path, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS") { UseShellExecute = true });
@@ -142,6 +143,15 @@ public static class UpdateDialog
         var bar = new ProgressBar { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 12, 0, 0) };
         var panel = new StackPanel { Width = 420 };
         panel.Children.Add(text);
+        if (!string.IsNullOrEmpty(update.Notes))
+        {
+            panel.Children.Add(new ScrollViewer
+            {
+                MaxHeight = 220,
+                Margin = new Thickness(0, 12, 0, 0),
+                Content = new TextBlock { Text = update.Notes, TextWrapping = TextWrapping.Wrap, Opacity = 0.8 },
+            });
+        }
         panel.Children.Add(bar);
         var dialog = new ContentDialog
         {

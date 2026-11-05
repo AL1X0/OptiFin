@@ -65,13 +65,43 @@ def token(s):
     return request("POST", url, raw=form, headers={"Content-Type": "application/x-www-form-urlencoded"})["access_token"]
 
 
+def show_state(blocking):
+    s = settings()
+    t = token(s)
+    app = f"{API}/applications/{s['STORE_APP_ID']}"
+    info = request("GET", app, t)
+    published = (info.get("lastPublishedApplicationSubmission") or {}).get("id")
+    pending = (info.get("pendingApplicationSubmission") or {}).get("id")
+    print(f"Publiée : {published or 'aucune'}")
+    if not pending:
+        print("En attente : aucune")
+        return
+    state = request("GET", f"{app}/submissions/{pending}/status", t)
+    status = state.get("status")
+    details = state.get("statusDetails") or {}
+    print(f"En attente : {pending} ({status})")
+    for e in details.get("errors") or []:
+        print(f"  Erreur : {e.get('code')} {e.get('details')}")
+    for r in details.get("certificationReports") or []:
+        print(f"  Rapport de certification : {r.get('reportUrl')}")
+    # Un brouillon peut être remplacé ; une soumission partie en vérification, non (l'API répond 409).
+    if blocking and status != "PendingCommit":
+        sys.exit(f"Le Store n'accepte pas de nouvelle soumission tant que celle-ci est « {status} ».")
+
+
 def main():
     args = argparse.ArgumentParser()
     args.add_argument("msix", nargs="?", help="paquet à publier (absent : paquet actuel conservé)")
     args.add_argument("--captures", help="dossier de captures PNG (1-….png, 2-….png…) qui remplacent celles de la fiche")
     args.add_argument("--notes", help="texte des « Nouveautés de cette version »")
     args.add_argument("--attendre", action="store_true", help="attendre la fin des vérifications automatiques")
+    args.add_argument("--etat", action="store_true", help="afficher l'état de la dernière soumission, sans rien envoyer")
+    args.add_argument("--bloquant", action="store_true", help="avec --etat : échoue si une soumission empêche d'en envoyer une autre")
     a = args.parse_args()
+    if sys.stdout.encoding.lower() != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8")
+    if a.etat:
+        return show_state(a.bloquant)
     if a.msix and not os.path.exists(a.msix):
         sys.exit(f"Paquet introuvable : {a.msix}")
     captures = sorted(f for f in os.listdir(a.captures) if f.lower().endswith(".png")) if a.captures else []
