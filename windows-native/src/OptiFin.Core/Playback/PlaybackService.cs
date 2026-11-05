@@ -223,6 +223,21 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
             TrickplayFrom(dto, item.Id));
     }
 
+    /// <summary>Plan de lecture d'un fichier téléchargé : aucun appel au serveur.</summary>
+    public static PlaybackPlan LocalPlan(MediaItem item, string path, TimeSpan start) => new()
+    {
+        ItemId = item.Id,
+        MediaSourceId = item.Id,
+        Method = PlayMethod.DirectPlay,
+        StreamUrl = new Uri(path),
+        AudioTracks = item.Tracks?.Audio ?? [],
+        SubtitleTracks = item.Tracks?.Subtitles.Where(t => !t.IsExternal).ToList() ?? [],
+        AudioIndex = item.Tracks?.AudioIndex,
+        SubtitleIndex = item.Tracks?.SubtitleIndex,
+        Start = start,
+        Runtime = item.Runtime,
+    };
+
     /// <summary>Résolution de vignettes la plus proche de 320 px (lisible et légère), comme sur mobile.</summary>
     public static TrickplayManifest? TrickplayFrom(BaseItemDto? dto, string mediaSourceId)
     {

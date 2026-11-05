@@ -333,6 +333,7 @@ public sealed partial class DetailsPage : Page
             fav.Click += async (_, _) => await Toggle(() => AppServices.Media!.SetFavoriteAsync(item.Id, !_item.User.Favorite));
             _actions.Children.Add(fav);
         }
+        if (item.Kind.IsPlayableVideo()) _actions.Children.Add(DownloadButton(item));
         if (item.Trailers.Count > 0)
         {
             var trailer = Ui.Round("\uE8B2", "Bande-annonce");
@@ -345,6 +346,54 @@ public sealed partial class DetailsPage : Page
             bar.Children.Add(new ProgressBar { Width = 120, Value = progress * 100, VerticalAlignment = VerticalAlignment.Center, Foreground = AccentBrush });
             bar.Children.Add(new TextBlock { Text = remaining, Style = Ui.StyleOf("OFCaption"), VerticalAlignment = VerticalAlignment.Center });
             _actions.Children.Add(bar);
+        }
+    }
+
+    private Button DownloadButton(MediaItem item)
+    {
+        var downloads = AppServices.Downloads;
+        var record = downloads.Find(item.Id);
+        var button = Ui.Round(record?.Status == OptiFin.Core.Downloads.DownloadStatus.Complete ? "\uE73E" : "\uE896", record is null
+            ? L.T("Télécharger pour regarder sans connexion")
+            : record.Status == OptiFin.Core.Downloads.DownloadStatus.Complete ? L.T("Téléchargé · voir les téléchargements") : L.T("Téléchargement en cours · voir les téléchargements"));
+        button.Click += async (_, _) =>
+        {
+            if (downloads.Find(item.Id) != null)
+            {
+                Nav.Section(typeof(DownloadsPage));
+                return;
+            }
+            button.IsEnabled = false;
+            try
+            {
+                var dto = await AppServices.Media!.ItemRawAsync(item.Id);
+                downloads.Enqueue(dto);
+                _ = SavePosterAsync(item);
+                BuildActions(_item);
+            }
+            catch (OptiFin.Core.Api.ApiException e)
+            {
+                OptiFin.Core.Logging.AppLog.Warn("downloads", L.F("Téléchargement impossible : {0}", e.UserMessage));
+                button.IsEnabled = true;
+            }
+        };
+        return button;
+    }
+
+    private static readonly HttpClient PosterHttp = new();
+
+    /// <summary>Affiche gardée pour la page Téléchargements, sans connexion (facultatif).</summary>
+    private static async Task SavePosterAsync(MediaItem item)
+    {
+        try
+        {
+            if (item.Poster is not { } poster || AppServices.Images is not { } images) return;
+            var url = images.Image(poster, 128, 2, format: "Jpg");
+            await File.WriteAllBytesAsync(AppServices.Downloads.PosterPathOf(item.Id), await PosterHttp.GetByteArrayAsync(url));
+        }
+        catch (Exception e)
+        {
+            OptiFin.Core.Logging.AppLog.Debug("downloads", $"Affiche non enregistrée : {e.Message}");
         }
     }
 

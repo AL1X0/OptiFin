@@ -100,6 +100,15 @@ public static class DevActions
             case "pleinecran":
                 Player.PlayerLauncher.Current?.DevToggleFullscreen();
                 break;
+            case "telecharger" when AppServices.Media is { } media:
+                AppServices.Downloads.Enqueue(await media.ItemRawAsync(arg));
+                break;
+            case "telechargements":
+                Nav.Section(typeof(DownloadsPage));
+                break;
+            case "lecturelocale" when AppServices.Downloads.Find(arg) is { } record:
+                Player.PlayerLauncher.Play(OptiFin.Core.Downloads.DownloadManager.ItemOf(record));
+                break;
             case "lecture" when AppServices.Media is { } media:
                 Player.PlayerLauncher.Play(await media.ItemAsync(arg));
                 break;

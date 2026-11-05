@@ -5,6 +5,7 @@ plus). Écrire la section de la version à venir avant de publier : `publish.sh`
 
 ## 1.1.20
 
+- Téléchargements : gardez un film ou un épisode sur le PC et regardez-le sans connexion
 - OptiFin parle anglais si Windows n'est pas en français
 - Aperçu de l'image en survolant la barre de lecture
 - Nouveau bouton pour essayer OptiFin avec le serveur de démonstration, sans avoir son propre serveur

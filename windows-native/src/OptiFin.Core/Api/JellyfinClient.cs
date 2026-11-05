@@ -96,6 +96,10 @@ public sealed class JellyfinClient
         return await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
     }
 
+    /// <summary>Réponse brute pour un long téléchargement, éventuellement à partir d'un octet (reprise).</summary>
+    public Task<HttpResponseMessage> GetResponseAsync(string path, long from = 0, CancellationToken ct = default) =>
+        SendRawAsync(HttpMethod.Get, path, null, null, ct, from);
+
     public static HttpContent Json<T>(T value, JsonTypeInfo<T> type) =>
         new StringContent(JsonSerializer.Serialize(value, type), Encoding.UTF8, "application/json");
 
@@ -119,10 +123,11 @@ public sealed class JellyfinClient
     }
 
     private async Task<HttpResponseMessage> SendRawAsync(HttpMethod method, string path,
-        IEnumerable<KeyValuePair<string, string?>>? query, HttpContent? body, CancellationToken ct)
+        IEnumerable<KeyValuePair<string, string?>>? query, HttpContent? body, CancellationToken ct, long from = 0)
     {
         var url = Resolve(path, query);
         using var request = new HttpRequestMessage(method, url) { Content = body };
+        if (from > 0) request.Headers.Range = new RangeHeaderValue(from, null);
         request.Headers.TryAddWithoutValidation("Authorization", AuthorizationHeader);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         HttpResponseMessage response;

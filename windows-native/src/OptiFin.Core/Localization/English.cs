@@ -151,6 +151,12 @@ public static class English
         ["Limite de débit du serveur atteinte. Réessayez plus tard."] = "Server bitrate limit reached. Try again later.",
         ["Le serveur a refusé la lecture ({0})."] = "The server refused playback ({0}).", ["Une erreur inattendue est survenue."] = "An unexpected error occurred.",
 
+        // Téléchargements
+        ["Téléchargements"] = "Downloads", ["Aucun téléchargement. Ouvrez la fiche d’un film ou d’un épisode pour le garder sur ce PC et le regarder sans connexion."] = "No downloads. Open a movie or an episode to keep it on this PC and watch it offline.",
+        ["{0:0.0} Go"] = "{0:0.0} GB", ["{0:0} Mo"] = "{0:0} MB", ["Échec du téléchargement"] = "Download failed", ["En pause · {0} / {1}"] = "Paused · {0} / {1}", ["En attente"] = "Queued", ["{0} / {1}"] = "{0} / {1}",
+        ["Mettre en pause"] = "Pause", ["Supprimer"] = "Delete", ["Télécharger pour regarder sans connexion"] = "Download to watch offline", ["Téléchargé · voir les téléchargements"] = "Downloaded · view downloads", ["Téléchargement en cours · voir les téléchargements"] = "Downloading · view downloads",
+        ["Téléchargement impossible : {0}"] = "Download failed: {0}",
+
         // Phrases à nombre
         ["{0} élément"] = "{0} item", ["{0} éléments"] = "{0} items",
         ["{0} élément sélectionné"] = "{0} item selected", ["{0} éléments sélectionnés"] = "{0} items selected",

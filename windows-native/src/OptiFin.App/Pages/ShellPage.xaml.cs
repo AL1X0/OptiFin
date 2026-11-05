@@ -39,6 +39,7 @@ public sealed partial class ShellPage : Page
 
         AddTab(L.T("Accueil"), "\uE80F", typeof(HomePage));
         AddTab(L.T("Bibliothèques"), "\uE8F1", typeof(LibrariesPage));
+        AddTab(L.T("Téléchargements"), "\uE896", typeof(DownloadsPage));
         ProfileButton.Flyout = ProfileMenu();
         SetupSearch();
         PartyButton.Flyout = new Flyout

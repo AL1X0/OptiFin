@@ -25,6 +25,7 @@ public static class AppServices
     public static HomeRepository? Home { get; private set; }
     public static PlaybackService? Playback { get; private set; }
     public static ImageUrls? Images { get; private set; }
+    public static OptiFin.Core.Downloads.DownloadManager Downloads { get; } = new(Path.Combine(AppLog.Directory, "downloads"));
 
     /// <summary>Jeton révoqué côté serveur pendant l'utilisation : retour à la connexion.</summary>
     public static event Action? SessionLost;
@@ -108,6 +109,7 @@ public static class AppServices
         Home = null;
         Playback = null;
         Images = null;
+        Downloads.Attach(null, null);
         WatchParty.Attach(null);
         SessionChanged?.Invoke();
     }
@@ -130,6 +132,7 @@ public static class AppServices
         Playback = new PlaybackService(Client, session.Account.UserId);
         Images = new ImageUrls(session.Server.BaseUrl);
         WatchParty.Attach(Client);
+        Downloads.Attach(Client, session.Account.Id);
         AppLog.Info("app", $"Session : {session.Account.UserName} sur {session.Server.Name} (Jellyfin {session.Server.Version})");
     }
 }

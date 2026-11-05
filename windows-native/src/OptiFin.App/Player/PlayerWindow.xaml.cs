@@ -232,6 +232,28 @@ public sealed partial class PlayerWindow : Window
         try
         {
             ShowPreparing(forceTranscode ? L.T("Le serveur prépare une version compatible…") : null);
+            // Fichier téléchargé : lu directement, sans passer par le serveur (qui peut être injoignable).
+            var downloaded = forceTranscode ? null : AppServices.Downloads.CompletedFile(item.Id);
+            if (downloaded != null)
+            {
+                var stored = OptiFin.Core.Downloads.DownloadManager.ItemOf(AppServices.Downloads.Find(item.Id)!);
+                _item = stored;
+                SetTitles(stored);
+                var localPlan = PlaybackService.LocalPlan(stored, downloaded, start);
+                var (localAudio, localSubtitle) = TrackPreferences.Preferred(localPlan, AppServices.Settings);
+                _plan = localPlan with { AudioIndex = localAudio, SubtitleIndex = localSubtitle };
+                AppLog.Info("player", $"« {stored.Name} » → fichier téléchargé");
+                _ = LoadExtrasAsync(stored, generation);
+                _mpv ??= CreatePlayer();
+                _position = start;
+                _duration = TimeSpan.Zero;
+                _buffered = TimeSpan.Zero;
+                UpdateTimes();
+                LoadStream(_plan, start, stored.Name);
+                if (_sync != null) _mpv.Pause();
+                ApplySubtitleStyle();
+                return;
+            }
             var full = item.Kind.IsPlayableVideo() && item.Overview is null ? await media.ItemAsync(item.Id) : item;
             if (Stale()) return;
             _item = full;
