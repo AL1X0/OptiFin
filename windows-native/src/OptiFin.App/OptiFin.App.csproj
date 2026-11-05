@@ -69,4 +69,23 @@
     <AppxManifest Include="$(StoreManifest)" />
     <Content Include="..\..\store\Assets\*.png" Link="Images\%(Filename)%(Extension)" />
   </ItemGroup>
+
+  <!--
+    Correctif de sécurité CVE-2026-111497 (Brotli) : en NativeAOT, le runtime est embarqué dans le binaire.
+    Sa version vient normalement du SDK ; RuntimeFrameworkVersion s'appliquerait aussi au paquet Windows.
+    À retirer quand le SDK installé fournit 10.0.14 ou plus.
+  -->
+  <Target Name="OptiFinPatchedRuntime" BeforeTargets="ProcessFrameworkReferences">
+    <ItemGroup>
+      <KnownFrameworkReference Condition="'%(KnownFrameworkReference.Identity)' == 'Microsoft.NETCore.App' And '%(KnownFrameworkReference.TargetFramework)' == 'net10.0'">
+        <LatestRuntimeFrameworkVersion>10.0.14</LatestRuntimeFrameworkVersion>
+      </KnownFrameworkReference>
+      <KnownRuntimePack Condition="'%(KnownRuntimePack.Identity)' == 'Microsoft.NETCore.App' And '%(KnownRuntimePack.TargetFramework)' == 'net10.0'">
+        <LatestRuntimeFrameworkVersion>10.0.14</LatestRuntimeFrameworkVersion>
+      </KnownRuntimePack>
+      <KnownILCompilerPack Condition="'%(KnownILCompilerPack.TargetFramework)' == 'net10.0'">
+        <ILCompilerPackVersion>10.0.14</ILCompilerPackVersion>
+      </KnownILCompilerPack>
+    </ItemGroup>
+  </Target>
 </Project>
