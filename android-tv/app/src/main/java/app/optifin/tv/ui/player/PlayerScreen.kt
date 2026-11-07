@@ -1,5 +1,12 @@
 package app.optifin.tv.ui.player
 
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.ui.draw.alpha
 import app.optifin.tv.core.L
 import android.app.Activity
 import android.graphics.Bitmap
@@ -143,6 +150,7 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
     var feedback by remember { mutableStateOf<String?>(null) }
     var hideJob by remember { mutableStateOf<Job?>(null) }
     var repeats by remember { mutableIntStateOf(0) }
+    var tabsOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val rootFocus = remember { FocusRequester() }
     val playFocus = remember { FocusRequester() }
@@ -169,7 +177,7 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
         hideJob?.cancel()
         hideJob = scope.launch {
             delay(4500)
-            if (panel == null && scrub == null && controller.engine?.state?.value?.playing == true) {
+            if (panel == null && scrub == null && !tabsOpen && controller.engine?.state?.value?.playing == true) {
                 visible = false
                 runCatching { rootFocus.requestFocus() }
             }
@@ -197,7 +205,7 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
         feedback = (if (delta > 0) "+" else "−") + "${kotlin.math.abs(delta) / 1000} s"
         scope.launch {
             val shown = feedback
-            delay(800)
+            delay(1100)
             if (feedback == shown) feedback = null
         }
     }
@@ -247,7 +255,7 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
                 when (e.key) {
                     Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> {
                         if (!repeat) controller.togglePlay()
-                        show()
+                        show(focusPlay = !visible)
                         return@onPreviewKeyEvent true
                     }
                     Key.MediaFastForward -> { seekWithFeedback(30_000); return@onPreviewKeyEvent true }
@@ -255,6 +263,8 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
                     Key.MediaNext -> { controller.playNext(); return@onPreviewKeyEvent true }
                 }
                 if (ui.phase != PlayerPhase.Playing) return@onPreviewKeyEvent false
+                // Fenêtre ouverte : ◀ ▶ ne doivent pas faire sortir le focus de la liste (la recherche garde son champ de saisie).
+                if (panel != null && panel != Panel.Search && (e.key == Key.DirectionLeft || e.key == Key.DirectionRight)) return@onPreviewKeyEvent true
                 if (!visible && panel == null) {
                     when (e.key) {
                         Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
@@ -285,6 +295,8 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
                     false
                 }
             }
+            // Commandes affichées : cette zone ne doit plus être une cible, sinon une flèche au bord des commandes y envoyait le focus.
+            .focusProperties { canFocus = !(visible && engineState.ready && ui.phase == PlayerPhase.Playing) }
             .focusable(),
     ) {
         ui.engine?.View(Modifier.fillMaxSize())
@@ -296,9 +308,16 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
         }
         if (ui.phase == PlayerPhase.Playing && !engineState.ready) Preparing(ui)
 
+        // Saut : indication discrète du côté du saut.
         feedback?.let {
-            Box(Modifier.align(Alignment.Center).clip(RoundedCornerShape(40.dp)).background(Color(0xB3000000)).padding(horizontal = 28.dp, vertical = 14.dp)) {
-                Text(it, style = MaterialTheme.typography.headlineMedium)
+            val forward = it.startsWith("+")
+            Row(
+                Modifier.align(if (forward) Alignment.CenterEnd else Alignment.CenterStart).padding(horizontal = 72.dp)
+                    .clip(RoundedCornerShape(30.dp)).background(Color(0x80000000)).padding(horizontal = 18.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(if (forward) Icons.Rounded.Forward10 else Icons.Rounded.Replay10, null, Modifier.size(30.dp))
+                Text(it, style = MaterialTheme.typography.titleMedium)
             }
         }
         if (engineState.ready && engineState.buffering && !visible) {
@@ -306,12 +325,14 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
         }
 
         if (ui.phase == PlayerPhase.Playing && engineState.ready) {
-            AnimatedVisibility(visible && panel == null, enter = fadeIn(tween(220)), exit = fadeOut(tween(300))) {
+            AnimatedVisibility(visible, enter = fadeIn(tween(220)), exit = fadeOut(tween(300))) {
                 Controls(
-                    ui, engineState, controller, scrub,
+                    ui, engineState, controller, scrub, panel,
                     onScrub = { scrub = it; if (it == null) scheduleHide() else hideJob?.cancel() },
                     onPanel = { panel = it; hideJob?.cancel() },
-                    playFocus = playFocus,
+                    onSkip = ::seekWithFeedback,
+                    onTabs = { tabsOpen = it; if (it) hideJob?.cancel() else scheduleHide() },
+                    barFocus = playFocus,
                 )
             }
             // « Passer l'intro » et « Épisode suivant » : visibles même commandes masquées.
@@ -335,8 +356,8 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
         }
 
         AnimatedVisibility(
-            panel != null, modifier = Modifier.align(Alignment.CenterEnd),
-            enter = slideInHorizontally { it / 2 } + fadeIn(), exit = slideOutHorizontally { it / 2 } + fadeOut(),
+            panel != null, modifier = Modifier.align(Alignment.BottomEnd).padding(end = OF.SafeX, bottom = 150.dp),
+            enter = slideInVertically { it / 8 } + fadeIn(tween(160)), exit = fadeOut(tween(120)),
         ) {
             panel?.let { p ->
                 SidePanel(p, ui, controller, panelFocus, onNavigate = { panel = it }, onClose = { panel = null; show(focusPlay = true) })
@@ -397,99 +418,206 @@ private fun ErrorView(ui: PlayerUiState, onRetry: () -> Unit, onBack: () -> Unit
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 }
 
-/** Commandes : titre, barre de progression, temps, boutons. */
+/** Commandes posées sur l'image : titre et petites icônes, barre fine, temps, onglets Infos et Chapitres. */
 @Composable
 private fun Controls(
     ui: PlayerUiState,
     s: EngineState,
     controller: PlayerController,
     scrub: Long?,
+    activePanel: Panel?,
     onScrub: (Long?) -> Unit,
     onPanel: (Panel) -> Unit,
-    playFocus: FocusRequester,
+    onSkip: (Long) -> Unit,
+    onTabs: (Boolean) -> Unit,
+    barFocus: FocusRequester,
 ) {
     val item = ui.item
     val duration = if (s.durationMs > 0) s.durationMs else ui.plan?.runtimeMs ?: 0
     val position = scrub ?: s.positionMs
     val remaining = (duration - position).coerceAtLeast(0)
-    val chapter = ui.extras.chapterAt(position)
-    val endsAt = LocalTime.now().plusSeconds((remaining / 1000 / s.rate.coerceAtLeast(0.25f)).toLong()).format(DateTimeFormatter.ofPattern("H'h'mm"))
-    Box(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x99000000), 0.2f to Color.Transparent, 0.55f to Color.Transparent, 1f to Color(0xE6000000))))
+    val enabled = activePanel == null
+    var tab by remember { mutableStateOf<PlayerTab?>(null) }
+    val veil by animateColorAsState(if (tab != null) Color(0x99000000) else Color.Transparent, tween(200), label = "voile")
+    Box(Modifier.fillMaxSize().background(veil)) {
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color(0xB3000000))))
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = OF.SafeX, vertical = OF.SafeY)) {
-            if (item != null) {
-                val episode = item.kind == MediaKind.Episode
-                Text(if (episode) item.seriesName ?: item.name else item.name, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (episode) Text(listOfNotNull(item.episodeLabel, item.name).joinToString(" · "), style = MaterialTheme.typography.bodyLarge, color = OF.TextSecondary, maxLines = 1)
+            Row(Modifier.fillMaxWidth().alpha(if (scrub != null) 0f else 1f), verticalAlignment = Alignment.Bottom) {
+                Column(Modifier.weight(1f)) {
+                    if (item != null) {
+                        val episode = item.kind == MediaKind.Episode
+                        if (episode) Text(listOfNotNull(item.episodeLabel, item.name).joinToString(" · "), style = MaterialTheme.typography.titleSmall, color = OF.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(if (episode) item.seriesName ?: item.name else item.name, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ui.extras.nextEpisode?.let { GlyphButton(Icons.Rounded.SkipNext, L.t("Épisode suivant"), controller::playNext, enabled) }
+                    GlyphButton(Icons.Outlined.ChatBubbleOutline, L.t("Sous-titres"), { onPanel(Panel.Subtitles) }, enabled, activePanel in SubtitlePanels)
+                    if ((ui.plan?.audioTracks?.size ?: 0) > 1) GlyphButton(Icons.Rounded.GraphicEq, L.t("Audio"), { onPanel(Panel.Audio) }, enabled, activePanel in AudioPanels)
+                    GlyphButton(Icons.Rounded.Tune, L.t("Réglages"), { onPanel(Panel.Settings) }, enabled, activePanel in SettingsPanels)
+                }
             }
-            Spacer(Modifier.height(14.dp))
-            Scrubber(position, duration, s.bufferedMs, ui, scrub != null, onScrub = onScrub, onCommit = { controller.seekTo(it); onScrub(null) })
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(MediaFormat.clock(position), style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"))
-                Spacer(Modifier.width(16.dp))
-                Text(chapter?.name ?: "", style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (duration > 0) Text(L.f("Fin à {0}", endsAt), style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary)
-                Spacer(Modifier.width(20.dp))
-                Text("−${MediaFormat.clock(remaining)}", style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"))
-            }
-            Spacer(Modifier.height(14.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ControlButton(Icons.Rounded.Replay10, "−10 s", { controller.seekBy(-10_000) })
-                Spacer(Modifier.width(10.dp))
-                ControlButton(if (s.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (s.playing) L.t("Pause") else L.t("Lecture"), controller::togglePlay, Modifier.focusRequester(playFocus))
-                Spacer(Modifier.width(10.dp))
-                ControlButton(Icons.Rounded.Forward10, "+10 s", { controller.seekBy(10_000) })
-                if (ui.extras.nextEpisode != null) {
-                    Spacer(Modifier.width(10.dp))
-                    ControlButton(Icons.Rounded.SkipNext, L.t("Épisode suivant"), controller::playNext)
+            Spacer(Modifier.height(10.dp))
+            Scrubber(
+                position, duration, s.bufferedMs, remaining, ui, scrub != null, s.playing, enabled, barFocus,
+                onScrub = onScrub,
+                onCommit = { target, resume ->
+                    controller.seekTo(target)
+                    if (resume && !s.playing) controller.togglePlay()
+                    onScrub(null)
+                },
+                onToggle = controller::togglePlay,
+                onSkip = onSkip,
+            )
+            // Onglets : le contenu apparaît dessous dès qu'on y arrive, et disparaît en remontant sur la barre.
+            // Groupe de focus : sans lui, passer de l'onglet à une carte semblait quitter la zone et refermait le panneau.
+            Column(Modifier.onFocusChanged { if (!it.hasFocus && tab != null) { tab = null; onTabs(false) } }.focusGroup()) {
+                Row(Modifier.offset(x = (-14).dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val chapters = ui.extras.chapters.size > 1
+                    TabButton(L.t("Infos"), enabled, last = !chapters) { tab = PlayerTab.Info; onTabs(true) }
+                    if (chapters) TabButton(L.t("Chapitres"), enabled, last = true) { tab = PlayerTab.Chapters; onTabs(true) }
                 }
-                Spacer(Modifier.weight(1f))
-                ControlButton(Icons.Rounded.ClosedCaption, "Sous-titres", { onPanel(Panel.Subtitles) })
-                Spacer(Modifier.width(10.dp))
-                if ((ui.plan?.audioTracks?.size ?: 0) > 1) {
-                    ControlButton(Icons.Rounded.GraphicEq, "Audio", { onPanel(Panel.Audio) })
-                    Spacer(Modifier.width(10.dp))
+                when (tab) {
+                    PlayerTab.Info -> InfoTab(ui, remaining, s.rate)
+                    PlayerTab.Chapters -> ChaptersTab(ui, position) { controller.seekTo(it) }
+                    null -> {}
                 }
-                if (ui.extras.chapters.size > 1) {
-                    ControlButton(Icons.Rounded.List, L.t("Chapitres"), { onPanel(Panel.Chapters) })
-                    Spacer(Modifier.width(10.dp))
-                }
-                ControlButton(Icons.Rounded.Tune, L.t("Réglages"), { onPanel(Panel.Settings) })
             }
         }
     }
 }
 
-/** Bouton du lecteur : icône seule au repos, pilule blanche avec libellé au focus. */
+private enum class PlayerTab { Info, Chapters }
+
+private val SubtitlePanels = setOf(Panel.Subtitles, Panel.Style, Panel.Search, Panel.SubtitleDelay)
+private val AudioPanels = setOf(Panel.Audio, Panel.AudioDelay)
+private val SettingsPanels = setOf(Panel.Settings, Panel.Speed, Panel.Fit, Panel.Engine)
+
+/** Petite icône sans fond ; disque blanc au focus, et tant que son menu est ouvert. */
 @Composable
-private fun ControlButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    var focused by remember { mutableStateOf(false) }
+private fun GlyphButton(icon: ImageVector, label: String, onClick: () -> Unit, enabled: Boolean, active: Boolean = false) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(52.dp).onFocusChanged { focused = it.isFocused },
-        shape = ButtonDefaults.shape(RoundedCornerShape(26.dp)),
-        colors = ButtonDefaults.colors(containerColor = Color(0x29FFFFFF), contentColor = Color.White, focusedContainerColor = Color.White, focusedContentColor = Color.Black),
-        scale = ButtonDefaults.scale(focusedScale = 1.05f),
-        // 12 dp : bouton parfaitement rond (28 + 2 × 12 = 52) quand il n'a pas le focus.
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = if (focused) 20.dp else 12.dp),
+        enabled = enabled,
+        modifier = Modifier.size(44.dp),
+        shape = ButtonDefaults.shape(CircleShape),
+        colors = ButtonDefaults.colors(
+            containerColor = Color.Transparent, contentColor = Color.White,
+            focusedContainerColor = Color.White, focusedContentColor = Color.Black,
+            disabledContainerColor = if (active) Color(0xE6FFFFFF) else Color.Transparent,
+            disabledContentColor = if (active) Color.Black else Color.White,
+        ),
+        scale = ButtonDefaults.scale(focusedScale = 1.08f),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
     ) {
-        // Hauteur imposée : sans ce Row, le contenu du bouton restait collé en haut.
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(icon, label, Modifier.size(24.dp)) }
+    }
+}
+
+/** Onglet : simple texte, pastille blanche au focus. */
+@Composable
+private fun TabButton(label: String, enabled: Boolean, last: Boolean, onFocused: () -> Unit) {
+    Button(
+        onClick = onFocused,
+        enabled = enabled,
+        modifier = Modifier.height(34.dp).onFocusChanged { if (it.isFocused) onFocused() }
+            .focusProperties { if (last) right = FocusRequester.Cancel },
+        colors = ButtonDefaults.colors(
+            containerColor = Color.Transparent, contentColor = Color(0xE6FFFFFF),
+            focusedContainerColor = Color.White, focusedContentColor = Color.Black,
+            disabledContainerColor = Color.Transparent, disabledContentColor = Color(0xE6FFFFFF),
+        ),
+        scale = ButtonDefaults.scale(focusedScale = 1.04f),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp),
+    ) {
         Row(Modifier.fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, label, Modifier.size(28.dp))
-            AnimatedVisibility(focused) {
-                Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun InfoTab(ui: PlayerUiState, remaining: Long, rate: Float) {
+    val item = ui.item ?: return
+    val endsAt = LocalTime.now().plusSeconds((remaining / 1000 / rate.coerceAtLeast(0.25f)).toLong()).format(DateTimeFormatter.ofPattern("H'h'mm"))
+    Row(Modifier.padding(top = 14.dp).height(170.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        AsyncImage(AppServices.images?.maybe(item.poster, 240), null, contentScale = ContentScale.Crop,
+            modifier = Modifier.width(113.dp).fillMaxHeight().clip(RoundedCornerShape(10.dp)).background(OF.SurfaceRaised))
+        Column(Modifier.widthIn(max = 720.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(item.name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text((MediaFormat.metadataLine(item) + L.f("Fin à {0}", endsAt)).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = OF.TextSecondary, maxLines = 1)
+            item.overview?.let { Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 5, overflow = TextOverflow.Ellipsis) }
+        }
+    }
+}
+
+@Composable
+private fun ChaptersTab(ui: PlayerUiState, position: Long, onSeek: (Long) -> Unit) {
+    val itemId = ui.plan?.itemId ?: return
+    val images = AppServices.images
+    val current = ui.extras.chapterAt(position)
+    val list = androidx.compose.foundation.lazy.rememberLazyListState(ui.extras.chapters.indexOf(current).coerceAtLeast(0))
+    LazyRow(state = list, modifier = Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        items(ui.extras.chapters, key = { it.index }) { c ->
+            // Le serveur ne fournit pas toujours d'image de chapitre : sans image, une carte de texte plutôt qu'un rectangle vide.
+            val focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(3.dp, Color.White), shape = RoundedCornerShape(10.dp))
+            val url = c.imageTag?.let { images?.chapter(itemId, c.index, it, 400) }
+            Column(Modifier.width(200.dp)) {
+                androidx.tv.material3.Surface(
+                    onClick = { onSeek(c.startMs) },
+                    // Aux deux bouts de la liste, ◀ ▶ restent sur place au lieu de partir vers les onglets ou la barre.
+                    modifier = Modifier.focusProperties {
+                        if (c == ui.extras.chapters.first()) left = FocusRequester.Cancel
+                        if (c == ui.extras.chapters.last()) right = FocusRequester.Cancel
+                    },
+                    shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
+                    colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                        containerColor = if (url == null) Color(0x33FFFFFF) else OF.SurfaceRaised,
+                        focusedContainerColor = if (url == null) Color.White else OF.SurfaceRaised,
+                        contentColor = Color.White, focusedContentColor = if (url == null) Color.Black else Color.White,
+                    ),
+                    scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+                    border = androidx.tv.material3.ClickableSurfaceDefaults.border(focusedBorder = focusedBorder),
+                ) {
+                    if (url != null) {
+                        AsyncImage(url, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(112.dp))
+                    } else {
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
+                            Text(c.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(MediaFormat.clock(c.startMs), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+                if (url != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(c.name, style = MaterialTheme.typography.labelLarge, color = if (c == current) Color.White else OF.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(MediaFormat.clock(c.startMs), style = MaterialTheme.typography.labelSmall, color = OF.TextTertiary)
+                }
             }
         }
     }
 }
 
 /**
- * Barre de progression : focalisée (▲ depuis les boutons), ◀ ▶ déplacent un curseur d'aperçu
- * (vignettes trickplay, de plus en plus vite si la touche reste enfoncée), OK ou une courte pause
- * fait sauter la lecture.
+ * Barre de lecture fine. En lecture, ◀ ▶ sautent de 10 s (touche maintenue : défilement avec aperçu). En pause,
+ * ◀ ▶ déplacent le curseur et l'aperçu : OK reprend à cette position, Retour annule. Hors défilement, OK = lecture/pause.
  */
 @Composable
-private fun Scrubber(position: Long, duration: Long, buffered: Long, ui: PlayerUiState, scrubbing: Boolean, onScrub: (Long?) -> Unit, onCommit: (Long) -> Unit) {
+private fun Scrubber(
+    position: Long,
+    duration: Long,
+    buffered: Long,
+    remaining: Long,
+    ui: PlayerUiState,
+    scrubbing: Boolean,
+    playing: Boolean,
+    enabled: Boolean,
+    focus: FocusRequester,
+    onScrub: (Long?) -> Unit,
+    onCommit: (Long, Boolean) -> Unit,
+    onToggle: () -> Unit,
+    onSkip: (Long) -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     var repeats by remember { mutableIntStateOf(0) }
     var commitJob by remember { mutableStateOf<Job?>(null) }
@@ -499,54 +627,74 @@ private fun Scrubber(position: Long, duration: Long, buffered: Long, ui: PlayerU
     BoxWithConstraints(
         Modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(50.dp)
+            .focusRequester(focus)
             .onFocusChanged {
                 focused = it.isFocused
                 if (!it.isFocused && scrubbing) onScrub(null)
             }
             .onKeyEvent { e ->
-                if (duration <= 0) return@onKeyEvent false
                 val left = e.key == Key.DirectionLeft
                 val right = e.key == Key.DirectionRight
-                if (e.type == KeyEventType.KeyDown && (left || right)) {
-                    commitJob?.cancel()
-                    repeats = if (e.nativeKeyEvent.repeatCount > 0) repeats + 1 else 0
-                    val step = when { repeats > 20 -> 120_000L; repeats > 6 -> 60_000L; repeats > 0 -> 30_000L; else -> 10_000L }
-                    onScrub((position + if (right) step else -step).coerceIn(0, duration))
-                    true
-                } else if (e.type == KeyEventType.KeyUp && (left || right)) {
-                    commitJob = scope.launch {
-                        delay(1100)
-                        onCommit(position)
+                val center = e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter
+                val first = e.nativeKeyEvent.repeatCount == 0
+                when {
+                    center && e.type == KeyEventType.KeyDown -> {
+                        commitJob?.cancel()
+                        if (first) { if (scrubbing) onCommit(position, true) else onToggle() }
+                        true
                     }
-                    true
-                } else if (e.type == KeyEventType.KeyDown && scrubbing && (e.key == Key.DirectionCenter || e.key == Key.Enter)) {
-                    commitJob?.cancel()
-                    onCommit(position)
-                    true
-                } else false
+                    duration <= 0 -> false
+                    (left || right) && e.type == KeyEventType.KeyDown -> {
+                        commitJob?.cancel()
+                        repeats = if (first) 0 else repeats + 1
+                        val delta = if (right) 1 else -1
+                        if (playing && !scrubbing && first) {
+                            onSkip(delta * 10_000L)
+                        } else {
+                            val step = when { repeats > 20 -> 120_000L; repeats > 6 -> 60_000L; repeats > 0 -> 30_000L; else -> 10_000L }
+                            onScrub((position + delta * step).coerceIn(0, duration))
+                        }
+                        true
+                    }
+                    (left || right) && e.type == KeyEventType.KeyUp -> {
+                        // Touche maintenue en pleine lecture : saut à la position atteinte. En pause, OK décide.
+                        if (playing && scrubbing) commitJob = scope.launch {
+                            delay(900)
+                            onCommit(position, false)
+                        }
+                        true
+                    }
+                    else -> false
+                }
             }
-            .focusable(),
-        contentAlignment = Alignment.CenterStart,
+            .focusable(enabled),
     ) {
         val width = maxWidth
-        val thickness = if (focused) 10.dp else 6.dp
-        Box(Modifier.fillMaxWidth().height(thickness).clip(RoundedCornerShape(5.dp)).background(Color(0x40FFFFFF))) {
+        val track = if (focused) 8.dp else 6.dp
+        Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(track).clip(RoundedCornerShape(4.dp)).background(Color(0x59FFFFFF))) {
             Box(Modifier.fillMaxHeight().fillMaxWidth(bufferedFraction).background(Color(0x40FFFFFF)))
             Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).background(Color.White))
         }
-        if (focused) {
-            Box(Modifier.offset(x = width * fraction - 9.dp).size(18.dp).clip(CircleShape).background(Color.White))
-        }
+        if (focused) Box(Modifier.offset(x = width * fraction - 1.5.dp, y = 3.dp).width(3.dp).height(18.dp).clip(RoundedCornerShape(2.dp)).background(Color.White))
+        // Le temps suit le curseur, calé sur le bord de la barre au tout début et sans jamais toucher le temps restant.
+        val timeWidth = 90.dp
+        val timeX = width * fraction - timeWidth / 2
+        Text(MediaFormat.clock(position), style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"), color = Color(0xE6FFFFFF),
+            textAlign = if (timeX < 0.dp) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.offset(x = timeX.coerceIn(0.dp, width - timeWidth * 2), y = 26.dp).width(timeWidth))
+        Text("−${MediaFormat.clock(remaining)}", style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"), color = Color(0xE6FFFFFF),
+            modifier = Modifier.align(Alignment.TopEnd).offset(y = 26.dp))
         if (scrubbing) {
             val previewWidth = 260.dp
             val x = (width * fraction - previewWidth / 2).coerceIn(0.dp, width - previewWidth)
-            Column(Modifier.offset(x = x, y = (-150).dp).width(previewWidth), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.offset(x = x, y = (-186).dp).width(previewWidth), horizontalAlignment = Alignment.CenterHorizontally) {
                 TrickplayPreview(ui, position, previewWidth)
-                Spacer(Modifier.height(6.dp))
-                Text(MediaFormat.clock(position) + (ui.extras.chapterAt(position)?.let { " · ${it.name}" } ?: ""),
-                    style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color(0xCC000000)).padding(horizontal = 10.dp, vertical = 4.dp))
+                ui.extras.chapterAt(position)?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color(0xCC000000)).padding(horizontal = 10.dp, vertical = 4.dp))
+                }
             }
         }
     }
@@ -627,15 +775,15 @@ private fun DebugOverlay(ui: PlayerUiState, modifier: Modifier) {
     }
 }
 
-/** Panneau latéral : listes de pistes, chapitres et réglages du lecteur. */
+/** Petite fenêtre au-dessus des icônes : pistes et réglages du lecteur. */
 @Composable
 private fun SidePanel(panel: Panel, ui: PlayerUiState, controller: PlayerController, focus: FocusRequester, onNavigate: (Panel) -> Unit, onClose: () -> Unit) {
     val plan = ui.plan
     val engine = ui.engine
     val settings = AppServices.settings.value
     Column(
-        Modifier.fillMaxHeight().width(480.dp).background(Brush.horizontalGradient(listOf(Color(0xE6101012), Color(0xFA101012))))
-            .padding(horizontal = 24.dp, vertical = OF.SafeY),
+        Modifier.width(370.dp).heightIn(max = 480.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xEB2C2C30))
+            .padding(horizontal = 8.dp, vertical = 12.dp),
     ) {
         val title = when (panel) {
             Panel.Subtitles -> L.t("Sous-titres")
@@ -650,7 +798,7 @@ private fun SidePanel(panel: Panel, ui: PlayerUiState, controller: PlayerControl
             Panel.Engine -> L.t("Lecteur")
             Panel.Search -> L.t("Sous-titres en ligne")
         }
-        Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(start = 12.dp, bottom = 14.dp))
+        Text(title.uppercase(), style = MaterialTheme.typography.labelMedium, color = OF.TextSecondary, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             fun check(on: Boolean): (@Composable () -> Unit)? = if (on) { { Icon(Icons.Rounded.Check, null) } } else null
             when (panel) {

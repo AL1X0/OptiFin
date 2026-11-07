@@ -184,7 +184,8 @@ fun MediaRow(
 ) {
     val gutterPx = with(LocalDensity.current) { OF.Gutter.toPx() }
     Column(modifier) {
-        Text(title, style = MaterialTheme.typography.headlineSmall, color = OF.TextPrimary, modifier = Modifier.padding(start = OF.Gutter, bottom = 14.dp))
+        Text(title, style = MaterialTheme.typography.headlineSmall.copy(shadow = androidx.compose.ui.graphics.Shadow(Color(0xCC000000), androidx.compose.ui.geometry.Offset(0f, 2f), 10f)),
+            color = OF.TextPrimary, modifier = Modifier.padding(start = OF.Gutter, bottom = 14.dp))
         val rowSpec = remember(gutterPx) { PivotSpec(0f, gutterPx) }
         CompositionLocalProvider(LocalBringIntoViewSpec provides rowSpec) {
             LazyRow(

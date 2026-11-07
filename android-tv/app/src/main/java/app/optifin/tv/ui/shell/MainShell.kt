@@ -1,5 +1,21 @@
 package app.optifin.tv.ui.shell
 
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.runtime.State
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.tv.material3.DrawerState
+import kotlinx.coroutines.delay
 import app.optifin.tv.core.L
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -42,7 +58,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.tv.material3.DrawerValue
 import androidx.tv.material3.Icon
-import androidx.tv.material3.NavigationDrawer
+import androidx.tv.material3.ModalNavigationDrawer
 import androidx.tv.material3.NavigationDrawerItem
 import androidx.tv.material3.NavigationDrawerItemDefaults
 import androidx.tv.material3.NavigationDrawerScope
@@ -113,6 +129,7 @@ private val entries = listOf(
  * Google TV) et pages. ◀ au bord gauche d'une page ouvre le menu ; Retour sur une page racine
  * ramène à l'accueil, puis quitte.
  */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun MainShell(launchItem: MutableStateFlow<String?>, onPlay: (String, Boolean) -> Unit, onAddAccount: () -> Unit) {
     val nav = rememberNavController()
@@ -139,14 +156,40 @@ fun MainShell(launchItem: MutableStateFlow<String?>, onPlay: (String, Boolean) -
     // Page racine autre que l'accueil : Retour y ramène.
     BackHandler(enabled = route != Screens.HOME && nav.previousBackStackEntry == null) { appNav.section(Screens.HOME) }
 
-    NavigationDrawer(
-        modifier = Modifier.fillMaxSize().background(OF.Background),
+    // Changement de page : l'élément sélectionné disparaît et le focus irait au premier élément disponible,
+    // le menu, qui se dépliait un instant. Il ne le reçoit donc que sur ◀, ou si la page reste sans rien à
+    // sélectionner (page vide, erreur) : sans cela, la télécommande n'aurait plus d'effet.
+    val menuAllowed = remember { mutableStateOf(false) }
+    var pageHasFocus by remember { mutableStateOf(false) }
+    val activeEntry = remember { FocusRequester() }
+    val pageFocus = remember { FocusRequester() }
+    LaunchedEffect(route, pageHasFocus) {
+        if (pageHasFocus || drawer.currentValue == DrawerValue.Open) return@LaunchedEffect
+        delay(4000)
+        if (drawer.currentValue == DrawerValue.Open) return@LaunchedEffect
+        menuAllowed.value = true
+        runCatching { activeEntry.requestFocus() }
+        menuAllowed.value = false
+    }
+
+    // Par-dessus le contenu : fermé, le menu ne réserve plus de bande noire à gauche.
+    ModalNavigationDrawer(
+        modifier = Modifier.fillMaxSize().background(OF.Background).onPreviewKeyEvent { e ->
+            if (e.key == Key.DirectionLeft) menuAllowed.value = e.type == KeyEventType.KeyDown
+            // Menu ouvert par-dessus la page : ▶ et Retour y retournent. La recherche de focus par position
+            // ne suffit pas, les éléments de la page se trouvant sous le menu et non à sa droite.
+            if (drawer.currentValue == DrawerValue.Open && (e.key == Key.DirectionRight || e.key == Key.Back)) {
+                if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0) runCatching { pageFocus.requestFocus() }
+                true
+            } else false
+        },
         drawerState = drawer,
+        scrimBrush = SolidColor(Color(0x66000000)),
         drawerContent = { value ->
-            DrawerContent(value, route, session?.account?.userName ?: "", appNav)
+            DrawerContent(value, route, session?.account?.userName ?: "", appNav, drawer, menuAllowed, activeEntry)
         },
     ) {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().onFocusChanged { pageHasFocus = it.hasFocus }.focusRequester(pageFocus).focusRestorer()) {
             NavHost(nav, startDestination = Screens.HOME) {
                 composable(Screens.HOME) { HomeScreen(appNav) }
                 composable(Screens.SEARCH) { SearchScreen(appNav) }
@@ -170,7 +213,15 @@ fun MainShell(launchItem: MutableStateFlow<String?>, onPlay: (String, Boolean) -
 }
 
 @Composable
-private fun NavigationDrawerScope.DrawerContent(value: DrawerValue, route: String?, userName: String, nav: AppNav) {
+private fun NavigationDrawerScope.DrawerContent(
+    value: DrawerValue,
+    route: String?,
+    userName: String,
+    nav: AppNav,
+    drawer: DrawerState,
+    menuAllowed: State<Boolean>,
+    activeEntry: FocusRequester,
+) {
     val open = value == DrawerValue.Open
     val session = AppServices.session.value
     // ◀ ouvre le menu sur la page active (Accueil depuis une page hors menu), pas sur l'entrée la plus
@@ -181,18 +232,21 @@ private fun NavigationDrawerScope.DrawerContent(value: DrawerValue, route: Strin
         Screens.ACCOUNT, Screens.SETTINGS -> route
         else -> entries.firstOrNull { it.route == route }?.route ?: Screens.HOME
     }
-    fun Modifier.activeFocus(entry: String) = focusProperties { canFocus = open || entry == activeRoute }
+    // État lu au moment de la recherche de focus : « open » n'est à jour qu'à l'image suivante.
+    fun Modifier.activeFocus(entry: String) = focusProperties {
+        canFocus = drawer.currentValue == DrawerValue.Open || (menuAllowed.value && entry == activeRoute)
+    }.then(if (entry == activeRoute) Modifier.focusRequester(activeEntry) else Modifier)
     Box(
         Modifier.fillMaxHeight().background(
             if (open) Brush.horizontalGradient(listOf(Color(0xF7000000), Color(0xE6000000), Color(0x00000000)))
-            else Brush.horizontalGradient(listOf(OF.Background, OF.Background.copy(alpha = 0.92f), Color(0x00000000))),
+            else SolidColor(Color.Transparent),
         ),
     ) {
         Column(
-            Modifier.fillMaxHeight().padding(start = 12.dp, end = if (open) 60.dp else 22.dp, top = OF.SafeY, bottom = OF.SafeY),
+            Modifier.fillMaxHeight().padding(start = 6.dp, end = if (open) 60.dp else 6.dp, top = OF.SafeY, bottom = OF.SafeY),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Image(painterResource(R.drawable.logo_full), null, modifier = Modifier.padding(start = 14.dp).size(28.dp))
+            if (open) Image(painterResource(R.drawable.logo_full), null, modifier = Modifier.padding(start = 14.dp).size(28.dp))
             Spacer(Modifier.weight(1f))
             for (entry in entries) {
                 val selected = route == entry.route || (entry.route == Screens.LIBRARIES && route == Screens.LIBRARY)
@@ -205,12 +259,12 @@ private fun NavigationDrawerScope.DrawerContent(value: DrawerValue, route: Strin
                 ) { Text(entry.label) }
             }
             NavigationDrawerItem(
-                modifier = Modifier.activeFocus(Screens.ACCOUNT),
+                modifier = Modifier.activeFocus(Screens.ACCOUNT).alpha(if (open) 1f else 0.7f),
                 selected = route == Screens.ACCOUNT,
                 onClick = { nav.section(Screens.ACCOUNT) },
                 leadingContent = {
                     val images = AppServices.images
-                    Avatar(userName, session?.let { images?.userAvatar(it.account.userId, 96, it.account.avatarTag) }, 28.dp)
+                    Avatar(userName, session?.let { images?.userAvatar(it.account.userId, 96, it.account.avatarTag) }, 24.dp)
                 },
                 colors = drawerColors(),
             ) { Text(userName.ifEmpty { L.t("Compte") }) }
@@ -230,7 +284,8 @@ private fun NavigationDrawerScope.DrawerContent(value: DrawerValue, route: Strin
 private fun drawerColors() = NavigationDrawerItemDefaults.colors(
     focusedContainerColor = Color.White,
     focusedContentColor = Color.Black,
-    selectedContainerColor = Color(0x1FFFFFFF),
+    // Fermé : icônes seules, sans pastille, juste plus claires pour la page active.
+    selectedContainerColor = Color.Transparent,
     selectedContentColor = OF.TextPrimary,
-    contentColor = OF.TextSecondary,
+    contentColor = Color(0xCCFFFFFF),
 )

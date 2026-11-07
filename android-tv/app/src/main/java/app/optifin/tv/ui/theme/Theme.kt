@@ -6,8 +6,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ColorScheme
@@ -33,7 +37,7 @@ object OF {
     /** Marges de sécurité des téléviseurs (5 % de l'image peut être rogné). */
     val SafeX = 48.dp
     val SafeY = 27.dp
-    val Gutter = 48.dp
+    val Gutter = 76.dp
 }
 
 private val scheme: ColorScheme = darkColorScheme(
@@ -90,10 +94,29 @@ class PivotSpec(private val fraction: Float, private val minOffsetPx: Float = 0f
 
 val LocalAccent = staticCompositionLocalOf { OF.Accent }
 
+/** Taille logique de l'interface : la même sur tout téléviseur 16:9, quelle que soit sa résolution. */
+const val DesignWidth = 1280f
+const val DesignHeight = 720f
+
+/**
+ * Pixels par unité d'interface. Android présente les téléviseurs comme un écran de 960 × 540, où tout paraissait
+ * trop gros. L'échelle vient de la zone d'affichage réelle ; écran d'une autre forme : tout reste visible.
+ */
+fun interfaceScale(widthPixels: Int, heightPixels: Int): Float =
+    minOf(widthPixels / DesignWidth, heightPixels / DesignHeight)
+
+/** Hauteur de l'écran dans les unités de l'interface (LocalConfiguration resterait sur l'échelle d'Android). */
+@Composable
+fun screenHeight(): Dp = with(LocalDensity.current) { LocalContext.current.resources.displayMetrics.heightPixels.toDp() }
+
 @Composable
 fun OptiFinTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = scheme, typography = typography) {
-        // Texte blanc par défaut (sinon noir hors des Surface de Compose for TV).
-        CompositionLocalProvider(LocalAccent provides OF.Accent, LocalContentColor provides OF.TextPrimary, content = content)
+    val metrics = LocalContext.current.resources.displayMetrics
+    val density = Density(interfaceScale(metrics.widthPixels, metrics.heightPixels), LocalDensity.current.fontScale)
+    CompositionLocalProvider(LocalDensity provides density) {
+        MaterialTheme(colorScheme = scheme, typography = typography) {
+            // Texte blanc par défaut (sinon noir hors des Surface de Compose for TV).
+            CompositionLocalProvider(LocalAccent provides OF.Accent, LocalContentColor provides OF.TextPrimary, content = content)
+        }
     }
 }

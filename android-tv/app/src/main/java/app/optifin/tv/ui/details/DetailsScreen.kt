@@ -54,7 +54,6 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
@@ -217,7 +216,7 @@ private fun Header(data: DetailsData, nav: AppNav, firstFocus: FocusRequester, o
     val images = AppServices.images
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val height = (LocalConfiguration.current.screenHeightDp * 0.86f).dp
+    val height = app.optifin.tv.ui.theme.screenHeight() * 0.86f
     var user by remember(item.id, item.user) { mutableStateOf(item.user) }
 
     fun toggle(played: Boolean? = null, favorite: Boolean? = null) {
