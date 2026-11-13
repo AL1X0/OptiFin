@@ -20,7 +20,7 @@ data class LogEntry(val time: LocalTime, val level: LogLevel, val tag: String, v
 
 /**
  * Journal de l'appli : mémoire (écran « Journaux ») et fichier persistant (session courante +
- * précédente), jamais de jeton ni de mot de passe (les URL de flux n'en contiennent pas).
+ * précédente) ; les secrets (jetons, clés d'API, mots de passe) sont masqués à l'écriture.
  */
 object AppLog {
     private const val MAX_ENTRIES = 2000
@@ -56,12 +56,13 @@ object AppLog {
 
     fun add(level: LogLevel, tag: String, message: String) {
         if (level == LogLevel.Debug && !verbose) return
-        val entry = LogEntry(LocalTime.now(), level, tag, message)
+        val safe = redact(message)
+        val entry = LogEntry(LocalTime.now(), level, tag, safe)
         when (level) {
-            LogLevel.Debug -> Log.d("OptiFin/$tag", message)
-            LogLevel.Info -> Log.i("OptiFin/$tag", message)
-            LogLevel.Warning -> Log.w("OptiFin/$tag", message)
-            LogLevel.Error -> Log.e("OptiFin/$tag", message)
+            LogLevel.Debug -> Log.d("OptiFin/$tag", safe)
+            LogLevel.Info -> Log.i("OptiFin/$tag", safe)
+            LogLevel.Warning -> Log.w("OptiFin/$tag", safe)
+            LogLevel.Error -> Log.e("OptiFin/$tag", safe)
         }
         synchronized(buffer) {
             buffer.addLast(entry)
@@ -76,6 +77,17 @@ object AppLog {
             }
         }
     }
+
+    private val patterns: List<Pair<Regex, String>> = listOf(
+        Regex("Token=\"[^\"]*\"") to "Token=\"***\"",
+        Regex("(api_key|ApiKey|apikey|api-key)=([^&\\s\"]+)", RegexOption.IGNORE_CASE) to "\$1=***",
+        Regex("(X-Emby-Token|X-MediaBrowser-Token)[\"\\s:=]+[^\\s\",}]+", RegexOption.IGNORE_CASE) to "\$1: ***",
+        Regex("\"(AccessToken|Pw|Password|Secret)\"\\s*:\\s*\"[^\"]*\"", RegexOption.IGNORE_CASE) to "\"\$1\":\"***\"",
+    )
+
+    /** Masque les secrets connus dans un texte. */
+    fun redact(input: String): String =
+        patterns.fold(input) { acc, (pattern, replacement) -> pattern.replace(acc, replacement) }
 
     fun clear() {
         synchronized(buffer) {

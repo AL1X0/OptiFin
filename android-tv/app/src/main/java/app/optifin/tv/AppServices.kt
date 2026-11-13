@@ -46,6 +46,7 @@ object AppServices {
     private val _session = MutableStateFlow<ActiveSession?>(null)
     val session: StateFlow<ActiveSession?> = _session
 
+    @Volatile
     var client: JellyfinClient? = null
         private set
     var media: MediaRepository? = null
@@ -101,8 +102,12 @@ object AppServices {
     private fun activate(session: ActiveSession) {
         val client = JellyfinClient(session.server.baseUrl, identity) { session.token }
         client.onUnauthorized = {
-            AppLog.w("auth", "Jeton refusé par le serveur : reconnexion nécessaire")
-            scope.launch { signOut(revoke = false) }
+            if (client === this.client) {
+                AppLog.w("auth", "Jeton refusé par le serveur : reconnexion nécessaire")
+                scope.launch {
+                    if (client === this@AppServices.client) signOut(revoke = false)
+                }
+            }
         }
         this.client = client
         media = MediaRepository(client, session.account.userId)

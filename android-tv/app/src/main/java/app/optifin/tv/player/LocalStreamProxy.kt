@@ -7,6 +7,8 @@ import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.security.SecureRandom
+import java.util.concurrent.ConcurrentHashMap
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
@@ -22,6 +24,7 @@ class LocalStreamProxy(private val client: OkHttpClient) {
     // 127.0.0.1 explicitement : sur Android, getLoopbackAddress() peut renvoyer ::1, et mpv se voyait refuser la connexion.
     private val server = ServerSocket(0, 16, InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)))
     private val key = ByteArray(16).also(SecureRandom()::nextBytes).joinToString("") { "%02x".format(it) }
+    private val allowedHosts = ConcurrentHashMap.newKeySet<String>()
 
     init {
         Thread({
@@ -33,8 +36,11 @@ class LocalStreamProxy(private val client: OkHttpClient) {
     }
 
     /** Adresse à donner à mpv : seules les adresses HTTPS passent par le relais. */
-    fun wrap(url: String): String =
-        if (url.startsWith("https://", ignoreCase = true)) "http://127.0.0.1:${server.localPort}/$key/${url.substring(8)}" else url
+    fun wrap(url: String): String {
+        if (!url.startsWith("https://", ignoreCase = true)) return url
+        url.toHttpUrlOrNull()?.host?.let(allowedHosts::add)
+        return "http://127.0.0.1:${server.localPort}/$key/${url.substring(8)}"
+    }
 
     fun close() {
         runCatching { server.close() }
@@ -43,20 +49,35 @@ class LocalStreamProxy(private val client: OkHttpClient) {
     private fun serve(socket: Socket) {
         socket.use { s ->
             try {
+                s.soTimeout = SOCKET_TIMEOUT_MS
                 val input = s.getInputStream()
                 val output = s.getOutputStream()
                 val requestLine = readLine(input) ?: return
                 val parts = requestLine.split(" ")
-                if (parts.size < 2) return
-                val headers = generateSequence { readLine(input)?.takeIf { it.isNotEmpty() } }
-                    .mapNotNull { line -> line.indexOf(':').takeIf { it > 0 }?.let { line.substring(0, it).trim() to line.substring(it + 1).trim() } }
-                    .toList()
                 val prefix = "/$key/"
-                if (parts[0] !in setOf("GET", "HEAD") || !parts[1].startsWith(prefix)) {
-                    output.write("HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
+                // Vérification avant de lire les en-têtes : refuse aussitôt sans attendre la fin de la requête.
+                if (parts.size < 2 || parts[0] !in setOf("GET", "HEAD") || !parts[1].startsWith(prefix)) {
+                    forbid(output)
                     return
                 }
-                val request = Request.Builder().url("https://" + parts[1].removePrefix(prefix)).method(parts[0], null)
+                // Seuls les hôtes explicitement passés à wrap() sont relayés (pas de rebond ouvert).
+                val target = ("https://" + parts[1].removePrefix(prefix)).toHttpUrlOrNull()
+                if (target == null || target.host !in allowedHosts) {
+                    forbid(output)
+                    return
+                }
+                val headers = mutableListOf<Pair<String, String>>()
+                while (true) {
+                    val line = readLine(input) ?: break
+                    if (line.isEmpty()) break
+                    if (headers.size >= MAX_HEADERS) {
+                        forbid(output)
+                        return
+                    }
+                    val colon = line.indexOf(':')
+                    if (colon > 0) headers += line.substring(0, colon).trim() to line.substring(colon + 1).trim()
+                }
+                val request = Request.Builder().url(target).method(parts[0], null)
                 for ((name, value) in headers) {
                     if (name.lowercase() in FORWARDED) request.header(name, value)
                 }
@@ -77,6 +98,11 @@ class LocalStreamProxy(private val client: OkHttpClient) {
                 AppLog.w("mpv", "Relais : adresse refusée : ${e.message}")
             }
         }
+    }
+
+    private fun forbid(output: OutputStream) {
+        output.write("HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".toByteArray())
+        output.flush()
     }
 
     private fun copy(input: InputStream, output: OutputStream) {
@@ -101,6 +127,8 @@ class LocalStreamProxy(private val client: OkHttpClient) {
 
     private companion object {
         const val MAX_LINE = 16 * 1024
+        const val MAX_HEADERS = 64
+        const val SOCKET_TIMEOUT_MS = 30_000
         val FORWARDED = setOf("authorization", "range", "user-agent", "accept", "icy-metadata")
         val RETURNED = listOf("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "Last-Modified", "ETag")
     }

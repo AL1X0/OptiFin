@@ -517,9 +517,17 @@ class PlayerController(private val context: Context, val itemId: String, private
     }
 
     fun retry() {
+        if (closed) return
+        startupJob?.cancel()
+        tickJob?.cancel()
+        val previous = _state.value.engine
+        previous?.release()
         failures.clear()
         _state.value = PlayerUiState(fit = _state.value.fit)
-        start()
+        scope.launch {
+            if (previous != null) delay(300) // décodeur rendu au système (une seule instance 4K sur bien des TV)
+            prepare()
+        }
     }
 
     /** Fermeture : rapport « arrêt » envoyé à la position courante, moteur libéré. */

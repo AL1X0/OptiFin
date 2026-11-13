@@ -2,6 +2,7 @@ package app.optifin.tv
 
 import app.optifin.tv.player.LocalStreamProxy
 import java.net.HttpURLConnection
+import java.net.Socket
 import java.net.URL
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -81,6 +82,29 @@ class LocalStreamProxyTest {
     fun `sans la clé, une autre appli de l'appareil est refusée`() {
         val wrapped = URL(proxy.wrap("https://h.fr/f.mkv"))
         val c = URL("http://127.0.0.1:${wrapped.port}/h.fr/f.mkv").openConnection() as HttpURLConnection
+        assertEquals(403, c.responseCode)
+        assertFalse(seen.isNotEmpty())
+    }
+
+    @Test
+    fun `sans la clé, le relais répond 403 sans attendre les en-têtes`() {
+        val port = URL(proxy.wrap("https://h.fr/f.mkv")).port
+        Socket("127.0.0.1", port).use { socket ->
+            socket.soTimeout = 2000
+            val out = socket.getOutputStream()
+            out.write("GET /h.fr/f.mkv HTTP/1.1\r\n".toByteArray())
+            out.flush()
+            val status = socket.getInputStream().bufferedReader().readLine()
+            assertTrue("Réponse attendue 403, reçu : $status", status.startsWith("HTTP/1.1 403"))
+        }
+        assertFalse(seen.isNotEmpty())
+    }
+
+    @Test
+    fun `un hôte non passé à wrap est refusé`() {
+        val wrapped = URL(proxy.wrap("https://h.fr/f.mkv"))
+        val key = wrapped.path.trimStart('/').substringBefore('/')
+        val c = URL("http://127.0.0.1:${wrapped.port}/$key/autre.exemple.fr/secret").openConnection() as HttpURLConnection
         assertEquals(403, c.responseCode)
         assertFalse(seen.isNotEmpty())
     }

@@ -1,5 +1,6 @@
 package app.optifin.tv
 
+import app.optifin.tv.core.AppLog
 import app.optifin.tv.core.api.BaseItemDto
 import app.optifin.tv.core.api.ClientIdentity
 import app.optifin.tv.core.api.JellyfinJson
@@ -192,5 +193,36 @@ class CoreTest {
     fun `état utilisateur et progression`() {
         val d = UserItemDataDto(played = false, playedPercentage = 100.0)
         assertNull(app.optifin.tv.core.media.UserState(playedPercentage = d.playedPercentage).progress)
+    }
+
+    @Test
+    fun `journal masque les secrets`() {
+        assertEquals(
+            "Authorization: MediaBrowser Token=\"***\"",
+            AppLog.redact("Authorization: MediaBrowser Token=\"abc\""),
+        )
+        assertEquals(
+            "GET https://h.fr/stream?api_key=***&tag=1",
+            AppLog.redact("GET https://h.fr/stream?api_key=SECRET123&tag=1"),
+        )
+        assertEquals(
+            "X-Emby-Token: ***",
+            AppLog.redact("X-Emby-Token: tok123"),
+        )
+        assertEquals(
+            "{\"AccessToken\":\"***\",\"User\":\"u\"}",
+            AppLog.redact("{\"AccessToken\":\"secret-tok\",\"User\":\"u\"}"),
+        )
+
+        AppLog.clear()
+        AppLog.i("test", "Token=\"abc\" api_key=XYZ {\"AccessToken\":\"secret\"}")
+        val logged = AppLog.text()
+        assertFalse(logged.contains("abc"))
+        assertFalse(logged.contains("XYZ"))
+        assertFalse(logged.contains("secret"))
+        assertTrue(logged.contains("Token=\"***\""))
+        assertTrue(logged.contains("api_key=***"))
+        assertTrue(logged.contains("\"AccessToken\":\"***\""))
+        AppLog.clear()
     }
 }
