@@ -247,12 +247,13 @@ public partial class DemoServerPlaybackTests
     /// <summary>Suivi en direct (ces tests durent plusieurs minutes sur une grosse bibliothèque).</summary>
     private static void Progress(string text) => Console.WriteLine($"  [serveur {DateTime.Now:HH:mm:ss}] {text}");
 
-    private static async Task Until(Func<bool> ok, string what, int seconds = 45)
+    /// <param name="state">État du lecteur ajouté au message d'échec (sans lui, un délai dépassé ne dit pas pourquoi).</param>
+    private static async Task Until(Func<bool> ok, string what, int seconds = 45, Func<string>? state = null)
     {
         var deadline = DateTime.UtcNow.AddSeconds(seconds);
         while (!ok())
         {
-            if (DateTime.UtcNow > deadline) Assert.Fail($"Délai dépassé : {what}");
+            if (DateTime.UtcNow > deadline) Assert.Fail($"Délai dépassé : {what}{(state == null ? "" : $" — {state()}")}");
             await Task.Delay(50);
         }
     }
@@ -351,7 +352,10 @@ public partial class DemoServerPlaybackTests
         await p.PlaysFromAsync(start, $"{plan.Method} ({plan.StreamUrl.AbsolutePath})", 90);
         var target = TimeSpan.FromMinutes(12);
         p.Mpv.Seek(target);
-        await Until(() => Math.Abs((p.Position - target).TotalSeconds) < 5, "saut en transcodage", 90);
+        await Until(() => Math.Abs((p.Position - target).TotalSeconds) < 5, "saut en transcodage", 90, () =>
+            $"position {p.Position}, durée {p.Duration}, attente de données : {p.Mpv.Get("paused-for-cache")}, " +
+            $"tampon {p.Mpv.Get("demuxer-cache-duration")} s, trace {string.Join(" ", p.Trace)}, " +
+            $"événements {string.Join(" ", p.Events)}, erreurs {string.Join(" | ", p.Errors.TakeLast(5))}");
         // Après un saut, le serveur relance son transcodage à la nouvelle position : quelques secondes
         // sur un petit serveur (pas une panne, tant que la lecture repart).
         var deadline = DateTime.UtcNow.AddSeconds(30);
