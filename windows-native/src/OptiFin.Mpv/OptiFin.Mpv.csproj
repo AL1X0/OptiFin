@@ -15,27 +15,29 @@
   </PropertyGroup>
 
   <!--
-    libmpv : compilation shinchiro figée (date + empreinte SHA-256), téléchargée une seule fois
-    dans un cache partagé, jamais versionnée (120 Mo).
+    libmpv : compilation shinchiro 20260928 (git e470f8986e) figée, téléchargée une seule fois dans un
+    cache partagé, jamais versionnée (120 Mo). L'amont a retiré cette version (404) : la DLL, celle livrée
+    depuis la 1.1.22, est hébergée dans la release « deps-libmpv-20260928 » du dépôt, et son empreinte
+    SHA-256 est vérifiée avant usage.
   -->
   <PropertyGroup>
-    <LibmpvArchive>mpv-dev-x86_64-20260928-git-e470f8986e.7z</LibmpvArchive>
-    <LibmpvUrl>https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260928/$(LibmpvArchive)</LibmpvUrl>
-    <LibmpvSha256>81795D759E01016F1550FD71651A1A5D59AB5C28EF31C0B6793224E9CFF39459</LibmpvSha256>
+    <LibmpvUrl>https://github.com/AL1X0/OptiFin/releases/download/deps-libmpv-20260928/libmpv-2.dll</LibmpvUrl>
+    <LibmpvSha256>0D5B9DBECB73E179EF39DC94314FF8905FAB926A80F8D60A2367D824B7254E2E</LibmpvSha256>
     <LibmpvDir>$(LocalAppData)\OptiFin-build\libmpv-20260928</LibmpvDir>
   </PropertyGroup>
 
   <Target Name="FetchLibmpv" BeforeTargets="BeforeBuild;AssignTargetPaths" Condition="!Exists('$(LibmpvDir)\libmpv-2.dll')">
-    <Message Importance="high" Text="OptiFin : téléchargement de libmpv ($(LibmpvArchive))" />
+    <Message Importance="high" Text="OptiFin : téléchargement de libmpv (deps-libmpv-20260928)" />
     <MakeDir Directories="$(LibmpvDir)" />
-    <DownloadFile SourceUrl="$(LibmpvUrl)" DestinationFolder="$(LibmpvDir)" Retries="3" />
-    <GetFileHash Files="$(LibmpvDir)\$(LibmpvArchive)" Algorithm="SHA256">
+    <!-- Téléchargée sous un nom temporaire : une DLL à l'empreinte inattendue n'est jamais utilisée. -->
+    <DownloadFile SourceUrl="$(LibmpvUrl)" DestinationFolder="$(LibmpvDir)" DestinationFileName="libmpv-2.dll.part" Retries="3" />
+    <GetFileHash Files="$(LibmpvDir)\libmpv-2.dll.part" Algorithm="SHA256">
       <Output TaskParameter="Hash" PropertyName="LibmpvActualSha256" />
     </GetFileHash>
+    <Delete Files="$(LibmpvDir)\libmpv-2.dll.part" Condition="'$(LibmpvActualSha256)' != '$(LibmpvSha256)'" />
     <Error Condition="'$(LibmpvActualSha256)' != '$(LibmpvSha256)'"
            Text="libmpv : empreinte inattendue ($(LibmpvActualSha256)) — téléchargement refusé." />
-    <Exec Command="&quot;$(SystemRoot)\System32\tar.exe&quot; -xf &quot;$(LibmpvArchive)&quot; libmpv-2.dll" WorkingDirectory="$(LibmpvDir)" />
-    <Delete Files="$(LibmpvDir)\$(LibmpvArchive)" />
+    <Move SourceFiles="$(LibmpvDir)\libmpv-2.dll.part" DestinationFiles="$(LibmpvDir)\libmpv-2.dll" />
   </Target>
 
   <!--
