@@ -52,28 +52,21 @@ class PersonScreen extends ConsumerWidget {
     final columns = ((avail + OFSpacing.md) / (target + OFSpacing.md)).round().clamp(2, 12);
     final cardWidth = (avail - OFSpacing.md * (columns - 1)) / columns;
 
+    final top = MediaQuery.paddingOf(context).top;
+    final topInset = top + 52;
+
     return ScrollToTopListener(
       child: OFRouteTitle(
         title: person.value?.name ?? '',
         child: Scaffold(
-          body: EntranceScope(
-            window: const Duration(milliseconds: 1500),
-            child: CustomScrollView(
-              slivers: [
-                SliverAppBar(
-                  pinned: true,
-                  backgroundColor: OFColors.background.withValues(alpha: 0.9),
-                  leading: context.canPop()
-                      ? IconButton(
-                          tooltip: L.t('Retour'),
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                          onPressed: () => context.pop(),
-                        )
-                      : null,
-                  title: Text(person.value?.name ?? '', style: OFTypography.headline),
-                ),
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(gutter, OFSpacing.lg, gutter, 0),
+          body: Stack(
+            children: [
+              EntranceScope(
+                window: const Duration(milliseconds: 1500),
+                child: CustomScrollView(
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(gutter, topInset + OFSpacing.lg, gutter, 0),
                   sliver: SliverToBoxAdapter(
                     child: switch (person) {
                       AsyncData(:final value) => Row(
@@ -151,6 +144,44 @@ class PersonScreen extends ConsumerWidget {
                 },
               ],
             ),
+          ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: GlassSurface(
+                  borderRadius: BorderRadius.zero,
+                  child: ColoredBox(
+                    color: const Color(0xB3000000),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(gutter - OFSpacing.sm, top + OFSpacing.xs, gutter, OFSpacing.xs),
+                      child: SizedBox(
+                        height: 44,
+                        child: Row(
+                          children: [
+                            if (context.canPop()) ...[
+                              OFBackButton(
+                                previousTitle: OFRouteTitles.previousOf(context),
+                                onPressed: () => context.pop(),
+                              ),
+                              const SizedBox(width: OFSpacing.sm),
+                            ],
+                            Expanded(
+                              child: Text(
+                                person.value?.name ?? '',
+                                style: OFTypography.headline,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

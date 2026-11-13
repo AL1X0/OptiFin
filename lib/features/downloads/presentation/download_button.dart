@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design_system/design_system.dart';
+import '../../../core/logging/app_log.dart';
+import '../../../core/network/api_failure.dart';
 import '../../settings/presentation/settings_providers.dart';
 import '../domain/download.dart';
 import 'downloads_providers.dart';
@@ -32,7 +34,13 @@ Future<void> startDownload(BuildContext context, WidgetRef ref, List<String> ite
       ),
     );
   } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text(L.f('Téléchargement impossible : {0}', [e]))));
+    AppLog.w('downloads', 'Téléchargement impossible : $e');
+    final message = switch (e) {
+      ApiFailure() => e.userMessage,
+      StateError() => e.message,
+      _ => L.t('Téléchargement impossible.'),
+    };
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
