@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jellyfin_api/jellyfin_api.dart' hide PlayMethod;
 import 'package:optifin/core/media/media_mapper.dart';
+import 'package:optifin/core/media/media_repository.dart';
+import 'package:optifin/core/network/image_url.dart';
 import 'package:optifin/core/storage/app_database.dart';
 import 'package:optifin/features/downloads/data/downloads_repository.dart';
 import 'package:optifin/features/downloads/data/file_transfers.dart';
@@ -25,6 +28,7 @@ class FakeTransfers implements FileTransfers {
 
   final String root;
   final controller = StreamController<TransferUpdate>.broadcast();
+  final started = <({String taskId, String relativePath, bool wifiOnly})>[];
   final canceled = <String>[];
 
   @override
@@ -41,7 +45,9 @@ class FakeTransfers implements FileTransfers {
     Map<String, String> headers = const {},
     bool wifiOnly = false,
     String? displayName,
-  }) async {}
+  }) async {
+    started.add((taskId: taskId, relativePath: relativePath, wifiOnly: wifiOnly));
+  }
 
   @override
   Future<void> pause(String taskId) async {}
@@ -56,6 +62,20 @@ class FakeTransfers implements FileTransfers {
 
   @override
   Future<TransferStatus?> statusOf(String taskId) async => statuses[taskId];
+}
+
+class _FakeMediaRepository extends MediaRepository {
+  _FakeMediaRepository() : super(JellyfinClient(Dio()), 'u');
+
+  @override
+  Future<BaseItemDto> itemRaw(String id) async => BaseItemDto.fromJson(_dto(id));
+}
+
+class _FakeDownloadPlayback extends FakePlaybackRepository {
+  _FakeDownloadPlayback() : super(({audioIndex, subtitleIndex, options}) => throw UnimplementedError());
+
+  @override
+  Future<PlaybackInfoResponse> downloadInfo(String itemId) async => response();
 }
 
 Map<String, Object?> _dto(String id, {String type = 'Movie', String? series, int? season, int? episode}) => {
@@ -226,6 +246,95 @@ void main() {
       final other = DownloadsRepository(db: db, transfers: transfers, accountId: 'srv:autre');
       expect(await other.watch().first, isEmpty);
       other.dispose();
+    });
+
+    DownloadsRepository repoWithMedia(String accountId) => DownloadsRepository(
+      db: db,
+      transfers: transfers,
+      accountId: accountId,
+      media: _FakeMediaRepository(),
+      playback: _FakeDownloadPlayback(),
+      images: JellyfinImageUrlBuilder(Uri.parse('http://s/jf')),
+    );
+
+    test('deux comptes téléchargent et suppriment le même élément sans interférer', () async {
+      final first = repoWithMedia('srv:u');
+      final second = repoWithMedia('srv:autre');
+      addTearDown(() {
+        first.dispose();
+        second.dispose();
+      });
+
+      await first.add('m');
+      await second.add('m');
+
+      expect(transfers.started.map((s) => s.taskId), ['srv:u|m', 'srv:autre|m']);
+      expect(transfers.started.map((s) => s.relativePath), ['downloads/srv_u/m.mkv', 'downloads/srv_autre/m.mkv']);
+
+      final rows = await db.select(db.downloads).get();
+      expect(rows, hasLength(2));
+
+      final fileFirst = File('${dir.path}/downloads/srv_u/m.mkv')..createSync(recursive: true);
+      final fileSecond = File('${dir.path}/downloads/srv_autre/m.mkv')..createSync(recursive: true);
+      transfers.controller.add(const TransferUpdate('srv:u|m', status: TransferStatus.complete));
+      transfers.controller.add(const TransferUpdate('srv:autre|m', status: TransferStatus.complete));
+      await _settle();
+
+      await first.remove('m');
+
+      expect(fileFirst.existsSync(), isFalse);
+      expect(fileSecond.existsSync(), isTrue);
+      expect(transfers.canceled, contains('srv:u|m'));
+      expect(transfers.canceled, isNot(contains('srv:autre|m')));
+      expect(await first.watch().first, isEmpty);
+      expect((await second.watch().first).single.itemId, 'm');
+      expect(await second.local('m'), isNotNull);
+    });
+
+    test('resume d’un échec conserve wifiOnly à false', () async {
+      final onlineRepo = repoWithMedia('srv:u');
+      addTearDown(onlineRepo.dispose);
+
+      await onlineRepo.add('m', wifiOnly: false);
+      transfers.controller.add(const TransferUpdate('srv:u|m', status: TransferStatus.failed));
+      await _settle();
+      expect((await onlineRepo.watch().first).single.status, DownloadStatus.failed);
+
+      await onlineRepo.resume('m');
+      expect(transfers.started, hasLength(2));
+      expect(transfers.started.last.wifiOnly, isFalse);
+      expect(transfers.started.last.taskId, 'srv:u|m');
+    });
+
+    test('un événement de transfert avec ancien identifiant (itemId seul) met à jour la ligne', () async {
+      await insert('m', status: 'running');
+      await db
+          .into(db.downloads)
+          .insert(
+            DownloadsCompanion.insert(
+              itemId: 'm',
+              accountId: 'srv:autre',
+              kind: 'movie',
+              title: 'Titre m',
+              itemJson: jsonEncode(_dto('m')),
+              playbackJson: jsonEncode(response().toJson()),
+              filePath: 'downloads/srv_autre/m.mkv',
+              status: 'running',
+              createdAt: DateTime(2026),
+            ),
+          );
+
+      transfers.controller.add(const TransferUpdate('m', progress: 0.75, expectedBytes: 2048));
+      transfers.controller.add(const TransferUpdate('m', status: TransferStatus.complete));
+      await _settle();
+
+      final entry = (await repo.watch().first).single;
+      expect(entry.status, DownloadStatus.complete);
+      expect(entry.progress, 1);
+      expect(entry.sizeBytes, 2048);
+
+      final otherRow = await (db.select(db.downloads)..where((t) => t.accountId.equals('srv:autre'))).getSingle();
+      expect(otherRow.status, 'running');
     });
   });
 

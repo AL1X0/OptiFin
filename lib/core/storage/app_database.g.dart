@@ -1414,6 +1414,21 @@ class $DownloadsTable extends Downloads
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _wifiOnlyMeta = const VerificationMeta(
+    'wifiOnly',
+  );
+  @override
+  late final GeneratedColumn<bool> wifiOnly = GeneratedColumn<bool>(
+    'wifi_only',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("wifi_only" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _posterPathMeta = const VerificationMeta(
     'posterPath',
   );
@@ -1463,6 +1478,7 @@ class $DownloadsTable extends Downloads
     sizeBytes,
     progress,
     status,
+    wifiOnly,
     posterPath,
     backdropPath,
     createdAt,
@@ -1588,6 +1604,12 @@ class $DownloadsTable extends Downloads
     } else if (isInserting) {
       context.missing(_statusMeta);
     }
+    if (data.containsKey('wifi_only')) {
+      context.handle(
+        _wifiOnlyMeta,
+        wifiOnly.isAcceptableOrUnknown(data['wifi_only']!, _wifiOnlyMeta),
+      );
+    }
     if (data.containsKey('poster_path')) {
       context.handle(
         _posterPathMeta,
@@ -1615,7 +1637,7 @@ class $DownloadsTable extends Downloads
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {itemId};
+  Set<GeneratedColumn> get $primaryKey => {itemId, accountId};
   @override
   DownloadRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -1676,6 +1698,10 @@ class $DownloadsTable extends Downloads
         DriftSqlType.string,
         data['${effectivePrefix}status'],
       )!,
+      wifiOnly: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}wifi_only'],
+      )!,
       posterPath: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}poster_path'],
@@ -1718,6 +1744,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
   final int sizeBytes;
   final double progress;
   final String status;
+  final bool wifiOnly;
   final String? posterPath;
   final String? backdropPath;
   final DateTime createdAt;
@@ -1736,6 +1763,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
     required this.sizeBytes,
     required this.progress,
     required this.status,
+    required this.wifiOnly,
     this.posterPath,
     this.backdropPath,
     required this.createdAt,
@@ -1765,6 +1793,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
     map['size_bytes'] = Variable<int>(sizeBytes);
     map['progress'] = Variable<double>(progress);
     map['status'] = Variable<String>(status);
+    map['wifi_only'] = Variable<bool>(wifiOnly);
     if (!nullToAbsent || posterPath != null) {
       map['poster_path'] = Variable<String>(posterPath);
     }
@@ -1799,6 +1828,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
       sizeBytes: Value(sizeBytes),
       progress: Value(progress),
       status: Value(status),
+      wifiOnly: Value(wifiOnly),
       posterPath: posterPath == null && nullToAbsent
           ? const Value.absent()
           : Value(posterPath),
@@ -1829,6 +1859,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
       sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
       progress: serializer.fromJson<double>(json['progress']),
       status: serializer.fromJson<String>(json['status']),
+      wifiOnly: serializer.fromJson<bool>(json['wifiOnly']),
       posterPath: serializer.fromJson<String?>(json['posterPath']),
       backdropPath: serializer.fromJson<String?>(json['backdropPath']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1852,6 +1883,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
       'sizeBytes': serializer.toJson<int>(sizeBytes),
       'progress': serializer.toJson<double>(progress),
       'status': serializer.toJson<String>(status),
+      'wifiOnly': serializer.toJson<bool>(wifiOnly),
       'posterPath': serializer.toJson<String?>(posterPath),
       'backdropPath': serializer.toJson<String?>(backdropPath),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1873,6 +1905,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
     int? sizeBytes,
     double? progress,
     String? status,
+    bool? wifiOnly,
     Value<String?> posterPath = const Value.absent(),
     Value<String?> backdropPath = const Value.absent(),
     DateTime? createdAt,
@@ -1893,6 +1926,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
     sizeBytes: sizeBytes ?? this.sizeBytes,
     progress: progress ?? this.progress,
     status: status ?? this.status,
+    wifiOnly: wifiOnly ?? this.wifiOnly,
     posterPath: posterPath.present ? posterPath.value : this.posterPath,
     backdropPath: backdropPath.present ? backdropPath.value : this.backdropPath,
     createdAt: createdAt ?? this.createdAt,
@@ -1921,6 +1955,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
       sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
       progress: data.progress.present ? data.progress.value : this.progress,
       status: data.status.present ? data.status.value : this.status,
+      wifiOnly: data.wifiOnly.present ? data.wifiOnly.value : this.wifiOnly,
       posterPath: data.posterPath.present
           ? data.posterPath.value
           : this.posterPath,
@@ -1948,6 +1983,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
           ..write('sizeBytes: $sizeBytes, ')
           ..write('progress: $progress, ')
           ..write('status: $status, ')
+          ..write('wifiOnly: $wifiOnly, ')
           ..write('posterPath: $posterPath, ')
           ..write('backdropPath: $backdropPath, ')
           ..write('createdAt: $createdAt')
@@ -1971,6 +2007,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
     sizeBytes,
     progress,
     status,
+    wifiOnly,
     posterPath,
     backdropPath,
     createdAt,
@@ -1993,6 +2030,7 @@ class DownloadRow extends DataClass implements Insertable<DownloadRow> {
           other.sizeBytes == this.sizeBytes &&
           other.progress == this.progress &&
           other.status == this.status &&
+          other.wifiOnly == this.wifiOnly &&
           other.posterPath == this.posterPath &&
           other.backdropPath == this.backdropPath &&
           other.createdAt == this.createdAt);
@@ -2013,6 +2051,7 @@ class DownloadsCompanion extends UpdateCompanion<DownloadRow> {
   final Value<int> sizeBytes;
   final Value<double> progress;
   final Value<String> status;
+  final Value<bool> wifiOnly;
   final Value<String?> posterPath;
   final Value<String?> backdropPath;
   final Value<DateTime> createdAt;
@@ -2032,6 +2071,7 @@ class DownloadsCompanion extends UpdateCompanion<DownloadRow> {
     this.sizeBytes = const Value.absent(),
     this.progress = const Value.absent(),
     this.status = const Value.absent(),
+    this.wifiOnly = const Value.absent(),
     this.posterPath = const Value.absent(),
     this.backdropPath = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2052,6 +2092,7 @@ class DownloadsCompanion extends UpdateCompanion<DownloadRow> {
     this.sizeBytes = const Value.absent(),
     this.progress = const Value.absent(),
     required String status,
+    this.wifiOnly = const Value.absent(),
     this.posterPath = const Value.absent(),
     this.backdropPath = const Value.absent(),
     required DateTime createdAt,
@@ -2080,6 +2121,7 @@ class DownloadsCompanion extends UpdateCompanion<DownloadRow> {
     Expression<int>? sizeBytes,
     Expression<double>? progress,
     Expression<String>? status,
+    Expression<bool>? wifiOnly,
     Expression<String>? posterPath,
     Expression<String>? backdropPath,
     Expression<DateTime>? createdAt,
@@ -2100,6 +2142,7 @@ class DownloadsCompanion extends UpdateCompanion<DownloadRow> {
       if (sizeBytes != null) 'size_bytes': sizeBytes,
       if (progress != null) 'progress': progress,
       if (status != null) 'status': status,
+      if (wifiOnly != null) 'wifi_only': wifiOnly,
       if (posterPath != null) 'poster_path': posterPath,
       if (backdropPath != null) 'backdrop_path': backdropPath,
       if (createdAt != null) 'created_at': createdAt,
@@ -2122,6 +2165,7 @@ class DownloadsCompanion extends UpdateCompanion<DownloadRow> {
     Value<int>? sizeBytes,
     Value<double>? progress,
     Value<String>? status,
+    Value<bool>? wifiOnly,
     Value<String?>? posterPath,
     Value<String?>? backdropPath,
     Value<DateTime>? createdAt,
@@ -2142,6 +2186,7 @@ class DownloadsCompanion extends UpdateCompanion<DownloadRow> {
       sizeBytes: sizeBytes ?? this.sizeBytes,
       progress: progress ?? this.progress,
       status: status ?? this.status,
+      wifiOnly: wifiOnly ?? this.wifiOnly,
       posterPath: posterPath ?? this.posterPath,
       backdropPath: backdropPath ?? this.backdropPath,
       createdAt: createdAt ?? this.createdAt,
@@ -2194,6 +2239,9 @@ class DownloadsCompanion extends UpdateCompanion<DownloadRow> {
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
+    if (wifiOnly.present) {
+      map['wifi_only'] = Variable<bool>(wifiOnly.value);
+    }
     if (posterPath.present) {
       map['poster_path'] = Variable<String>(posterPath.value);
     }
@@ -2226,6 +2274,7 @@ class DownloadsCompanion extends UpdateCompanion<DownloadRow> {
           ..write('sizeBytes: $sizeBytes, ')
           ..write('progress: $progress, ')
           ..write('status: $status, ')
+          ..write('wifiOnly: $wifiOnly, ')
           ..write('posterPath: $posterPath, ')
           ..write('backdropPath: $backdropPath, ')
           ..write('createdAt: $createdAt, ')
@@ -3231,6 +3280,7 @@ typedef $$DownloadsTableCreateCompanionBuilder = DownloadsCompanion Function({
   Value<int> sizeBytes,
   Value<double> progress,
   required String status,
+  Value<bool> wifiOnly,
   Value<String?> posterPath,
   Value<String?> backdropPath,
   required DateTime createdAt,
@@ -3251,6 +3301,7 @@ typedef $$DownloadsTableUpdateCompanionBuilder = DownloadsCompanion Function({
   Value<int> sizeBytes,
   Value<double> progress,
   Value<String> status,
+  Value<bool> wifiOnly,
   Value<String?> posterPath,
   Value<String?> backdropPath,
   Value<DateTime> createdAt,
@@ -3333,6 +3384,11 @@ class $$DownloadsTableFilterComposer
 
   ColumnFilters<String> get status => $composableBuilder(
     column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get wifiOnly => $composableBuilder(
+    column: $table.wifiOnly,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3431,6 +3487,11 @@ class $$DownloadsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get wifiOnly => $composableBuilder(
+    column: $table.wifiOnly,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get posterPath => $composableBuilder(
     column: $table.posterPath,
     builder: (column) => ColumnOrderings(column),
@@ -3506,6 +3567,9 @@ class $$DownloadsTableAnnotationComposer
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
 
+  GeneratedColumn<bool> get wifiOnly =>
+      $composableBuilder(column: $table.wifiOnly, builder: (column) => column);
+
   GeneratedColumn<String> get posterPath => $composableBuilder(
     column: $table.posterPath,
     builder: (column) => column,
@@ -3565,6 +3629,7 @@ class $$DownloadsTableTableManager
                 Value<int> sizeBytes = const Value.absent(),
                 Value<double> progress = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<bool> wifiOnly = const Value.absent(),
                 Value<String?> posterPath = const Value.absent(),
                 Value<String?> backdropPath = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -3584,6 +3649,7 @@ class $$DownloadsTableTableManager
                 sizeBytes: sizeBytes,
                 progress: progress,
                 status: status,
+                wifiOnly: wifiOnly,
                 posterPath: posterPath,
                 backdropPath: backdropPath,
                 createdAt: createdAt,
@@ -3605,6 +3671,7 @@ class $$DownloadsTableTableManager
                 Value<int> sizeBytes = const Value.absent(),
                 Value<double> progress = const Value.absent(),
                 required String status,
+                Value<bool> wifiOnly = const Value.absent(),
                 Value<String?> posterPath = const Value.absent(),
                 Value<String?> backdropPath = const Value.absent(),
                 required DateTime createdAt,
@@ -3624,6 +3691,7 @@ class $$DownloadsTableTableManager
                 sizeBytes: sizeBytes,
                 progress: progress,
                 status: status,
+                wifiOnly: wifiOnly,
                 posterPath: posterPath,
                 backdropPath: backdropPath,
                 createdAt: createdAt,

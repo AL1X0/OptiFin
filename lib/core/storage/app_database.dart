@@ -77,12 +77,13 @@ class Downloads extends Table {
   IntColumn get sizeBytes => integer().withDefault(const Constant(0))();
   RealColumn get progress => real().withDefault(const Constant(0))();
   TextColumn get status => text()();
+  BoolColumn get wifiOnly => boolean().withDefault(const Constant(true))();
   TextColumn get posterPath => text().nullable()();
   TextColumn get backdropPath => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
 
   @override
-  Set<Column> get primaryKey => {itemId};
+  Set<Column> get primaryKey => {itemId, accountId};
 }
 
 @DriftDatabase(tables: [Servers, Accounts, KeyValues, CachedResponses, Downloads])
@@ -92,13 +93,17 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.open() => AppDatabase(driftDatabase(name: 'optifin'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.createTable(cachedResponses);
       if (from < 3) await m.createTable(downloads);
+      if (from >= 3 && from < 4) {
+        // Reconstruit la table avec la clé {itemId, accountId} et wifiOnly = true par défaut.
+        await m.alterTable(TableMigration(downloads, newColumns: [downloads.wifiOnly]));
+      }
     },
     beforeOpen: (details) async => customStatement('PRAGMA foreign_keys = ON'),
   );
