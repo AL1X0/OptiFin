@@ -52,6 +52,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
   final _states = StreamController<GroupState>.broadcast();
   final _remoteCommands = StreamController<RemoteCommand>.broadcast();
   String? _openedPlaylistItem;
+  final _replacedPlaylistItems = <String>{};
   bool _creating = false, _created = false, _launching = false;
   bool _launched = false, _stopping = false;
 
@@ -99,6 +100,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
     unawaited(_client?.dispose());
     _client = null;
     _openedPlaylistItem = null;
+    _replacedPlaylistItems.clear();
     pending = null;
     _resetHost();
   }
@@ -115,6 +117,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
         _notice(L.f('Vous avez rejoint « {0} »', [group.name]));
       case GroupLeft():
         _openedPlaylistItem = null;
+        _replacedPlaylistItems.clear();
         pending = null;
         _resetHost();
         _notice('Vous avez quitté la soirée');
@@ -171,6 +174,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
     if (!const {'NewPlaylist', 'SetCurrentItem', 'NextItem', 'PreviousItem'}.contains(queue.reason)) {
       return;
     }
+    final previous = _openedPlaylistItem;
     _openedPlaylistItem = current.playlistItemId;
     pending = PartyStart(
       itemId: current.itemId,
@@ -181,9 +185,16 @@ class WatchPartyController extends Notifier<WatchPartyState> {
     final router = ref.read(routerProvider);
     final location = Routes.play(current.itemId, start: queue.start);
     final inPlayer = router.routerDelegate.currentConfiguration.uri.path.startsWith('/play/');
+    if (inPlayer && previous != null) {
+      _replacedPlaylistItems.add(previous);
+    }
     AppLog.i('syncplay', 'Titre lancé par la soirée : ${current.itemId}');
     unawaited(inPlayer ? router.pushReplacement<void>(location) : router.push<void>(location));
   }
+
+  /// Vrai si le lecteur de [playlistItemId] vient d'être remplacé par un autre titre
+  /// de la soirée (sa fermeture ne doit pas arrêter la lecture pour tout le monde).
+  bool consumeReplaced(String playlistItemId) => _replacedPlaylistItems.remove(playlistItemId);
 
   /// Synchronisation à utiliser par le lecteur qui ouvre [itemId] (null hors soirée).
   PartyStart? partyFor(String itemId) => state.inParty && pending?.itemId == itemId ? pending : null;
@@ -220,6 +231,7 @@ class WatchPartyController extends Notifier<WatchPartyState> {
   Future<void> leave() async {
     await _safe(() => _client!.leave());
     _openedPlaylistItem = null;
+    _replacedPlaylistItems.clear();
     pending = null;
     _resetHost();
     final client = _client;

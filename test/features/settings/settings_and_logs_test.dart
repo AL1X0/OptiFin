@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:optifin/core/logging/app_log.dart';
 import 'package:optifin/features/player/domain/playback_engine.dart';
@@ -43,6 +45,31 @@ void main() {
       expect(AppLog.instance.entries.first.message, 'ligne 50');
       AppLog.e('t', 'boum', StateError('x'));
       expect(AppLog.instance.export(minLevel: LogLevel.error).split('\n').first, contains('E/t: boum'));
+    });
+
+    test('écriture groupée sur disque et écriture immédiate des erreurs', () async {
+      final dir = Directory.systemTemp.createTempSync('optifin_log_');
+      addTearDown(() {
+        AppLog.instance.stopPersistence();
+        if (dir.existsSync()) dir.deleteSync(recursive: true);
+      });
+      final file = File('${dir.path}/app.log');
+      await AppLog.instance.persistTo(file);
+
+      AppLog.i('t', 'un');
+      AppLog.w('t', 'deux');
+      expect(file.readAsStringSync(), isEmpty, reason: 'mis en tampon avant le délai');
+
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      final batched = file.readAsStringSync();
+      expect(batched, contains('I/t: un'));
+      expect(batched, contains('W/t: deux'));
+
+      AppLog.i('t', 'avant erreur');
+      AppLog.e('t', 'critique');
+      final immediate = file.readAsStringSync();
+      expect(immediate, contains('I/t: avant erreur'));
+      expect(immediate, contains('E/t: critique'));
     });
   });
 
