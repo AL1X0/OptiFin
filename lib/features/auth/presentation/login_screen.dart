@@ -180,6 +180,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                     ],
+                    if (server.baseUrl.scheme == 'http') ...[
+                      const SizedBox(height: OFSpacing.lg),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: OFSpacing.md, vertical: OFSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: OFColors.warning.withValues(alpha: 0.14),
+                          borderRadius: OFRadius.mdAll,
+                          border: Border.all(color: OFColors.warning.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.lock_open_rounded, size: 18, color: OFColors.warning),
+                            const SizedBox(width: OFSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                L.t('Connexion non chiffrée : mot de passe et jeton passent en clair sur le réseau.'),
+                                style: OFTypography.caption.copyWith(color: OFColors.warning),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: OFSpacing.xl),
                     OFTextField(
                       label: L.t('Nom d’utilisateur'),

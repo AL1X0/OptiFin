@@ -3,6 +3,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/route_titles.dart';
 import '../../../app/router.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/providers.dart';
@@ -59,22 +60,22 @@ class SettingsScreen extends ConsumerWidget {
     }
 
     // Clé sentinelle pour « choix du serveur » (null ne passe pas par pop()).
-    final serverDefault = '';
-    final languages = {serverDefault: L.t('Choix du serveur'), ...preferredLanguages};
+    const serverDefault = '';
+    final defaultLanguage = L.t('Choix du serveur');
+    final languages = {serverDefault: defaultLanguage, ...preferredLanguages};
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: OFColors.background,
-        leading: IconButton(
-          tooltip: L.t('Retour'),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(L.t('Paramètres'), style: OFTypography.headline),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: OFSpacing.xxxl),
-        children: [
+    return OFRouteTitle(
+      title: L.t('Paramètres'),
+      child: Scaffold(
+        body: Stack(
+          children: [
+            CustomScrollView(
+              slivers: [
+                OFLargeTitleSliver(title: L.t('Paramètres')),
+                SliverPadding(
+                  padding: EdgeInsets.only(bottom: OFSpacing.xxxl + MediaQuery.paddingOf(context).bottom),
+                  sliver: SliverList.list(
+                    children: [
           _Section(L.t('Lecture ').trim()),
           _Tile(
             icon: Icons.wifi_rounded,
@@ -138,11 +139,11 @@ class SettingsScreen extends ConsumerWidget {
           _Tile(
             icon: Icons.record_voice_over_outlined,
             title: L.t('Langue audio préférée'),
-            value: languages[settings.audioLanguage ?? serverDefault]!,
+            value: languages[settings.audioLanguage] ?? defaultLanguage,
             onTap: () => pick<String>(
               title: L.t('Langue audio préférée'),
               options: languages,
-              current: settings.audioLanguage ?? serverDefault,
+              current: languages.containsKey(settings.audioLanguage) ? settings.audioLanguage! : serverDefault,
               onSelected: (v) => controller.update((s) => s.copyWith(audioLanguage: () => v.isEmpty ? null : v)),
             ),
           ),
@@ -160,11 +161,11 @@ class SettingsScreen extends ConsumerWidget {
           _Tile(
             icon: Icons.translate_rounded,
             title: L.t('Langue des sous-titres'),
-            value: languages[settings.subtitleLanguage ?? serverDefault]!,
+            value: languages[settings.subtitleLanguage] ?? defaultLanguage,
             onTap: () => pick<String>(
               title: L.t('Langue des sous-titres'),
               options: languages,
-              current: settings.subtitleLanguage ?? serverDefault,
+              current: languages.containsKey(settings.subtitleLanguage) ? settings.subtitleLanguage! : serverDefault,
               onSelected: (v) => controller.update((s) => s.copyWith(subtitleLanguage: () => v.isEmpty ? null : v)),
             ),
           ),
@@ -266,13 +267,25 @@ class SettingsScreen extends ConsumerWidget {
             _Tile(icon: Icons.developer_board_rounded, title: L.t('Capacités de l’appareil'), value: device.summary),
           _Section(L.t('À propos')),
           _Tile(icon: Icons.info_outline_rounded, title: 'OptiFin', value: L.f('Version {0}', [identity.version])),
-          _Tile(
-            icon: Icons.description_outlined,
-            title: L.t('Licences'),
-            onTap: () =>
-                showLicensePage(context: context, applicationName: 'OptiFin', applicationVersion: identity.version),
-          ),
-        ],
+                  _Tile(
+                    icon: Icons.description_outlined,
+                    title: L.t('Licences'),
+                    onTap: () =>
+                        showLicensePage(context: context, applicationName: 'OptiFin', applicationVersion: identity.version),
+                  ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (context.canPop())
+              Positioned(
+                top: MediaQuery.paddingOf(context).top + OFSpacing.xs,
+                left: OFSpacing.gutterOf(context) - OFSpacing.sm,
+                child: OFBackButton(previousTitle: OFRouteTitles.previousOf(context), onPressed: () => context.pop()),
+              ),
+          ],
+        ),
       ),
     );
   }

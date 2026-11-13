@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/route_titles.dart';
 import '../../../core/design_system/design_system.dart';
 import '../../../core/logging/app_log.dart';
 import '../../../core/providers.dart';
@@ -71,27 +72,68 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: OFColors.background,
-        leading: IconButton(
-          tooltip: L.t('Retour'),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(L.t('Journaux'), style: OFTypography.headline),
-        actions: [
-          IconButton(tooltip: L.t('Envoyer au serveur'), icon: const Icon(Icons.cloud_upload_outlined), onPressed: _upload),
-          IconButton(tooltip: L.t('Tout copier'), icon: const Icon(Icons.copy_all_rounded), onPressed: _copy),
-          IconButton(
-            tooltip: L.t('Effacer'),
-            icon: const Icon(Icons.delete_sweep_outlined),
-            onPressed: AppLog.instance.clear,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
+    final top = MediaQuery.paddingOf(context).top;
+    final gutter = OFSpacing.gutterOf(context);
+    return OFRouteTitle(
+      title: L.t('Journaux'),
+      child: Scaffold(
+        body: Column(
+          children: [
+            GlassSurface(
+              borderRadius: BorderRadius.zero,
+              child: ColoredBox(
+                color: const Color(0xB3000000),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    gutter - OFSpacing.sm,
+                    top + OFSpacing.xs,
+                    gutter - OFSpacing.sm,
+                    OFSpacing.sm,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          if (context.canPop())
+                            OFBackButton(
+                              previousTitle: OFRouteTitles.previousOf(context),
+                              onPressed: () => context.pop(),
+                            ),
+                          const Spacer(),
+                          OFIconButton(
+                            tooltip: L.t('Envoyer au serveur'),
+                            icon: Icons.cloud_upload_outlined,
+                            onPressed: _upload,
+                          ),
+                          const SizedBox(width: OFSpacing.xs),
+                          OFIconButton(tooltip: L.t('Tout copier'), icon: Icons.copy_all_rounded, onPressed: _copy),
+                          const SizedBox(width: OFSpacing.xs),
+                          OFIconButton(
+                            tooltip: L.t('Effacer'),
+                            icon: Icons.delete_sweep_outlined,
+                            onPressed: AppLog.instance.clear,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: OFSpacing.xs),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: OFSpacing.sm),
+                        child: Semantics(
+                          header: true,
+                          child: Text(
+                            L.t('Journaux'),
+                            style: OFTypography.title1,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           SizedBox(
             height: 48,
             child: ListView(
@@ -173,6 +215,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
         foregroundColor: OFColors.background,
         icon: const Icon(Icons.copy_rounded),
         label: Text(L.t('Copier')),
+      ),
       ),
     );
   }

@@ -102,7 +102,8 @@ class RemoteControlClient {
 }
 
 final remoteControlProvider = Provider<RemoteControlClient>((ref) {
-  final session = ref.watch(sessionControllerProvider)!;
+  final session = ref.watch(sessionControllerProvider);
+  if (session == null) throw StateError('Aucune session active');
   return RemoteControlClient(
     ref.watch(jellyfinDioProvider),
     session.account.userId,

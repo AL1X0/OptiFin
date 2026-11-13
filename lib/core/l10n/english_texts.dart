@@ -24,6 +24,7 @@ const englishTexts = <String, String>{
   'Saisissez votre nom d’utilisateur.': 'Enter your username.', 'Nom d’utilisateur': 'Username', 'Mot de passe': 'Password', 'Se connecter': 'Sign in', 'Utiliser Quick Connect': 'Use Quick Connect',
   'Le code a expiré. Réessayez.': 'The code has expired. Try again.', 'Sur un appareil déjà connecté, ouvrez Jellyfin › Profil › Quick Connect et saisissez ce code.': 'On a device already signed in, open Jellyfin › Profile › Quick Connect and enter this code.',
   'Code {0}': 'Code {0}', 'En attente d’autorisation…': 'Waiting for approval…',
+  'Connexion non chiffrée : mot de passe et jeton passent en clair sur le réseau.': 'Unencrypted connection: password and token are sent in clear text over the network.',
 
   // Fiches
   '{0} épisode non vu': '{0} unwatched episode', '{0} épisodes non vus': '{0} unwatched episodes', 'Réessayer': 'Try again', 'Épisodes': 'Episodes',
@@ -39,7 +40,7 @@ const englishTexts = <String, String>{
   'Téléchargement impossible : {0}': 'Download failed: {0}', 'Télécharger': 'Download', 'Téléchargement en attente': 'Download queued', 'Téléchargement en cours': 'Downloading', 'Téléchargement en pause': 'Download paused',
   'Échec du téléchargement': 'Download failed', 'Mettre en pause': 'Pause', 'Supprimer le téléchargement': 'Delete download', 'Annuler le téléchargement': 'Cancel download', 'Tout supprimer': 'Delete all',
   'Impossible de lire les téléchargements.': 'Could not read downloads.', 'Tout supprimer ?': 'Delete all?', 'Tous les films et épisodes téléchargés seront effacés de cet appareil.': 'All downloaded movies and episodes will be removed from this device.',
-  'Annuler': 'Cancel', 'Supprimer': 'Delete', 'Aucun téléchargement': 'No downloads',
+  'Annuler': 'Cancel', 'Supprimer': 'Delete', 'Supprimé': 'Deleted', 'Aucun téléchargement': 'No downloads',
   'Appuyez sur le bouton de téléchargement d’un film ou d’un épisode pour le regarder ': 'Tap the download button on a movie or an episode to watch it ', 'sans connexion, en avion ou en déplacement.': 'offline, on a plane or on the go.',
   '{0} film': '{0} movie', '{0} films': '{0} movies', '{0} série': '{0} show', '{0} séries': '{0} shows', '{0} en cours': '{0} in progress', '{0} épisode  ·  {1}': '{0} episode  ·  {1}', '{0} épisodes  ·  {1}': '{0} episodes  ·  {1}', 'Supprimer la série': 'Delete show', 'Lire': 'Play',
 
