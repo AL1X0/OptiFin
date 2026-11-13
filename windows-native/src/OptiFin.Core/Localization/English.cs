@@ -48,6 +48,7 @@ public static class English
         ["Bienvenue sur OptiFin"] = "Welcome to OptiFin",
         ["Votre Jellyfin, en version cinéma. Connectez-vous à votre serveur pour commencer."] = "Your Jellyfin, cinema style. Connect to your server to get started.",
         ["Serveur Jellyfin 10.9 ou plus récent"] = "Jellyfin server 10.9 or later", ["Qui regarde ?"] = "Who’s watching?",
+        ["Connexion non chiffrée : mot de passe et jeton passent en clair sur le réseau."] = "Unencrypted connection: password and token are sent in plain text over the network.",
 
         // Navigation
         ["Accueil"] = "Home", ["Bibliothèques"] = "Libraries", ["Réglages"] = "Settings", ["Retour (Alt+←)"] = "Back (Alt+←)",
@@ -55,6 +56,7 @@ public static class English
         ["Soirée : regarder ensemble"] = "Watch party: watch together", ["Soirée"] = "Party", ["Vu"] = "Watched", ["Non vu"] = "Unwatched",
         ["Plus d’actions"] = "More actions", ["Quitter la sélection (Échap)"] = "Exit selection (Esc)",
         ["Sélectionnez des éléments"] = "Select items", ["Réessayer"] = "Try again",
+        ["Tout désélectionner"] = "Clear selection",
 
         // Soirées
         ["Connectez-vous à un serveur pour regarder ensemble."] = "Connect to a server to watch together.",
@@ -109,7 +111,7 @@ public static class English
         ["Sous-titre {0}"] = "Subtitle {0}", ["{0} téléchargements"] = "{0} downloads", ["correspond au fichier"] = "matches the file", ["forcés"] = "forced",
 
         // Réglages
-        ["Compte"] = "Account", ["Changer de compte"] = "Switch account", ["Se déconnecter"] = "Sign out", ["Automatique"] = "Automatic",
+        ["Compte"] = "Account", ["Ajouter un compte"] = "Add account", ["Changer de compte"] = "Switch account", ["Se déconnecter"] = "Sign out", ["Automatique"] = "Automatic",
         ["Langue audio"] = "Audio language", ["Piste choisie si elle existe (sinon celle du serveur)."] = "Track chosen if available (otherwise the server’s).",
         ["Langue des sous-titres"] = "Subtitle language", ["Débit maximal"] = "Maximum bitrate",
         ["Au-delà, le serveur adapte la vidéo (utile hors de chez soi)."] = "Above this, the server adapts the video (useful away from home).",
@@ -161,7 +163,7 @@ public static class English
         // Téléchargements
         ["Téléchargements"] = "Downloads", ["Aucun téléchargement. Ouvrez la fiche d’un film ou d’un épisode pour le garder sur ce PC et le regarder sans connexion."] = "No downloads. Open a movie or an episode to keep it on this PC and watch it offline.",
         ["{0:0.0} Go"] = "{0:0.0} GB", ["{0:0} Mo"] = "{0:0} MB", ["Échec du téléchargement"] = "Download failed", ["En pause · {0} / {1}"] = "Paused · {0} / {1}", ["En attente"] = "Queued", ["{0} / {1}"] = "{0} / {1}",
-        ["Mettre en pause"] = "Pause", ["Supprimer"] = "Delete", ["Télécharger pour regarder sans connexion"] = "Download to watch offline", ["Téléchargé · voir les téléchargements"] = "Downloaded · view downloads", ["Téléchargement en cours · voir les téléchargements"] = "Downloading · view downloads",
+        ["Mettre en pause"] = "Pause", ["Supprimer"] = "Delete", ["Supprimé"] = "Deleted", ["Télécharger pour regarder sans connexion"] = "Download to watch offline", ["Téléchargé · voir les téléchargements"] = "Downloaded · view downloads", ["Téléchargement en cours · voir les téléchargements"] = "Downloading · view downloads",
         ["Téléchargement impossible : {0}"] = "Download failed: {0}",
         ["Télécharger la saison"] = "Download season", ["Télécharger des épisodes"] = "Download episodes", ["Toute la série"] = "Entire series",
         ["Tous les épisodes disponibles sont déjà téléchargés."] = "All available episodes are already downloaded.", ["{0} · {1}"] = "{0} · {1}",

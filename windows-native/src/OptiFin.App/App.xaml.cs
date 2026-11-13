@@ -9,6 +9,10 @@ public partial class App : Application
     public const string AppId = "OptiFin.Windows";
 
     private Window? _window;
+    private readonly Windows.UI.ViewManagement.AccessibilitySettings _accessibility = new();
+    private readonly Style _primaryButtonStyle;
+    private readonly Style _secondaryButtonStyle;
+    private readonly Style _iconButtonStyle;
 
     /// <summary>Lancement du processus, en <see cref="Environment.TickCount64"/> (chronos du démarrage).</summary>
     public static readonly long ProcessStarted = Environment.TickCount64 -
@@ -23,6 +27,11 @@ public partial class App : Application
         if (!Environment.GetCommandLineArgs().Contains("--capture") && !SingleInstance.Claim()) Environment.Exit(0);
         OptiFin.Core.Localization.L.UseSystemLanguage();
         InitializeComponent();
+        _primaryButtonStyle = Controls.Ui.StyleOf("OFPrimaryButton");
+        _secondaryButtonStyle = Controls.Ui.StyleOf("OFSecondaryButton");
+        _iconButtonStyle = Controls.Ui.StyleOf("OFIconButton");
+        ApplyHighContrast();
+        _accessibility.HighContrastChanged += (_, _) => _window?.DispatcherQueue.TryEnqueue(ApplyHighContrast);
         OptiFin.App.Controls.Ui.Translate(this);
         AppLog.Open();
         // Test de fiabilité (tools/check-player) : ramasse-miettes en continu, pour révéler dès maintenant
@@ -50,6 +59,15 @@ public partial class App : Application
             AppLog.Warn("app", $"Tâche en échec non observée : {e.Exception.InnerException?.Message}");
             e.SetObserved();
         };
+    }
+
+    private void ApplyHighContrast()
+    {
+        // En contraste élevé Windows, on laisse les ressources système SystemColor* s'appliquer aux boutons principaux.
+        var high = _accessibility.HighContrast;
+        Resources["OFPrimaryButton"] = high ? Controls.Ui.StyleOf("OFPrimaryButtonBase") : _primaryButtonStyle;
+        Resources["OFSecondaryButton"] = high ? Controls.Ui.StyleOf("OFSecondaryButtonBase") : _secondaryButtonStyle;
+        Resources["OFIconButton"] = high ? Controls.Ui.StyleOf("OFIconButtonBase") : _iconButtonStyle;
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)

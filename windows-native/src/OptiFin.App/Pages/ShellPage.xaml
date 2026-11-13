@@ -88,7 +88,7 @@
 
                 <!-- Profil : réglages, changement de compte, déconnexion. -->
                 <Button x:Name="ProfileButton" Grid.Column="6" Padding="4,4,12,4" CornerRadius="22" VerticalAlignment="Center"
-                        Background="{StaticResource OFGlassBrush}" BorderThickness="0">
+                        Background="{StaticResource OFGlassBrush}" BorderThickness="0" ToolTipService.ToolTip="Compte">
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <Border x:Name="AvatarHost" Width="32" Height="32" />
                         <TextBlock x:Name="UserName" VerticalAlignment="Center" FontSize="14" />

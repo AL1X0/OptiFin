@@ -12,5 +12,7 @@
         <ScrollViewer x:Name="Scroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="Rows" Spacing="12" Padding="0,0,0,48" MaxWidth="1000" HorizontalAlignment="Left" />
         </ScrollViewer>
+        <StackPanel x:Name="UndoBanners" Grid.RowSpan="2" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                    Margin="0,0,0,24" Spacing="8" />
     </Grid>
 </Page>
