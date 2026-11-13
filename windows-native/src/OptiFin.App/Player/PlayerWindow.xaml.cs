@@ -5,6 +5,7 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using OptiFin.App.Controls;
@@ -40,8 +41,12 @@ public sealed partial class PlayerWindow : Window
     private readonly DispatcherQueueTimer _reportTimer;
     private readonly DispatcherQueueTimer _startupTimer;
     private readonly DispatcherQueueTimer _levelTimer;
+    private readonly DispatcherQueueTimer _seekTimer;
     private readonly HashSet<MediaSegment> _autoSkipped = [];
     private TimeSpan _position;
+    private TimeSpan? _pendingSeek;
+    private bool _seekWaiting;
+    private int _reloadingCount;
     private TimeSpan _duration;
     private TimeSpan _buffered;
     private bool _paused;
@@ -124,6 +129,7 @@ public sealed partial class PlayerWindow : Window
                 ShowControls(autoHide: true);
         }, repeating: true);
         _levelTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(900), () => Level.Opacity = 0);
+        _seekTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(400), () => _ = ReloadAtPendingSeekAsync());
 
         _statsTimer = Timer(dispatcher, TimeSpan.FromSeconds(1), UpdateStats, repeating: true);
         WireControls();
@@ -230,6 +236,9 @@ public sealed partial class PlayerWindow : Window
         _startPosition = start;
         _started = false;
         _startupTimer.Stop();
+        _seekWaiting = false;
+        _seekTimer.Stop();
+        _pendingSeek = null;
         try
         {
             ShowPreparing(forceTranscode ? L.T("Le serveur prépare une version compatible…") : null);
@@ -387,8 +396,17 @@ public sealed partial class PlayerWindow : Window
         _startupTimer.Stop();
         if (_startTicks != 0) AppLog.Timing("player", "Première image", _startTicks);
         _startTicks = 0;
-        Preparing.Visibility = Visibility.Collapsed;
-        ScheduleHide();
+        if (!_seekWaiting && _reloadingCount == 0)
+        {
+            if (_pendingSeek != null && _mpv != null)
+            {
+                _position = _mpv.Position;
+                UpdateTimes();
+            }
+            _pendingSeek = null;
+            Preparing.Visibility = Visibility.Collapsed;
+            ScheduleHide();
+        }
         _reportTimer.Start();
         if (_plan != null)
         {
@@ -557,13 +575,15 @@ public sealed partial class PlayerWindow : Window
 
     private void OnPosition(TimeSpan position)
     {
+        // Pendant un saut en attente de relance, on garde la position visée affichée dans la barre.
+        if (_pendingSeek != null) return;
         _position = position;
         if (!_scrubbing) UpdateTimes();
         var segment = _extras.SkippableAt(position);
         if (segment != null && _sync is null && AppServices.Settings.AutoSkipSegments && _autoSkipped.Add(segment))
         {
             AppLog.Info("player", $"Segment passé automatiquement : {segment.Type}");
-            _mpv?.Seek(segment.End);
+            SeekTo(segment.End);
             segment = null;
         }
         if (segment != null)
@@ -774,6 +794,10 @@ public sealed partial class PlayerWindow : Window
     {
         var ctrl = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         if (ctrl) return;
+        // Espace / Entrée laissés aux contrôles interactifs focalisés (bouton, curseur, saisie, liste).
+        if (e.Key is VirtualKey.Space or VirtualKey.Enter && Content?.XamlRoot is { } root &&
+            FocusManager.GetFocusedElement(root) is ButtonBase or Slider or TextBox or SelectorItem or MenuFlyoutItemBase)
+            return;
         switch (e.Key)
         {
             case VirtualKey.Space or VirtualKey.K:
@@ -882,7 +906,7 @@ public sealed partial class PlayerWindow : Window
     private void SeekBy(int seconds)
     {
         if (_mpv is null) return;
-        var target = _position + TimeSpan.FromSeconds(seconds);
+        var target = (_pendingSeek ?? _position) + TimeSpan.FromSeconds(seconds);
         UserSeek(target < TimeSpan.Zero ? TimeSpan.Zero : target);
         ShowControls(autoHide: true);
     }
@@ -891,7 +915,33 @@ public sealed partial class PlayerWindow : Window
     private void UserSeek(TimeSpan target)
     {
         if (_sync != null) _ = _sync.RequestSeekAsync(target);
-        else _mpv?.Seek(target);
+        else SeekTo(target);
+    }
+
+    /// <summary>
+    /// Saut à <paramref name="target"/> : direct si le flux est navigable, sinon relance du flux
+    /// serveur à cette position (regroupée après 400 ms en cas de sauts rapprochés).
+    /// </summary>
+    private void SeekTo(TimeSpan target)
+    {
+        if (_mpv is null) return;
+        if (target < TimeSpan.Zero) target = TimeSpan.Zero;
+        if (_plan is { Method: not PlayMethod.DirectPlay } && _mpv.Get("seekable") != "yes")
+        {
+            _pendingSeek = target;
+            _position = target;
+            UpdateTimes();
+            // Annule une éventuelle relance réseau déjà en cours : seule la dernière position compte.
+            _streamGeneration++;
+            _seekWaiting = true;
+            _seekTimer.Stop();
+            _seekTimer.Start();
+            return;
+        }
+        _seekWaiting = false;
+        _seekTimer.Stop();
+        _pendingSeek = null;
+        _mpv.Seek(target);
     }
 
     // ------------------------------------------------------------ Soirée
@@ -967,11 +1017,11 @@ public sealed partial class PlayerWindow : Window
     /// <summary>mpv vu par la synchronisation de soirée.</summary>
     private sealed class MpvTarget(PlayerWindow w) : ISyncTarget
     {
-        public TimeSpan Position => w._mpv?.Position ?? w._position;
+        public TimeSpan Position => w._pendingSeek ?? w._mpv?.Position ?? w._position;
         public bool Paused => w._paused;
         public void Play() => w._mpv?.Play();
         public void Pause() => w._mpv?.Pause();
-        public void Seek(TimeSpan position) => w._mpv?.Seek(position);
+        public void Seek(TimeSpan position) => w.SeekTo(position);
         public void SetSpeed(double speed) => w._mpv?.SetSpeed(speed);
     }
 
@@ -1008,7 +1058,9 @@ public sealed partial class PlayerWindow : Window
             Style = OptiFin.App.Controls.Ui.StyleOf("OFIconButton"), Width = 36, Height = 36, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
             Content = new FontIcon { Glyph = _muted ? "" : "", FontSize = 15 },
         };
-        ToolTipService.SetToolTip(mute, L.T("Couper le son (M)"));
+        var muteTip = L.T("Couper le son (M)");
+        ToolTipService.SetToolTip(mute, muteTip);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(mute, muteTip);
         var value = new TextBlock { Width = 34, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, FontSize = 13, Text = $"{slider.Value:0}" };
         slider.ValueChanged += (_, e) =>
         {
@@ -1168,7 +1220,9 @@ public sealed partial class PlayerWindow : Window
         PlayIcon.FontSize = floating ? 30 : 48;
         SkipButton.Margin = floating ? new Thickness(0, 0, 12, 60) : new Thickness(0, 0, 32, 120);
         TitleText.FontSize = floating ? 13 : 17;
-        ToolTipService.SetToolTip(FloatingButton, floating ? L.T("Taille normale (P)") : L.T("Fenêtre flottante (P)"));
+        var floatingTip = floating ? L.T("Taille normale (P)") : L.T("Fenêtre flottante (P)");
+        ToolTipService.SetToolTip(FloatingButton, floatingTip);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(FloatingButton, floatingTip);
         UpNext.Visibility = floating ? Visibility.Collapsed : UpNext.Visibility;
         if (_stats && floating) ToggleStats(false);
         UpdateTitleInset();
@@ -1279,15 +1333,36 @@ public sealed partial class PlayerWindow : Window
             AppLog.Info("player", $"Piste {type} : {track?.Label ?? "aucune"}");
             return;
         }
-        var position = _position;
+        await ReloadStreamAsync(_position, audio, subtitle, L.T("Changement de piste…"), "Changement de piste impossible");
+    }
+
+    private Task ReloadAtPendingSeekAsync()
+    {
+        _seekWaiting = false;
+        if (_pendingSeek is not { } target || _plan is not { } plan) return Task.CompletedTask;
+        return ReloadStreamAsync(target, plan.AudioIndex, plan.SubtitleIndex,
+            L.T("Le serveur prépare une version compatible…"), "Saut impossible");
+    }
+
+    /// <summary>
+    /// Relance le flux du serveur à une position donnée (changement de piste en transcodage, ou
+    /// saut quand le flux HLS n'est pas navigable par mpv).
+    /// </summary>
+    private async Task ReloadStreamAsync(TimeSpan position, int? audio, int? subtitle, string notice, string failureLabel)
+    {
+        if (_plan is not { } plan || _mpv is null) return;
+        _seekWaiting = false;
+        _seekTimer.Stop();
+        _pendingSeek = position;
         var generation = _loadGeneration;
         var stream = ++_streamGeneration;
-        ShowPreparing(L.T("Changement de piste…"));
+        ShowPreparing(notice);
+        _reloadingCount++;
         try
         {
             var next = await AppServices.Playback!.PrepareAsync(plan.ItemId, position, audio, subtitle, plan.Method == PlayMethod.Transcode,
                 AppServices.Settings.EffectiveMaxBitrate, plan.MediaSourceId);
-            // Autre choix ou autre titre entre-temps, ou lecteur fermé : celui-ci n'a plus lieu d'être.
+            // Autre choix, autre saut ou autre titre entre-temps, ou lecteur fermé : celui-ci n'a plus lieu d'être.
             if (generation != _loadGeneration || stream != _streamGeneration || _closing) return;
             // L'ancienne session (et son transcodage) est close sur le serveur.
             EndServerSession(plan, position);
@@ -1298,8 +1373,15 @@ public sealed partial class PlayerWindow : Window
         {
             if (generation != _loadGeneration || stream != _streamGeneration || _closing) return;
             // Le flux actuel continue : on le garde plutôt que d'interrompre la lecture.
-            AppLog.Warn("player", $"Changement de piste impossible : {e.Message}");
+            AppLog.Warn("player", $"{failureLabel} : {e.Message}");
+            _pendingSeek = null;
+            _position = _mpv.Position;
+            UpdateTimes();
             Preparing.Visibility = Visibility.Collapsed;
+        }
+        finally
+        {
+            _reloadingCount--;
         }
     }
 
@@ -1352,6 +1434,8 @@ public sealed partial class PlayerWindow : Window
         }
     }
 
+    private readonly List<(string Label, TextBlock Value)> _statsRows = [];
+
     /// <summary>Tableau technique mis à jour chaque seconde : flux, décodage, HDR, débit, cache, images perdues.</summary>
     private void UpdateStats()
     {
@@ -1365,7 +1449,7 @@ public sealed partial class PlayerWindow : Window
         {
             string? G(string name) => mpv.Get(name) is { Length: > 0 } v ? v : null;
             double? D(string name) => mpv.GetDouble(name);
-            var fr = CultureInfo.GetCultureInfo("fr-FR");
+            var culture = CultureInfo.CurrentUICulture;
             var w = G("video-params/w");
             var h = G("video-params/h");
             var fps = D("container-fps") ?? D("estimated-vf-fps");
@@ -1373,7 +1457,7 @@ public sealed partial class PlayerWindow : Window
             {
                 G("video-codec-name") ?? G("video-format"),
                 w != null && h != null ? $"{w}×{h}" : null,
-                fps is { } f ? $"{f.ToString("0.###", fr)} i/s" : null,
+                fps is { } f ? $"{f.ToString("0.###", culture)} i/s" : null,
                 G("video-params/pixelformat"),
             }.Where(x => x != null))));
             rows.Add((L.T("Couleurs"), $"{G("video-params/gamma") ?? "?"} · {G("video-params/primaries") ?? "?"}{(G("video-params/max-luma") is { } luma ? $" · {luma} nits" : "")}"));
@@ -1381,7 +1465,7 @@ public sealed partial class PlayerWindow : Window
             rows.Add((L.T("Décodage"), hw is null or "no" ? L.T("logiciel (processeur)") : L.F("matériel ({0})", hw)));
             rows.Add((L.T("Sortie"), $"{G("current-vo") ?? "?"} · {G("video-target-params/gamma") ?? "?"} · {G("video-target-params/primaries") ?? "?"}"));
             var display = D("display-fps");
-            rows.Add((L.T("Écran"), $"{G("osd-width")}×{G("osd-height")}{(display is { } d ? $" · {d.ToString("0.##", fr)} Hz" : "")}"));
+            rows.Add((L.T("Écran"), $"{G("osd-width")}×{G("osd-height")}{(display is { } d ? $" · {d.ToString("0.##", culture)} Hz" : "")}"));
             var channels = G("audio-params/channel-count");
             var rate = D("audio-params/samplerate");
             rows.Add(("Audio", string.Join(" · ", new[]
@@ -1404,27 +1488,36 @@ public sealed partial class PlayerWindow : Window
             var avsync = D("avsync");
             rows.Add((L.T("Images perdues"), $"{mpv.DroppedFrames}{(D("vo-delayed-frame-count") is { } late ? $" · {late:0} en retard" : "")}{(avsync is { } av ? $" · synchro A/V {av * 1000:0} ms" : "")}"));
         }
-        StatsGrid.Children.Clear();
-        StatsGrid.RowDefinitions.Clear();
-        for (var i = 0; i < rows.Count; i++)
+        var sameLabels = _statsRows.Count == rows.Count;
+        for (var i = 0; sameLabels && i < rows.Count; i++)
+            sameLabels = _statsRows[i].Label == rows[i].Label;
+        if (!sameLabels)
         {
-            StatsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            if (string.IsNullOrWhiteSpace(rows[i].Value)) rows[i] = (rows[i].Label, "—");
-            var label = new TextBlock { Text = rows[i].Label, FontSize = 12, Foreground = OptiFin.App.Controls.Ui.Res("OFTextTertiaryBrush") };
-            var value = new TextBlock { Text = rows[i].Value, FontSize = 12, FontFamily = new FontFamily("Cascadia Mono, Consolas"), TextWrapping = TextWrapping.Wrap, MaxWidth = 460 };
-            Grid.SetRow(label, i);
-            Grid.SetRow(value, i);
-            Grid.SetColumn(value, 1);
-            StatsGrid.Children.Add(label);
-            StatsGrid.Children.Add(value);
+            _statsRows.Clear();
+            StatsGrid.Children.Clear();
+            StatsGrid.RowDefinitions.Clear();
+            for (var i = 0; i < rows.Count; i++)
+            {
+                StatsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                var label = new TextBlock { Text = rows[i].Label, FontSize = 12, Foreground = OptiFin.App.Controls.Ui.Res("OFTextTertiaryBrush") };
+                var value = new TextBlock { FontSize = 12, FontFamily = new FontFamily("Cascadia Mono, Consolas"), TextWrapping = TextWrapping.Wrap, MaxWidth = 460 };
+                Grid.SetRow(label, i);
+                Grid.SetRow(value, i);
+                Grid.SetColumn(value, 1);
+                StatsGrid.Children.Add(label);
+                StatsGrid.Children.Add(value);
+                _statsRows.Add((rows[i].Label, value));
+            }
         }
+        for (var i = 0; i < rows.Count; i++)
+            _statsRows[i].Value.Text = string.IsNullOrWhiteSpace(rows[i].Value) ? "—" : rows[i].Value;
     }
 
     private double _subtitleDelay;
     private double _audioDelay;
 
     private static string Seconds(double value) =>
-        value == 0 ? "aucun" : (value > 0 ? "+" : "−") + Math.Abs(value).ToString("0.0", CultureInfo.GetCultureInfo("fr-FR")) + " s";
+        value == 0 ? "aucun" : (value > 0 ? "+" : "−") + Math.Abs(value).ToString("0.0", CultureInfo.CurrentUICulture) + " s";
 
     private static MenuFlyoutSubItem DelayMenu(string title, string hint, Func<double> current, Action<double> set)
     {
@@ -1433,7 +1526,7 @@ public sealed partial class PlayerWindow : Window
         menu.Items.Add(new MenuFlyoutSeparator());
         foreach (var step in new[] { -1.0, -0.5, -0.1, 0.1, 0.5, 1.0 })
         {
-            var item = new MenuFlyoutItem { Text = (step > 0 ? "+" : "−") + Math.Abs(step).ToString("0.0", CultureInfo.GetCultureInfo("fr-FR")) + " s" };
+            var item = new MenuFlyoutItem { Text = (step > 0 ? "+" : "−") + Math.Abs(step).ToString("0.0", CultureInfo.CurrentUICulture) + " s" };
             item.Click += (_, _) => set(Math.Round(current() + step, 2));
             menu.Items.Add(item);
         }
@@ -1575,7 +1668,7 @@ public sealed partial class PlayerWindow : Window
                 RequestClose();
                 break;
             case "Seek" when seek is { } position:
-                _mpv.Seek(position);
+                SeekTo(position);
                 // Position à jour tout de suite pour l'appareil qui pilote, sans attendre le rapport suivant.
                 if (_plan != null && _started) _ = AppServices.Playback!.ReportProgressAsync(_plan, position, _paused);
                 break;
@@ -1602,7 +1695,7 @@ public sealed partial class PlayerWindow : Window
         var speed = new MenuFlyoutSubItem { Text = L.T("Vitesse") };
         foreach (var s in new[] { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 })
         {
-            var item = new MenuFlyoutItem { Text = s == 1 ? L.T("Normale") : $"{s.ToString("0.##", CultureInfo.GetCultureInfo("fr-FR"))}×" };
+            var item = new MenuFlyoutItem { Text = s == 1 ? L.T("Normale") : $"{s.ToString("0.##", CultureInfo.CurrentUICulture)}×" };
             item.Click += (_, _) => SetSpeed(s);
             speed.Items.Add(item);
         }
@@ -1730,6 +1823,9 @@ public sealed partial class PlayerWindow : Window
     private void ShowError(string message, string? detail)
     {
         _startupTimer.Stop();
+        _seekWaiting = false;
+        _seekTimer.Stop();
+        _pendingSeek = null;
         Preparing.Visibility = Visibility.Collapsed;
         SetOverlayVisible(true);
         ErrorText.Text = message;
@@ -1764,6 +1860,8 @@ public sealed partial class PlayerWindow : Window
         if (_sync != null && !_stoppedByParty) _ = WatchParty.StopForAllAsync();
         WatchParty.Changed -= UpdatePartyBadge;
         _syncTimer.Stop();
+        _seekWaiting = false;
+        _seekTimer.Stop();
         _hideTimer.Stop();
         _cursorTimer.Stop();
         _overlayTimer.Stop();

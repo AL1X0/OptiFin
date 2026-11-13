@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Login
 import androidx.compose.runtime.Composable
@@ -61,6 +62,8 @@ import app.optifin.tv.core.auth.StoredAccount
 import app.optifin.tv.core.media.ImageUrls
 import app.optifin.tv.ui.components.Avatar
 import app.optifin.tv.ui.components.TvButton
+import app.optifin.tv.ui.components.TvDialog
+import app.optifin.tv.ui.components.TvIconButton
 import app.optifin.tv.ui.components.TvTextField
 import app.optifin.tv.ui.theme.OF
 import kotlinx.coroutines.Job
@@ -123,7 +126,8 @@ private fun ChoiceItem(title: String, subtitle: String?, leading: @Composable ()
 @Composable
 fun ConnectScreen(onServer: () -> Unit, onSignedIn: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val accounts = remember { AppServices.accounts.accounts() }
+    var accounts by remember { mutableStateOf(AppServices.accounts.accounts()) }
+    var forget by remember { mutableStateOf<StoredAccount?>(null) }
     var discovered by remember { mutableStateOf<List<DiscoveredServer>>(emptyList()) }
     var searching by remember { mutableStateOf(true) }
     var address by remember { mutableStateOf("") }
@@ -190,12 +194,15 @@ fun ConnectScreen(onServer: () -> Unit, onSignedIn: () -> Unit) {
                 item { SectionLabel(L.t("Comptes")) }
                 items(accounts, key = { it.account.id }) { a ->
                     val images = ImageUrls(a.server.baseUrl)
-                    ChoiceItem(
-                        a.account.userName, a.server.name,
-                        leading = { Avatar(a.account.userName, images.userAvatar(a.account.userId, 96, a.account.avatarTag), 40.dp) },
-                        onClick = { resume(a) },
-                        modifier = if (a == accounts.first()) Modifier.focusRequester(first) else Modifier,
-                    )
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ChoiceItem(
+                            a.account.userName, a.server.name,
+                            leading = { Avatar(a.account.userName, images.userAvatar(a.account.userId, 96, a.account.avatarTag), 40.dp) },
+                            onClick = { resume(a) },
+                            modifier = Modifier.weight(1f).then(if (a == accounts.first()) Modifier.focusRequester(first) else Modifier),
+                        )
+                        TvIconButton(Icons.Rounded.Delete, L.t("Oublier ce compte"), { forget = a })
+                    }
                 }
             }
             item { SectionLabel(if (searching) L.t("Recherche sur ce réseau…") else L.t("Sur ce réseau")) }
@@ -208,7 +215,7 @@ fun ConnectScreen(onServer: () -> Unit, onSignedIn: () -> Unit) {
             }
             item { SectionLabel(L.t("Adresse du serveur")) }
             item {
-                TvTextField(address, { address = it }, "https://jellyfin.exemple.fr", keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go,
+                TvTextField(address, { address = it }, L.t("https://jellyfin.exemple.fr"), keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go,
                     onSubmit = { connect(address) }, focusRequester = if (accounts.isEmpty() && discovered.isEmpty()) first else remember { FocusRequester() })
             }
             // Au-dessus des boutons : en bas de la liste, le message tombait hors de l'écran.
@@ -219,6 +226,25 @@ fun ConnectScreen(onServer: () -> Unit, onSignedIn: () -> Unit) {
             }
             item { TvButton(L.t("Essayer avec le serveur de démonstration"), ::tryDemo, enabled = !busy, modifier = Modifier.fillMaxWidth()) }
         }
+    }
+    forget?.let { a ->
+        val cancelFocus = remember { FocusRequester() }
+        TvDialog(
+            L.t("Oublier ce compte"),
+            onDismiss = { forget = null },
+            subtitle = L.f("Oublier « {0} » sur {1} ?", a.account.userName, a.server.name),
+        ) {
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TvButton(L.t("Annuler"), { forget = null }, Modifier.focusRequester(cancelFocus))
+                TvButton(L.t("Oublier"), {
+                    AppServices.accounts.remove(a.account.id)
+                    accounts = AppServices.accounts.accounts()
+                    forget = null
+                }, primary = true)
+            }
+        }
+        LaunchedEffect(a) { runCatching { cancelFocus.requestFocus() } }
     }
     LaunchedEffect(accounts.size, discovered.isNotEmpty()) { runCatching { first.requestFocus() } }
 }
@@ -353,6 +379,15 @@ fun LoginScreen(onSignedIn: () -> Unit, onBack: () -> Unit) {
                     focusRequester = if (!quickConnect && users.isEmpty()) firstFocus else remember { FocusRequester() })
             }
             item { TvTextField(password, { password = it }, L.t("Mot de passe"), password = true, imeAction = ImeAction.Go, onSubmit = ::login, focusRequester = passwordFocus) }
+            if (server.baseUrl.startsWith("http://", ignoreCase = true)) {
+                item {
+                    Text(
+                        L.t("Connexion non chiffrée : mot de passe et jeton passent en clair sur le réseau."),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFFFCC66),
+                    )
+                }
+            }
             error?.let { item { Text(it, style = MaterialTheme.typography.bodyMedium, color = OF.Danger) } }
             item {
                 TvButton(if (busy) L.t("Connexion…") else L.t("Se connecter"), ::login, icon = Icons.Rounded.Login, primary = !quickConnect,

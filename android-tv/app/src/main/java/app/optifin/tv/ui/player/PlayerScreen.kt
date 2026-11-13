@@ -156,6 +156,8 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
     val playFocus = remember { FocusRequester() }
     val panelFocus = remember { FocusRequester() }
     val skipFocus = remember { FocusRequester() }
+    val upNextFocus = remember { FocusRequester() }
+    var upNextFocused by remember { mutableStateOf(false) }
 
     DisposableEffect(controller) {
         val window = (context as? Activity)?.window
@@ -224,6 +226,10 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
             }
             scrub != null -> scrub = null
             visible && ui.phase == PlayerPhase.Playing -> hide()
+            ui.upNext && ui.extras.nextEpisode != null -> {
+                controller.dismissUpNext()
+                runCatching { rootFocus.requestFocus() }
+            }
             else -> onExit()
         }
     }
@@ -235,6 +241,9 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
         if (engineState.ready) {
             show(focusPlay = true)
         }
+    }
+    LaunchedEffect(ui.upNext, panel) {
+        if (!ui.upNext || panel != null) upNextFocused = false
     }
     LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
 
@@ -266,10 +275,17 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
                 // Fenêtre ouverte : ◀ ▶ ne doivent pas faire sortir le focus de la liste (la recherche garde son champ de saisie).
                 if (panel != null && panel != Panel.Search && (e.key == Key.DirectionLeft || e.key == Key.DirectionRight)) return@onPreviewKeyEvent true
                 if (!visible && panel == null) {
-                    when (e.key) {
-                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                    val upNextShown = ui.upNext && ui.extras.nextEpisode != null
+                    when {
+                        upNextShown && upNextFocused -> when (e.key) {
+                            // Focus sur la carte : ◀ ▶ et OK pilotent « Lire » et « Masquer » ; ▲ ouvre les commandes.
+                            Key.DirectionUp -> { show(focusPlay = true); true }
+                            Key.DirectionDown -> true
+                            else -> false
+                        }
+                        e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.NumPadEnter -> {
                             if (!repeat) when {
-                                ui.upNext && ui.extras.nextEpisode != null -> controller.playNext()
+                                upNextShown -> controller.playNext()
                                 ui.segment != null -> controller.skipSegment()
                                 else -> {
                                     controller.togglePlay()
@@ -278,13 +294,17 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
                             }
                             true
                         }
-                        Key.DirectionLeft, Key.DirectionRight -> {
+                        e.key == Key.DirectionLeft || e.key == Key.DirectionRight -> {
                             repeats = if (repeat) repeats + 1 else 0
                             val step = when { repeats > 20 -> 120_000L; repeats > 6 -> 60_000L; repeats > 0 -> 30_000L; else -> 10_000L }
                             seekWithFeedback(if (e.key == Key.DirectionRight) step else -step)
                             true
                         }
-                        Key.DirectionUp, Key.DirectionDown -> {
+                        e.key == Key.DirectionDown -> {
+                            if (upNextShown) runCatching { upNextFocus.requestFocus() } else show(focusPlay = true)
+                            true
+                        }
+                        e.key == Key.DirectionUp -> {
                             show(focusPlay = true)
                             true
                         }
@@ -344,8 +364,19 @@ fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayI
             }
             val next = ui.extras.nextEpisode
             if (ui.upNext && next != null && panel == null) {
-                UpNextCard(next, engineState, Modifier.align(Alignment.BottomEnd).padding(end = OF.SafeX, bottom = if (visible) 190.dp else OF.SafeY + 24.dp),
-                    onPlay = controller::playNext, onDismiss = controller::dismissUpNext)
+                UpNextCard(
+                    next,
+                    engineState,
+                    Modifier.align(Alignment.BottomEnd).padding(end = OF.SafeX, bottom = if (visible) 190.dp else OF.SafeY + 24.dp),
+                    focus = upNextFocus,
+                    controlsVisible = visible,
+                    onFocusChange = { upNextFocused = it },
+                    onPlay = controller::playNext,
+                    onDismiss = {
+                        controller.dismissUpNext()
+                        if (visible) runCatching { playFocus.requestFocus() } else runCatching { rootFocus.requestFocus() }
+                    },
+                )
             }
             if (AppServices.settings.value.debugMode) DebugOverlay(ui, Modifier.align(Alignment.TopStart).padding(start = OF.SafeX, top = OF.SafeY))
             ui.party?.let {
@@ -731,12 +762,20 @@ private fun TrickplayPreview(ui: PlayerUiState, position: Long, width: androidx.
 
 /** Carte « Épisode suivant » (fin de l'épisode ou générique). */
 @Composable
-private fun UpNextCard(next: app.optifin.tv.core.media.MediaItem, s: EngineState, modifier: Modifier, onPlay: () -> Unit, onDismiss: () -> Unit) {
-    val focus = remember { FocusRequester() }
+private fun UpNextCard(
+    next: app.optifin.tv.core.media.MediaItem,
+    s: EngineState,
+    modifier: Modifier,
+    focus: FocusRequester,
+    controlsVisible: Boolean,
+    onFocusChange: (Boolean) -> Unit,
+    onPlay: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     val remaining = ((s.durationMs - s.positionMs) / 1000).coerceAtLeast(0)
     AnimatedVisibility(true, enter = slideInVertically { it / 3 } + fadeIn(), exit = slideOutVertically() + fadeOut(), modifier = modifier) {
         Row(
-            Modifier.clip(RoundedCornerShape(18.dp)).background(Color(0xF21C1C20)).padding(16.dp),
+            Modifier.clip(RoundedCornerShape(18.dp)).background(Color(0xF21C1C20)).padding(16.dp).onFocusChanged { onFocusChange(it.hasFocus) },
             horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically,
         ) {
             AsyncImage(AppServices.images?.maybe(next.landscape, 480), null, contentScale = ContentScale.Crop,
@@ -746,13 +785,28 @@ private fun UpNextCard(next: app.optifin.tv.core.media.MediaItem, s: EngineState
                 Text(listOfNotNull(next.episodeLabel, next.name).joinToString(" · "), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TvButton(L.t("Lire"), onPlay, Modifier.focusRequester(focus), icon = Icons.Rounded.PlayArrow, primary = true)
-                    TvButton(L.t("Masquer"), onDismiss)
+                    TvButton(
+                        L.t("Lire"),
+                        onPlay,
+                        Modifier.focusRequester(focus).focusProperties {
+                            left = FocusRequester.Cancel
+                            if (!controlsVisible) { up = FocusRequester.Cancel; down = FocusRequester.Cancel }
+                        },
+                        icon = Icons.Rounded.PlayArrow,
+                        primary = true,
+                    )
+                    TvButton(
+                        L.t("Masquer"),
+                        onDismiss,
+                        Modifier.focusProperties {
+                            right = FocusRequester.Cancel
+                            if (!controlsVisible) { up = FocusRequester.Cancel; down = FocusRequester.Cancel }
+                        },
+                    )
                 }
             }
         }
     }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 }
 
 /** Informations de lecture (mode debug) : moteur, décision, flux, décodeur, images perdues. */
@@ -763,9 +817,9 @@ private fun DebugOverlay(ui: PlayerUiState, modifier: Modifier) {
         while (true) {
             val plan = ui.plan
             value = listOfNotNull(
-                "Moteur : ${engine.name} · ${ui.decision?.label ?: ""}",
+                L.f("Moteur : {0} · {1}", engine.name, ui.decision?.label ?: ""),
                 ui.decision?.reason,
-                plan?.let { "Serveur : ${it.method.label} · ${it.container ?: "?"} · ${MediaFormat.bitrate(it.bitrate) ?: "?"}" },
+                plan?.let { L.f("Serveur : {0} · {1} · {2}", it.method.label, it.container ?: "?", MediaFormat.bitrate(it.bitrate) ?: "?") },
             ) + engine.debugInfo() + (ui.selection?.trace?.take(5) ?: emptyList())
             delay(1000)
         }
@@ -904,7 +958,7 @@ private fun SubtitleSearch(ui: PlayerUiState, controller: PlayerController, focu
             language = keys[(keys.indexOf(language) + 1) % keys.size]
         }, Modifier.focusRequester(focus), supporting = L.t("OK pour changer"))
         message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary, modifier = Modifier.padding(12.dp)) }
-        if (results == null && message == null) Text("Recherche…", style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary, modifier = Modifier.padding(12.dp))
+        if (results == null && message == null) Text(L.t("Recherche…"), style = MaterialTheme.typography.bodyMedium, color = OF.TextTertiary, modifier = Modifier.padding(12.dp))
         results?.take(25)?.forEach { r ->
             MenuRow(r.name, {
                 scope.launch {
@@ -925,7 +979,7 @@ private fun SubtitleSearch(ui: PlayerUiState, controller: PlayerController, focu
 private fun trackLabel(t: MediaTrack) = t.label + if (t.isForced) L.t(" (forcés)") else ""
 
 private fun trackDetails(t: MediaTrack): String? = listOfNotNull(
-    t.codec?.uppercase(), t.channels?.let { "$it can." }, if (t.isExternal) L.t("externe") else null, if (t.isDefault) L.t("par défaut") else null,
+    t.codec?.uppercase(), t.channels?.let { L.f("{0} can.", it) }, if (t.isExternal) L.t("externe") else null, if (t.isDefault) L.t("par défaut") else null,
 ).joinToString(" · ").ifEmpty { null }
 
 private fun delayLabel(ms: Long) = when {

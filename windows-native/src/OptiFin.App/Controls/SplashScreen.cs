@@ -22,6 +22,9 @@ public sealed partial class SplashScreen : Grid
     private const float TrackWidth = 132;
     private const float SweepWidth = 44;
 
+    private const int MinDisplayMs = 300;
+    private const int FadeOutMs = 200;
+
     private readonly Compositor _compositor;
     private readonly Image _logo;
     private readonly TextBlock _name;
@@ -29,6 +32,7 @@ public sealed partial class SplashScreen : Grid
     private readonly Border _track;
     private readonly Border _sweep;
     private readonly long _shownAt = Environment.TickCount64;
+    private long _introEndsAt;
     private bool _introStarted;
     private bool _leaving;
 
@@ -147,64 +151,83 @@ public sealed partial class SplashScreen : Grid
     }
 
     /// <summary>Logo (fondu + rebond), puis le nom qui monte, puis la piste de chargement.</summary>
-    private void StartIntro()
+    private void StartIntro() => StartIntro(fast: false);
+
+    private void StartIntro(bool fast)
     {
         if (_introStarted) return;
         _introStarted = true;
+        _introEndsAt = Environment.TickCount64 + (fast ? 240 : 850);
         var spring = _compositor.CreateCubicBezierEasingFunction(new Vector2(0.34f, 1.56f), new Vector2(0.64f, 1));
         var ease = _compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0), new Vector2(0, 1));
 
+        if (fast)
+            Visual(_glow).StartAnimation("Opacity", ScalarTo(TimeSpan.FromMilliseconds(220), 1, ease));
+
         var logo = Visual(_logo);
         logo.CenterPoint = new Vector3(LogoSize / 2, LogoSize / 2, 0);
-        logo.StartAnimation("Opacity", Scalar(TimeSpan.FromMilliseconds(420), (0, 0), (1, 1)));
+        logo.StartAnimation("Opacity", Scalar(TimeSpan.FromMilliseconds(fast ? 140 : 420), (0, 0), (1, 1)));
         var pop = _compositor.CreateVector3KeyFrameAnimation();
         pop.InsertKeyFrame(0, new Vector3(0.6f, 0.6f, 1));
         pop.InsertKeyFrame(1, Vector3.One, spring);
-        pop.Duration = TimeSpan.FromMilliseconds(650);
+        pop.Duration = TimeSpan.FromMilliseconds(fast ? 220 : 650);
         logo.StartAnimation("Scale", pop);
 
+        var nameDelay = TimeSpan.FromMilliseconds(fast ? 50 : 180);
         var name = Visual(_name);
-        var fade = Scalar(TimeSpan.FromMilliseconds(450), (0, 0), (1, 1));
-        fade.DelayTime = TimeSpan.FromMilliseconds(180);
+        var fade = Scalar(TimeSpan.FromMilliseconds(fast ? 160 : 450), (0, 0), (1, 1));
+        fade.DelayTime = nameDelay;
         fade.DelayBehavior = AnimationDelayBehavior.SetInitialValueBeforeDelay;
         name.StartAnimation("Opacity", fade);
         var rise = _compositor.CreateVector3KeyFrameAnimation();
         rise.InsertKeyFrame(0, new Vector3(0, 14, 0));
         rise.InsertKeyFrame(1, Vector3.Zero, ease);
-        rise.Duration = TimeSpan.FromMilliseconds(550);
-        rise.DelayTime = TimeSpan.FromMilliseconds(180);
+        rise.Duration = TimeSpan.FromMilliseconds(fast ? 200 : 550);
+        rise.DelayTime = nameDelay;
         rise.DelayBehavior = AnimationDelayBehavior.SetInitialValueBeforeDelay;
         name.StartAnimation("Translation", rise);
 
-        var track = Scalar(TimeSpan.FromMilliseconds(400), (0, 0), (1, 1));
-        track.DelayTime = TimeSpan.FromMilliseconds(450);
+        var track = Scalar(TimeSpan.FromMilliseconds(fast ? 140 : 400), (0, 0), (1, 1));
+        track.DelayTime = TimeSpan.FromMilliseconds(fast ? 100 : 450);
         track.DelayBehavior = AnimationDelayBehavior.SetInitialValueBeforeDelay;
         Visual(_track).StartAnimation("Opacity", track);
     }
 
+    /// <summary>Termine l'intro depuis son état courant sans repartir de zéro.</summary>
+    private void ShortenIntro(TimeSpan duration)
+    {
+        var ease = _compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0), new Vector2(0, 1));
+        Visual(_glow).StartAnimation("Opacity", ScalarTo(duration, 1, ease));
+        Visual(_logo).StartAnimation("Opacity", ScalarTo(duration, 1, ease));
+        Visual(_logo).StartAnimation("Scale", Vector3To(duration, Vector3.One, ease));
+        Visual(_name).StartAnimation("Opacity", ScalarTo(duration, 1, ease));
+        Visual(_name).StartAnimation("Translation", Vector3To(duration, Vector3.Zero, ease));
+        Visual(_track).StartAnimation("Opacity", ScalarTo(duration, 1, ease));
+    }
+
     /// <summary>
-    /// Sortie : le logo s'approche, l'écran s'efface, puis il quitte l'arbre. Jamais avant que
-    /// l'intro ait eu le temps de se jouer (pas de simple flash) ; sans compte enregistré, la sortie
-    /// est demandée avant même le début de l'intro.
+    /// Sortie : le logo s'approche, l'écran s'efface, puis il quitte l'arbre. Au moins ~300 ms pour
+    /// éviter un clignotement ; si l'intro est encore en cours, on la raccourcit au lieu d'attendre.
     /// </summary>
     public void Dismiss()
     {
         if (_leaving) return;
         _leaving = true;
-        StartIntro();
-        Ui.After(TimeSpan.FromMilliseconds(Math.Max(1, 900 - (Environment.TickCount64 - _shownAt))), Leave);
+        var wait = Math.Max(1, MinDisplayMs - (Environment.TickCount64 - _shownAt));
+        if (!_introStarted)
+            StartIntro(fast: true);
+        else if (Environment.TickCount64 < _introEndsAt)
+            ShortenIntro(TimeSpan.FromMilliseconds(Math.Clamp(wait, 120, 200)));
+        Ui.After(TimeSpan.FromMilliseconds(wait), Leave);
     }
 
     private void Leave()
     {
         IsHitTestVisible = false;
         var ease = _compositor.CreateCubicBezierEasingFunction(new Vector2(0.4f, 0), new Vector2(1, 1));
-        var zoom = _compositor.CreateVector3KeyFrameAnimation();
-        zoom.InsertKeyFrame(1, new Vector3(1.18f, 1.18f, 1), ease);
-        zoom.Duration = TimeSpan.FromMilliseconds(380);
-        Visual(_logo).StartAnimation("Scale", zoom);
-        Visual(this).StartAnimation("Opacity", Scalar(TimeSpan.FromMilliseconds(380), (0, 1), (1, 0)));
-        Ui.After(TimeSpan.FromMilliseconds(400), () =>
+        Visual(_logo).StartAnimation("Scale", Vector3To(TimeSpan.FromMilliseconds(FadeOutMs), new Vector3(1.18f, 1.18f, 1), ease));
+        Visual(this).StartAnimation("Opacity", Scalar(TimeSpan.FromMilliseconds(FadeOutMs), (0, 1), (1, 0)));
+        Ui.After(TimeSpan.FromMilliseconds(FadeOutMs + 20), () =>
         {
             Visual(_glow).StopAnimation("Scale");
             Visual(_sweep).StopAnimation("Translation");
@@ -220,6 +243,23 @@ public sealed partial class SplashScreen : Grid
         var animation = _compositor.CreateScalarKeyFrameAnimation();
         animation.InsertKeyFrame(from.at, from.value);
         animation.InsertKeyFrame(to.at, to.value);
+        animation.Duration = duration;
+        return animation;
+    }
+
+    private ScalarKeyFrameAnimation ScalarTo(TimeSpan duration, float to, CompositionEasingFunction? easing = null)
+    {
+        var animation = _compositor.CreateScalarKeyFrameAnimation();
+        if (easing is null) animation.InsertKeyFrame(1, to);
+        else animation.InsertKeyFrame(1, to, easing);
+        animation.Duration = duration;
+        return animation;
+    }
+
+    private Vector3KeyFrameAnimation Vector3To(TimeSpan duration, Vector3 to, CompositionEasingFunction easing)
+    {
+        var animation = _compositor.CreateVector3KeyFrameAnimation();
+        animation.InsertKeyFrame(1, to, easing);
         animation.Duration = duration;
         return animation;
     }

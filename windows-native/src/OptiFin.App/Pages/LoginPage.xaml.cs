@@ -36,6 +36,9 @@ public sealed partial class LoginPage : Page
         _username.Text = request.UserName ?? "";
         ServerName.Text = _server.Name;
         ServerInfo.Text = $"{_server.BaseUrl} · Jellyfin {_server.Version}";
+        InsecureWarning.Visibility = string.Equals(_server.BaseUrl.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         _ = BuildAsync();
     }
 

@@ -14,7 +14,7 @@
     <Color x:Key="OFStroke">#14FFFFFF</Color>
     <Color x:Key="OFTextPrimary">#FFF2F2F7</Color>
     <Color x:Key="OFTextSecondary">#B3EBEBF5</Color>
-    <Color x:Key="OFTextTertiary">#66EBEBF5</Color>
+    <Color x:Key="OFTextTertiary">#A6EBEBF5</Color>
     <Color x:Key="OFAccent">#FF4DA3FF</Color>
     <Color x:Key="OFDanger">#FFFF453A</Color>
     <Color x:Key="OFGlass">#8C1C1C1E</Color>
@@ -68,32 +68,40 @@
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
-    <!-- Bouton principal : pilule blanche, texte noir (comme « Lecture » sur mobile). -->
-    <Style x:Key="OFPrimaryButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
-        <Setter Property="Background" Value="{StaticResource OFTextPrimaryBrush}" />
-        <Setter Property="Foreground" Value="#FF000000" />
+    <!-- Boutons principaux : bases sans couleur forcée pour le mode Contraste élevé. -->
+    <Style x:Key="OFPrimaryButtonBase" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FontSize" Value="15" />
         <Setter Property="Padding" Value="24,10" />
         <Setter Property="CornerRadius" Value="22" />
-        <Setter Property="BorderThickness" Value="0" />
     </Style>
-    <Style x:Key="OFSecondaryButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
-        <Setter Property="Background" Value="#33FFFFFF" />
-        <Setter Property="Foreground" Value="{StaticResource OFTextPrimaryBrush}" />
+    <Style x:Key="OFSecondaryButtonBase" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FontSize" Value="15" />
         <Setter Property="Padding" Value="22,10" />
         <Setter Property="CornerRadius" Value="22" />
-        <Setter Property="BorderThickness" Value="0" />
     </Style>
-    <Style x:Key="OFIconButton" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
-        <Setter Property="Background" Value="#26FFFFFF" />
-        <Setter Property="Foreground" Value="{StaticResource OFTextPrimaryBrush}" />
+    <Style x:Key="OFIconButtonBase" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
         <Setter Property="Width" Value="44" />
         <Setter Property="Height" Value="44" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="CornerRadius" Value="22" />
+    </Style>
+
+    <!-- Bouton principal : pilule blanche, texte noir (comme « Lecture » sur mobile). -->
+    <Style x:Key="OFPrimaryButton" TargetType="Button" BasedOn="{StaticResource OFPrimaryButtonBase}">
+        <Setter Property="Background" Value="{StaticResource OFTextPrimaryBrush}" />
+        <Setter Property="Foreground" Value="#FF000000" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style x:Key="OFSecondaryButton" TargetType="Button" BasedOn="{StaticResource OFSecondaryButtonBase}">
+        <Setter Property="Background" Value="#33FFFFFF" />
+        <Setter Property="Foreground" Value="{StaticResource OFTextPrimaryBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style x:Key="OFIconButton" TargetType="Button" BasedOn="{StaticResource OFIconButtonBase}">
+        <Setter Property="Background" Value="#26FFFFFF" />
+        <Setter Property="Foreground" Value="{StaticResource OFTextPrimaryBrush}" />
         <Setter Property="BorderThickness" Value="0" />
     </Style>
 </ResourceDictionary>

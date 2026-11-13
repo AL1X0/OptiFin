@@ -18,12 +18,103 @@ import '../../../core/l10n/l.dart';
 
 /// Onglet « Téléchargements » : films et séries disponibles hors connexion, transferts en
 /// cours (progression, pause, reprise), espace occupé ; glisser une ligne pour la supprimer.
-class DownloadsScreen extends ConsumerWidget {
+class DownloadsScreen extends ConsumerStatefulWidget {
   const DownloadsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DownloadsScreen> createState() => _DownloadsScreenState();
+}
+
+class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
+  final Set<String> _hiddenItems = {};
+  final Set<String> _hiddenSeries = {};
+
+  void _deleteEntry(DownloadEntry entry) {
+    if (_hiddenItems.contains(entry.itemId)) return;
+    final repo = ref.read(downloadsRepositoryProvider);
+    _scheduleUndoableDelete(
+      hide: () => _hiddenItems.add(entry.itemId),
+      show: () => _hiddenItems.remove(entry.itemId),
+      commit: () => repo.remove(entry.itemId),
+    );
+  }
+
+  void _deleteSeries(DownloadGroup group) {
+    final seriesId = group.seriesId;
+    if (seriesId == null) {
+      final ids = [for (final e in group.entries) e.itemId];
+      final repo = ref.read(downloadsRepositoryProvider);
+      _scheduleUndoableDelete(
+        hide: () => _hiddenItems.addAll(ids),
+        show: () => _hiddenItems.removeAll(ids),
+        commit: () async {
+          for (final id in ids) {
+            await repo.remove(id);
+          }
+        },
+      );
+      return;
+    }
+    if (_hiddenSeries.contains(seriesId)) return;
+    final repo = ref.read(downloadsRepositoryProvider);
+    _scheduleUndoableDelete(
+      hide: () => _hiddenSeries.add(seriesId),
+      show: () => _hiddenSeries.remove(seriesId),
+      commit: () => repo.removeAll(seriesId: seriesId),
+    );
+  }
+
+  void _scheduleUndoableDelete({
+    required VoidCallback hide,
+    required VoidCallback show,
+    required Future<void> Function() commit,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(hide);
+    // Fermer un éventuel SnackBar précédent : sa fermeture déclenche sa suppression réelle.
+    messenger.hideCurrentSnackBar();
+    var undone = false;
+    final controller = messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 5),
+        content: Text(L.t('Supprimé')),
+        action: SnackBarAction(
+          label: L.t('Annuler'),
+          onPressed: () {
+            undone = true;
+            if (mounted) setState(show);
+          },
+        ),
+      ),
+    );
+    unawaited(
+      controller.closed.then((reason) async {
+        if (undone || reason == SnackBarClosedReason.action) {
+          if (mounted) setState(show);
+          return;
+        }
+        try {
+          await commit();
+        } finally {
+          if (mounted) setState(show);
+        }
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final groups = ref.watch(downloadGroupsProvider);
+    final visibleGroups = switch (groups) {
+      AsyncData(:final value) => [
+        for (final g in value)
+          if (g.seriesId == null || !_hiddenSeries.contains(g.seriesId))
+            if (g.entries.where((e) => !_hiddenItems.contains(e.itemId)).toList() case final entries
+                when entries.isNotEmpty)
+              DownloadGroup(id: g.id, title: g.title, seriesId: g.seriesId, entries: entries),
+      ],
+      _ => null,
+    };
     final gutter = OFSpacing.gutterOf(context);
     final bottom = MediaQuery.paddingOf(context).bottom + 96;
 
@@ -34,7 +125,7 @@ class DownloadsScreen extends ConsumerWidget {
             OFLargeTitleSliver(
               title: L.t('Téléchargements'),
               actions: [
-                if (groups.value?.isNotEmpty ?? false)
+                if (visibleGroups?.isNotEmpty ?? false)
                   OFIconButton(
                     icon: Icons.delete_sweep_outlined,
                     tooltip: L.t('Tout supprimer'),
@@ -44,23 +135,29 @@ class DownloadsScreen extends ConsumerWidget {
             ),
             const SliverToBoxAdapter(child: SizedBox(height: OFSpacing.sm)),
             switch (groups) {
-              AsyncData(:final value) when value.isEmpty => const SliverFillRemaining(
+              AsyncData() when visibleGroups!.isEmpty => const SliverFillRemaining(
                 hasScrollBody: false,
                 child: _EmptyState(),
               ),
-              AsyncData(:final value) => SliverPadding(
+              AsyncData() => SliverPadding(
                 padding: EdgeInsets.fromLTRB(gutter, 0, gutter, bottom),
                 sliver: SliverList.list(
                   children: [
-                    _Summary(groups: value),
+                    _Summary(groups: visibleGroups!),
                     const SizedBox(height: OFSpacing.lg),
-                    for (final (i, g) in value.indexed)
+                    for (final (i, g) in visibleGroups.indexed)
                       FadeSlideIn(
                         key: ValueKey(g.id),
                         delay: staggerDelay(i),
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: OFSpacing.xl),
-                          child: g.isSeries ? _SeriesGroup(group: g) : _DownloadRow(entry: g.first),
+                          child: g.isSeries
+                              ? _SeriesGroup(
+                                  group: g,
+                                  onDeleteSeries: () => _deleteSeries(g),
+                                  onDeleteEntry: _deleteEntry,
+                                )
+                              : _DownloadRow(entry: g.first, onDelete: () => _deleteEntry(g.first)),
                         ),
                       ),
                   ],
@@ -148,13 +245,15 @@ class _Summary extends StatelessWidget {
 }
 
 /// Série : en-tête (titre, nombre d'épisodes, taille, suppression) puis ses épisodes.
-class _SeriesGroup extends ConsumerWidget {
-  const _SeriesGroup({required this.group});
+class _SeriesGroup extends StatelessWidget {
+  const _SeriesGroup({required this.group, required this.onDeleteSeries, required this.onDeleteEntry});
 
   final DownloadGroup group;
+  final VoidCallback onDeleteSeries;
+  final void Function(DownloadEntry) onDeleteEntry;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final n = group.entries.length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,7 +277,7 @@ class _SeriesGroup extends ConsumerWidget {
               icon: const Icon(Icons.delete_outline_rounded, color: OFColors.textSecondary),
               onPressed: () {
                 HapticFeedback.mediumImpact();
-                unawaited(ref.read(downloadsRepositoryProvider).removeAll(seriesId: group.seriesId));
+                onDeleteSeries();
               },
             ),
           ],
@@ -187,7 +286,7 @@ class _SeriesGroup extends ConsumerWidget {
         for (final e in group.entries)
           Padding(
             padding: const EdgeInsets.only(bottom: OFSpacing.md),
-            child: _DownloadRow(entry: e),
+            child: _DownloadRow(entry: e, onDelete: () => onDeleteEntry(e)),
           ),
       ],
     );
@@ -197,9 +296,10 @@ class _SeriesGroup extends ConsumerWidget {
 /// Ligne d'un film ou d'un épisode : vignette, titre, état et progression, lecture.
 /// Glisser vers la gauche supprime ; toucher lit (si disponible) ou ouvre les actions.
 class _DownloadRow extends ConsumerWidget {
-  const _DownloadRow({required this.entry});
+  const _DownloadRow({required this.entry, required this.onDelete});
 
   final DownloadEntry entry;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -240,7 +340,7 @@ class _DownloadRow extends ConsumerWidget {
       ),
       onDismissed: (_) {
         HapticFeedback.mediumImpact();
-        unawaited(ref.read(downloadsRepositoryProvider).remove(item.id));
+        onDelete();
       },
       child: Semantics(
         button: true,
@@ -297,7 +397,7 @@ class _DownloadRow extends ConsumerWidget {
 
 /// Vignette : image enregistrée avec le téléchargement (disponible hors connexion),
 /// sinon image du serveur.
-class _Thumb extends ConsumerWidget {
+class _Thumb extends ConsumerStatefulWidget {
   const _Thumb({required this.entry, required this.width, required this.height, required this.episode});
 
   final DownloadEntry entry;
@@ -306,29 +406,71 @@ class _Thumb extends ConsumerWidget {
   final bool episode;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Thumb> createState() => _ThumbState();
+}
+
+class _ThumbState extends ConsumerState<_Thumb> {
+  Future<bool>? _existsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshExists();
+  }
+
+  @override
+  void didUpdateWidget(covariant _Thumb oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entry.posterPath != widget.entry.posterPath) _refreshExists();
+  }
+
+  void _refreshExists() {
+    final path = widget.entry.posterPath;
+    _existsFuture = path == null ? null : File(path).exists();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final path = entry.posterPath;
-    final file = path == null ? null : File(path);
-    final Widget image;
-    if (file != null && file.existsSync()) {
-      image = Image.file(file, fit: BoxFit.cover, cacheWidth: (width * dpr).ceil(), gaplessPlayback: true);
-    } else {
-      final item = entry.item;
-      final ref0 = episode ? (item.primary ?? item.landscape) : item.poster;
-      image = OFImage(
-        url: ref.watch(imageUrlBuilderProvider).maybe(ref0, logicalWidth: width, devicePixelRatio: dpr),
+    final path = widget.entry.posterPath;
+    const placeholder = ColoredBox(
+      color: OFColors.surfaceRaised,
+      child: Center(child: Icon(Icons.movie_outlined, color: OFColors.textTertiary)),
+    );
+
+    Widget buildServerImage() {
+      final item = widget.entry.item;
+      final ref0 = widget.episode ? (item.primary ?? item.landscape) : item.poster;
+      return OFImage(
+        url: ref.watch(imageUrlBuilderProvider).maybe(ref0, logicalWidth: widget.width, devicePixelRatio: dpr),
         blurHash: ref0?.blurHash,
-        decodeWidth: (width * dpr).ceil(),
-        fallback: const ColoredBox(
-          color: OFColors.surfaceRaised,
-          child: Center(child: Icon(Icons.movie_outlined, color: OFColors.textTertiary)),
-        ),
+        decodeWidth: (widget.width * dpr).ceil(),
+        fallback: placeholder,
       );
     }
+
+    final Widget image = path == null
+        ? buildServerImage()
+        : FutureBuilder<bool>(
+            future: _existsFuture,
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) return placeholder;
+              if (snap.data ?? false) {
+                return Image.file(
+                  File(path),
+                  fit: BoxFit.cover,
+                  cacheWidth: (widget.width * dpr).ceil(),
+                  gaplessPlayback: true,
+                  errorBuilder: (_, _, _) => buildServerImage(),
+                );
+              }
+              return buildServerImage();
+            },
+          );
+
     return ClipRRect(
       borderRadius: OFRadius.smAll,
-      child: SizedBox(width: width, height: height, child: image),
+      child: SizedBox(width: widget.width, height: widget.height, child: image),
     );
   }
 }

@@ -247,12 +247,13 @@ public partial class DemoServerPlaybackTests
     /// <summary>Suivi en direct (ces tests durent plusieurs minutes sur une grosse bibliothèque).</summary>
     private static void Progress(string text) => Console.WriteLine($"  [serveur {DateTime.Now:HH:mm:ss}] {text}");
 
-    private static async Task Until(Func<bool> ok, string what, int seconds = 45)
+    /// <param name="state">État du lecteur ajouté au message d'échec (sans lui, un délai dépassé ne dit pas pourquoi).</param>
+    private static async Task Until(Func<bool> ok, string what, int seconds = 45, Func<string>? state = null)
     {
         var deadline = DateTime.UtcNow.AddSeconds(seconds);
         while (!ok())
         {
-            if (DateTime.UtcNow > deadline) Assert.Fail($"Délai dépassé : {what}");
+            if (DateTime.UtcNow > deadline) Assert.Fail($"Délai dépassé : {what}{(state == null ? "" : $" — {state()}")}");
             await Task.Delay(50);
         }
     }
@@ -295,12 +296,17 @@ public partial class DemoServerPlaybackTests
         public void Load(Server s, PlaybackPlan plan, TimeSpan start) =>
             Mpv.Load(plan.StreamUrl, new Dictionary<string, string> { ["Authorization"] = s.Api.AuthorizationHeader }, start);
 
-        public async Task PlaysFromAsync(TimeSpan start, string what, int seconds = 45)
+        public string State() =>
+            $"position {Position}, durée {Duration}, attente de données : {Mpv.Get("paused-for-cache")}, " +
+            $"tampon {Mpv.Get("demuxer-cache-duration")} s, trace {string.Join(" ", Trace)}, " +
+            $"événements {string.Join(" ", Events)}, erreurs {string.Join(" | ", Errors.TakeLast(5))}";
+
+        public async Task PlaysFromAsync(TimeSpan start, string what, int seconds = 45, Func<string>? state = null)
         {
-            await Until(() => FirstFrames >= 1 || Events.Any(e => e.StartsWith("ended:")), $"{what} : première image", seconds);
+            await Until(() => FirstFrames >= 1 || Events.Any(e => e.StartsWith("ended:")), $"{what} : première image", seconds, state);
             Assert.True(FirstFrames >= 1, $"{what} : {string.Join(", ", Events)} / {string.Join(" | ", Errors)}");
             // Position de départ respectée, puis la lecture avance.
-            await Until(() => Position >= start + TimeSpan.FromSeconds(1), $"{what} : lecture depuis {start}", seconds);
+            await Until(() => Position >= start + TimeSpan.FromSeconds(1), $"{what} : lecture depuis {start}", seconds, state);
             Assert.True(Position < start + TimeSpan.FromSeconds(20), $"{what} : position {Position} pour un départ à {start} — {string.Join(" ", Trace)}");
         }
 
@@ -348,19 +354,37 @@ public partial class DemoServerPlaybackTests
         Assert.DoesNotContain("api_key", plan.StreamUrl.Query, StringComparison.OrdinalIgnoreCase);
         using var p = new Player();
         p.Load(s, plan, start);
-        await p.PlaysFromAsync(start, $"{plan.Method} ({plan.StreamUrl.AbsolutePath})", 90);
+        await p.PlaysFromAsync(start, $"{plan.Method} ({plan.StreamUrl.AbsolutePath})", 90, p.State);
         var target = TimeSpan.FromMinutes(12);
-        p.Mpv.Seek(target);
-        await Until(() => Math.Abs((p.Position - target).TotalSeconds) < 5, "saut en transcodage", 90);
+        PlaybackPlan? plan2 = null;
+        if (p.Mpv.Get("seekable") != "yes")
+        {
+            // Flux HLS non navigable : même stratégie que l'appli (relance du flux serveur à la position visée).
+            plan2 = await s.Playback.PrepareAsync(movie.Id!, target, forceTranscode: true);
+            Assert.NotEqual(PlayMethod.DirectPlay, plan2.Method);
+            Assert.DoesNotContain("api_key", plan2.StreamUrl.Query, StringComparison.OrdinalIgnoreCase);
+            await s.Playback.ReportStoppedAsync(plan, p.Position);
+            p.FirstFrames = 0;
+            p.Events.Clear();
+            p.Trace.Clear();
+            p.Load(s, plan2, target);
+            await p.PlaysFromAsync(target, "saut en transcodage", 90, p.State);
+        }
+        else
+        {
+            p.Mpv.Seek(target);
+            await Until(() => Math.Abs((p.Position - target).TotalSeconds) < 5, "saut en transcodage", 90, p.State);
+        }
         // Après un saut, le serveur relance son transcodage à la nouvelle position : quelques secondes
         // sur un petit serveur (pas une panne, tant que la lecture repart).
+        var after = target + TimeSpan.FromSeconds(2);
         var deadline = DateTime.UtcNow.AddSeconds(30);
-        while (p.Position < target + TimeSpan.FromSeconds(1) && DateTime.UtcNow < deadline) await Task.Delay(100);
-        Assert.True(p.Position >= target + TimeSpan.FromSeconds(1),
+        while (p.Position < after && DateTime.UtcNow < deadline) await Task.Delay(100);
+        Assert.True(p.Position >= after,
             $"la lecture ne repart pas après le saut ({p.Position}, attente de données : {p.Mpv.Get("paused-for-cache")}, " +
             $"tampon {p.Mpv.Get("demuxer-cache-duration")} s, {string.Join(" | ", p.Errors.TakeLast(5))})");
         Assert.DoesNotContain(p.Events, e => e.StartsWith("ended:"));
-        await s.Playback.ReportStoppedAsync(plan, p.Position);
+        await s.Playback.ReportStoppedAsync(plan2 ?? plan, p.Position);
     }
 
     [Fact]

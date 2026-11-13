@@ -229,9 +229,10 @@ class NativePlayer(
         droppedFrames = 0
 
         // En-têtes (Authorization) envoyés à chaque requête : jamais de token dans l'URL.
+        // Pas de redirection HTTPS -> HTTP : le jeton ne doit jamais partir en clair.
         val http = DefaultHttpDataSource.Factory()
             .setDefaultRequestProperties(headers)
-            .setAllowCrossProtocolRedirects(true)
+            .setAllowCrossProtocolRedirects(false)
             .setConnectTimeoutMs(15_000)
             .setReadTimeoutMs(30_000)
             .setUserAgent("OptiFin")

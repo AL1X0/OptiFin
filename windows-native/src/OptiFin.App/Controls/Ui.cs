@@ -15,21 +15,27 @@ public static class Ui
 {
     // ---------------------------------------------------------------- Langue
 
-    /// <summary>Traduit les textes écrits dans le XAML d'une page (appelé après InitializeComponent).</summary>
+    /// <summary>Traduit les textes écrits dans le XAML d'une page et nomme les contrôles à info-bulle pour le lecteur d'écran.</summary>
     public static void Translate(object? node)
     {
-        if (!OptiFin.Core.Localization.L.IsEnglish || node is null) return;
+        if (node is null) return;
+        var english = OptiFin.Core.Localization.L.IsEnglish;
         if (node is UIElement element && ToolTipService.GetToolTip(element) is string tip)
-            ToolTipService.SetToolTip(element, OptiFin.Core.Localization.L.T(tip));
+        {
+            var translated = OptiFin.Core.Localization.L.T(tip);
+            if (english) ToolTipService.SetToolTip(element, translated);
+            if (string.IsNullOrEmpty(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(element)))
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(element, translated);
+        }
         switch (node)
         {
-            case TextBlock text:
+            case TextBlock text when english:
                 text.Text = OptiFin.Core.Localization.L.T(text.Text);
                 break;
-            case TextBox box:
+            case TextBox box when english:
                 box.PlaceholderText = OptiFin.Core.Localization.L.T(box.PlaceholderText);
                 break;
-            case ContentControl { Content: string label } control:
+            case ContentControl { Content: string label } control when english:
                 control.Content = OptiFin.Core.Localization.L.T(label);
                 break;
             case ContentControl control:

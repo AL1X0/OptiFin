@@ -540,6 +540,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     if (_visible) {
       _hideTimer?.cancel();
       setState(() => _visible = false);
+      _keys.requestFocus();
     } else {
       _show();
     }
@@ -742,52 +743,58 @@ class _PlayerControlsState extends State<PlayerControls> {
                   IgnorePointer(
                     key: const ValueKey('controles'),
                     ignoring: !_visible || _locked,
-                    child: AnimatedOpacity(
-                      opacity: _visible && !_locked ? 1 : 0,
-                      duration: motion.standard,
-                      curve: OFMotion.standardCurve,
-                      child: (_visible && !_locked) || motion.enabled
-                          ? _ControlsLayer(
-                              metrics: metrics,
-                              snapshot: s,
-                              scrubbing: _scrubbing,
-                              showSpinner: showSpinner,
-                              debug: _debug,
-                              menuOpen: _menu,
-                              ui: ui,
-                              engine: widget.engine,
-                              fit: widget.fit,
-                              onClose: widget.onClose,
-                              onPlayPause: () {
-                                unawaited(widget.controller.togglePlay());
-                                _show();
-                              },
-                              onSkip: (d) {
-                                unawaited(widget.controller.seekBy(d));
-                                _show();
-                              },
-                              onScrubStart: (p) {
-                                _hideTimer?.cancel();
-                                setState(() => _scrubbing = p);
-                              },
-                              onScrub: (p) => setState(() => _scrubbing = p),
-                              onScrubEnd: (p) {
-                                setState(() => _scrubbing = null);
-                                unawaited(widget.controller.seek(p));
-                                _scheduleHide();
-                              },
-                              onSettings: () => _menu ? _closeMenu() : _openMenu(),
-                              onPictureInPicture: widget.engine.capabilities.pictureInPicture
-                                  ? _pictureInPicture
-                                  : null,
-                              onCycleFit: () {
-                                widget.onCycleFit();
-                                _show();
-                              },
-                              onToggleDebug: () => setState(() => _debug = !_debug),
-                              playFocus: _playFocus,
-                            )
-                          : const SizedBox.shrink(),
+                    child: ExcludeSemantics(
+                      excluding: !_visible || _locked,
+                      child: ExcludeFocus(
+                        excluding: !_visible || _locked,
+                        child: AnimatedOpacity(
+                          opacity: _visible && !_locked ? 1 : 0,
+                          duration: motion.standard,
+                          curve: OFMotion.standardCurve,
+                          child: (_visible && !_locked) || motion.enabled
+                              ? _ControlsLayer(
+                                  metrics: metrics,
+                                  snapshot: s,
+                                  scrubbing: _scrubbing,
+                                  showSpinner: showSpinner,
+                                  debug: _debug,
+                                  menuOpen: _menu,
+                                  ui: ui,
+                                  engine: widget.engine,
+                                  fit: widget.fit,
+                                  onClose: widget.onClose,
+                                  onPlayPause: () {
+                                    unawaited(widget.controller.togglePlay());
+                                    _show();
+                                  },
+                                  onSkip: (d) {
+                                    unawaited(widget.controller.seekBy(d));
+                                    _show();
+                                  },
+                                  onScrubStart: (p) {
+                                    _hideTimer?.cancel();
+                                    setState(() => _scrubbing = p);
+                                  },
+                                  onScrub: (p) => setState(() => _scrubbing = p),
+                                  onScrubEnd: (p) {
+                                    setState(() => _scrubbing = null);
+                                    unawaited(widget.controller.seek(p));
+                                    _scheduleHide();
+                                  },
+                                  onSettings: () => _menu ? _closeMenu() : _openMenu(),
+                                  onPictureInPicture: widget.engine.capabilities.pictureInPicture
+                                      ? _pictureInPicture
+                                      : null,
+                                  onCycleFit: () {
+                                    widget.onCycleFit();
+                                    _show();
+                                  },
+                                  onToggleDebug: () => setState(() => _debug = !_debug),
+                                  playFocus: _playFocus,
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
                     ),
                   ),
                   // Menu Réglages : ancré sous son bouton, se déploie depuis le coin.
@@ -871,13 +878,19 @@ class _PlayerControlsState extends State<PlayerControls> {
                           duration: motion.standard,
                           child: IgnorePointer(
                             ignoring: !_showUnlock,
-                            child: OFGlassButton(
-                              label: L.t('Déverrouiller'),
-                              icon: Icons.lock_open_rounded,
-                              iconSize: 22,
-                              size: 48,
-                              showLabel: true,
-                              onPressed: _unlock,
+                            child: ExcludeSemantics(
+                              excluding: !_showUnlock,
+                              child: ExcludeFocus(
+                                excluding: !_showUnlock,
+                                child: OFGlassButton(
+                                  label: L.t('Déverrouiller'),
+                                  icon: Icons.lock_open_rounded,
+                                  iconSize: 22,
+                                  size: 48,
+                                  showLabel: true,
+                                  onPressed: _unlock,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -1307,7 +1320,7 @@ class Scrubber extends StatefulWidget {
   final ValueChanged<Duration> onChanged;
   final ValueChanged<Duration> onEnd;
 
-  static const _touchHeight = 36.0;
+  static const _touchHeight = 44.0;
 
   @override
   State<Scrubber> createState() => _ScrubberState();

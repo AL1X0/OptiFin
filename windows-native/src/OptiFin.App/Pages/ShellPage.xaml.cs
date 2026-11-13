@@ -176,7 +176,7 @@ public sealed partial class ShellPage : Page
             }
         }
         menu.Items.Add(new MenuFlyoutSeparator());
-        var add = new MenuFlyoutItem { Text = "Ajouter un compte", Icon = new FontIcon { Glyph = "\uE8FA" } };
+        var add = new MenuFlyoutItem { Text = L.T("Ajouter un compte"), Icon = new FontIcon { Glyph = "\uE8FA" } };
         add.Click += (_, _) => Nav.PushRoot(typeof(ConnectPage));
         var signOut = new MenuFlyoutItem { Text = L.T("Se déconnecter"), Icon = new FontIcon { Glyph = "\uE7E8" } };
         signOut.Click += async (_, _) => await AppServices.SignOutAsync();
@@ -242,7 +242,7 @@ public sealed partial class ShellPage : Page
         var more = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Top };
         var unfavorite = new MenuFlyoutItem { Text = L.T("Retirer des favoris"), Icon = new FontIcon { Glyph = "" } };
         unfavorite.Click += (_, _) => _ = MediaActions.SetFavoriteAsync([.. MediaActions.Selected], false);
-        var clear = new MenuFlyoutItem { Text = "Tout désélectionner", Icon = new FontIcon { Glyph = "" } };
+        var clear = new MenuFlyoutItem { Text = L.T("Tout désélectionner"), Icon = new FontIcon { Glyph = "" } };
         clear.Click += (_, _) =>
         {
             foreach (var item in MediaActions.Selected.ToList()) MediaActions.Toggle(item);

@@ -65,9 +65,7 @@ public static partial class MediaMapper
             People = [.. (dto.People ?? []).Select(p => new PersonCredit(p.Id, p.Name ?? "",
                 string.IsNullOrEmpty(p.Role) ? null : p.Role, PersonKindOf(p.Type),
                 p.PrimaryImageTag == null ? null : new ImageRef(p.Id, ImageKind.Primary, p.PrimaryImageTag)))],
-            Trailers = [.. (dto.RemoteTrailers ?? [])
-                .Where(t => Uri.TryCreate(t.Url, UriKind.Absolute, out _))
-                .Select(t => new Trailer(new Uri(t.Url!), t.Name))],
+            Trailers = [.. (dto.RemoteTrailers ?? []).Select(MapTrailer).OfType<Trailer>()],
             LocalTrailerCount = dto.LocalTrailerCount ?? 0,
             User = new UserState(ud?.Played ?? false, ud?.IsFavorite ?? false, ud?.PlaybackPositionTicks ?? 0,
                 ud?.PlayedPercentage, ud?.UnplayedItemCount),
@@ -92,6 +90,13 @@ public static partial class MediaMapper
             IsFolder = dto.IsFolder ?? false,
         };
     }
+
+    /// <summary>Seuls http/https sont acceptés : l'URI part directement vers le lanceur système.</summary>
+    private static Trailer? MapTrailer(MediaUrl url) =>
+        Uri.TryCreate(url.Url, UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            ? new Trailer(uri, url.Name)
+            : null;
 
     public static MediaKind KindOf(string? type) => type switch
     {

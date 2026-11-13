@@ -221,6 +221,28 @@ public class MediaTests
         Assert.Equal("e2", Assert.Single(home.Sections[1].Items).Id);
         Assert.Equal("f1", Assert.Single(home.Featured).Id);
     }
+
+    [Fact]
+    public void BandesAnnonces_httpEtHttpsSeulement()
+    {
+        var item = MediaMapper.FromDto(new BaseItemDto
+        {
+            Id = "m1",
+            Name = "Film",
+            Type = "Movie",
+            RemoteTrailers =
+            [
+                new MediaUrl { Url = "https://youtu.be/x", Name = "Bande-annonce" },
+                new MediaUrl { Url = "http://exemple.fr/ba.mp4" },
+                new MediaUrl { Url = "ms-settings:privacy" },
+                new MediaUrl { Url = "file:///C:/x.exe" },
+                new MediaUrl { Url = "javascript:alert(1)" },
+                new MediaUrl { Url = "pas une url" },
+            ],
+        });
+        Assert.Equal(["https://youtu.be/x", "http://exemple.fr/ba.mp4"],
+            item.Trailers.Select(t => t.Url.ToString()));
+    }
 }
 
 public class PlaybackTests

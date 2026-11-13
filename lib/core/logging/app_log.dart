@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -54,11 +56,15 @@ class AppLog extends ChangeNotifier {
 
   RandomAccessFile? _file;
   int _written = 0;
+  final _pending = StringBuffer();
+  Timer? _flushTimer;
   static const _maxFileBytes = 2 * 1024 * 1024;
+  static const _flushDelay = Duration(milliseconds: 500);
 
   /// Journal sur disque : relit la session précédente puis repart d'un fichier vide.
-  /// Chaque ligne est écrite immédiatement (un plantage natif ne perd rien).
+  /// Les lignes sont écrites par lot (~500 ms) et immédiatement en cas d'erreur.
   Future<void> persistTo(File file) async {
+    stopPersistence();
     try {
       if (file.existsSync()) {
         final lines = file.readAsLinesSync();
@@ -85,19 +91,46 @@ class AppLog extends ChangeNotifier {
     }
   }
 
+  /// Force l'écriture des lignes en attente et ferme le fichier (tests / réouverture).
+  @visibleForTesting
+  void stopPersistence() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _flush();
+    _pending.clear();
+    try {
+      _file?.closeSync();
+    } catch (_) {}
+    _file = null;
+    _written = 0;
+  }
+
   void _persist(LogEntry entry) {
+    if (_file == null) return;
+    _pending.writeln(entry.format());
+    if (entry.level == LogLevel.error) {
+      _flush();
+    } else {
+      _flushTimer ??= Timer(_flushDelay, _flush);
+    }
+  }
+
+  void _flush() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
     final file = _file;
-    if (file == null) return;
+    if (file == null || _pending.isEmpty) return;
+    final batch = _pending.toString();
+    _pending.clear();
     try {
       if (_written > _maxFileBytes) {
         file.setPositionSync(0);
         file.truncateSync(0);
         _written = 0;
       }
-      final line = '${entry.format()}\n';
-      file.writeStringSync(line);
+      file.writeStringSync(batch);
       file.flushSync();
-      _written += line.length;
+      _written += utf8.encode(batch).length;
     } catch (_) {
       _file = null;
     }

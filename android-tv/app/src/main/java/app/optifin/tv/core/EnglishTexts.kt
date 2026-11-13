@@ -65,6 +65,9 @@ val EnglishTexts: Map<String, String> = mapOf(
     "Code Quick Connect" to "Quick Connect code", "Sur votre téléphone ou ordinateur : Jellyfin › Profil › Quick Connect, puis saisissez ce code." to "On your phone or computer: Jellyfin › Profile › Quick Connect, then enter this code.",
     "Annuler" to "Cancel", "Se connecter avec Quick Connect" to "Sign in with Quick Connect", "Un code s’affiche : validez-le depuis Jellyfin sur votre téléphone." to "A code appears: confirm it from Jellyfin on your phone.",
     "Ou avec un mot de passe" to "Or with a password", "Nom d’utilisateur" to "Username", "Mot de passe" to "Password", "Se connecter" to "Sign in",
+    "Oublier ce compte" to "Forget this account", "Oublier « {0} » sur {1} ?" to "Forget “{0}” on {1}?", "Oublier" to "Forget",
+    "https://jellyfin.exemple.fr" to "https://jellyfin.example.com",
+    "Connexion non chiffrée : mot de passe et jeton passent en clair sur le réseau." to "Unencrypted connection: password and token are sent in plain text over the network.",
 
     // Lecteur
     "Lecture directe" to "Direct play", "Transcodage" to "Transcoding", "Natif" to "Native", "Automatique" to "Automatic", "Lecteur natif" to "Native player",
@@ -83,6 +86,7 @@ val EnglishTexts: Map<String, String> = mapOf(
     "Lit presque tout, sous-titres ASS fidèles" to "Plays almost anything, accurate ASS subtitles", "Taille" to "Size", "Petite" to "Small", "Normale" to "Normal", "Grande" to "Large", "Très grande" to "Very large", "Style" to "Style",
     "Aucun sous-titre trouvé." to "No subtitles found.", "Langue : {0}" to "Language: {0}", "OK pour changer" to "OK to change", "Sous-titre téléchargé" to "Subtitle downloaded", " (forcés)" to " (forced)",
     "externe" to "external", "par défaut" to "default", "Aucun" to "None", "+{0} ms (plus tard)" to "+{0} ms (later)", "{0} ms (plus tôt)" to "{0} ms (earlier)",
+    "Moteur : {0} · {1}" to "Engine: {0} · {1}", "Serveur : {0} · {1} · {2}" to "Server: {0} · {1} · {2}", "Recherche…" to "Searching…", "{0} can." to "{0} ch.",
 
     // Réglages
     "Réglage du serveur" to "Server setting", "Toujours" to "Always", "Forcés uniquement" to "Forced only", "Jamais" to "Never", "Contour" to "Outline", "Ombre" to "Shadow", "Bandeau" to "Box",
@@ -102,4 +106,5 @@ val EnglishTexts: Map<String, String> = mapOf(
     "Ajouter un compte" to "Add an account", "Autre utilisateur ou autre serveur" to "Another user or server", "Se déconnecter" to "Sign out", "Le compte reste proposé à la connexion" to "The account stays available at sign-in",
     "Tout" to "All", "Avertissements" to "Warnings", "Erreurs" to "Errors", "Envoyer" to "Send", "Journal envoyé au serveur" to "Log sent to the server", "Journal envoyé au serveur : {0}" to "Log sent to the server: {0}",
     "Client Jellyfin pour Android TV.\n\nAppareil : {0}\n\n" to "Jellyfin client for Android TV.\n\nDevice: {0}\n\n", "Bibliothèques : " to "Libraries: ", "Recherche" to "Search", "Accueil" to "Home", "OptiFin TV {0} est disponible : Réglages › Rechercher une mise à jour" to "OptiFin TV {0} is available: Settings › Check for updates",
+    "{0} Mb/s" to "{0} Mbps", "extension FFmpeg de Jellyfin (LGPL/GPL)" to "Jellyfin FFmpeg extension (LGPL/GPL)", "Effacer" to "Clear",
 )

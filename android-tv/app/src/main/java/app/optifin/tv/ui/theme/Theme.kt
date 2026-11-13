@@ -30,7 +30,7 @@ object OF {
     val Accent = Color(0xFF4DA3FF)
     val TextPrimary = Color(0xFFF5F5F7)
     val TextSecondary = Color(0xFFB4B4BC)
-    val TextTertiary = Color(0xFF7C7C86)
+    val TextTertiary = Color(0xFF9A9AA4)
     val Danger = Color(0xFFFF453A)
     val Success = Color(0xFF32D74B)
 

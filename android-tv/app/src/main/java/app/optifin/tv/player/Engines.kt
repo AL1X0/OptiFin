@@ -117,7 +117,7 @@ class ExoEngine(context: Context) : PlaybackEngine {
     private var style = SubtitleStyle()
     private var fit = VideoFit.Fit
     private var view: PlayerView? = null
-    private val httpFactory = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true).setConnectTimeoutMs(15_000).setReadTimeoutMs(30_000)
+    private val httpFactory = DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(false).setConnectTimeoutMs(15_000).setReadTimeoutMs(30_000)
     private var externals: List<ExternalSubtitle> = emptyList()
 
     val player: ExoPlayer = ExoPlayer.Builder(
@@ -350,7 +350,7 @@ class MpvEngine(context: Context) : PlaybackEngine, MPVLib.EventObserver, MPVLib
     private var pendingMedia: EngineMedia? = null
     private var externals: List<ExternalSubtitle> = emptyList()
     private var started = false
-    private var released = false
+    @Volatile private var released = false
 
     init {
         mpv.setOptionString("config", "no")

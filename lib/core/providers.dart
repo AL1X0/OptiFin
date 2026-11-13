@@ -5,6 +5,8 @@ import 'package:jellyfin_api/jellyfin_api.dart';
 import '../features/auth/data/account_store.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/domain/entities.dart';
+import '../features/downloads/presentation/downloads_providers.dart';
+import 'logging/app_log.dart';
 import 'media/media_repository.dart';
 import 'network/dio_factory.dart';
 import 'network/image_url.dart';
@@ -57,10 +59,16 @@ class SessionController extends Notifier<ActiveSession?> {
     return true;
   }
 
-  /// Déconnexion explicite : révoque le token et oublie le compte.
+  /// Déconnexion explicite : supprime les téléchargements, révoque le token et oublie le compte.
   Future<void> signOut() async {
     final current = state;
     if (current == null) return;
+    // Avant `state = null` : le dépôt de téléchargements exige une session active.
+    try {
+      await ref.read(downloadsRepositoryProvider).removeAll();
+    } catch (e) {
+      AppLog.w('downloads', 'Nettoyage des téléchargements à la déconnexion impossible : $e');
+    }
     state = null;
     await ref.read(authRepositoryProvider).logout(current);
     await _store.removeAccount(current.account.id);
