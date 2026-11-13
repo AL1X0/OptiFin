@@ -854,8 +854,11 @@ class PlayerController extends Notifier<PlayerUiState> {
     _closed = true;
     _startupTimer?.cancel();
     _syncTimer?.cancel();
-    // L'hôte quitte : la lecture s'arrête chez tous les participants.
-    if (_sync != null && !_stoppedByParty) {
+    // L'hôte quitte : la lecture s'arrête chez tous les participants, sauf si la
+    // soirée vient de remplacer le lecteur par un autre titre.
+    final party = _party;
+    final replaced = party != null && (_partyController?.consumeReplaced(party.playlistItemId) ?? false);
+    if (_sync != null && !_stoppedByParty && !replaced) {
       unawaited(_partyController?.stopForAll());
     }
     unawaited(NativePlayers.setAutoPictureInPicture(false));
