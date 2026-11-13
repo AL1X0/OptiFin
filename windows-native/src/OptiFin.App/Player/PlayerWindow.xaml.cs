@@ -41,8 +41,12 @@ public sealed partial class PlayerWindow : Window
     private readonly DispatcherQueueTimer _reportTimer;
     private readonly DispatcherQueueTimer _startupTimer;
     private readonly DispatcherQueueTimer _levelTimer;
+    private readonly DispatcherQueueTimer _seekTimer;
     private readonly HashSet<MediaSegment> _autoSkipped = [];
     private TimeSpan _position;
+    private TimeSpan? _pendingSeek;
+    private bool _seekWaiting;
+    private int _reloadingCount;
     private TimeSpan _duration;
     private TimeSpan _buffered;
     private bool _paused;
@@ -125,6 +129,7 @@ public sealed partial class PlayerWindow : Window
                 ShowControls(autoHide: true);
         }, repeating: true);
         _levelTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(900), () => Level.Opacity = 0);
+        _seekTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(400), () => _ = ReloadAtPendingSeekAsync());
 
         _statsTimer = Timer(dispatcher, TimeSpan.FromSeconds(1), UpdateStats, repeating: true);
         WireControls();
@@ -231,6 +236,9 @@ public sealed partial class PlayerWindow : Window
         _startPosition = start;
         _started = false;
         _startupTimer.Stop();
+        _seekWaiting = false;
+        _seekTimer.Stop();
+        _pendingSeek = null;
         try
         {
             ShowPreparing(forceTranscode ? L.T("Le serveur prépare une version compatible…") : null);
@@ -388,8 +396,17 @@ public sealed partial class PlayerWindow : Window
         _startupTimer.Stop();
         if (_startTicks != 0) AppLog.Timing("player", "Première image", _startTicks);
         _startTicks = 0;
-        Preparing.Visibility = Visibility.Collapsed;
-        ScheduleHide();
+        if (!_seekWaiting && _reloadingCount == 0)
+        {
+            if (_pendingSeek != null && _mpv != null)
+            {
+                _position = _mpv.Position;
+                UpdateTimes();
+            }
+            _pendingSeek = null;
+            Preparing.Visibility = Visibility.Collapsed;
+            ScheduleHide();
+        }
         _reportTimer.Start();
         if (_plan != null)
         {
@@ -558,13 +575,15 @@ public sealed partial class PlayerWindow : Window
 
     private void OnPosition(TimeSpan position)
     {
+        // Pendant un saut en attente de relance, on garde la position visée affichée dans la barre.
+        if (_pendingSeek != null) return;
         _position = position;
         if (!_scrubbing) UpdateTimes();
         var segment = _extras.SkippableAt(position);
         if (segment != null && _sync is null && AppServices.Settings.AutoSkipSegments && _autoSkipped.Add(segment))
         {
             AppLog.Info("player", $"Segment passé automatiquement : {segment.Type}");
-            _mpv?.Seek(segment.End);
+            SeekTo(segment.End);
             segment = null;
         }
         if (segment != null)
@@ -887,7 +906,7 @@ public sealed partial class PlayerWindow : Window
     private void SeekBy(int seconds)
     {
         if (_mpv is null) return;
-        var target = _position + TimeSpan.FromSeconds(seconds);
+        var target = (_pendingSeek ?? _position) + TimeSpan.FromSeconds(seconds);
         UserSeek(target < TimeSpan.Zero ? TimeSpan.Zero : target);
         ShowControls(autoHide: true);
     }
@@ -896,7 +915,33 @@ public sealed partial class PlayerWindow : Window
     private void UserSeek(TimeSpan target)
     {
         if (_sync != null) _ = _sync.RequestSeekAsync(target);
-        else _mpv?.Seek(target);
+        else SeekTo(target);
+    }
+
+    /// <summary>
+    /// Saut à <paramref name="target"/> : direct si le flux est navigable, sinon relance du flux
+    /// serveur à cette position (regroupée après 400 ms en cas de sauts rapprochés).
+    /// </summary>
+    private void SeekTo(TimeSpan target)
+    {
+        if (_mpv is null) return;
+        if (target < TimeSpan.Zero) target = TimeSpan.Zero;
+        if (_plan is { Method: not PlayMethod.DirectPlay } && _mpv.Get("seekable") != "yes")
+        {
+            _pendingSeek = target;
+            _position = target;
+            UpdateTimes();
+            // Annule une éventuelle relance réseau déjà en cours : seule la dernière position compte.
+            _streamGeneration++;
+            _seekWaiting = true;
+            _seekTimer.Stop();
+            _seekTimer.Start();
+            return;
+        }
+        _seekWaiting = false;
+        _seekTimer.Stop();
+        _pendingSeek = null;
+        _mpv.Seek(target);
     }
 
     // ------------------------------------------------------------ Soirée
@@ -972,11 +1017,11 @@ public sealed partial class PlayerWindow : Window
     /// <summary>mpv vu par la synchronisation de soirée.</summary>
     private sealed class MpvTarget(PlayerWindow w) : ISyncTarget
     {
-        public TimeSpan Position => w._mpv?.Position ?? w._position;
+        public TimeSpan Position => w._pendingSeek ?? w._mpv?.Position ?? w._position;
         public bool Paused => w._paused;
         public void Play() => w._mpv?.Play();
         public void Pause() => w._mpv?.Pause();
-        public void Seek(TimeSpan position) => w._mpv?.Seek(position);
+        public void Seek(TimeSpan position) => w.SeekTo(position);
         public void SetSpeed(double speed) => w._mpv?.SetSpeed(speed);
     }
 
@@ -1288,15 +1333,36 @@ public sealed partial class PlayerWindow : Window
             AppLog.Info("player", $"Piste {type} : {track?.Label ?? "aucune"}");
             return;
         }
-        var position = _position;
+        await ReloadStreamAsync(_position, audio, subtitle, L.T("Changement de piste…"), "Changement de piste impossible");
+    }
+
+    private Task ReloadAtPendingSeekAsync()
+    {
+        _seekWaiting = false;
+        if (_pendingSeek is not { } target || _plan is not { } plan) return Task.CompletedTask;
+        return ReloadStreamAsync(target, plan.AudioIndex, plan.SubtitleIndex,
+            L.T("Le serveur prépare une version compatible…"), "Saut impossible");
+    }
+
+    /// <summary>
+    /// Relance le flux du serveur à une position donnée (changement de piste en transcodage, ou
+    /// saut quand le flux HLS n'est pas navigable par mpv).
+    /// </summary>
+    private async Task ReloadStreamAsync(TimeSpan position, int? audio, int? subtitle, string notice, string failureLabel)
+    {
+        if (_plan is not { } plan || _mpv is null) return;
+        _seekWaiting = false;
+        _seekTimer.Stop();
+        _pendingSeek = position;
         var generation = _loadGeneration;
         var stream = ++_streamGeneration;
-        ShowPreparing(L.T("Changement de piste…"));
+        ShowPreparing(notice);
+        _reloadingCount++;
         try
         {
             var next = await AppServices.Playback!.PrepareAsync(plan.ItemId, position, audio, subtitle, plan.Method == PlayMethod.Transcode,
                 AppServices.Settings.EffectiveMaxBitrate, plan.MediaSourceId);
-            // Autre choix ou autre titre entre-temps, ou lecteur fermé : celui-ci n'a plus lieu d'être.
+            // Autre choix, autre saut ou autre titre entre-temps, ou lecteur fermé : celui-ci n'a plus lieu d'être.
             if (generation != _loadGeneration || stream != _streamGeneration || _closing) return;
             // L'ancienne session (et son transcodage) est close sur le serveur.
             EndServerSession(plan, position);
@@ -1307,8 +1373,15 @@ public sealed partial class PlayerWindow : Window
         {
             if (generation != _loadGeneration || stream != _streamGeneration || _closing) return;
             // Le flux actuel continue : on le garde plutôt que d'interrompre la lecture.
-            AppLog.Warn("player", $"Changement de piste impossible : {e.Message}");
+            AppLog.Warn("player", $"{failureLabel} : {e.Message}");
+            _pendingSeek = null;
+            _position = _mpv.Position;
+            UpdateTimes();
             Preparing.Visibility = Visibility.Collapsed;
+        }
+        finally
+        {
+            _reloadingCount--;
         }
     }
 
@@ -1595,7 +1668,7 @@ public sealed partial class PlayerWindow : Window
                 RequestClose();
                 break;
             case "Seek" when seek is { } position:
-                _mpv.Seek(position);
+                SeekTo(position);
                 // Position à jour tout de suite pour l'appareil qui pilote, sans attendre le rapport suivant.
                 if (_plan != null && _started) _ = AppServices.Playback!.ReportProgressAsync(_plan, position, _paused);
                 break;
@@ -1750,6 +1823,9 @@ public sealed partial class PlayerWindow : Window
     private void ShowError(string message, string? detail)
     {
         _startupTimer.Stop();
+        _seekWaiting = false;
+        _seekTimer.Stop();
+        _pendingSeek = null;
         Preparing.Visibility = Visibility.Collapsed;
         SetOverlayVisible(true);
         ErrorText.Text = message;
@@ -1784,6 +1860,8 @@ public sealed partial class PlayerWindow : Window
         if (_sync != null && !_stoppedByParty) _ = WatchParty.StopForAllAsync();
         WatchParty.Changed -= UpdatePartyBadge;
         _syncTimer.Stop();
+        _seekWaiting = false;
+        _seekTimer.Stop();
         _hideTimer.Stop();
         _cursorTimer.Stop();
         _overlayTimer.Stop();
