@@ -3,6 +3,17 @@
 Texte montré aux utilisateurs : fenêtre de mise à jour, release GitHub et Microsoft Store (1 500 caractères au
 plus). Écrire la section de la version à venir avant de publier : `publish.sh` refuse de publier sans elle.
 
+## 1.1.23
+
+- Avancer ou reculer dans une vidéo convertie par le serveur fonctionne enfin : la lecture repart à l'endroit choisi
+- Démarrage plus rapide : l'accueil apparaît dès qu'il est prêt
+- Supprimer un téléchargement peut être annulé pendant quelques secondes
+- Lecteurs d'écran (Narrateur, NVDA) : les boutons sont annoncés par leur nom
+- La barre d'espace active le bouton sélectionné au lieu de mettre en pause
+- Textes secondaires plus lisibles, et prise en compte du mode Contraste élevé de Windows
+- Avertissement à la connexion quand le serveur n'est pas en HTTPS
+- Sécurité : seules les bandes-annonces web s'ouvrent, et la mise à jour automatique est mieux protégée
+
 ## 1.1.22
 
 - Correctif de sécurité : mise à jour de .NET (faille du décodage Brotli, CVE-2026-111497)
