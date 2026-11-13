@@ -60,8 +60,21 @@ class DownloadsRepository {
   StreamSubscription<TransferUpdate>? _subscription;
 
   static const _dir = 'downloads';
-  static String _posterTask(String id) => '$id~poster';
-  static String _backdropTask(String id) => '$id~backdrop';
+
+  String get _accountDir => accountId.replaceAll(RegExp(r'[:\\/*?"<>|]'), '_');
+  String _taskId(String itemId) => '$accountId|$itemId';
+  String _posterTask(String itemId) => '${_taskId(itemId)}~poster';
+  String _backdropTask(String itemId) => '${_taskId(itemId)}~backdrop';
+  String _posterPath(String itemId) => '$_dir/$_accountDir/$itemId-poster.webp';
+  String _backdropPath(String itemId) => '$_dir/$_accountDir/$itemId-backdrop.webp';
+
+  Future<DownloadRow?> _findRow(String itemId) => (_db.select(
+    _db.downloads,
+  )..where((t) => t.itemId.equals(itemId) & t.accountId.equals(accountId))).getSingleOrNull();
+
+  /// Vrai pour les lignes créées avant le cloisonnement par compte (v3).
+  bool _isLegacy(DownloadRow row) => !row.filePath.startsWith('$_dir/$_accountDir/');
+  String _videoTaskFor(DownloadRow row) => _isLegacy(row) ? row.itemId : _taskId(row.itemId);
 
   void dispose() => unawaited(_subscription?.cancel());
 
@@ -103,9 +116,7 @@ class DownloadsRepository {
 
   /// Fichier complet de [itemId], s'il existe encore sur l'appareil.
   Future<LocalMedia?> local(String itemId) async {
-    final row = await (_db.select(
-      _db.downloads,
-    )..where((t) => t.itemId.equals(itemId) & t.accountId.equals(accountId))).getSingleOrNull();
+    final row = await _findRow(itemId);
     if (row == null) return null;
     if (DownloadStatus.parse(row.status) != DownloadStatus.complete && !await _reconcile(row)) return null;
     final file = File('${await _transfers.rootPath()}/${row.filePath}');
@@ -127,7 +138,7 @@ class DownloadsRepository {
   Future<void> add(String itemId, {bool wifiOnly = true}) async {
     final media = this.media, playback = this.playback, images = this.images;
     if (media == null || playback == null || images == null) throw StateError(L.t('Connexion requise'));
-    final existing = await (_db.select(_db.downloads)..where((t) => t.itemId.equals(itemId))).getSingleOrNull();
+    final existing = await _findRow(itemId);
     if (existing != null && DownloadStatus.parse(existing.status) != DownloadStatus.failed) return;
 
     final (dto, info) = await (media.itemRaw(itemId), playback.downloadInfo(itemId)).wait;
@@ -135,7 +146,7 @@ class DownloadsRepository {
     if (plan.method != PlayMethod.directPlay) throw StateError(L.t('Fichier non téléchargeable'));
     final item = MediaMapper.fromDto(dto);
     final ext = fileExtension(plan.container);
-    final path = '$_dir/$itemId.$ext';
+    final path = '$_dir/$_accountDir/$itemId.$ext';
 
     await _db
         .into(_db.downloads)
@@ -154,12 +165,13 @@ class DownloadsRepository {
             filePath: path,
             sizeBytes: Value(info.mediaSources?.firstOrNull?.size ?? 0),
             status: DownloadStatus.queued.name,
+            wifiOnly: Value(wifiOnly),
             createdAt: DateTime.now(),
           ),
         );
     AppLog.i('downloads', 'Téléchargement de « ${item.name} » (${plan.container ?? '?'})');
     await _transfers.start(
-      taskId: itemId,
+      taskId: _taskId(itemId),
       url: plan.streamUrl,
       relativePath: path,
       headers: headers,
@@ -174,14 +186,14 @@ class DownloadsRepository {
       await _transfers.start(
         taskId: _posterTask(itemId),
         url: images.image(poster, logicalWidth: 240, devicePixelRatio: 3),
-        relativePath: '$_dir/$itemId-poster.webp',
+        relativePath: _posterPath(itemId),
       );
     }
     if (backdrop != null) {
       await _transfers.start(
         taskId: _backdropTask(itemId),
         url: images.image(backdrop, logicalWidth: 640, devicePixelRatio: 2),
-        relativePath: '$_dir/$itemId-backdrop.webp',
+        relativePath: _backdropPath(itemId),
       );
     }
   }
@@ -196,23 +208,26 @@ class DownloadsRepository {
     }
   }
 
-  Future<void> pause(String itemId) => _transfers.pause(itemId);
+  Future<void> pause(String itemId) async {
+    final row = await _findRow(itemId);
+    if (row != null) await _transfers.pause(_videoTaskFor(row));
+  }
 
   Future<void> resume(String itemId) async {
-    final row = await (_db.select(_db.downloads)..where((t) => t.itemId.equals(itemId))).getSingleOrNull();
+    final row = await _findRow(itemId);
     if (row == null) return;
     if (DownloadStatus.parse(row.status) == DownloadStatus.failed) {
-      // Échec définitif : on recommence depuis le début.
+      // Échec définitif : on recommence depuis le début en gardant le choix réseau.
       await _delete(row, keepRow: false);
-      await add(itemId);
+      await add(itemId, wifiOnly: row.wifiOnly);
       return;
     }
-    await _transfers.resume(itemId);
+    await _transfers.resume(_videoTaskFor(row));
   }
 
   /// Annule (si en cours) et supprime fichiers et fiche.
   Future<void> remove(String itemId) async {
-    final row = await (_db.select(_db.downloads)..where((t) => t.itemId.equals(itemId))).getSingleOrNull();
+    final row = await _findRow(itemId);
     if (row != null) await _delete(row, keepRow: false);
   }
 
@@ -230,7 +245,11 @@ class DownloadsRepository {
   }
 
   Future<void> _delete(DownloadRow row, {required bool keepRow}) async {
-    for (final id in [row.itemId, _posterTask(row.itemId), _backdropTask(row.itemId)]) {
+    final legacy = _isLegacy(row);
+    final taskIds = legacy
+        ? [row.itemId, '${row.itemId}~poster', '${row.itemId}~backdrop']
+        : [_taskId(row.itemId), _posterTask(row.itemId), _backdropTask(row.itemId)];
+    for (final id in taskIds) {
       try {
         await _transfers.cancel(id);
       } catch (_) {}
@@ -240,8 +259,8 @@ class DownloadsRepository {
       row.filePath,
       row.posterPath,
       row.backdropPath,
-      '$_dir/${row.itemId}-poster.webp',
-      '$_dir/${row.itemId}-backdrop.webp',
+      legacy ? '$_dir/${row.itemId}-poster.webp' : _posterPath(row.itemId),
+      legacy ? '$_dir/${row.itemId}-backdrop.webp' : _backdropPath(row.itemId),
     ]) {
       if (p == null) continue;
       try {
@@ -249,7 +268,9 @@ class DownloadsRepository {
         if (f.existsSync()) f.deleteSync();
       } catch (_) {}
     }
-    if (!keepRow) await (_db.delete(_db.downloads)..where((t) => t.itemId.equals(row.itemId))).go();
+    if (!keepRow) {
+      await (_db.delete(_db.downloads)..where((t) => t.itemId.equals(row.itemId) & t.accountId.equals(accountId))).go();
+    }
   }
 
   // ------------------------------------------------------------------ Suivi des transferts
@@ -277,7 +298,7 @@ class DownloadsRepository {
   Future<bool> _reconcile(DownloadRow row) async {
     TransferStatus? status;
     try {
-      status = await _transfers.statusOf(row.itemId);
+      status = await _transfers.statusOf(_videoTaskFor(row));
     } catch (_) {}
     final file = File('${await _transfers.rootPath()}/${row.filePath}');
     final complete =
@@ -291,21 +312,33 @@ class DownloadsRepository {
           };
     if (next != null && next.name != row.status) {
       AppLog.i('downloads', 'État rattrapé pour ${row.itemId} : ${next.name}');
-      await (_db.update(_db.downloads)..where((t) => t.itemId.equals(row.itemId))).write(
+      await (_db.update(
+        _db.downloads,
+      )..where((t) => t.itemId.equals(row.itemId) & t.accountId.equals(accountId))).write(
         DownloadsCompanion(status: Value(next.name), progress: complete ? const Value(1) : const Value.absent()),
       );
     }
     return complete && file.existsSync();
   }
 
+  /// Sépare `<accountId>|<itemId>` ; retourne `null` en compte pour les anciens identifiants.
+  static (String?, String) _parseTaskId(String taskId) {
+    final sep = taskId.lastIndexOf('|');
+    if (sep < 0) return (null, taskId);
+    return (taskId.substring(0, sep), taskId.substring(sep + 1));
+  }
+
   Future<void> _onUpdate(TransferUpdate u) async {
-    final id = u.taskId;
-    if (id.endsWith('~poster') || id.endsWith('~backdrop')) {
+    final (taskAccountId, rawId) = _parseTaskId(u.taskId);
+    if (taskAccountId != null && taskAccountId != accountId) return;
+    if (rawId.endsWith('~poster') || rawId.endsWith('~backdrop')) {
       if (u.status != TransferStatus.complete) return;
-      final itemId = id.substring(0, id.lastIndexOf('~'));
-      final poster = id.endsWith('~poster');
-      final path = '$_dir/$itemId-${poster ? 'poster' : 'backdrop'}.webp';
-      await (_db.update(_db.downloads)..where((t) => t.itemId.equals(itemId))).write(
+      final itemId = rawId.substring(0, rawId.lastIndexOf('~'));
+      final poster = rawId.endsWith('~poster');
+      final path = taskAccountId == null
+          ? '$_dir/$itemId-${poster ? 'poster' : 'backdrop'}.webp'
+          : (poster ? _posterPath(itemId) : _backdropPath(itemId));
+      await (_db.update(_db.downloads)..where((t) => t.itemId.equals(itemId) & t.accountId.equals(accountId))).write(
         poster ? DownloadsCompanion(posterPath: Value(path)) : DownloadsCompanion(backdropPath: Value(path)),
       );
       return;
@@ -319,9 +352,9 @@ class DownloadsRepository {
       TransferStatus.canceled || null => null,
     };
     if (u.status == TransferStatus.canceled) return;
-    if (status == DownloadStatus.complete) AppLog.i('downloads', 'Téléchargement terminé ($id)');
-    if (status == DownloadStatus.failed) AppLog.w('downloads', 'Téléchargement en échec ($id)');
-    await (_db.update(_db.downloads)..where((t) => t.itemId.equals(id))).write(
+    if (status == DownloadStatus.complete) AppLog.i('downloads', 'Téléchargement terminé ($rawId)');
+    if (status == DownloadStatus.failed) AppLog.w('downloads', 'Téléchargement en échec ($rawId)');
+    await (_db.update(_db.downloads)..where((t) => t.itemId.equals(rawId) & t.accountId.equals(accountId))).write(
       DownloadsCompanion(
         status: status == null ? const Value.absent() : Value(status.name),
         progress: status == DownloadStatus.complete
@@ -332,7 +365,9 @@ class DownloadsRepository {
       ),
     );
     if (status == null && u.progress != null) {
-      await (_db.update(_db.downloads)..where((t) => t.itemId.equals(id) & t.status.equals(DownloadStatus.queued.name)))
+      await (_db.update(_db.downloads)..where(
+            (t) => t.itemId.equals(rawId) & t.accountId.equals(accountId) & t.status.equals(DownloadStatus.queued.name),
+          ))
           .write(DownloadsCompanion(status: Value(DownloadStatus.running.name)));
     }
   }
