@@ -5,6 +5,7 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using OptiFin.App.Controls;
@@ -774,6 +775,10 @@ public sealed partial class PlayerWindow : Window
     {
         var ctrl = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         if (ctrl) return;
+        // Espace / Entrée laissés aux contrôles interactifs focalisés (bouton, curseur, saisie, liste).
+        if (e.Key is VirtualKey.Space or VirtualKey.Enter && Content?.XamlRoot is { } root &&
+            FocusManager.GetFocusedElement(root) is ButtonBase or Slider or TextBox or SelectorItem or MenuFlyoutItemBase)
+            return;
         switch (e.Key)
         {
             case VirtualKey.Space or VirtualKey.K:
@@ -1008,7 +1013,9 @@ public sealed partial class PlayerWindow : Window
             Style = OptiFin.App.Controls.Ui.StyleOf("OFIconButton"), Width = 36, Height = 36, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
             Content = new FontIcon { Glyph = _muted ? "" : "", FontSize = 15 },
         };
-        ToolTipService.SetToolTip(mute, L.T("Couper le son (M)"));
+        var muteTip = L.T("Couper le son (M)");
+        ToolTipService.SetToolTip(mute, muteTip);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(mute, muteTip);
         var value = new TextBlock { Width = 34, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, FontSize = 13, Text = $"{slider.Value:0}" };
         slider.ValueChanged += (_, e) =>
         {
@@ -1168,7 +1175,9 @@ public sealed partial class PlayerWindow : Window
         PlayIcon.FontSize = floating ? 30 : 48;
         SkipButton.Margin = floating ? new Thickness(0, 0, 12, 60) : new Thickness(0, 0, 32, 120);
         TitleText.FontSize = floating ? 13 : 17;
-        ToolTipService.SetToolTip(FloatingButton, floating ? L.T("Taille normale (P)") : L.T("Fenêtre flottante (P)"));
+        var floatingTip = floating ? L.T("Taille normale (P)") : L.T("Fenêtre flottante (P)");
+        ToolTipService.SetToolTip(FloatingButton, floatingTip);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(FloatingButton, floatingTip);
         UpNext.Visibility = floating ? Visibility.Collapsed : UpNext.Visibility;
         if (_stats && floating) ToggleStats(false);
         UpdateTitleInset();
@@ -1352,6 +1361,8 @@ public sealed partial class PlayerWindow : Window
         }
     }
 
+    private readonly List<(string Label, TextBlock Value)> _statsRows = [];
+
     /// <summary>Tableau technique mis à jour chaque seconde : flux, décodage, HDR, débit, cache, images perdues.</summary>
     private void UpdateStats()
     {
@@ -1365,7 +1376,7 @@ public sealed partial class PlayerWindow : Window
         {
             string? G(string name) => mpv.Get(name) is { Length: > 0 } v ? v : null;
             double? D(string name) => mpv.GetDouble(name);
-            var fr = CultureInfo.GetCultureInfo("fr-FR");
+            var culture = CultureInfo.CurrentUICulture;
             var w = G("video-params/w");
             var h = G("video-params/h");
             var fps = D("container-fps") ?? D("estimated-vf-fps");
@@ -1373,7 +1384,7 @@ public sealed partial class PlayerWindow : Window
             {
                 G("video-codec-name") ?? G("video-format"),
                 w != null && h != null ? $"{w}×{h}" : null,
-                fps is { } f ? $"{f.ToString("0.###", fr)} i/s" : null,
+                fps is { } f ? $"{f.ToString("0.###", culture)} i/s" : null,
                 G("video-params/pixelformat"),
             }.Where(x => x != null))));
             rows.Add((L.T("Couleurs"), $"{G("video-params/gamma") ?? "?"} · {G("video-params/primaries") ?? "?"}{(G("video-params/max-luma") is { } luma ? $" · {luma} nits" : "")}"));
@@ -1381,7 +1392,7 @@ public sealed partial class PlayerWindow : Window
             rows.Add((L.T("Décodage"), hw is null or "no" ? L.T("logiciel (processeur)") : L.F("matériel ({0})", hw)));
             rows.Add((L.T("Sortie"), $"{G("current-vo") ?? "?"} · {G("video-target-params/gamma") ?? "?"} · {G("video-target-params/primaries") ?? "?"}"));
             var display = D("display-fps");
-            rows.Add((L.T("Écran"), $"{G("osd-width")}×{G("osd-height")}{(display is { } d ? $" · {d.ToString("0.##", fr)} Hz" : "")}"));
+            rows.Add((L.T("Écran"), $"{G("osd-width")}×{G("osd-height")}{(display is { } d ? $" · {d.ToString("0.##", culture)} Hz" : "")}"));
             var channels = G("audio-params/channel-count");
             var rate = D("audio-params/samplerate");
             rows.Add(("Audio", string.Join(" · ", new[]
@@ -1404,27 +1415,36 @@ public sealed partial class PlayerWindow : Window
             var avsync = D("avsync");
             rows.Add((L.T("Images perdues"), $"{mpv.DroppedFrames}{(D("vo-delayed-frame-count") is { } late ? $" · {late:0} en retard" : "")}{(avsync is { } av ? $" · synchro A/V {av * 1000:0} ms" : "")}"));
         }
-        StatsGrid.Children.Clear();
-        StatsGrid.RowDefinitions.Clear();
-        for (var i = 0; i < rows.Count; i++)
+        var sameLabels = _statsRows.Count == rows.Count;
+        for (var i = 0; sameLabels && i < rows.Count; i++)
+            sameLabels = _statsRows[i].Label == rows[i].Label;
+        if (!sameLabels)
         {
-            StatsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            if (string.IsNullOrWhiteSpace(rows[i].Value)) rows[i] = (rows[i].Label, "—");
-            var label = new TextBlock { Text = rows[i].Label, FontSize = 12, Foreground = OptiFin.App.Controls.Ui.Res("OFTextTertiaryBrush") };
-            var value = new TextBlock { Text = rows[i].Value, FontSize = 12, FontFamily = new FontFamily("Cascadia Mono, Consolas"), TextWrapping = TextWrapping.Wrap, MaxWidth = 460 };
-            Grid.SetRow(label, i);
-            Grid.SetRow(value, i);
-            Grid.SetColumn(value, 1);
-            StatsGrid.Children.Add(label);
-            StatsGrid.Children.Add(value);
+            _statsRows.Clear();
+            StatsGrid.Children.Clear();
+            StatsGrid.RowDefinitions.Clear();
+            for (var i = 0; i < rows.Count; i++)
+            {
+                StatsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                var label = new TextBlock { Text = rows[i].Label, FontSize = 12, Foreground = OptiFin.App.Controls.Ui.Res("OFTextTertiaryBrush") };
+                var value = new TextBlock { FontSize = 12, FontFamily = new FontFamily("Cascadia Mono, Consolas"), TextWrapping = TextWrapping.Wrap, MaxWidth = 460 };
+                Grid.SetRow(label, i);
+                Grid.SetRow(value, i);
+                Grid.SetColumn(value, 1);
+                StatsGrid.Children.Add(label);
+                StatsGrid.Children.Add(value);
+                _statsRows.Add((rows[i].Label, value));
+            }
         }
+        for (var i = 0; i < rows.Count; i++)
+            _statsRows[i].Value.Text = string.IsNullOrWhiteSpace(rows[i].Value) ? "—" : rows[i].Value;
     }
 
     private double _subtitleDelay;
     private double _audioDelay;
 
     private static string Seconds(double value) =>
-        value == 0 ? "aucun" : (value > 0 ? "+" : "−") + Math.Abs(value).ToString("0.0", CultureInfo.GetCultureInfo("fr-FR")) + " s";
+        value == 0 ? "aucun" : (value > 0 ? "+" : "−") + Math.Abs(value).ToString("0.0", CultureInfo.CurrentUICulture) + " s";
 
     private static MenuFlyoutSubItem DelayMenu(string title, string hint, Func<double> current, Action<double> set)
     {
@@ -1433,7 +1453,7 @@ public sealed partial class PlayerWindow : Window
         menu.Items.Add(new MenuFlyoutSeparator());
         foreach (var step in new[] { -1.0, -0.5, -0.1, 0.1, 0.5, 1.0 })
         {
-            var item = new MenuFlyoutItem { Text = (step > 0 ? "+" : "−") + Math.Abs(step).ToString("0.0", CultureInfo.GetCultureInfo("fr-FR")) + " s" };
+            var item = new MenuFlyoutItem { Text = (step > 0 ? "+" : "−") + Math.Abs(step).ToString("0.0", CultureInfo.CurrentUICulture) + " s" };
             item.Click += (_, _) => set(Math.Round(current() + step, 2));
             menu.Items.Add(item);
         }
@@ -1602,7 +1622,7 @@ public sealed partial class PlayerWindow : Window
         var speed = new MenuFlyoutSubItem { Text = L.T("Vitesse") };
         foreach (var s in new[] { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 })
         {
-            var item = new MenuFlyoutItem { Text = s == 1 ? L.T("Normale") : $"{s.ToString("0.##", CultureInfo.GetCultureInfo("fr-FR"))}×" };
+            var item = new MenuFlyoutItem { Text = s == 1 ? L.T("Normale") : $"{s.ToString("0.##", CultureInfo.CurrentUICulture)}×" };
             item.Click += (_, _) => SetSpeed(s);
             speed.Items.Add(item);
         }

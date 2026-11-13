@@ -1,6 +1,9 @@
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Navigation;
 using OptiFin.App.Controls;
 using OptiFin.App.Player;
 using OptiFin.App.Services;
@@ -13,6 +16,7 @@ namespace OptiFin.App.Pages;
 public sealed partial class DownloadsPage : Page
 {
     private readonly Dictionary<string, (ProgressBar Bar, TextBlock Detail)> _live = [];
+    private readonly Dictionary<string, (DispatcherQueueTimer Timer, Border Banner)> _pendingDeletes = [];
     private string _shown = "";
 
     public DownloadsPage()
@@ -25,15 +29,21 @@ public sealed partial class DownloadsPage : Page
             AppServices.Downloads.Changed += OnChanged;
             Refresh();
         };
-        Unloaded += (_, _) => AppServices.Downloads.Changed -= OnChanged;
+        Unloaded += (_, _) =>
+        {
+            AppServices.Downloads.Changed -= OnChanged;
+            FlushPendingDeletes();
+        };
     }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e) => FlushPendingDeletes();
 
     private void OnChanged() => DispatcherQueue.TryEnqueue(Refresh);
 
     /// <summary>Lignes refaites seulement si la liste ou un état change : sinon un clic pouvait tomber dans le vide.</summary>
     private void Refresh()
     {
-        var records = AppServices.Downloads.Records();
+        var records = AppServices.Downloads.Records().Where(r => !_pendingDeletes.ContainsKey(r.ItemId)).ToList();
         var signature = string.Join(";", records.Select(r => $"{r.ItemId}:{r.Status}"));
         if (signature != _shown)
         {
@@ -110,9 +120,73 @@ public sealed partial class DownloadsPage : Page
                 Action("", L.T("Réessayer"), () => AppServices.Downloads.Resume(r.ItemId));
                 break;
         }
-        Action("", L.T("Supprimer"), () => _ = AppServices.Downloads.DeleteAsync(r.ItemId));
+        Action("", L.T("Supprimer"), () => QueueDelete(r));
         Grid.SetColumn(actions, 2);
         row.Children.Add(actions);
         return row;
+    }
+
+    /// <summary>Masque le téléchargement aussitôt et laisse 5 s pour annuler avant la suppression réelle.</summary>
+    private void QueueDelete(DownloadRecord record)
+    {
+        if (_pendingDeletes.ContainsKey(record.ItemId)) return;
+        var undo = new Button
+        {
+            Content = L.T("Annuler"),
+            Style = Ui.StyleOf("OFSecondaryButton"),
+            Height = 36,
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(14, 0, 14, 0),
+        };
+        var content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 12,
+            Children =
+            {
+                new TextBlock { Text = L.T("Supprimé"), FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center },
+                new TextBlock { Text = record.Name, Style = Ui.StyleOf("OFCaption"), VerticalAlignment = VerticalAlignment.Center, MaxWidth = 240 },
+                undo,
+            },
+        };
+        var banner = new Border
+        {
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0xF2, 0x1C, 0x1C, 0x20)),
+            BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(22),
+            Padding = new Thickness(18, 8, 10, 8),
+            Child = content,
+        };
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(5);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => CommitDelete(record.ItemId);
+        undo.Click += (_, _) => CancelDelete(record.ItemId);
+        _pendingDeletes[record.ItemId] = (timer, banner);
+        UndoBanners.Children.Add(banner);
+        timer.Start();
+        Refresh();
+    }
+
+    private void CancelDelete(string itemId)
+    {
+        if (!_pendingDeletes.Remove(itemId, out var pending)) return;
+        pending.Timer.Stop();
+        UndoBanners.Children.Remove(pending.Banner);
+        Refresh();
+    }
+
+    private void CommitDelete(string itemId)
+    {
+        if (!_pendingDeletes.Remove(itemId, out var pending)) return;
+        pending.Timer.Stop();
+        UndoBanners.Children.Remove(pending.Banner);
+        _ = AppServices.Downloads.DeleteAsync(itemId);
+    }
+
+    private void FlushPendingDeletes()
+    {
+        foreach (var itemId in _pendingDeletes.Keys.ToList()) CommitDelete(itemId);
     }
 }

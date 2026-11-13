@@ -19,6 +19,10 @@
                            HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
                 <TextBlock x:Name="ServerInfo" Style="{StaticResource OFCaption}" HorizontalAlignment="Center"
                            Foreground="{StaticResource OFTextTertiaryBrush}" />
+                <TextBlock x:Name="InsecureWarning" Style="{StaticResource OFCaption}" HorizontalAlignment="Center"
+                           TextAlignment="Center" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="#FFFFB340"
+                           Visibility="Collapsed"
+                           Text="Connexion non chiffrée : mot de passe et jeton passent en clair sur le réseau." />
                 <Border CornerRadius="24" Padding="24,22,24,24" Margin="0,20,0,0" Background="#12FFFFFF"
                         BorderBrush="#22FFFFFF" BorderThickness="1">
                     <StackPanel x:Name="Form" Spacing="10" />
