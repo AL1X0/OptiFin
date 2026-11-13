@@ -101,33 +101,42 @@ public static partial class AppUpdater
         // L'installateur s'exécute tout seul : sans empreinte annoncée, rien ne garantit son contenu.
         if (update.Sha256 is not { } expected)
             throw new InvalidOperationException(L.T("Mise à jour impossible à vérifier : téléchargez-la sur la page GitHub d'OptiFin."));
-        var path = Path.Combine(Path.GetTempPath(), $"OptiFin-{update.Version}-setup.exe");
-        using (var response = await Http.GetAsync(update.Url, HttpCompletionOption.ResponseHeadersRead))
+        var dir = Path.Combine(Path.GetTempPath(), $"OptiFin-{Path.GetRandomFileName()}");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, $"OptiFin-{update.Version}-setup.exe");
+        try
         {
-            response.EnsureSuccessStatusCode();
-            var total = response.Content.Headers.ContentLength ?? update.Size;
-            await using var input = await response.Content.ReadAsStreamAsync();
-            await using var output = File.Create(path);
-            var buffer = new byte[1 << 16];
-            long done = 0;
-            int read;
-            while ((read = await input.ReadAsync(buffer)) > 0)
+            using (var response = await Http.GetAsync(update.Url, HttpCompletionOption.ResponseHeadersRead))
             {
-                await output.WriteAsync(buffer.AsMemory(0, read));
-                done += read;
-                if (total > 0) progress.Report((double)done / total);
+                response.EnsureSuccessStatusCode();
+                var total = response.Content.Headers.ContentLength ?? update.Size;
+                await using var input = await response.Content.ReadAsStreamAsync();
+                await using var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1 << 16, useAsync: true);
+                var buffer = new byte[1 << 16];
+                long done = 0;
+                int read;
+                while ((read = await input.ReadAsync(buffer)) > 0)
+                {
+                    await output.WriteAsync(buffer.AsMemory(0, read));
+                    done += read;
+                    if (total > 0) progress.Report((double)done / total);
+                }
             }
+            // Verrou maintenu en lecture seule (FileShare.Read) entre hachage et exécution : aucune
+            // écriture ni suppression possible entre-temps.
+            await using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, useAsync: true);
+            var actual = Convert.ToHexString(await SHA256.HashDataAsync(file));
+            if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(L.T("Installateur corrompu (empreinte inattendue) : téléchargement annulé."));
+            AppLog.Info("update", $"Installation de la version {update.Version}");
+            Process.Start(new ProcessStartInfo(path, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS") { UseShellExecute = true });
+            Environment.Exit(0);
         }
-        string actual;
-        await using (var file = File.OpenRead(path)) actual = Convert.ToHexString(await SHA256.HashDataAsync(file));
-        if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase))
+        catch
         {
-            File.Delete(path);
-            throw new InvalidOperationException(L.T("Installateur corrompu (empreinte inattendue) : téléchargement annulé."));
+            try { Directory.Delete(dir, recursive: true); } catch { }
+            throw;
         }
-        AppLog.Info("update", $"Installation de la version {update.Version}");
-        Process.Start(new ProcessStartInfo(path, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS") { UseShellExecute = true });
-        Environment.Exit(0);
     }
 }
 
