@@ -72,17 +72,16 @@ class _FakeMediaRepository extends MediaRepository {
 }
 
 class _FakeDownloadPlayback extends FakePlaybackRepository {
-  _FakeDownloadPlayback({PlaybackInfoResponse? info})
-      : _info = info,
-        super(({audioIndex, subtitleIndex, options}) => throw UnimplementedError());
+  _FakeDownloadPlayback({this.info})
+      : super(({audioIndex, subtitleIndex, options}) => throw UnimplementedError());
 
-  final PlaybackInfoResponse? _info;
+  final PlaybackInfoResponse? info;
   final downloadInfoCalls = <(String, String?)>[];
 
   @override
   Future<PlaybackInfoResponse> downloadInfo(String itemId, {String? mediaSourceId}) async {
     downloadInfoCalls.add((itemId, mediaSourceId));
-    return _info ?? response();
+    return info ?? response();
   }
 }
 
