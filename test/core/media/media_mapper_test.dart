@@ -142,6 +142,36 @@ void main() {
       }));
       expect(qualityBadges(item.streams), ['4K', 'Dolby Vision', 'Atmos', '7.1']);
     });
+
+    test('versions multiples : 2 sources → 2 versions, labels et streamsFor', () {
+      final sizeBytes = (18.4 * 1024 * 1024 * 1024).round();
+      final item = map(dtoJson(id: 'm', extra: {
+        'MediaSources': [
+          {
+            'Id': 's1',
+            'Name': '4K REMUX',
+            'Size': 50000000000,
+            'Container': 'mkv',
+            'MediaStreams': [videoStream(width: 3840, height: 2160, codec: 'hevc'), audioStream()],
+          },
+          {
+            'Id': 's2',
+            'Size': sizeBytes,
+            'Container': 'mp4',
+            'MediaStreams': [videoStream(width: 1920, height: 1080, codec: 'h264')],
+          },
+        ],
+      }));
+
+      expect(item.versions, hasLength(2));
+      expect(item.versions[0].id, 's1');
+      expect(item.versions[0].label, '4K REMUX');
+      expect(item.versions[1].id, 's2');
+      expect(item.versions[1].label, '1080p H264 · 18,4 Go');
+      expect(item.streamsFor('s2').single.codec, 'h264');
+      expect(item.streamsFor(null), item.streams);
+      expect(item.streamsFor('inconnue'), item.streams);
+    });
   });
 
   group('qualityBadges', () {

@@ -131,7 +131,7 @@ class _FeaturedCarouselState extends ConsumerState<FeaturedCarousel> {
   void _prefetchPlayback() {
     if (widget.items.isEmpty) return;
     final item = widget.items[_index];
-    if (item.kind.isPlayableVideo) ref.read(playbackPrefetchProvider(item.id));
+    if (item.kind.isPlayableVideo) ref.read(playbackPrefetchProvider((item.id, null)));
   }
 
   /// Précharge backdrop + logo de la page courante et des voisines (même clé de

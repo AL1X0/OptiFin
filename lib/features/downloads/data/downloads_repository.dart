@@ -135,18 +135,26 @@ class DownloadsRepository {
   // ------------------------------------------------------------------ Actions
 
   /// Télécharge le fichier d'origine de [itemId] (film ou épisode).
-  Future<void> add(String itemId, {bool wifiOnly = true}) async {
+  Future<void> add(String itemId, {bool wifiOnly = true, String? mediaSourceId}) async {
     final media = this.media, playback = this.playback, images = this.images;
     if (media == null || playback == null || images == null) throw StateError(L.t('Connexion requise'));
     final existing = await _findRow(itemId);
     if (existing != null && DownloadStatus.parse(existing.status) != DownloadStatus.failed) return;
 
-    final (dto, info) = await (media.itemRaw(itemId), playback.downloadInfo(itemId)).wait;
-    final plan = PlaybackRepository.planFromResponse(info, itemId: itemId, baseUrl: playback.baseUrl);
+    final (dto, info) = await (media.itemRaw(itemId), playback.downloadInfo(itemId, mediaSourceId: mediaSourceId)).wait;
+    final plan = PlaybackRepository.planFromResponse(
+      info,
+      itemId: itemId,
+      baseUrl: playback.baseUrl,
+      mediaSourceId: mediaSourceId,
+    );
     if (plan.method != PlayMethod.directPlay) throw StateError(L.t('Fichier non téléchargeable'));
     final item = MediaMapper.fromDto(dto);
     final ext = fileExtension(plan.container);
     final path = '$_dir/$_accountDir/$itemId.$ext';
+    final source = mediaSourceId == null
+        ? info.mediaSources?.firstOrNull
+        : (info.mediaSources?.where((s) => s.id == mediaSourceId).firstOrNull ?? info.mediaSources?.firstOrNull);
 
     await _db
         .into(_db.downloads)
@@ -163,7 +171,7 @@ class DownloadsRepository {
             itemJson: jsonEncode(dto.toJson()),
             playbackJson: jsonEncode(info.toJson()),
             filePath: path,
-            sizeBytes: Value(info.mediaSources?.firstOrNull?.size ?? 0),
+            sizeBytes: Value(source?.size ?? 0),
             status: DownloadStatus.queued.name,
             wifiOnly: Value(wifiOnly),
             createdAt: DateTime.now(),

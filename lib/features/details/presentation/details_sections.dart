@@ -385,16 +385,17 @@ class SimilarSection extends ConsumerWidget {
 }
 
 /// Informations techniques : vidéo + pistes audio.
-class TechnicalSection extends StatelessWidget {
+class TechnicalSection extends ConsumerWidget {
   const TechnicalSection({super.key, required this.item});
 
   final MediaItem item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final gutter = OFSpacing.gutterOf(context);
-    final video = item.streams.where((s) => s.isVideo).firstOrNull;
-    final audios = item.streams.where((s) => !s.isVideo).toList();
+    final streams = item.streamsFor(ref.watch(selectedVersionProvider(item.id)));
+    final video = streams.where((s) => s.isVideo).firstOrNull;
+    final audios = streams.where((s) => !s.isVideo).toList();
 
     String videoLine(StreamSummary v) => [
       v.codec.toUpperCase(),

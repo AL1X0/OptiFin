@@ -94,6 +94,7 @@ class PlaybackPreparer {
     bool explicitTracks = false,
     int? audioIndex,
     int? subtitleIndex,
+    String? mediaSourceId,
     EnginePreference? preference,
   }) async {
     final downloaded = probe == null ? await local?.call(itemId) : null;
@@ -116,6 +117,7 @@ class PlaybackPreparer {
         await repository.prepare(
           itemId: itemId,
           start: start,
+          mediaSourceId: mediaSourceId,
           maxStreamingBitrate: maxBitrate,
           options: analysisEngine == EngineKind.native
               ? PlaybackRequestOptions(deviceProfile: nativeDeviceProfile(device, maxStreamingBitrate: maxBitrate))
@@ -134,7 +136,7 @@ class PlaybackPreparer {
       audioIndex: audio,
       subtitleIndex: subtitle,
       start: start,
-      mediaSourceId: analysis.mediaSourceId,
+      mediaSourceId: mediaSourceId ?? analysis.mediaSourceId,
       probeEngine: probe == null ? analysisEngine : null,
     );
   }

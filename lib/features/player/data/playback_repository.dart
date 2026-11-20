@@ -72,12 +72,13 @@ class PlaybackRepository implements PlaybackReportSink {
       start: start,
       requestedAudio: audioIndex,
       requestedSubtitle: subtitleIndex,
+      mediaSourceId: mediaSourceId,
     );
   }
 
   /// Réponse `PlaybackInfo` brute pour un téléchargement : profil mpv (tout en lecture
   /// directe), débit illimité — le fichier d'origine, conservé tel quel.
-  Future<PlaybackInfoResponse> downloadInfo(String itemId) async {
+  Future<PlaybackInfoResponse> downloadInfo(String itemId, {String? mediaSourceId}) async {
     const unlimited = 400000000;
     final o = PlaybackRequestOptions.mpv(unlimited);
     try {
@@ -86,6 +87,7 @@ class PlaybackRepository implements PlaybackReportSink {
         body: PlaybackInfoDto.fromJson({
           'UserId': userId,
           'MaxStreamingBitrate': unlimited,
+          'MediaSourceId': ?mediaSourceId,
           'DeviceProfile': o.deviceProfile,
           'EnableDirectPlay': true,
           'EnableDirectStream': false,
@@ -105,12 +107,16 @@ class PlaybackRepository implements PlaybackReportSink {
     Duration start = Duration.zero,
     int? requestedAudio,
     int? requestedSubtitle,
+    String? mediaSourceId,
   }) {
     final code = response.errorCode;
     if (code != null && code != PlaybackInfoResponseErrorCode.$unknown) {
       throw PlaybackDeniedFailure(code.toString());
     }
-    final source = response.mediaSources?.firstOrNull;
+    final sources = response.mediaSources;
+    final source = mediaSourceId == null
+        ? sources?.firstOrNull
+        : (sources?.where((s) => s.id == mediaSourceId).firstOrNull ?? sources?.firstOrNull);
     if (source == null) throw const PlaybackDeniedFailure('NoCompatibleStream');
 
     final PlayMethod method;

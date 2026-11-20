@@ -3,7 +3,9 @@
 /// Ne contient que ce que l'UI affiche : les écrans ne manipulent jamais `BaseItemDto`.
 library;
 
+import '../../features/downloads/domain/download.dart';
 import '../l10n/l.dart';
+import 'quality_badges.dart';
 
 enum MediaKind {
   movie,
@@ -177,6 +179,41 @@ enum VideoRange { sdr, hlg, hdr10, hdr10Plus, dolbyVision }
 
 enum SpatialAudio { none, atmos, dtsX }
 
+/// Version (MediaSource) d'un film ou d'un épisode.
+class MediaVersion {
+  const MediaVersion({
+    required this.id,
+    this.name,
+    this.sizeBytes,
+    this.container,
+    this.streams = const [],
+  });
+
+  final String id;
+  final String? name;
+  final int? sizeBytes;
+  final String? container;
+  final List<StreamSummary> streams;
+
+  /// Nom renvoyé par le serveur, sinon résumé « 4K HEVC · 18,4 Go ».
+  String get label {
+    final n = name?.trim();
+    if (n != null && n.isNotEmpty) return n;
+    final video = streams.where((s) => s.isVideo).firstOrNull;
+    final res = video == null ? null : resolutionLabel(video.width, video.height);
+    final codec = video != null && video.codec.isNotEmpty ? video.codec.toUpperCase() : null;
+    final videoPart = [?res, ?codec].join(' ');
+    final sizePart = sizeBytes != null && sizeBytes! > 0 ? formatBytes(sizeBytes!) : null;
+    final parts = [
+      if (videoPart.isNotEmpty) videoPart,
+      ?sizePart,
+    ];
+    if (parts.isNotEmpty) return parts.join(' · ');
+    if (container != null && container!.isNotEmpty) return container!.toUpperCase();
+    return id;
+  }
+}
+
 class MediaItem {
   const MediaItem({
     required this.id,
@@ -208,6 +245,7 @@ class MediaItem {
     this.childCount,
     this.libraryType,
     this.streams = const [],
+    this.versions = const [],
     this.primary,
     this.backdrops = const [],
     this.logo,
@@ -248,6 +286,7 @@ class MediaItem {
   final int? childCount;
   final LibraryType? libraryType;
   final List<StreamSummary> streams;
+  final List<MediaVersion> versions;
 
   final ImageRef? primary;
   final List<ImageRef> backdrops;
@@ -263,6 +302,12 @@ class MediaItem {
 
   Duration? get runtime => runTimeTicks == null ? null : Duration(microseconds: runTimeTicks! ~/ 10);
   Duration get resumePosition => Duration(microseconds: user.positionTicks ~/ 10);
+
+  /// Flux de la version demandée, sinon [streams].
+  List<StreamSummary> streamsFor(String? versionId) {
+    if (versionId == null) return streams;
+    return versions.where((v) => v.id == versionId).firstOrNull?.streams ?? streams;
+  }
 
   /// Image de fond immersive : backdrop propre, sinon hérité, sinon vignette.
   ImageRef? get backdrop => backdrops.firstOrNull ?? parentBackdrop ?? thumb ?? parentThumb;
@@ -316,6 +361,7 @@ class MediaItem {
     childCount: childCount,
     libraryType: libraryType,
     streams: streams,
+    versions: versions,
     primary: primary,
     backdrops: backdrops,
     logo: logo,

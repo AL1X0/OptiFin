@@ -164,6 +164,33 @@ void main() {
         reason: 'ni lecture directe ni URL de transcodage',
       );
     });
+
+    test('mediaSourceId choisit la source correspondante, sinon la première', () {
+      final multi = PlaybackInfoResponse.fromJson({
+        'PlaySessionId': 'ps1',
+        'MediaSources': [
+          {
+            'Id': 'src1',
+            'Container': 'mkv',
+            'SupportsDirectPlay': true,
+            'MediaStreams': [stream(0, 'Video', codec: 'hevc')],
+          },
+          {
+            'Id': 'src2',
+            'Container': 'mp4',
+            'SupportsDirectPlay': true,
+            'MediaStreams': [stream(0, 'Video', codec: 'h264')],
+          },
+        ],
+      });
+      final p2 = PlaybackRepository.planFromResponse(multi, itemId: 'x', baseUrl: base, mediaSourceId: 'src2');
+      expect(p2.mediaSourceId, 'src2');
+      expect(p2.container, 'mp4');
+      expect(p2.streamUrl.queryParameters['mediaSourceId'], 'src2');
+
+      final fallback = PlaybackRepository.planFromResponse(multi, itemId: 'x', baseUrl: base, mediaSourceId: 'other');
+      expect(fallback.mediaSourceId, 'src1');
+    });
   });
 
   group('embeddedOrdinal', () {
@@ -199,6 +226,40 @@ void main() {
       expect((profile['DirectPlayProfiles'] as List<dynamic>).first['Type'], 'Video');
       expect(profile['Name'], 'OptiFin (mpv)');
       expect(profile['MaxStreamingBitrate'], defaultMaxStreamingBitrate);
+    });
+
+    test('envoie MediaSourceId et sélectionne la source demandée', () async {
+      final multiJson = {
+        'PlaySessionId': 'ps1',
+        'MediaSources': [
+          {
+            'Id': 'src1',
+            'Container': 'mkv',
+            'SupportsDirectPlay': true,
+            'MediaStreams': [stream(0, 'Video', codec: 'hevc')],
+          },
+          {
+            'Id': 'src2',
+            'Container': 'mp4',
+            'SupportsDirectPlay': true,
+            'MediaStreams': [stream(0, 'Video', codec: 'h264')],
+          },
+        ],
+      };
+      final adapter = FakeHttpAdapter({'POST http://s/Items/x/PlaybackInfo': FakeResponse(200, multiJson)});
+      final dio = createJellyfinDio(
+        baseUrl: Uri.parse('http://s'),
+        identity: const ClientIdentity(clientName: 'c', deviceName: 'd', deviceId: 'i', version: '1'),
+        tokenProvider: () => 't',
+      );
+      dio.httpClientAdapter = adapter;
+      final repo = PlaybackRepository(JellyfinClient(dio), userId: 'u', baseUrl: Uri.parse('http://s'));
+
+      final p = await repo.prepare(itemId: 'x', mediaSourceId: 'src2');
+      final body = jsonDecode(jsonEncode(adapter.requests.single.data)) as Map<String, dynamic>;
+      expect(body['MediaSourceId'], 'src2');
+      expect(p.mediaSourceId, 'src2');
+      expect(p.container, 'mp4');
     });
 
     // Régression : le serveur (.NET) répond 400 si un champ non-nullable reçoit null

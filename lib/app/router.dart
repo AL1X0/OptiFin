@@ -32,10 +32,16 @@ abstract final class Routes {
   static const logs = '/settings/logs';
 
   /// Lecteur plein écran ; `start` en millisecondes (absent = reprise serveur).
-  static String play(String itemId, {Duration? start}) => Uri(
-    path: '/play/$itemId',
-    queryParameters: start == null ? null : {'start': '${start.inMilliseconds}'},
-  ).toString();
+  static String play(String itemId, {Duration? start, String? mediaSourceId}) {
+    final query = <String, String>{
+      if (start != null) 'start': '${start.inMilliseconds}',
+      'source': ?mediaSourceId,
+    };
+    return Uri(
+      path: '/play/$itemId',
+      queryParameters: query.isEmpty ? null : query,
+    ).toString();
+  }
 }
 
 final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -148,6 +154,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootKey,
         pageBuilder: (_, s) {
           final startMs = int.tryParse(s.uri.queryParameters['start'] ?? '');
+          final source = s.uri.queryParameters['source'];
           return CustomTransitionPage<void>(
             key: s.pageKey,
             opaque: true,
@@ -159,6 +166,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               args: PlayerArgs(
                 s.pathParameters['id']!,
                 start: startMs == null ? null : Duration(milliseconds: startMs),
+                mediaSourceId: source,
               ),
             ),
           );

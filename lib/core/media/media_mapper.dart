@@ -123,6 +123,7 @@ abstract final class MediaMapper {
       childCount: dto.childCount ?? dto.recursiveItemCount,
       libraryType: libraryTypeOf(dto.collectionType),
       streams: _streams(dto),
+      versions: _versions(dto),
       primary: own(ImageKind.primary, 'Primary', blur?.primary),
       backdrops: backdrops,
       logo: logo,
@@ -184,33 +185,48 @@ abstract final class MediaMapper {
   };
 
   /// Flux de la première source (ou de l'élément si MediaSources n'est pas demandé).
-  static List<StreamSummary> _streams(BaseItemDto dto) {
-    final streams = dto.mediaSources?.firstOrNull?.mediaStreams ?? dto.mediaStreams ?? const <MediaStream>[];
+  static List<StreamSummary> _streams(BaseItemDto dto) =>
+      _mapStreams(dto.mediaSources?.firstOrNull?.mediaStreams ?? dto.mediaStreams ?? const <MediaStream>[]);
+
+  static List<MediaVersion> _versions(BaseItemDto dto) {
+    final sources = dto.mediaSources;
+    if (sources == null || sources.isEmpty) return const [];
     return [
-      for (final s in streams)
-        if (s.type == MediaStreamType.video)
-          StreamSummary.video(
-            codec: (s.codec ?? '').toLowerCase(),
-            width: s.width,
-            height: s.height,
-            bitDepth: s.bitDepth,
-            videoRange: videoRangeOf(s.videoRangeType),
-          )
-        else if (s.type == MediaStreamType.audio)
-          StreamSummary.audio(
-            codec: (s.codec ?? '').toLowerCase(),
-            profile: s.profile,
-            channels: s.channels,
-            language: s.language,
-            title: s.displayTitle,
-            spatial: switch (s.audioSpatialFormat) {
-              MediaStreamAudioSpatialFormat.dolbyAtmos => SpatialAudio.atmos,
-              MediaStreamAudioSpatialFormat.dtsx => SpatialAudio.dtsX,
-              _ => SpatialAudio.none,
-            },
-          ),
+      for (final (i, s) in sources.indexed)
+        MediaVersion(
+          id: s.id ?? '$i',
+          name: s.name,
+          sizeBytes: s.size,
+          container: s.container,
+          streams: _mapStreams(s.mediaStreams ?? const <MediaStream>[]),
+        ),
     ];
   }
+
+  static List<StreamSummary> _mapStreams(List<MediaStream> streams) => [
+    for (final s in streams)
+      if (s.type == MediaStreamType.video)
+        StreamSummary.video(
+          codec: (s.codec ?? '').toLowerCase(),
+          width: s.width,
+          height: s.height,
+          bitDepth: s.bitDepth,
+          videoRange: videoRangeOf(s.videoRangeType),
+        )
+      else if (s.type == MediaStreamType.audio)
+        StreamSummary.audio(
+          codec: (s.codec ?? '').toLowerCase(),
+          profile: s.profile,
+          channels: s.channels,
+          language: s.language,
+          title: s.displayTitle,
+          spatial: switch (s.audioSpatialFormat) {
+            MediaStreamAudioSpatialFormat.dolbyAtmos => SpatialAudio.atmos,
+            MediaStreamAudioSpatialFormat.dtsx => SpatialAudio.dtsX,
+            _ => SpatialAudio.none,
+          },
+        ),
+  ];
 
   static VideoRange videoRangeOf(MediaStreamVideoRangeType? t) => switch (t) {
     MediaStreamVideoRangeType.dovi ||
