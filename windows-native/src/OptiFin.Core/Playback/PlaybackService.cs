@@ -41,16 +41,19 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
         if (mediaSourceId != null) body["MediaSourceId"] = mediaSourceId;
         var response = await api.PostAsync($"Items/{itemId}/PlaybackInfo", JellyfinClient.Json(body),
             JellyfinJson.Default.PlaybackInfoResponse, ct: ct);
-        return PlanFromResponse(response, itemId, api.BaseUrl, start, audioIndex, subtitleIndex);
+        return PlanFromResponse(response, itemId, api.BaseUrl, start, audioIndex, subtitleIndex, mediaSourceId);
     }
 
     /// <summary>Réponse PlaybackInfo → plan de lecture (pur, testé).</summary>
     public static PlaybackPlan PlanFromResponse(PlaybackInfoResponse response, string itemId, Uri baseUrl, TimeSpan start,
-        int? requestedAudio = null, int? requestedSubtitle = null)
+        int? requestedAudio = null, int? requestedSubtitle = null, string? mediaSourceId = null)
     {
         if (!string.IsNullOrEmpty(response.ErrorCode) && response.ErrorCode != "Unknown")
             throw new ApiException(ApiErrorKind.PlaybackDenied, response.ErrorCode);
-        var source = response.MediaSources?.FirstOrDefault() ?? throw new ApiException(ApiErrorKind.PlaybackDenied, "NoCompatibleStream");
+        var sources = response.MediaSources;
+        var source = (mediaSourceId != null ? sources?.FirstOrDefault(s => s.Id == mediaSourceId) : null)
+                     ?? sources?.FirstOrDefault()
+                     ?? throw new ApiException(ApiErrorKind.PlaybackDenied, "NoCompatibleStream");
 
         PlayMethod method;
         Uri url;

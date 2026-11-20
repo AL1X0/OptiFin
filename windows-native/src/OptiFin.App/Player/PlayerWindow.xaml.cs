@@ -71,12 +71,14 @@ public sealed partial class PlayerWindow : Window
     /// <summary>Sous-titres déjà ajoutés à mpv pour le flux en cours : adresse → piste mpv.</summary>
     private readonly Dictionary<string, string> _addedSubtitles = [];
     private readonly IntPtr _hwnd;
+    private string? _mediaSourceId;
 
-    public PlayerWindow(MediaItem item, bool fromStart, PartyStart? party = null)
+    public PlayerWindow(MediaItem item, bool fromStart, PartyStart? party = null, string? mediaSourceId = null)
     {
         InitializeComponent();
         OptiFin.App.Controls.Ui.Translate(Root);
         _item = item;
+        _mediaSourceId = mediaSourceId;
         _hwnd = WindowNative.GetWindowHandle(this);
         SystemBackdrop = new TransparentBackdrop();
         // Barre de titre intégrée (déplacer, redimensionner, boutons de Windows). Pas de
@@ -270,8 +272,11 @@ public sealed partial class PlayerWindow : Window
             SetTitles(full);
             var settings = AppServices.Settings;
             // Pistes connues par la fiche : préférences demandées d'emblée (pas de 2e requête en transcodage).
-            var (hintAudio, hintSubtitle) = full.Tracks is { } tracks ? TrackPreferences.Preferred(tracks, settings) : (null, null);
-            var plan = await playback.PrepareAsync(full.Id, start, hintAudio, hintSubtitle, forceTranscode, settings.EffectiveMaxBitrate);
+            var sameSource = _mediaSourceId is null || full.Versions.FirstOrDefault()?.Id == _mediaSourceId;
+            var (hintAudio, hintSubtitle) = sameSource && full.Tracks is { } tracks
+                ? TrackPreferences.Preferred(tracks, settings)
+                : (null, null);
+            var plan = await playback.PrepareAsync(full.Id, start, hintAudio, hintSubtitle, forceTranscode, settings.EffectiveMaxBitrate, _mediaSourceId);
             if (Stale()) return;
             var (audio, subtitle) = TrackPreferences.Preferred(plan, settings);
             // Transcodage : les pistes sont choisies par le serveur ; si elles changent, nouvelle demande.
@@ -568,6 +573,7 @@ public sealed partial class PlayerWindow : Window
         UpNext.Visibility = Visibility.Collapsed;
         _startPosition = next.ResumePosition;
         _item = next;
+        _mediaSourceId = null;
         await StartAsync(next, next.ResumePosition);
     }
 
@@ -972,6 +978,7 @@ public sealed partial class PlayerWindow : Window
         UpNext.Visibility = Visibility.Collapsed;
         SkipButton.Visibility = Visibility.Collapsed;
         PreparingTitle.Text = item.Kind == MediaKind.Episode ? $"{item.SeriesName} · {item.EpisodeLabel}" : item.Name;
+        _mediaSourceId = null;
         _ = StartAsync(item, party.Start);
     }
 

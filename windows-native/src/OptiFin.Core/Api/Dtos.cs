@@ -117,6 +117,7 @@ public sealed class MediaStream
 public sealed class MediaSourceInfo
 {
     public string? Id { get; set; }
+    public string? Name { get; set; }
     public long? Size { get; set; }
     public string? Container { get; set; }
     public long? Bitrate { get; set; }
