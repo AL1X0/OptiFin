@@ -35,7 +35,7 @@ abstract final class Routes {
   static String play(String itemId, {Duration? start, String? mediaSourceId}) {
     final query = <String, String>{
       if (start != null) 'start': '${start.inMilliseconds}',
-      if (mediaSourceId != null) 'source': mediaSourceId,
+      'source': ?mediaSourceId,
     };
     return Uri(
       path: '/play/$itemId',
