@@ -62,6 +62,17 @@ data class StreamSummary(
     val title: String? = null,
 )
 
+/** Version (fichier) d'un élément Jellyfin lorsque plusieurs MediaSources sont présentes. */
+data class MediaVersion(
+    val id: String,
+    val name: String? = null,
+    val sizeBytes: Long? = null,
+    val container: String? = null,
+    val streams: List<StreamSummary> = emptyList(),
+) {
+    val label: String get() = MediaFormat.versionLabel(name, container, sizeBytes, streams)
+}
+
 /** Élément Jellyfin tel que l'interface l'affiche (découplé des DTO du serveur). */
 data class MediaItem(
     val id: String,
@@ -93,6 +104,7 @@ data class MediaItem(
     val childCount: Int? = null,
     val libraryType: LibraryType? = null,
     val streams: List<StreamSummary> = emptyList(),
+    val versions: List<MediaVersion> = emptyList(),
     val primary: ImageRef? = null,
     val backdrops: List<ImageRef> = emptyList(),
     val logo: ImageRef? = null,
@@ -127,6 +139,12 @@ data class MediaItem(
             if (parentIndexNumber == 0) return indexNumber?.let { L.f("Spécial {0}", it) } ?: L.t("Spécial")
             return listOfNotNull(parentIndexNumber?.let { "S$it" }, indexNumber?.let { "É$it" }).joinToString(" · ")
         }
+
+    /** Flux techniques pour la version demandée (ou la première / par défaut). */
+    fun streamsFor(versionId: String?): List<StreamSummary> =
+        (if (versionId != null) versions.firstOrNull { it.id == versionId }?.streams else null)
+            ?: versions.firstOrNull()?.streams
+            ?: streams
 }
 
 /** BaseItemDto → MediaItem (tolérant aux champs absents : le serveur ne renvoie que les Fields demandés). */
@@ -158,6 +176,15 @@ object MediaMapper {
             ImageRef(dto.seriesId, ImageKind.Primary, dto.seriesPrimaryImageTag, blurOf(blur?.primary, dto.seriesPrimaryImageTag))
         } else null
         val ud = dto.userData
+        val versions = dto.mediaSources.orEmpty().map { src ->
+            MediaVersion(
+                id = src.id ?: dto.id,
+                name = src.name,
+                sizeBytes = src.size,
+                container = src.container,
+                streams = streams(src.mediaStreams.orEmpty()),
+            )
+        }
         return MediaItem(
             id = dto.id,
             name = dto.name ?: "",
@@ -190,7 +217,8 @@ object MediaMapper {
             parentIndexNumber = dto.parentIndexNumber,
             childCount = dto.childCount ?: dto.recursiveItemCount,
             libraryType = libraryTypeOf(dto.collectionType),
-            streams = streams(dto),
+            streams = versions.firstOrNull()?.streams ?: streams(dto.mediaStreams.orEmpty()),
+            versions = versions,
             primary = own(ImageKind.Primary, "Primary", blur?.primary),
             backdrops = backdrops,
             logo = logo,
@@ -261,8 +289,7 @@ object MediaMapper {
         else -> VideoRange.Sdr
     }
 
-    private fun streams(dto: BaseItemDto): List<StreamSummary> {
-        val streams = dto.mediaSources?.firstOrNull()?.mediaStreams ?: dto.mediaStreams ?: emptyList()
+    private fun streams(streams: List<app.optifin.tv.core.api.MediaStream>): List<StreamSummary> {
         return streams.mapNotNull { s ->
             val codec = (s.codec ?: "").lowercase()
             when (s.type) {

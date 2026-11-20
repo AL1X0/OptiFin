@@ -65,7 +65,14 @@ data class PlayerUiState(
  * automatique si le moteur échoue avant la première image (autre moteur, puis transcodage),
  * rapports au serveur, pistes, segments, épisode suivant.
  */
-class PlayerController(private val context: Context, val itemId: String, private val fromStart: Boolean, private val partyMode: Boolean = false, private val startAtMs: Long? = null) {
+class PlayerController(
+    private val context: Context,
+    val itemId: String,
+    private val fromStart: Boolean,
+    private val partyMode: Boolean = false,
+    private val startAtMs: Long? = null,
+    private val mediaSourceId: String? = null,
+) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state
@@ -193,7 +200,7 @@ class PlayerController(private val context: Context, val itemId: String, private
             val settings = AppServices.settings.value
             val caps = AppServices.capabilities
             // Sonde : profil mpv (tout en lecture directe) pour connaître la source réelle.
-            val probe = playback.prepare(itemId, startMs, EngineDecision(EngineKind.Mpv, Delivery.DirectPlay, reason = "sonde"), caps, settings.effectiveMaxBitrate)
+            val probe = playback.prepare(itemId, startMs, EngineDecision(EngineKind.Mpv, Delivery.DirectPlay, reason = "sonde"), caps, settings.effectiveMaxBitrate, mediaSourceId = mediaSourceId)
             val (audio, subtitle) = PlaybackService.preferredTracks(probe, settings)
             val selection = EngineSelector.select(SelectionRequest(
                 source = probe.source, device = caps, audioIndex = audio, subtitleIndex = subtitle,
@@ -225,7 +232,7 @@ class PlayerController(private val context: Context, val itemId: String, private
             probe.audioIndex == audio && probe.subtitleIndex == subtitle) {
             probe
         } else {
-            playback.prepare(itemId, startMs, decision, AppServices.capabilities, settings.effectiveMaxBitrate, audio, subtitle, probe?.mediaSourceId ?: _state.value.plan?.mediaSourceId)
+            playback.prepare(itemId, startMs, decision, AppServices.capabilities, settings.effectiveMaxBitrate, audio, subtitle, mediaSourceId ?: probe?.mediaSourceId ?: _state.value.plan?.mediaSourceId)
         }
         AppLog.i("player", "« ${_state.value.item?.name} » → ${decision.label}${if (attempt > 0) " (repli n° $attempt)" else ""} : ${decision.reason}\n" +
             "  serveur : ${plan.method.label}, conteneur ${plan.container ?: "?"}, vidéo ${plan.videoCodec ?: "?"}, " +
@@ -507,7 +514,7 @@ class PlayerController(private val context: Context, val itemId: String, private
         scope.launch {
             try {
                 val settings = AppServices.settings.value
-                val fresh = AppServices.playback?.prepare(itemId, startMs, decision, AppServices.capabilities, settings.effectiveMaxBitrate, plan.audioIndex, null, plan.mediaSourceId) ?: return@launch
+                val fresh = AppServices.playback?.prepare(itemId, startMs, decision, AppServices.capabilities, settings.effectiveMaxBitrate, plan.audioIndex, null, mediaSourceId ?: plan.mediaSourceId) ?: return@launch
                 val newest = fresh.subtitleTracks.maxByOrNull { it.index }
                 launch(decision, plan.audioIndex, newest?.index)
             } catch (e: Exception) {

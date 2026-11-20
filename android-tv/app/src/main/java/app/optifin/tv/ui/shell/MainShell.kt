@@ -100,7 +100,13 @@ object Screens {
 }
 
 /** Actions de navigation communes aux écrans. */
-class AppNav(private val nav: NavHostController, val play: (String, Boolean) -> Unit, val addAccount: () -> Unit) {
+class AppNav(
+    private val nav: NavHostController,
+    private val onPlay: (String, Boolean, String?) -> Unit,
+    val addAccount: () -> Unit,
+) {
+    val play: (String, Boolean) -> Unit = { id, fromStart -> onPlay(id, fromStart, null) }
+    fun playVersion(id: String, fromStart: Boolean, sourceId: String?) = onPlay(id, fromStart, sourceId)
     fun details(id: String) = nav.navigate(Screens.details(id))
     fun person(id: String) = nav.navigate(Screens.person(id))
     fun library(id: String) = nav.navigate(Screens.library(id))
@@ -131,7 +137,7 @@ private val entries = listOf(
  */
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
-fun MainShell(launchItem: MutableStateFlow<String?>, onPlay: (String, Boolean) -> Unit, onAddAccount: () -> Unit) {
+fun MainShell(launchItem: MutableStateFlow<String?>, onPlay: (String, Boolean, String?) -> Unit, onAddAccount: () -> Unit) {
     val nav = rememberNavController()
     val appNav = remember(nav) { AppNav(nav, onPlay, onAddAccount) }
     val drawer = rememberDrawerState(DrawerValue.Closed)

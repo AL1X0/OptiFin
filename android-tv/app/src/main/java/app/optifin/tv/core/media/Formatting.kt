@@ -67,6 +67,31 @@ object MediaFormat {
 
     /** « 12,5 Mb/s ». */
     fun bitrate(bps: Long?): String? = bps?.let { if (it >= 10_000_000) "${it / 1_000_000} Mb/s" else "${"%.1f".format(if (L.isEnglish) Locale.US else Locale.FRANCE, it / 1e6)} Mb/s" }
+
+    /** « 18,4 Go » ou « 850 Mo ». */
+    fun fileSize(bytes: Long?): String? {
+        if (bytes == null || bytes <= 0) return null
+        val locale = if (L.isEnglish) Locale.US else Locale.FRANCE
+        return if (bytes >= 1_000_000_000L) {
+            val unit = if (L.isEnglish) "GB" else "Go"
+            "${"%.1f".format(locale, bytes / 1e9)} $unit"
+        } else {
+            val unit = if (L.isEnglish) "MB" else "Mo"
+            "${(bytes / 1_000_000L).coerceAtLeast(1)} $unit"
+        }
+    }
+
+    /** Libellé d'une version : nom du serveur, sinon « 2160p HEVC · 18,4 Go ». */
+    fun versionLabel(name: String?, container: String?, sizeBytes: Long?, streams: List<StreamSummary>): String {
+        name?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+        val video = streams.firstOrNull { it.isVideo }
+        val res = video?.height?.takeIf { it > 0 }?.let { "${it}p" }
+            ?: QualityBadges.resolutionLabel(video?.width, video?.height)
+        val codec = video?.codec?.takeIf { it.isNotEmpty() }?.uppercase()
+        val videoPart = listOfNotNull(res, codec).joinToString(" ").ifEmpty { container?.uppercase() }
+        val parts = listOfNotNull(videoPart?.takeIf { it.isNotEmpty() }, fileSize(sizeBytes))
+        return parts.joinToString(" · ").ifEmpty { L.t("Version") }
+    }
 }
 
 /** Badges qualité : résolution, dynamique, audio, canaux (un par catégorie). */

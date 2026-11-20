@@ -225,4 +225,59 @@ class CoreTest {
         assertTrue(logged.contains("\"AccessToken\":\"***\""))
         AppLog.clear()
     }
+
+    @Test
+    fun `plan de lecture retient la source demandée`() {
+        val response = PlaybackInfoResponse(
+            playSessionId = "ps",
+            mediaSources = listOf(
+                MediaSourceInfo(id = "src1", container = "mkv", supportsDirectPlay = true, mediaStreams = listOf(
+                    MediaStream(type = "Video", index = 0, codec = "h264"),
+                )),
+                MediaSourceInfo(id = "src2", container = "mp4", supportsDirectPlay = true, mediaStreams = listOf(
+                    MediaStream(type = "Video", index = 0, codec = "hevc"),
+                )),
+            ),
+        )
+        val selected = PlaybackService.planFromResponse(response, "item1", "https://h.fr/jf", 0, requestedMediaSourceId = "src2")
+        assertEquals("src2", selected.mediaSourceId)
+        assertEquals("hevc", selected.videoCodec)
+        assertEquals("mp4", selected.container)
+
+        val fallback = PlaybackService.planFromResponse(response, "item1", "https://h.fr/jf", 0, requestedMediaSourceId = "unknown")
+        assertEquals("src1", fallback.mediaSourceId)
+    }
+
+    @Test
+    fun `MediaItem avec plusieurs versions`() {
+        val dto = BaseItemDto(
+            id = "m1",
+            name = "Film",
+            type = "Movie",
+            mediaSources = listOf(
+                MediaSourceInfo(
+                    id = "v1",
+                    name = "Director's Cut",
+                    container = "mkv",
+                    mediaStreams = listOf(MediaStream(type = "Video", codec = "h264", width = 1920, height = 1080)),
+                ),
+                MediaSourceInfo(
+                    id = "v2",
+                    size = 18_400_000_000L,
+                    container = "mkv",
+                    mediaStreams = listOf(MediaStream(type = "Video", codec = "hevc", width = 3840, height = 2160)),
+                ),
+            ),
+        )
+        val item = MediaMapper.fromDto(dto)
+        assertEquals(2, item.versions.size)
+        assertEquals("v1", item.versions[0].id)
+        assertEquals("Director's Cut", item.versions[0].label)
+        assertEquals("v2", item.versions[1].id)
+        val expectedFallback = if (app.optifin.tv.core.L.isEnglish) "2160p HEVC · 18.4 GB" else "2160p HEVC · 18,4 Go"
+        assertEquals(expectedFallback, item.versions[1].label)
+        assertEquals("h264", item.streamsFor("v1").first().codec)
+        assertEquals("hevc", item.streamsFor("v2").first().codec)
+        assertEquals("h264", item.streamsFor(null).first().codec)
+    }
 }
