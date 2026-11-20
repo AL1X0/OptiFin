@@ -3,6 +3,10 @@
 Texte montré aux utilisateurs : fenêtre de mise à jour, release GitHub et Microsoft Store (1 500 caractères au
 plus). Écrire la section de la version à venir avant de publier : `publish.sh` refuse de publier sans elle.
 
+## 1.1.24
+
+- Correctif : OptiFin s'ouvre de nouveau (la version 1.1.23 se fermait aussitôt au lancement)
+
 ## 1.1.23
 
 - Avancer ou reculer dans une vidéo convertie par le serveur fonctionne enfin : la lecture repart à l'endroit choisi
