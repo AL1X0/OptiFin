@@ -3,6 +3,10 @@
 Texte montré aux utilisateurs : fenêtre de mise à jour, release GitHub et Microsoft Store (1 500 caractères au
 plus). Écrire la section de la version à venir avant de publier : `publish.sh` refuse de publier sans elle.
 
+## 1.1.25
+
+- Films en plusieurs versions (4K, 1080p, version longue…) : choisissez la version sur la fiche ; la lecture, les badges, les pistes et le téléchargement suivent votre choix
+
 ## 1.1.24
 
 - Correctif : OptiFin s'ouvre de nouveau (la version 1.1.23 se fermait aussitôt au lancement)
