@@ -105,7 +105,7 @@ class TvUiTest {
     fun `accueil, fiche et retour à la télécommande`() {
         compose.mainClock.autoAdvance = false
         compose.setContent {
-            OptiFinTheme { MainShell(MutableStateFlow(null), onPlay = { _, _ -> }, onAddAccount = {}) }
+            OptiFinTheme { MainShell(MutableStateFlow(null), onPlay = { _, _, _ -> }, onAddAccount = {}) }
         }
         waitMs(6000)
         capture("01-accueil")
@@ -139,7 +139,7 @@ class TvUiTest {
     @Composable
     private fun Screen(content: @Composable (app.optifin.tv.ui.shell.AppNav) -> Unit) {
         val nav = androidx.navigation.compose.rememberNavController()
-        val appNav = androidx.compose.runtime.remember { app.optifin.tv.ui.shell.AppNav(nav, { _, _ -> }, {}) }
+        val appNav = androidx.compose.runtime.remember { app.optifin.tv.ui.shell.AppNav(nav, { _, _, _ -> }, {}) }
         OptiFinTheme {
             androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().background(app.optifin.tv.ui.theme.OF.Background)) {
                 androidx.navigation.compose.NavHost(nav, startDestination = "x") { composable("x") { content(appNav) } }

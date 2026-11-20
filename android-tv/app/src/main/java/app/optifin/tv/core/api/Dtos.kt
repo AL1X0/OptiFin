@@ -95,6 +95,8 @@ data class MediaStream(
 @Serializable
 data class MediaSourceInfo(
     val id: String? = null,
+    val name: String? = null,
+    val size: Long? = null,
     val container: String? = null,
     val bitrate: Long? = null,
     val runTimeTicks: Long? = null,

@@ -57,7 +57,7 @@ class PlaybackService(private val api: JellyfinClient, private val userId: Strin
             if (mediaSourceId != null) put("MediaSourceId", mediaSourceId)
         }
         val response: PlaybackInfoResponse = api.post("Items/$itemId/PlaybackInfo", JellyfinClient.json(body))
-        return planFromResponse(response, itemId, api.baseUrl, startMs, audioIndex, subtitleIndex)
+        return planFromResponse(response, itemId, api.baseUrl, startMs, audioIndex, subtitleIndex, mediaSourceId)
     }
 
     companion object {
@@ -69,10 +69,14 @@ class PlaybackService(private val api: JellyfinClient, private val userId: Strin
             startMs: Long,
             requestedAudio: Int? = null,
             requestedSubtitle: Int? = null,
+            requestedMediaSourceId: String? = null,
         ): PlaybackPlan {
             val code = response.errorCode
             if (!code.isNullOrEmpty() && code != "Unknown") throw ApiException(ApiErrorKind.PlaybackDenied, code)
-            val source = response.mediaSources?.firstOrNull() ?: throw ApiException(ApiErrorKind.PlaybackDenied, "NoCompatibleStream")
+            val sources = response.mediaSources.orEmpty()
+            val source = (if (requestedMediaSourceId != null) sources.firstOrNull { it.id == requestedMediaSourceId } else null)
+                ?: sources.firstOrNull()
+                ?: throw ApiException(ApiErrorKind.PlaybackDenied, "NoCompatibleStream")
             val method: PlayMethod
             val url: String
             val transcoding = source.transcodingUrl

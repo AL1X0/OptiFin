@@ -140,9 +140,9 @@ private enum class Panel { Subtitles, Audio, Chapters, Settings, Speed, Subtitle
  * - panneaux à droite : sous-titres, audio, chapitres, réglages.
  */
 @Composable
-fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayItem: (String) -> Unit, party: Boolean = false, startAtMs: Long? = null) {
+fun PlayerScreen(itemId: String, fromStart: Boolean, onExit: () -> Unit, onPlayItem: (String) -> Unit, party: Boolean = false, startAtMs: Long? = null, mediaSourceId: String? = null) {
     val context = LocalContext.current
-    val controller = remember(itemId) { PlayerController(context, itemId, fromStart, party, startAtMs) }
+    val controller = remember(itemId, mediaSourceId) { PlayerController(context, itemId, fromStart, party, startAtMs, mediaSourceId) }
     val ui by controller.state.collectAsState()
     var visible by remember { mutableStateOf(true) }
     var panel by remember { mutableStateOf<Panel?>(null) }

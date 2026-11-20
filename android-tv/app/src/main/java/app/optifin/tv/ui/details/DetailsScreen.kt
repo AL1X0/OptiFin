@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -63,6 +64,7 @@ import androidx.tv.material3.Border
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
@@ -71,6 +73,7 @@ import app.optifin.tv.core.api.userMessage
 import app.optifin.tv.core.media.MediaFormat
 import app.optifin.tv.core.media.MediaItem
 import app.optifin.tv.core.media.MediaKind
+import app.optifin.tv.core.media.MediaVersion
 import app.optifin.tv.core.media.PersonCredit
 import app.optifin.tv.core.media.PersonKind
 import app.optifin.tv.core.media.QualityBadges
@@ -83,6 +86,7 @@ import app.optifin.tv.ui.components.CardStyle
 import app.optifin.tv.ui.components.ItemActionsDialog
 import app.optifin.tv.ui.components.MediaCard
 import app.optifin.tv.ui.components.MediaRow
+import app.optifin.tv.ui.components.MenuRow
 import app.optifin.tv.ui.components.ProgressLine
 import app.optifin.tv.ui.components.Skeleton
 import app.optifin.tv.ui.components.StatusMessage
@@ -119,6 +123,8 @@ fun DetailsScreen(id: String, nav: AppNav) {
     var error by remember(id) { mutableStateOf<String?>(null) }
     var actions by remember { mutableStateOf<MediaItem?>(null) }
     var overview by remember { mutableStateOf(false) }
+    var selectedVersionId by remember(id) { mutableStateOf<String?>(null) }
+    var versionPicker by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val images = AppServices.images
 
@@ -161,6 +167,8 @@ fun DetailsScreen(id: String, nav: AppNav) {
                 val pivot = remember { PivotSpec(0.12f) }
                 val firstFocus = remember { FocusRequester() }
                 val list = androidx.compose.foundation.lazy.rememberLazyListState()
+                val activeVersion = current.item.versions.firstOrNull { it.id == selectedVersionId } ?: current.item.versions.firstOrNull()
+                val activeStreams = current.item.streamsFor(activeVersion?.id)
                 CompositionLocalProvider(LocalBringIntoViewSpec provides pivot) {
                     LazyColumn(
                         Modifier.fillMaxSize().focusRestorer(firstFocus),
@@ -171,7 +179,15 @@ fun DetailsScreen(id: String, nav: AppNav) {
                         item(key = "header") {
                             // Retour sur les boutons de la fiche : la page remonte tout en haut.
                             Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { list.animateScrollToItem(0) } }) {
-                                Header(current, nav, firstFocus, onOverview = { overview = true })
+                                Header(
+                                    data = current,
+                                    nav = nav,
+                                    firstFocus = firstFocus,
+                                    activeVersion = activeVersion,
+                                    streams = activeStreams,
+                                    onSelectVersion = { versionPicker = true },
+                                    onOverview = { overview = true },
+                                )
                             }
                         }
                         if (current.seasons.isNotEmpty()) item(key = "seasons") {
@@ -193,7 +209,7 @@ fun DetailsScreen(id: String, nav: AppNav) {
                                 MediaRow(L.t("Titres similaires"), current.similar, CardStyle.Poster, onClick = { nav.open(it) }, onLongClick = { actions = it })
                             }
                         }
-                        if (current.item.streams.isNotEmpty()) item(key = "tech") { TechnicalInfo(current.item.streams) }
+                        if (activeStreams.isNotEmpty()) item(key = "tech") { TechnicalInfo(activeStreams) }
                     }
                 }
                 LaunchedEffect(current.item.id) { runCatching { firstFocus.requestFocus() } }
@@ -208,10 +224,38 @@ fun DetailsScreen(id: String, nav: AppNav) {
             TvButton(L.t("Fermer"), { overview = false }, primary = true)
         }
     }
+    if (versionPicker && current != null && current.item.versions.size > 1) {
+        val activeId = (current.item.versions.firstOrNull { it.id == selectedVersionId } ?: current.item.versions.first()).id
+        TvDialog(L.t("Version"), onDismiss = { versionPicker = false }) {
+            val first = remember { FocusRequester() }
+            LazyColumn(Modifier.heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                items(current.item.versions, key = { it.id }) { v ->
+                    val isCurrent = v.id == activeId
+                    MenuRow(
+                        label = v.label,
+                        onClick = { selectedVersionId = v.id; versionPicker = false },
+                        modifier = if (isCurrent) Modifier.focusRequester(first) else Modifier,
+                        supporting = QualityBadges.forStreams(v.streams).joinToString(" · ").takeIf { it.isNotEmpty() },
+                        selected = isCurrent,
+                        trailing = if (isCurrent) { { Icon(Icons.Rounded.Check, null) } } else null,
+                    )
+                }
+            }
+            LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+        }
+    }
 }
 
 @Composable
-private fun Header(data: DetailsData, nav: AppNav, firstFocus: FocusRequester, onOverview: () -> Unit) {
+private fun Header(
+    data: DetailsData,
+    nav: AppNav,
+    firstFocus: FocusRequester,
+    activeVersion: MediaVersion?,
+    streams: List<StreamSummary>,
+    onSelectVersion: () -> Unit,
+    onOverview: () -> Unit,
+) {
     val item = data.item
     val images = AppServices.images
     val context = LocalContext.current
@@ -249,7 +293,7 @@ private fun Header(data: DetailsData, nav: AppNav, firstFocus: FocusRequester, o
         val meta = listOfNotNull(item.episodeLabel) + MediaFormat.metadataLine(item)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (meta.isNotEmpty()) Text(meta.joinToString(" · "), style = MaterialTheme.typography.titleMedium, color = OF.TextSecondary)
-            QualityBadges.forStreams(item.streams).forEach { Badge(it) }
+            QualityBadges.forStreams(streams).forEach { Badge(it) }
         }
         if (item.genres.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
@@ -275,9 +319,12 @@ private fun Header(data: DetailsData, nav: AppNav, firstFocus: FocusRequester, o
             when {
                 item.kind.isPlayableVideo -> {
                     val resume = user.positionTicks > 0
-                    TvButton(if (resume) L.t("Reprendre") else L.t("Lecture"), { nav.play(item.id, false) }, Modifier.focusRequester(firstFocus),
+                    TvButton(if (resume) L.t("Reprendre") else L.t("Lecture"), { nav.playVersion(item.id, false, activeVersion?.id) }, Modifier.focusRequester(firstFocus),
                         icon = Icons.Rounded.PlayArrow, primary = true)
-                    if (resume) TvIconButton(Icons.Rounded.Replay, L.t("Lire depuis le début"), { nav.play(item.id, true) })
+                    if (resume) TvIconButton(Icons.Rounded.Replay, L.t("Lire depuis le début"), { nav.playVersion(item.id, true, activeVersion?.id) })
+                    if (item.versions.size > 1 && activeVersion != null) {
+                        TvButton(L.f("Version : {0}", activeVersion.label), onSelectVersion)
+                    }
                 }
                 item.kind == MediaKind.Series && data.nextUp != null -> {
                     val next = data.nextUp

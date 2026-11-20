@@ -33,8 +33,9 @@ object Routes {
     const val CONNECT = "connect"
     const val LOGIN = "login"
     const val MAIN = "main"
-    const val PLAYER = "player/{id}?fromStart={fromStart}&party={party}&startMs={startMs}"
-    fun player(id: String, fromStart: Boolean = false, party: Boolean = false, startMs: Long = -1) = "player/$id?fromStart=$fromStart&party=$party&startMs=$startMs"
+    const val PLAYER = "player/{id}?fromStart={fromStart}&party={party}&startMs={startMs}&source={source}"
+    fun player(id: String, fromStart: Boolean = false, party: Boolean = false, startMs: Long = -1, source: String? = null) =
+        "player/$id?fromStart=$fromStart&party=$party&startMs=$startMs" + (source?.let { "&source=${android.net.Uri.encode(it)}" } ?: "")
 }
 
 class MainActivity : ComponentActivity() {
@@ -96,9 +97,9 @@ private fun AppNavigation(launchItem: MutableStateFlow<String?>) {
         }
     }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    fun play(id: String, fromStart: Boolean) {
+    fun play(id: String, fromStart: Boolean, source: String? = null) {
         if (!WatchParty.inParty) {
-            nav.navigate(Routes.player(id, fromStart))
+            nav.navigate(Routes.player(id, fromStart, source = source))
             return
         }
         // En soirée : le titre est lancé pour tout le groupe ; le lecteur s'ouvre à réception de la file.
@@ -129,6 +130,7 @@ private fun AppNavigation(launchItem: MutableStateFlow<String?>) {
                 navArgument("fromStart") { type = NavType.BoolType; defaultValue = false },
                 navArgument("party") { type = NavType.BoolType; defaultValue = false },
                 navArgument("startMs") { type = NavType.LongType; defaultValue = -1L },
+                navArgument("source") { type = NavType.StringType; nullable = true; defaultValue = null },
             ),
         ) { entry ->
             val args = entry.arguments!!
@@ -137,6 +139,7 @@ private fun AppNavigation(launchItem: MutableStateFlow<String?>) {
                 fromStart = args.getBoolean("fromStart"),
                 party = args.getBoolean("party"),
                 startAtMs = args.getLong("startMs").takeIf { it >= 0 },
+                mediaSourceId = args.getString("source"),
                 onExit = { nav.popBackStack() },
                 onPlayItem = { next -> nav.navigate(Routes.player(next)) { popUpTo(Routes.PLAYER) { inclusive = true } } },
             )

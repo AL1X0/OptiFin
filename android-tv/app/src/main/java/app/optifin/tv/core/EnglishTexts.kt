@@ -46,6 +46,7 @@ val EnglishTexts: Map<String, String> = mapOf(
     "Réessayer" to "Try again", "Contenu" to "Contents", "Dans la collection" to "In this collection", "Titres similaires" to "More like this", "Fermer" to "Close",
     "Aucune appli ne peut lire cette bande-annonce." to "No app can play this trailer.", "Distribution" to "Cast", "Informations techniques" to "Technical info",
     "Vidéo" to "Video", "Né(e) le {0}" to "Born {0}", "Filmographie" to "Filmography",
+    "Version" to "Version", "Version : {0}" to "Version: {0}",
     "Votre serveur ne contient encore rien à afficher." to "Your server has nothing to show yet.", "Regarder" to "Watch", "Infos" to "Info",
 
     // Bibliothèques et recherche
