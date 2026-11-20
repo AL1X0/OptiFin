@@ -72,10 +72,18 @@ class _FakeMediaRepository extends MediaRepository {
 }
 
 class _FakeDownloadPlayback extends FakePlaybackRepository {
-  _FakeDownloadPlayback() : super(({audioIndex, subtitleIndex, options}) => throw UnimplementedError());
+  _FakeDownloadPlayback({PlaybackInfoResponse? info})
+      : _info = info,
+        super(({audioIndex, subtitleIndex, options}) => throw UnimplementedError());
+
+  final PlaybackInfoResponse? _info;
+  final downloadInfoCalls = <(String, String?)>[];
 
   @override
-  Future<PlaybackInfoResponse> downloadInfo(String itemId) async => response();
+  Future<PlaybackInfoResponse> downloadInfo(String itemId, {String? mediaSourceId}) async {
+    downloadInfoCalls.add((itemId, mediaSourceId));
+    return _info ?? response();
+  }
 }
 
 Map<String, Object?> _dto(String id, {String type = 'Movie', String? series, int? season, int? episode}) => {
@@ -335,6 +343,32 @@ void main() {
 
       final otherRow = await (db.select(db.downloads)..where((t) => t.accountId.equals('srv:autre'))).getSingle();
       expect(otherRow.status, 'running');
+    });
+
+    test('add transmet mediaSourceId à downloadInfo et choisit la bonne source', () async {
+      final multi = PlaybackInfoResponse.fromJson({
+        'PlaySessionId': 'ps1',
+        'MediaSources': [
+          {'Id': 'src1', 'Container': 'mkv', 'Size': 1000, 'SupportsDirectPlay': true, 'MediaStreams': <Object?>[]},
+          {'Id': 'src2', 'Container': 'mp4', 'Size': 2500, 'SupportsDirectPlay': true, 'MediaStreams': <Object?>[]},
+        ],
+      });
+      final fakePlayback = _FakeDownloadPlayback(info: multi);
+      final onlineRepo = DownloadsRepository(
+        db: db,
+        transfers: transfers,
+        accountId: 'srv:u',
+        media: _FakeMediaRepository(),
+        playback: fakePlayback,
+        images: JellyfinImageUrlBuilder(Uri.parse('http://s/jf')),
+      );
+      addTearDown(onlineRepo.dispose);
+
+      await onlineRepo.add('m', mediaSourceId: 'src2');
+      expect(fakePlayback.downloadInfoCalls, [('m', 'src2')]);
+      expect(transfers.started.single.relativePath, 'downloads/srv_u/m.mp4');
+      final row = await (db.select(db.downloads)..where((t) => t.itemId.equals('m'))).getSingle();
+      expect(row.sizeBytes, 2500);
     });
   });
 

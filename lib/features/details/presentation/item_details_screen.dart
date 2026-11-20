@@ -163,7 +163,8 @@ class _DetailsState extends ConsumerState<_Details> {
                           ChildrenSection(parent: item),
                         if (item.people.isNotEmpty) CastSection(people: item.people),
                         if (item.kind != MediaKind.episode) SimilarSection(itemId: item.id),
-                        if (item.streams.isNotEmpty) TechnicalSection(item: item),
+                        if (item.streamsFor(ref.watch(selectedVersionProvider(item.id))).isNotEmpty)
+                          TechnicalSection(item: item),
                       ].indexed)
                         SliverToBoxAdapter(
                           child: FadeSlideIn(delay: staggerDelay(i + 5), offset: 24, child: section),
@@ -216,8 +217,14 @@ class _Header extends ConsumerWidget {
     // Téléphone : la carte source « zoome » vers le backdrop.
     if (!wide && heroTag != null) backdrop = Hero(tag: heroTag!, child: backdrop);
 
+    final selectedVersionId = ref.watch(selectedVersionProvider(item.id));
+    final currentVersion = item.versions.isEmpty
+        ? null
+        : (selectedVersionId == null
+              ? item.versions.first
+              : item.versions.where((v) => v.id == selectedVersionId).firstOrNull ?? item.versions.first);
     final meta = MediaFormat.metadataLine(item);
-    final badges = qualityBadges(item.streams);
+    final badges = qualityBadges(item.streamsFor(currentVersion?.id));
 
     final titleBlock = Column(
       crossAxisAlignment: wide ? CrossAxisAlignment.start : CrossAxisAlignment.center,
@@ -268,6 +275,14 @@ class _Header extends ConsumerWidget {
             spacing: OFSpacing.sm,
             runSpacing: OFSpacing.sm,
             children: [for (final b in badges) QualityBadge(b)],
+          ),
+        ],
+        if (item.versions.length > 1 && currentVersion != null) ...[
+          const SizedBox(height: OFSpacing.sm),
+          _VersionPickerRow(
+            label: currentVersion.label,
+            wide: wide,
+            onTap: () => _showVersionSheet(context, ref, item, currentVersion.id),
           ),
         ],
       ],
@@ -387,8 +402,14 @@ class _Summary extends ConsumerWidget {
     // Collections / playlists : lecture en file d'attente en phase 5.
     final canPlay = item.kind.isPlayableVideo || nextUp != null;
     final resumable = item.kind.isPlayableVideo && user.positionTicks > 0 && !user.played;
+    final selectedVersionId = playTarget.versions.length > 1
+        ? (ref.watch(selectedVersionProvider(playTarget.id)) ?? playTarget.versions.first.id)
+        : playTarget.versions.firstOrNull?.id;
+    final itemVersionId = item.versions.length > 1
+        ? (ref.watch(selectedVersionProvider(item.id)) ?? item.versions.first.id)
+        : item.versions.firstOrNull?.id;
     // Préchargement de PlaybackInfo dès l'ouverture : la lecture démarre plus vite.
-    if (playTarget.kind.isPlayableVideo) ref.watch(playbackPrefetchProvider(playTarget.id));
+    if (playTarget.kind.isPlayableVideo) ref.watch(playbackPrefetchProvider((playTarget.id, selectedVersionId)));
     final targetResumable = playTarget.user.positionTicks > 0 && !playTarget.user.played;
     final directors = item.people.where((p) => p.kind == PersonKind.director).toList();
     final writers = item.people.where((p) => p.kind == PersonKind.writer).toList();
@@ -414,13 +435,14 @@ class _Summary extends ConsumerWidget {
       children: [
         _ActionBar(
           playLabel: canPlay ? playLabel() : null,
-          onPlay: () => context.play(playTarget.id, start: targetResumable ? null : Duration.zero),
+          onPlay: () =>
+              context.play(playTarget.id, start: targetResumable ? null : Duration.zero, mediaSourceId: selectedVersionId),
           icons: [
             if (canPlay && targetResumable)
               OFIconButton(
                 icon: Icons.restart_alt_rounded,
                 tooltip: L.t('Lire depuis le début'),
-                onPressed: () => context.play(playTarget.id, start: Duration.zero),
+                onPressed: () => context.play(playTarget.id, start: Duration.zero, mediaSourceId: selectedVersionId),
               ),
             if (item.kind != MediaKind.person)
               _ToggleIcon(
@@ -437,7 +459,7 @@ class _Summary extends ConsumerWidget {
               label: user.favorite ? L.t('Retirer des favoris') : L.t('Ajouter aux favoris'),
               onTap: () => run(() => controller.toggleFavorite(user)),
             ),
-            if (item.kind.isPlayableVideo) DownloadButton(itemId: item.id),
+            if (item.kind.isPlayableVideo) DownloadButton(itemId: item.id, mediaSourceId: itemVersionId),
             if (canPlay)
               OFIconButton(
                 icon: Icons.devices_rounded,
@@ -792,3 +814,83 @@ class _BackButton extends StatelessWidget {
 
 /// Style de carte pour les enfants d'une collection/playlist.
 CardStyle childStyle(MediaItem parent) => parent.kind == MediaKind.playlist ? CardStyle.landscape : CardStyle.poster;
+
+class _VersionPickerRow extends StatelessWidget {
+  const _VersionPickerRow({required this.label, required this.wide, required this.onTap});
+
+  final String label;
+  final bool wide;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: wide ? Alignment.centerLeft : Alignment.center,
+      child: OFFocusable(
+        onSelect: onTap,
+        borderRadius: OFRadius.smAll,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: OFRadius.smAll,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: OFSpacing.xs, vertical: OFSpacing.xxs),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    L.f('Version : {0}', [label]),
+                    style: OFTypography.callout.copyWith(color: OFColors.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: OFSpacing.xxs),
+                const Icon(Icons.chevron_right_rounded, size: 18, color: OFColors.textSecondary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showVersionSheet(BuildContext context, WidgetRef ref, MediaItem item, String currentId) {
+  return showOFSheet<void>(
+    context,
+    builder: (sheet) {
+      final accent = Theme.of(sheet).colorScheme.primary;
+      return SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(OFSpacing.sm, 0, OFSpacing.sm, OFSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(OFSpacing.lg, OFSpacing.sm, OFSpacing.lg, OFSpacing.md),
+                child: Text(L.t('Version'), style: OFTypography.headline),
+              ),
+              for (final v in item.versions)
+                ListTile(
+                  title: Text(
+                    v.label,
+                    style: OFTypography.body.copyWith(
+                      color: v.id == currentId ? accent : OFColors.textPrimary,
+                    ),
+                  ),
+                  trailing: v.id == currentId ? Icon(Icons.check_rounded, color: accent) : null,
+                  onTap: () {
+                    ref.read(selectedVersionProvider(item.id).notifier).select(v.id);
+                    Navigator.of(sheet).pop();
+                  },
+                ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}

@@ -13,14 +13,19 @@ import 'downloads_providers.dart';
 import '../../../core/l10n/l.dart';
 
 /// Lance le téléchargement de [itemIds] (message d'erreur lisible en cas d'échec).
-Future<void> startDownload(BuildContext context, WidgetRef ref, List<String> itemIds) async {
+Future<void> startDownload(
+  BuildContext context,
+  WidgetRef ref,
+  List<String> itemIds, {
+  String? mediaSourceId,
+}) async {
   unawaited(HapticFeedback.lightImpact());
   final repo = ref.read(downloadsRepositoryProvider);
   final wifiOnly = ref.read(settingsProvider).downloadWifiOnly;
   final messenger = ScaffoldMessenger.of(context);
   try {
     if (itemIds.length == 1) {
-      await repo.add(itemIds.single, wifiOnly: wifiOnly);
+      await repo.add(itemIds.single, wifiOnly: wifiOnly, mediaSourceId: mediaSourceId);
     } else {
       await repo.addAll(itemIds, wifiOnly: wifiOnly);
     }
@@ -48,10 +53,11 @@ Future<void> startDownload(BuildContext context, WidgetRef ref, List<String> ite
 /// pendant le transfert, coche une fois disponible hors connexion ; un toucher sur un
 /// téléchargement existant propose pause, reprise ou suppression.
 class DownloadButton extends ConsumerWidget {
-  const DownloadButton({super.key, required this.itemId, this.size = 44});
+  const DownloadButton({super.key, required this.itemId, this.size = 44, this.mediaSourceId});
 
   final String itemId;
   final double size;
+  final String? mediaSourceId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -75,7 +81,7 @@ class DownloadButton extends ConsumerWidget {
       child: GestureDetector(
         onTap: () {
           if (entry == null) {
-            unawaited(startDownload(context, ref, [itemId]));
+            unawaited(startDownload(context, ref, [itemId], mediaSourceId: mediaSourceId));
           } else {
             unawaited(showDownloadActions(context, ref, entry));
           }

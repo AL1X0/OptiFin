@@ -39,6 +39,22 @@ final childrenProvider = FutureProvider.autoDispose.family<List<MediaItem>, Stri
   (ref, id) => ref.watch(mediaRepositoryProvider).children(id),
 );
 
+/// Version choisie sur la fiche d'un élément (null = première par défaut).
+final selectedVersionProvider = NotifierProvider.family<SelectedVersionController, String?, String>(
+  SelectedVersionController.new,
+);
+
+class SelectedVersionController extends Notifier<String?> {
+  SelectedVersionController(this.itemId);
+
+  final String itemId;
+
+  @override
+  String? build() => null;
+
+  void select(String versionId) => state = versionId;
+}
+
 /// État utilisateur (vu / favori) avec mise à jour optimiste.
 ///
 /// L'UI bascule immédiatement ; en cas d'échec serveur on revient à l'état

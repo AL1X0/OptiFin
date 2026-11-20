@@ -34,13 +34,13 @@ extension OFNavigation on BuildContext {
 
   /// Lance la lecture. [start] null = reprendre où le serveur l'a enregistré.
   /// En soirée, le titre est lancé pour tout le groupe : le lecteur s'ouvre à réception de la file.
-  void play(String itemId, {Duration? start}) {
+  void play(String itemId, {Duration? start, String? mediaSourceId}) {
     final container = ProviderScope.containerOf(this, listen: false);
     if (container.read(watchPartyProvider).inParty) {
       unawaited(container.read(watchPartyProvider.notifier).play(itemId, start: start ?? Duration.zero));
       return;
     }
-    push(Routes.play(itemId, start: start));
+    push(Routes.play(itemId, start: start, mediaSourceId: mediaSourceId));
   }
 
   void openPerson(String id) => push('/$_branch/person/$id');

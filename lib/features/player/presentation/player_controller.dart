@@ -141,20 +141,24 @@ class PlayerUiState {
   );
 }
 
-/// Arguments d'une lecture : élément + position de départ.
+/// Arguments d'une lecture : élément + position de départ + version optionnelle.
 class PlayerArgs {
-  const PlayerArgs(this.itemId, {this.start});
+  const PlayerArgs(this.itemId, {this.start, this.mediaSourceId});
 
   final String itemId;
 
   /// null = reprendre à la position enregistrée sur le serveur.
   final Duration? start;
 
-  @override
-  bool operator ==(Object other) => other is PlayerArgs && other.itemId == itemId && other.start == start;
+  /// Version choisie (null = première source du serveur).
+  final String? mediaSourceId;
 
   @override
-  int get hashCode => Object.hash(itemId, start);
+  bool operator ==(Object other) =>
+      other is PlayerArgs && other.itemId == itemId && other.start == start && other.mediaSourceId == mediaSourceId;
+
+  @override
+  int get hashCode => Object.hash(itemId, start, mediaSourceId);
 }
 
 final playerControllerProvider = NotifierProvider.autoDispose.family<PlayerController, PlayerUiState, PlayerArgs>(
@@ -244,9 +248,9 @@ class PlayerController extends Notifier<PlayerUiState> {
       final itemFuture = ref.read(itemProvider(args.itemId).future).whenComplete(keepItem.close);
       // Fichier téléchargé : on ignore un plan préchargé plus tôt (flux du serveur) pour lire
       // le fichier local — indispensable hors connexion. Vérifié en parallèle de la fiche.
-      if (await _hasLocalFile()) ref.invalidate(playbackPrefetchProvider(args.itemId));
+      if (await _hasLocalFile()) ref.invalidate(playbackPrefetchProvider((args.itemId, args.mediaSourceId)));
       // Plan et décision préchargés par la fiche si disponibles, sinon calculés maintenant.
-      final preparedFuture = ref.read(playbackPrefetchProvider(args.itemId).future);
+      final preparedFuture = ref.read(playbackPrefetchProvider((args.itemId, args.mediaSourceId)).future);
       // Future.wait relance l'erreur d'origine (ApiFailure et son message précis).
       final results = await Future.wait<Object>([itemFuture, preparedFuture]);
       final item = results[0] as MediaItem;
@@ -355,7 +359,7 @@ class PlayerController extends Notifier<PlayerUiState> {
     if (showUpNext != state.upNext) {
       state = state.copyWith(upNext: showUpNext);
       // Plan et moteur de l'épisode suivant préparés pendant le générique.
-      if (showUpNext) ref.read(playbackPrefetchProvider(extras.nextEpisode!.id));
+      if (showUpNext) ref.read(playbackPrefetchProvider((extras.nextEpisode!.id, null)));
     }
   }
 

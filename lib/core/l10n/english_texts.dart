@@ -33,6 +33,7 @@ const englishTexts = <String, String>{
   '+ {0} autres pistes': '+ {0} more tracks', 'Impossible d’afficher cet élément.': 'Could not display this item.', 'Reprendre': 'Resume', 'Lecture': 'Play', 'Lecture ': 'Playback', 'Lire depuis le début': 'Play from the beginning',
   'Marquer comme non vu': 'Mark as unwatched', 'Marquer comme vu': 'Mark as watched', 'Retirer des favoris': 'Remove from favorites', 'Ajouter aux favoris': 'Add to favorites', 'Voir la série': 'View series',
   'Réalisation': 'Directed by', 'Scénario': 'Written by', 'Moins': 'Less', 'Plus': 'More',
+  'Version': 'Version', 'Version : {0}': 'Version: {0}',
 
   // Téléchargements
   'Connexion requise': 'Sign-in required', 'Fichier non téléchargeable': 'This file cannot be downloaded', 'En attente': 'Queued', 'Téléchargement': 'Downloading', 'En pause': 'Paused', 'Téléchargé': 'Downloaded', 'Échec': 'Failed',

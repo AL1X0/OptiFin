@@ -145,12 +145,16 @@ final playbackPreparerProvider = Provider<Future<PlaybackPreparer> Function()>(
 /// `PlaybackInfo` et choix du moteur dès l'ouverture de la fiche : quand
 /// l'utilisateur appuie sur Lecture, tout est prêt et la première image arrive
 /// plus vite. Conservé 2 minutes après la fermeture de la fiche.
-final playbackPrefetchProvider = FutureProvider.autoDispose.family<PreparedPlayback, String>((ref, itemId) async {
+final playbackPrefetchProvider = FutureProvider.autoDispose.family<PreparedPlayback, (String, String?)>((
+  ref,
+  key,
+) async {
+  final (itemId, mediaSourceId) = key;
   final link = ref.keepAlive();
   final timer = Timer(const Duration(minutes: 2), link.close);
   ref.onDispose(timer.cancel);
   final preparer = await ref.read(playbackPreparerProvider)();
-  final prepared = await preparer.prepare(itemId);
+  final prepared = await preparer.prepare(itemId, mediaSourceId: mediaSourceId);
   ref.read(enginePoolProvider).prewarm(prepared.decision.engine);
   return prepared;
 });
