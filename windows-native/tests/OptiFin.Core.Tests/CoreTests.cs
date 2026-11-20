@@ -243,6 +243,47 @@ public class MediaTests
         Assert.Equal(["https://youtu.be/x", "http://exemple.fr/ba.mp4"],
             item.Trailers.Select(t => t.Url.ToString()));
     }
+
+    [Fact]
+    public void Versions_mapperEtLabels()
+    {
+        var dto = new BaseItemDto
+        {
+            Id = "m1",
+            Name = "Film",
+            Type = "Movie",
+            MediaSources =
+            [
+                new MediaSourceInfo
+                {
+                    Id = "v1",
+                    Name = "Director's Cut",
+                    Size = 10L << 30,
+                    Container = "mkv",
+                    MediaStreams = [new MediaStream { Type = "Video", Codec = "hevc", Width = 3840, Height = 2160 }],
+                },
+                new MediaSourceInfo
+                {
+                    Id = "v2",
+                    Size = (long)Math.Round(18.4 * (1L << 30)),
+                    Container = "mp4",
+                    MediaStreams =
+                    [
+                        new MediaStream { Type = "Video", Codec = "hevc", Width = 3840, Height = 2160 },
+                        new MediaStream { Type = "Audio", Codec = "ac3", Channels = 6 },
+                    ],
+                },
+            ],
+        };
+        var item = MediaMapper.FromDto(dto);
+        Assert.Equal(2, item.Versions.Count);
+        Assert.Equal("v1", item.Versions[0].Id);
+        Assert.Equal("Director's Cut", item.Versions[0].Label);
+        Assert.Equal("v2", item.Versions[1].Id);
+        Assert.Equal("2160p HEVC · 18,4 Go", item.Versions[1].Label);
+        Assert.Single(item.StreamsFor("v1"));
+        Assert.Equal(2, item.StreamsFor("v2").Count);
+    }
 }
 
 public class PlaybackTests
@@ -386,6 +427,25 @@ public class PlaybackTests
         var profile = PlaybackService.MpvDeviceProfile(120_000_000).ToJsonString();
         Assert.Contains("\"Container\":\"mkv,mp4", profile);
         Assert.Contains("\"Protocol\":\"hls\"", profile);
+    }
+
+    [Fact]
+    public void PlanFromResponse_choisitLaSourceDemandee()
+    {
+        var response = new PlaybackInfoResponse
+        {
+            PlaySessionId = "ps",
+            MediaSources =
+            [
+                new MediaSourceInfo { Id = "v1", ETag = "t1", SupportsDirectPlay = true },
+                new MediaSourceInfo { Id = "v2", ETag = "t2", SupportsDirectPlay = true },
+            ],
+        };
+        var plan = PlaybackService.PlanFromResponse(response, "i", Base, TimeSpan.Zero, mediaSourceId: "v2");
+        Assert.Equal("v2", plan.MediaSourceId);
+        Assert.Contains("mediaSourceId=v2", plan.StreamUrl.ToString());
+        Assert.Contains("tag=t2", plan.StreamUrl.ToString());
+        Assert.Equal("v1", PlaybackService.PlanFromResponse(response, "i", Base, TimeSpan.Zero).MediaSourceId);
     }
 }
 

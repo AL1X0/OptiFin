@@ -70,6 +70,17 @@ public sealed record StreamSummary(
     string? Language = null,
     string? Title = null);
 
+/// <summary>Version d'un film ou épisode (une source Jellyfin).</summary>
+public sealed record MediaVersion(
+    string Id,
+    string? Name,
+    long? SizeBytes,
+    string? Container,
+    IReadOnlyList<StreamSummary> Streams)
+{
+    public string Label => !string.IsNullOrWhiteSpace(Name) ? Name.Trim() : MediaFormat.VersionLabel(this);
+}
+
 /// <summary>Élément Jellyfin tel que l'interface l'affiche (découplé des DTO du serveur).</summary>
 public sealed record MediaItem
 {
@@ -102,8 +113,12 @@ public sealed record MediaItem
     public int? ChildCount { get; init; }
     public LibraryType? LibraryType { get; init; }
     public IReadOnlyList<StreamSummary> Streams { get; init; } = [];
+    public IReadOnlyList<MediaVersion> Versions { get; init; } = [];
     /// <summary>Pistes audio / sous-titres (fiche détaillée seulement) : préférences appliquées dès la 1re requête de lecture.</summary>
     public Playback.TrackSet? Tracks { get; init; }
+
+    public IReadOnlyList<StreamSummary> StreamsFor(string? versionId) =>
+        versionId != null && Versions.FirstOrDefault(v => v.Id == versionId) is { } v ? v.Streams : Streams;
     public ImageRef? Primary { get; init; }
     public IReadOnlyList<ImageRef> Backdrops { get; init; } = [];
     public ImageRef? Logo { get; init; }

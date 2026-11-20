@@ -7,6 +7,7 @@ public static class English
     {
         // Lecture et fiches
         ["Lecture"] = "Play", ["Lecture "] = "Playback", ["Infos"] = "Info", ["Reprendre"] = "Resume", ["Lire depuis le début"] = "Play from the beginning",
+        ["Version : {0}"] = "Version: {0}", ["Choisir la version du fichier"] = "Choose file version",
         ["Lire l’épisode suivant"] = "Play next episode", ["Afficher la fiche"] = "View details", ["Voir la série"] = "View series",
         ["Marquer comme vus"] = "Mark as watched", ["Marquer comme non vus"] = "Mark as unwatched",
         ["Marquer comme vu"] = "Mark as watched", ["Marquer comme non vu"] = "Mark as unwatched",

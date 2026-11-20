@@ -14,6 +14,7 @@ public sealed class DownloadRecord
 {
     public string ItemId { get; set; } = "";
     public string AccountId { get; set; } = "";
+    public string? MediaSourceId { get; set; }
     public string Name { get; set; } = "";
     public string? Subtitle { get; set; }
     public string FileName { get; set; } = "";
@@ -161,7 +162,7 @@ public sealed class DownloadManager
                 else if (dto != null && record.LocalPositionTicks is { } ticks)
                 {
                     // Comme une fin de lecture : le serveur enregistre la position et marque « vu » près de la fin.
-                    var report = new PlaybackReportDto { ItemId = record.ItemId, MediaSourceId = record.ItemId, PositionTicks = ticks };
+                    var report = new PlaybackReportDto { ItemId = record.ItemId, MediaSourceId = record.MediaSourceId ?? record.ItemId, PositionTicks = ticks };
                     await api.PostAsync("Sessions/Playing/Stopped", JellyfinClient.Json(report, JellyfinJson.Default.PlaybackReportDto), ct: ct).ConfigureAwait(false);
                     AppLog.Info("downloads", $"« {record.Name} » : position hors ligne envoyée au serveur");
                 }
@@ -232,21 +233,25 @@ public sealed class DownloadManager
         return item with { User = item.User with { PositionTicks = finished ? 0 : ticks, Played = item.User.Played || finished } };
     }
 
-    public void Enqueue(BaseItemDto dto)
+    public void Enqueue(BaseItemDto dto, string? mediaSourceId = null)
     {
         lock (_gate)
         {
             if (_account is null || _records.Any(r => r.ItemId == dto.Id && r.AccountId == _account)) return;
-            var container = dto.MediaSources?.FirstOrDefault()?.Container?.Split(',')[0] ?? "mkv";
+            var source = (mediaSourceId != null ? dto.MediaSources?.FirstOrDefault(s => s.Id == mediaSourceId) : null)
+                         ?? dto.MediaSources?.FirstOrDefault();
+            var container = source?.Container?.Split(',')[0] ?? "mkv";
             var item = MediaMapper.FromDto(dto);
             _records.Add(new DownloadRecord
             {
                 ItemId = dto.Id!,
                 AccountId = _account,
+                MediaSourceId = source?.Id ?? mediaSourceId,
                 Name = item.Kind == MediaKind.Episode ? item.SeriesName ?? item.Name : item.Name,
                 Subtitle = item.Kind == MediaKind.Episode ? $"{item.EpisodeLabel} · {item.Name}" : item.Year?.ToString(),
                 FileName = $"{dto.Id}.{container}",
                 ItemJson = JsonSerializer.Serialize(dto, JellyfinJson.Default.BaseItemDto),
+                TotalBytes = source?.Size ?? 0,
                 Status = DownloadStatus.Queued,
             });
         }
@@ -363,7 +368,10 @@ public sealed class DownloadManager
             Directory.CreateDirectory(_directory);
             var offset = File.Exists(part) ? new FileInfo(part).Length : 0;
             // Flux direct du fichier d'origine, comme sur mobile (/Items/{id}/Download dépend d'un droit à part).
-            using var response = await api.GetResponseAsync($"Videos/{record.ItemId}/stream?static=true", offset, ct).ConfigureAwait(false);
+            var streamUrl = record.MediaSourceId is { } msId
+                ? $"Videos/{record.ItemId}/stream?static=true&mediaSourceId={Uri.EscapeDataString(msId)}"
+                : $"Videos/{record.ItemId}/stream?static=true";
+            using var response = await api.GetResponseAsync(streamUrl, offset, ct).ConfigureAwait(false);
             // Le serveur a ignoré la reprise : il renvoie tout depuis le début.
             if (response.StatusCode != System.Net.HttpStatusCode.PartialContent) offset = 0;
             var length = response.Content.Headers.ContentLength;

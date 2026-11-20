@@ -124,4 +124,26 @@ public static class MediaFormat
         if (item.Runtime is not { } total || item.User.PositionTicks <= 0) return null;
         return Duration(total - item.ResumePosition) is { } label ? L.F("{0} restantes", label) : null;
     }
+
+    public static string FileSize(long bytes) => bytes >= 1L << 30
+        ? L.F("{0:0.0} Go", bytes / (double)(1L << 30))
+        : L.F("{0:0} Mo", bytes / (double)(1L << 20));
+
+    /// <summary>Libellé de secours d'une version sans nom serveur : « 2160p HEVC · 18,4 Go ».</summary>
+    public static string VersionLabel(MediaVersion version)
+    {
+        var video = version.Streams.FirstOrDefault(s => s.IsVideo);
+        var res = video is null ? null : QualityBadges.ResolutionLabel(video.Width, video.Height) switch
+        {
+            "4K" => "2160p",
+            var r => r,
+        };
+        var codec = video is not null && !string.IsNullOrWhiteSpace(video.Codec) ? video.Codec.ToUpperInvariant() : null;
+        var videoPart = string.Join(" ", new[] { res, codec }.Where(x => !string.IsNullOrEmpty(x)));
+        if (videoPart.Length == 0 && !string.IsNullOrWhiteSpace(version.Container))
+            videoPart = version.Container.Split(',')[0].Trim().ToUpperInvariant();
+        var sizePart = version.SizeBytes is > 0 and var bytes ? FileSize(bytes) : null;
+        var label = string.Join(" · ", new[] { videoPart, sizePart }.Where(x => !string.IsNullOrEmpty(x)));
+        return label.Length > 0 ? label : version.Id;
+    }
 }

@@ -78,6 +78,7 @@ public static partial class MediaMapper
             ChildCount = dto.ChildCount ?? dto.RecursiveItemCount,
             LibraryType = LibraryTypeOf(dto.CollectionType),
             Streams = Streams(dto),
+            Versions = Versions(dto),
             Tracks = dto.MediaSources?.FirstOrDefault() is { } source ? Playback.PlaybackService.TracksOf(source) : null,
             Primary = Own(ImageKind.Primary, "Primary", blur?.Primary),
             Backdrops = backdrops,
@@ -160,9 +161,15 @@ public static partial class MediaMapper
     };
 
     /// <summary>Flux de la première source (ou de l'élément si MediaSources n'est pas demandé).</summary>
-    private static IReadOnlyList<StreamSummary> Streams(BaseItemDto dto)
+    private static IReadOnlyList<StreamSummary> Streams(BaseItemDto dto) =>
+        MapStreams(dto.MediaSources?.FirstOrDefault()?.MediaStreams ?? dto.MediaStreams ?? []);
+
+    private static IReadOnlyList<MediaVersion> Versions(BaseItemDto dto) =>
+        [.. (dto.MediaSources ?? []).Select(s => new MediaVersion(
+            s.Id ?? dto.Id, s.Name, s.Size, s.Container, MapStreams(s.MediaStreams ?? [])))];
+
+    private static IReadOnlyList<StreamSummary> MapStreams(IEnumerable<MediaStream> streams)
     {
-        var streams = dto.MediaSources?.FirstOrDefault()?.MediaStreams ?? dto.MediaStreams ?? [];
         var result = new List<StreamSummary>();
         foreach (var s in streams)
         {

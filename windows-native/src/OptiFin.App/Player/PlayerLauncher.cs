@@ -19,7 +19,7 @@ public static class PlayerLauncher
     /// <summary>Lecteur fermé : les pages rafraîchissent progression et « Reprendre ».</summary>
     public static event Action? Closed;
 
-    public static void Play(MediaItem item, bool fromStart = false)
+    public static void Play(MediaItem item, bool fromStart = false, string? mediaSourceId = null)
     {
         if (AppServices.Playback is null) return;
         // En soirée : le titre est lancé pour tout le groupe, le lecteur s'ouvre à réception de la file.
@@ -28,7 +28,7 @@ public static class PlayerLauncher
             _ = WatchParty.PlayAsync(item, fromStart ? TimeSpan.Zero : item.ResumePosition);
             return;
         }
-        Open(item, fromStart, null);
+        Open(item, fromStart, null, mediaSourceId);
     }
 
     /// <summary>Titre lancé par la soirée : lecteur ouvert (ou réutilisé) et synchronisé avec le groupe.</summary>
@@ -43,13 +43,13 @@ public static class PlayerLauncher
         Open(item, false, party);
     }
 
-    private static void Open(MediaItem item, bool fromStart, PartyStart? party)
+    private static void Open(MediaItem item, bool fromStart, PartyStart? party, string? mediaSourceId = null)
     {
         try
         {
             _current?.Close();
             var main = Nav.Window.AppWindow;
-            var player = new PlayerWindow(item, fromStart, party);
+            var player = new PlayerWindow(item, fromStart, party, mediaSourceId);
             _current = player;
             player.ShowOver(main);
             // La fenêtre principale disparaît une fois le lecteur apparu en fondu par-dessus.

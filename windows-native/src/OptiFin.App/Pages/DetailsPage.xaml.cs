@@ -23,6 +23,9 @@ public sealed partial class DetailsPage : Page
 {
     private const double Gutter = HomePage.Gutter;
     private MediaItem _item = null!;
+    private string? _selectedVersionId;
+    private StackPanel? _badgesStrip;
+    private ContentControl? _techHost;
     private CancellationTokenSource? _cts;
 
     // Accent du film (comme sur mobile) : couleur vive dominante de son illustration.
@@ -48,6 +51,7 @@ public sealed partial class DetailsPage : Page
         if (e.Parameter is MediaItem item)
         {
             _item = item;
+            _selectedVersionId = null;
             _ = LoadAsync();
         }
     }
@@ -129,7 +133,13 @@ public sealed partial class DetailsPage : Page
                 body.Children.Add(series);
             }
             if (Credits(item) is { } credits) body.Children.Add(credits);
-            if (TechnicalInfo(item) is { } tech) body.Children.Add(tech);
+            _techHost = new ContentControl
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Content = TechnicalInfo(item, SelectedVersion(item)?.Id),
+            };
+            body.Children.Add(_techHost);
         }
         Body.Children.Add(body);
         _extras.Children.Clear();
@@ -201,21 +211,9 @@ public sealed partial class DetailsPage : Page
             info.Children.Add(new TextBlock { Text = item.Kind == MediaKind.Episode ? $"{item.EpisodeLabel} · {item.Name}" : item.Name, Style = Ui.StyleOf("OFDisplay"), MaxLines = 2 });
         var meta = MediaFormat.MetadataLine(item);
         if (meta.Count > 0) info.Children.Add(new TextBlock { Text = string.Join("  ·  ", meta), FontSize = 15, Foreground = Ui.Res("OFTextSecondaryBrush") });
-        var badges = QualityBadges.For(item.Streams);
-        if (badges.Count > 0)
-        {
-            var strip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            foreach (var b in badges)
-            {
-                strip.Children.Add(new Border
-                {
-                    BorderBrush = Ui.Res("OFTextTertiaryBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(5),
-                    Padding = new Thickness(7, 2, 7, 2),
-                    Child = new TextBlock { Text = b, FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = Ui.Res("OFTextSecondaryBrush") },
-                });
-            }
-            info.Children.Add(strip);
-        }
+        _badgesStrip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        UpdateBadges(item);
+        info.Children.Add(_badgesStrip);
         row.Children.Add(info);
         hero.Children.Add(row);
         return hero;
@@ -246,10 +244,11 @@ public sealed partial class DetailsPage : Page
     }
 
     /// <summary>Informations techniques : vidéo (codec, définition, HDR) et pistes audio.</summary>
-    private static FrameworkElement? TechnicalInfo(MediaItem item)
+    private static FrameworkElement? TechnicalInfo(MediaItem item, string? versionId)
     {
-        var video = item.Streams.FirstOrDefault(s => s.IsVideo);
-        var audios = item.Streams.Where(s => !s.IsVideo).ToList();
+        var streams = item.StreamsFor(versionId);
+        var video = streams.FirstOrDefault(s => s.IsVideo);
+        var audios = streams.Where(s => !s.IsVideo).ToList();
         if (video is null && audios.Count == 0) return null;
         var grid = new Grid { ColumnSpacing = 16, RowSpacing = 4, Margin = new Thickness(0, 8, 0, 0) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
@@ -303,21 +302,73 @@ public sealed partial class DetailsPage : Page
 
     // ------------------------------------------------------------ Actions
 
+    private MediaVersion? SelectedVersion(MediaItem item) =>
+        item.Versions.Count == 0
+            ? null
+            : (_selectedVersionId != null ? item.Versions.FirstOrDefault(v => v.Id == _selectedVersionId) : null)
+              ?? item.Versions[0];
+
+    private void UpdateBadges(MediaItem item)
+    {
+        if (_badgesStrip is null) return;
+        _badgesStrip.Children.Clear();
+        var badges = QualityBadges.For(item.StreamsFor(SelectedVersion(item)?.Id));
+        _badgesStrip.Visibility = badges.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var b in badges)
+        {
+            _badgesStrip.Children.Add(new Border
+            {
+                BorderBrush = Ui.Res("OFTextTertiaryBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(5),
+                Padding = new Thickness(7, 2, 7, 2),
+                Child = new TextBlock { Text = b, FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = Ui.Res("OFTextSecondaryBrush") },
+            });
+        }
+    }
+
+    private void UpdateVersionUi()
+    {
+        UpdateBadges(_item);
+        if (_techHost != null) _techHost.Content = TechnicalInfo(_item, SelectedVersion(_item)?.Id);
+        BuildActions(_item);
+    }
+
     private void BuildActions(MediaItem item)
     {
         _actions.Children.Clear();
+        var selectedVersion = SelectedVersion(item);
         if (item.Kind.IsPlayableVideo())
         {
             var resume = item.User.PositionTicks > 0;
             var play = Ui.Primary(resume ? L.T("Reprendre") : L.T("Lecture"), "");
-            play.Click += (_, _) => PlayerLauncher.Play(item);
+            play.Click += (_, _) => PlayerLauncher.Play(item, mediaSourceId: SelectedVersion(item)?.Id);
             _actions.Children.Add(play);
             if (resume)
             {
                 var restart = Ui.Round("", L.T("Lire depuis le début"));
-                restart.Click += (_, _) => PlayerLauncher.Play(item, fromStart: true);
+                restart.Click += (_, _) => PlayerLauncher.Play(item, fromStart: true, mediaSourceId: SelectedVersion(item)?.Id);
                 _actions.Children.Add(restart);
             }
+        }
+        if (item.Versions.Count > 1 && selectedVersion != null)
+        {
+            var versionButton = Ui.Secondary(L.F("Version : {0}", selectedVersion.Label), "\uE8AB");
+            var tip = L.T("Choisir la version du fichier");
+            ToolTipService.SetToolTip(versionButton, tip);
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(versionButton, tip);
+            var menu = new MenuFlyout();
+            foreach (var v in item.Versions)
+            {
+                var entry = new ToggleMenuFlyoutItem { Text = v.Label, IsChecked = v.Id == selectedVersion.Id };
+                entry.Click += (_, _) =>
+                {
+                    if (_selectedVersionId == v.Id) return;
+                    _selectedVersionId = v.Id;
+                    UpdateVersionUi();
+                };
+                menu.Items.Add(entry);
+            }
+            versionButton.Click += (_, _) => menu.ShowAt(versionButton);
+            _actions.Children.Add(versionButton);
         }
         if (item.Kind is not (MediaKind.Person or MediaKind.BoxSet))
         {
@@ -374,7 +425,7 @@ public sealed partial class DetailsPage : Page
             try
             {
                 var dto = await AppServices.Media!.ItemRawAsync(item.Id);
-                downloads.Enqueue(dto);
+                downloads.Enqueue(dto, SelectedVersion(item)?.Id);
                 _ = SavePosterAsync(item);
                 BuildActions(_item);
             }
