@@ -19,16 +19,27 @@ public sealed unsafe class MpvPlayer : IDisposable
 {
     private nint _ctx;
     private readonly Thread _events;
+    private int _eventsStarted;
     private volatile bool _disposed;
+
+    private const ulong PropTimePos = 0;
+    private const ulong PropDuration = 1;
+    private const ulong PropPause = 2;
+    private const ulong PropPausedForCache = 3;
+    private const ulong PropSeeking = 4;
+    private const ulong PropDemuxerCacheTime = 5;
+    private const ulong PropDwidth = 6;
+    private const ulong PropDheight = 7;
 
     // Propriétés suivies (identifiant = rang dans ce tableau).
     private static readonly (string Name, int Format)[] Observed =
     [
         ("time-pos", MpvNative.FormatDouble), ("duration", MpvNative.FormatDouble), ("pause", MpvNative.FormatFlag),
         ("paused-for-cache", MpvNative.FormatFlag), ("seeking", MpvNative.FormatFlag), ("demuxer-cache-time", MpvNative.FormatDouble),
-        ("speed", MpvNative.FormatDouble), ("dwidth", MpvNative.FormatDouble), ("dheight", MpvNative.FormatDouble),
-        ("volume", MpvNative.FormatDouble), ("mute", MpvNative.FormatFlag), ("core-idle", MpvNative.FormatFlag),
+        ("dwidth", MpvNative.FormatDouble), ("dheight", MpvNative.FormatDouble),
     ];
+
+    private long _positionTicks;
 
     /// <summary>
     /// Position, ~5 fois par seconde (mpv la signale à chaque image : 24 à 60 mises à jour d'interface
@@ -37,7 +48,11 @@ public sealed unsafe class MpvPlayer : IDisposable
     public event Action<TimeSpan>? PositionChanged;
 
     /// <summary>Position exacte (dernière image), pour les calculs fins (Watch Party).</summary>
-    public TimeSpan Position { get; private set; }
+    public TimeSpan Position
+    {
+        get => TimeSpan.FromTicks(Interlocked.Read(ref _positionTicks));
+        private set => Interlocked.Exchange(ref _positionTicks, value.Ticks);
+    }
     public event Action<TimeSpan>? DurationChanged;
     public event Action<bool>? PauseChanged;
     public event Action<bool>? BufferingChanged;
@@ -59,6 +74,7 @@ public sealed unsafe class MpvPlayer : IDisposable
     private bool _cache;
     private bool _seeking;
     private double _emittedPosition = double.NaN;
+    private double _emittedBuffered = double.NaN;
     private double _width;
     private double _height;
 
@@ -253,13 +269,14 @@ public sealed unsafe class MpvPlayer : IDisposable
     /// virgules, jamais de jeton dans l'URL.
     /// </summary>
     public void Load(Uri url, IReadOnlyDictionary<string, string> headers, TimeSpan start, string? title = null) =>
-        Load(url.ToString(), headers, start, title);
+        Load(url.IsFile ? url.LocalPath : url.ToString(), headers, start, title);
 
     public void Load(string url, IReadOnlyDictionary<string, string> headers, TimeSpan start, string? title = null)
     {
-        if (!_events.IsAlive && !_disposed) _events.Start();
+        if (!_disposed && Interlocked.Exchange(ref _eventsStarted, 1) == 0) _events.Start();
         Position = start;
         _emittedPosition = double.NaN;
+        _emittedBuffered = double.NaN;
         Command("change-list", "http-header-fields", "clr", "");
         foreach (var (key, value) in headers) Command("change-list", "http-header-fields", "append", $"{key}: {value}");
         TrySet("user-agent", "OptiFin");
@@ -285,7 +302,8 @@ public sealed unsafe class MpvPlayer : IDisposable
     public void SetSpeed(double speed) => TrySet("speed", speed.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
 
     /// <summary>Volume 0..1.</summary>
-    public void SetVolume(double volume) => TrySet("volume", Math.Round(Math.Clamp(volume, 0, 1) * 100).ToString());
+    public void SetVolume(double volume) =>
+        TrySet("volume", ((int)Math.Round(Math.Clamp(volume, 0, 1) * 100)).ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     public void SetMute(bool mute) => TrySet("mute", mute ? "yes" : "no");
 
@@ -333,7 +351,7 @@ public sealed unsafe class MpvPlayer : IDisposable
                 case MpvNative.EventShutdown:
                     return;
                 case MpvNative.EventPropertyChange:
-                    OnProperty((MpvNative.PropertyData*)e->Data);
+                    if (e->Data != 0) OnProperty(e->ReplyUserdata, (MpvNative.PropertyData*)e->Data);
                     break;
                 case MpvNative.EventStartFile:
                     lock (_gate)
@@ -360,6 +378,7 @@ public sealed unsafe class MpvPlayer : IDisposable
                     break;
                 case MpvNative.EventEndFile:
                 {
+                    if (e->Data == 0) break;
                     var end = (MpvNative.EndFileData*)e->Data;
                     long requested;
                     lock (_gate) requested = _requestedEntry;
@@ -378,6 +397,7 @@ public sealed unsafe class MpvPlayer : IDisposable
                 }
                 case MpvNative.EventLogMessage:
                 {
+                    if (e->Data == 0) break;
                     var log = (MpvNative.LogMessageData*)e->Data;
                     Log?.Invoke(Marshal.PtrToStringUTF8(log->Level) ?? "", Marshal.PtrToStringUTF8(log->Prefix) ?? "",
                         (Marshal.PtrToStringUTF8(log->Text) ?? "").TrimEnd());
@@ -389,47 +409,57 @@ public sealed unsafe class MpvPlayer : IDisposable
 
     private void EmitPosition()
     {
-        _emittedPosition = Position.TotalSeconds;
-        PositionChanged?.Invoke(Position);
+        var pos = Position;
+        _emittedPosition = pos.TotalSeconds;
+        PositionChanged?.Invoke(pos);
     }
 
-    private void OnProperty(MpvNative.PropertyData* p)
+    private void OnProperty(ulong id, MpvNative.PropertyData* p)
     {
-        var name = Marshal.PtrToStringUTF8(p->Name);
-        if (p->Data == 0 || name is null) return;
+        if (p->Data == 0) return;
         double D() => *(double*)p->Data;
         bool F() => *(int*)p->Data != 0;
         static TimeSpan S(double s) => double.IsFinite(s) ? TimeSpan.FromSeconds(Math.Max(0, s)) : TimeSpan.Zero;
         // Position, durée et tampon d'un fichier en cours de remplacement : périmés.
-        if (name is "time-pos" or "duration" or "demuxer-cache-time" && !Current()) return;
-        switch (name)
+        if (id is PropTimePos or PropDuration or PropDemuxerCacheTime && !Current()) return;
+        switch (id)
         {
-            case "time-pos":
+            case PropTimePos:
                 var position = D();
                 Position = S(position);
                 if (double.IsNaN(_emittedPosition) || Math.Abs(position - _emittedPosition) >= 0.2) EmitPosition();
                 break;
-            case "duration": DurationChanged?.Invoke(S(D())); break;
-            case "pause":
+            case PropDuration: DurationChanged?.Invoke(S(D())); break;
+            case PropPause:
                 var paused = F();
                 if (paused) EmitPosition();
                 PauseChanged?.Invoke(paused);
                 break;
-            case "paused-for-cache":
+            case PropPausedForCache:
                 _cache = F();
                 CacheStallChanged?.Invoke(_cache);
                 BufferingChanged?.Invoke(_cache || _seeking);
                 break;
-            case "seeking":
+            case PropSeeking:
                 _seeking = F();
                 BufferingChanged?.Invoke(_cache || _seeking);
                 break;
-            case "demuxer-cache-time": BufferedChanged?.Invoke(S(D())); break;
-            case "dwidth":
+            case PropDemuxerCacheTime:
+            {
+                var buffered = D();
+                var value = double.IsFinite(buffered) ? Math.Max(0, buffered) : 0;
+                if (double.IsNaN(_emittedBuffered) || Math.Abs(value - _emittedBuffered) >= 0.5)
+                {
+                    _emittedBuffered = value;
+                    BufferedChanged?.Invoke(TimeSpan.FromSeconds(value));
+                }
+                break;
+            }
+            case PropDwidth:
                 _width = D();
                 if (_width > 0 && _height > 0) VideoSizeChanged?.Invoke((int)_width, (int)_height);
                 break;
-            case "dheight":
+            case PropDheight:
                 _height = D();
                 if (_width > 0 && _height > 0) VideoSizeChanged?.Invoke((int)_width, (int)_height);
                 break;

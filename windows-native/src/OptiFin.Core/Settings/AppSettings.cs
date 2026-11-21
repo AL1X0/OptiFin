@@ -41,7 +41,7 @@ public sealed class AppSettings
     };
 
     /// <summary>Langues proposées (codes ISO 639-2 de Jellyfin).</summary>
-    public static readonly IReadOnlyList<(string Code, string Name)> Languages =
+    public static IReadOnlyList<(string Code, string Name)> Languages =>
     [
         ("fre", L.T("Français")), ("eng", L.T("Anglais")), ("spa", L.T("Espagnol")), ("ger", L.T("Allemand")), ("ita", L.T("Italien")),
         ("por", L.T("Portugais")), ("jpn", L.T("Japonais")), ("kor", L.T("Coréen")), ("chi", L.T("Chinois")), ("rus", L.T("Russe")),
@@ -66,31 +66,40 @@ internal sealed partial class SettingsJson : JsonSerializerContext;
 public sealed class SettingsStore(string? directory = null)
 {
     private readonly string _path = Path.Combine(directory ?? AppLog.Directory, "settings.json");
+    private readonly Lock _gate = new();
 
     public AppSettings Load()
     {
-        try
+        lock (_gate)
         {
-            return File.Exists(_path)
-                ? JsonSerializer.Deserialize(File.ReadAllText(_path), SettingsJson.Default.AppSettings) ?? new AppSettings()
-                : new AppSettings();
-        }
-        catch
-        {
-            return new AppSettings();
+            try
+            {
+                return File.Exists(_path)
+                    ? JsonSerializer.Deserialize(File.ReadAllText(_path), SettingsJson.Default.AppSettings) ?? new AppSettings()
+                    : new AppSettings();
+            }
+            catch
+            {
+                return new AppSettings();
+            }
         }
     }
 
     public void Save(AppSettings settings)
     {
-        try
+        lock (_gate)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            File.WriteAllText(_path, JsonSerializer.Serialize(settings, SettingsJson.Default.AppSettings));
-        }
-        catch (Exception e)
-        {
-            AppLog.Warn("settings", $"Réglages non enregistrés : {e.Message}");
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+                var tmp = _path + ".tmp";
+                File.WriteAllText(tmp, JsonSerializer.Serialize(settings, SettingsJson.Default.AppSettings));
+                File.Move(tmp, _path, overwrite: true);
+            }
+            catch (Exception e)
+            {
+                AppLog.Warn("settings", $"Réglages non enregistrés : {e.Message}");
+            }
         }
     }
 }

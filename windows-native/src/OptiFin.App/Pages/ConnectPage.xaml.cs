@@ -24,8 +24,10 @@ public sealed partial class ConnectPage : Page
     };
     private readonly TextBlock _error = new() { Foreground = Ui.Res("OFDangerBrush"), TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
     private readonly Button _continue = Ui.Primary(L.T("Continuer"));
+    private readonly Button _demo = Ui.Secondary(L.T("Essayer avec le serveur de démonstration"));
     private readonly ProgressRing _progress = new() { IsActive = false, Width = 20, Height = 20 };
     private readonly CancellationTokenSource _cts = new();
+    private bool _busy;
 
     public ConnectPage()
     {
@@ -48,7 +50,7 @@ public sealed partial class ConnectPage : Page
         }
 
         Choices.Children.Add(Ui.Section(L.T("Sur ce réseau")));
-        _servers.Children.Add(new TextBlock { Text = "Recherche…", Style = Ui.StyleOf("OFCaption") });
+        _servers.Children.Add(new TextBlock { Text = L.T("Recherche…"), Style = Ui.StyleOf("OFCaption") });
         Choices.Children.Add(_servers);
 
         Choices.Children.Add(Ui.Section(L.T("Adresse du serveur")));
@@ -62,10 +64,9 @@ public sealed partial class ConnectPage : Page
         _continue.Margin = new Thickness(0, 8, 0, 0);
         _continue.Click += (_, _) => _ = ConnectAsync(_address.Text);
         Choices.Children.Add(_continue);
-        var demo = Ui.Secondary(L.T("Essayer avec le serveur de démonstration"));
-        demo.HorizontalAlignment = HorizontalAlignment.Stretch;
-        demo.Click += (_, _) => _ = DemoAsync();
-        Choices.Children.Add(demo);
+        _demo.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _demo.Click += (_, _) => _ = DemoAsync();
+        Choices.Children.Add(_demo);
         Choices.Children.Add(_progress);
 
         _ = DiscoverAsync();
@@ -100,7 +101,7 @@ public sealed partial class ConnectPage : Page
         if (found == 0)
         {
             _servers.Children.Clear();
-            _servers.Children.Add(new TextBlock { Text = "Aucun serveur détecté automatiquement.", Style = Ui.StyleOf("OFCaption") });
+            _servers.Children.Add(new TextBlock { Text = L.T("Aucun serveur détecté automatiquement."), Style = Ui.StyleOf("OFCaption") });
         }
     }
 
@@ -114,13 +115,16 @@ public sealed partial class ConnectPage : Page
 
     private async Task ConnectAsync(string input)
     {
+        if (_busy) return;
         if (string.IsNullOrWhiteSpace(input))
         {
             ShowError(L.T("Saisissez l’adresse de votre serveur."));
             return;
         }
+        _busy = true;
         _error.Visibility = Visibility.Collapsed;
         _continue.IsEnabled = false;
+        _demo.IsEnabled = false;
         _progress.IsActive = true;
         try
         {
@@ -137,20 +141,25 @@ public sealed partial class ConnectPage : Page
         finally
         {
             _continue.IsEnabled = true;
+            _demo.IsEnabled = true;
             _progress.IsActive = false;
+            _busy = false;
         }
     }
 
     /// <summary>Pas encore de serveur : découverte sur le serveur public de Jellyfin (compte sans mot de passe).</summary>
     private async Task DemoAsync()
     {
+        if (_busy) return;
+        _busy = true;
         _error.Visibility = Visibility.Collapsed;
         _continue.IsEnabled = false;
+        _demo.IsEnabled = false;
         _progress.IsActive = true;
         try
         {
             var server = await AppServices.Auth.ProbeAsync("https://demo.jellyfin.org/stable", _cts.Token);
-            AppServices.SignIn(await AppServices.Auth.LoginAsync(server, "demo", ""));
+            AppServices.SignIn(await AppServices.Auth.LoginAsync(server, "demo", "", _cts.Token));
         }
         catch (ApiException)
         {
@@ -162,7 +171,9 @@ public sealed partial class ConnectPage : Page
         finally
         {
             _continue.IsEnabled = true;
+            _demo.IsEnabled = true;
             _progress.IsActive = false;
+            _busy = false;
         }
     }
 

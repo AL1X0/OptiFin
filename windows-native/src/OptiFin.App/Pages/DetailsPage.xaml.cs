@@ -22,14 +22,21 @@ namespace OptiFin.App.Pages;
 public sealed partial class DetailsPage : Page
 {
     private const double Gutter = HomePage.Gutter;
+    private static readonly SolidColorBrush FavoriteHeartBrush = new(Color.FromArgb(0xFF, 0xFF, 0x45, 0x3A));
+    private static readonly SolidColorBrush EpisodePlayBg = new(Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF));
+    private static readonly SolidColorBrush EpisodeBadgeBg = new(Color.FromArgb(0xCC, 0, 0, 0));
+
     private MediaItem _item = null!;
+    private MediaItem? _nextUp;
     private string? _selectedVersionId;
     private StackPanel? _badgesStrip;
     private ContentControl? _techHost;
     private CancellationTokenSource? _cts;
+    private CancellationTokenSource? _episodesCts;
 
     // Accent du film (comme sur mobile) : couleur vive dominante de son illustration.
     private Color _accent = FilmAccent.Default;
+    private Brush _accentBrush = new SolidColorBrush(FilmAccent.Default);
     private readonly LinearGradientBrush _glow = new() { StartPoint = new(0, 0.85), EndPoint = new(0.8, 0) };
 
     public DetailsPage()
@@ -51,17 +58,24 @@ public sealed partial class DetailsPage : Page
         if (e.Parameter is MediaItem item)
         {
             _item = item;
+            _nextUp = null;
             _selectedVersionId = null;
             _ = LoadAsync();
         }
     }
 
-    protected override void OnNavigatedFrom(NavigationEventArgs e) => _cts?.Cancel();
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        _episodesCts?.Cancel();
+        _cts?.Cancel();
+    }
 
     private async Task LoadAsync()
     {
         if (AppServices.Media is not { } media) return;
+        _episodesCts?.Cancel();
         _cts?.Cancel();
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
         ErrorText.Visibility = Visibility.Collapsed;
@@ -71,11 +85,16 @@ public sealed partial class DetailsPage : Page
             var accent = FilmAccent.ForAsync(_item);
             var item = _item.Kind == MediaKind.Person ? await media.PersonAsync(_item.Id, ct) : await media.ItemAsync(_item.Id, ct);
             _item = item;
+            if (accent.IsCompletedSuccessfully && accent.Result is null && (item.Backdrop != null || item.Primary != null))
+                accent = FilmAccent.ForAsync(item);
             // L'accent (image de 24 px) arrive en général avant la fiche ; on l'attend au plus 0,6 s.
             await Task.WhenAny(accent, Task.Delay(600, ct));
             ApplyAccent(accent.IsCompletedSuccessfully ? accent.Result : null);
-            if (!accent.IsCompleted) _ = accent.ContinueWith(t => DispatcherQueue.TryEnqueue(() => ApplyAccent(t.Result)),
-                ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+            if (!accent.IsCompleted) _ = accent.ContinueWith(t =>
+            {
+                if (!t.IsCompletedSuccessfully) return;
+                DispatcherQueue.TryEnqueue(() => ApplyAccent(t.Result));
+            }, ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
             Render(item);
             _rendered = true;
             Spinner.IsActive = false;
@@ -154,29 +173,35 @@ public sealed partial class DetailsPage : Page
     private void ApplyAccent(Color? color)
     {
         _accent = color ?? FilmAccent.Default;
-        Brush Solid(Color c) => new SolidColorBrush(c);
-        var hover = Color.FromArgb(0xFF, (byte)Math.Min(255, _accent.R + 24), (byte)Math.Min(255, _accent.G + 24), (byte)Math.Min(255, _accent.B + 24));
-        var pressed = Color.FromArgb(0xFF, (byte)(_accent.R * 0.85), (byte)(_accent.G * 0.85), (byte)(_accent.B * 0.85));
-        Resources["OFAccentBrush"] = Solid(_accent);
-        Resources["AccentFillColorDefaultBrush"] = Solid(_accent);
-        Resources["ProgressBarForeground"] = Solid(_accent);
-        Resources["ToggleButtonBackgroundChecked"] = Solid(_accent);
-        Resources["ToggleButtonBackgroundCheckedPointerOver"] = Solid(hover);
-        Resources["ToggleButtonBackgroundCheckedPressed"] = Solid(pressed);
-        Resources["ToggleButtonBorderBrushChecked"] = Solid(_accent);
+        var brush = new SolidColorBrush(_accent);
+        _accentBrush = brush;
+        var hover = new SolidColorBrush(Color.FromArgb(0xFF, (byte)Math.Min(255, _accent.R + 24), (byte)Math.Min(255, _accent.G + 24), (byte)Math.Min(255, _accent.B + 24)));
+        var pressed = new SolidColorBrush(Color.FromArgb(0xFF, (byte)(_accent.R * 0.85), (byte)(_accent.G * 0.85), (byte)(_accent.B * 0.85)));
+        Resources["OFAccentBrush"] = brush;
+        Resources["AccentFillColorDefaultBrush"] = brush;
+        Resources["ProgressBarForeground"] = brush;
+        Resources["ToggleButtonBackgroundChecked"] = brush;
+        Resources["ToggleButtonBackgroundCheckedPointerOver"] = hover;
+        Resources["ToggleButtonBackgroundCheckedPressed"] = pressed;
+        Resources["ToggleButtonBorderBrushChecked"] = brush;
         _glow.GradientStops.Clear();
         _glow.GradientStops.Add(new GradientStop { Offset = 0, Color = _accent.WithAlpha(color is null ? (byte)0 : (byte)0x8C) });
         _glow.GradientStops.Add(new GradientStop { Offset = 0.55, Color = _accent.WithAlpha(color is null ? (byte)0 : (byte)0x26) });
         _glow.GradientStops.Add(new GradientStop { Offset = 1, Color = _accent.WithAlpha(0) });
     }
 
-    private Brush AccentBrush => new SolidColorBrush(_accent);
+    private Brush AccentBrush => _accentBrush;
 
     private FrameworkElement Hero(MediaItem item)
     {
         var hero = new Grid { Height = 560 };
         if (AppServices.Images?.Maybe(item.Backdrop, 1920, 1, 80) is { } backdrop)
-            hero.Children.Add(Ui.FadeIn(new Image { Source = new BitmapImage(backdrop) { DecodePixelWidth = 1920 }, Stretch = Stretch.UniformToFill, VerticalAlignment = VerticalAlignment.Top }, 700));
+            hero.Children.Add(Ui.FadeIn(new Image
+            {
+                Source = new BitmapImage(backdrop) { DecodePixelWidth = 1920, DecodePixelType = DecodePixelType.Physical },
+                Stretch = Stretch.UniformToFill,
+                VerticalAlignment = VerticalAlignment.Top,
+            }, 700));
         // Halo aux couleurs du film, sous les voiles : il se fond dans le noir en bas de l'en-tête.
         hero.Children.Add(new Border { Background = _glow, IsHitTestVisible = false });
         hero.Children.Add(new Border
@@ -199,14 +224,22 @@ public sealed partial class DetailsPage : Page
             {
                 Width = posterWidth, Height = posterHeight, CornerRadius = new CornerRadius(12),
                 Background = Ui.Res("OFSurfaceBrush"),
-                Child = Ui.FadeIn(new Image { Source = new BitmapImage(poster) { DecodePixelWidth = (int)(posterWidth * 1.5) }, Stretch = Stretch.UniformToFill }),
+                Child = Ui.FadeIn(new Image
+                {
+                    Source = new BitmapImage(poster) { DecodePixelWidth = (int)(posterWidth * 1.5), DecodePixelType = DecodePixelType.Physical },
+                    Stretch = Stretch.UniformToFill,
+                }),
             });
         }
         var info = new StackPanel { Spacing = 12, VerticalAlignment = VerticalAlignment.Bottom, MaxWidth = 760 };
         if (item.Kind == MediaKind.Episode && item.SeriesName != null)
             info.Children.Add(new TextBlock { Text = item.SeriesName, FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = Ui.Res("OFTextSecondaryBrush") });
         if (item.Kind != MediaKind.Episode && AppServices.Images?.Maybe(item.Logo, 460, 1.5) is { } logo)
-            info.Children.Add(Ui.FadeIn(new Image { Source = new BitmapImage(logo), MaxHeight = 140, MaxWidth = 460, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 6) }));
+            info.Children.Add(Ui.FadeIn(new Image
+            {
+                Source = new BitmapImage(logo) { DecodePixelWidth = 690, DecodePixelType = DecodePixelType.Physical },
+                MaxHeight = 140, MaxWidth = 460, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 6),
+            }));
         else
             info.Children.Add(new TextBlock { Text = item.Kind == MediaKind.Episode ? $"{item.EpisodeLabel} · {item.Name}" : item.Name, Style = Ui.StyleOf("OFDisplay"), MaxLines = 2 });
         var meta = MediaFormat.MetadataLine(item);
@@ -231,7 +264,7 @@ public sealed partial class DetailsPage : Page
         panel.Children.Add(block);
         if (text.Length > 320)
         {
-            var more = new HyperlinkButton { Content = "Plus", Padding = new Thickness(0), Foreground = Ui.Res("OFTextPrimaryBrush") };
+            var more = new HyperlinkButton { Content = L.T("Plus"), Padding = new Thickness(0), Foreground = Ui.Res("OFTextPrimaryBrush") };
             more.Click += (_, _) =>
             {
                 var expanded = block.MaxLines == 0;
@@ -288,7 +321,7 @@ public sealed partial class DetailsPage : Page
             Add(i == 0 ? "Audio" : "", a.Title ?? string.Join(" · ", new[] { a.Codec.ToUpperInvariant(), a.Language }.Where(x => !string.IsNullOrEmpty(x))));
         if (audios.Count > 6) Add("", L.F("+ {0} autres pistes", audios.Count - 6));
         var section = new StackPanel { Spacing = 8, Margin = new Thickness(0, 12, 0, 0) };
-        section.Children.Add(new TextBlock { Text = "Informations techniques", Style = Ui.StyleOf("OFTitle2") });
+        section.Children.Add(new TextBlock { Text = L.T("Informations techniques"), Style = Ui.StyleOf("OFTitle2") });
         section.Children.Add(grid);
         return section;
     }
@@ -349,6 +382,13 @@ public sealed partial class DetailsPage : Page
                 _actions.Children.Add(restart);
             }
         }
+        else if (item.Kind == MediaKind.Series && _nextUp is { } next)
+        {
+            var label = next.User.PositionTicks > 0 ? L.T("Reprendre") : L.T("Lecture");
+            var play = Ui.Primary($"{label} {next.EpisodeLabel}", "");
+            play.Click += (_, _) => PlayerLauncher.Play(next);
+            _actions.Children.Add(play);
+        }
         if (item.Versions.Count > 1 && selectedVersion != null)
         {
             var versionButton = Ui.Secondary(L.F("Version : {0}", selectedVersion.Label), "\uE8AB");
@@ -374,14 +414,14 @@ public sealed partial class DetailsPage : Page
         {
             var played = Ui.Round(item.User.Played ? "" : "", item.User.Played ? L.T("Marquer comme non vu") : L.T("Marquer comme vu"));
             if (item.User.Played) played.Background = AccentBrush;
-            played.Click += async (_, _) => await Toggle(() => AppServices.Media!.SetPlayedAsync(item.Id, !_item.User.Played));
+            played.Click += async (_, _) => await Toggle(() => AppServices.Media!.SetPlayedAsync(item.Id, !_item.User.Played), reloadSeries: true);
             _actions.Children.Add(played);
         }
         if (item.Kind != MediaKind.Person)
         {
             var fav = Ui.Round(item.User.Favorite ? "" : "", item.User.Favorite ? L.T("Retirer des favoris") : L.T("Ajouter aux favoris"));
-            if (item.User.Favorite) ((FontIcon)fav.Content).Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0x45, 0x3A));
-            fav.Click += async (_, _) => await Toggle(() => AppServices.Media!.SetFavoriteAsync(item.Id, !_item.User.Favorite));
+            if (item.User.Favorite) ((FontIcon)fav.Content).Foreground = FavoriteHeartBrush;
+            fav.Click += async (_, _) => await Toggle(() => AppServices.Media!.SetFavoriteAsync(item.Id, !_item.User.Favorite), reloadSeries: false);
             _actions.Children.Add(fav);
         }
         if (item.Kind.IsPlayableVideo()) _actions.Children.Add(DownloadButton(item));
@@ -394,7 +434,7 @@ public sealed partial class DetailsPage : Page
         }
         if (item.Trailers.Count > 0)
         {
-            var trailer = Ui.Round("\uE8B2", "Bande-annonce");
+            var trailer = Ui.Round("\uE8B2", L.T("Bande-annonce"));
             trailer.Click += async (_, _) => await Windows.System.Launcher.LaunchUriAsync(item.Trailers[0].Url);
             _actions.Children.Add(trailer);
         }
@@ -468,6 +508,7 @@ public sealed partial class DetailsPage : Page
             {
                 AppLog.Warn("downloads", e.UserMessage);
             }
+            if (!IsLoaded || !button.IsLoaded) return;
             menu.ShowAt(button);
         };
         return button;
@@ -488,11 +529,13 @@ public sealed partial class DetailsPage : Page
         {
             message = e.UserMessage;
         }
+        if (!IsLoaded || XamlRoot is null) return;
         var size = episodes.Sum(e => e.MediaSources?.FirstOrDefault()?.Size ?? 0);
-        var enoughSpace = downloads.FreeBytes() is not { } free || size < free;
+        var free = downloads.FreeBytes();
+        var enoughSpace = free is not { } f || size < f;
         message ??= enoughSpace
-            ? L.F("{0} · {1}", L.Count(episodes.Count, "{0} épisode", "{0} épisodes"), Size(size))
-            : L.F("Pas assez de place sur le disque : il faut {0}, il reste {1}.", Size(size), Size(downloads.FreeBytes() ?? 0));
+            ? L.F("{0} · {1}", L.Count(episodes.Count, "{0} épisode", "{0} épisodes"), MediaFormat.FileSize(size))
+            : L.F("Pas assez de place sur le disque : il faut {0}, il reste {1}.", MediaFormat.FileSize(size), MediaFormat.FileSize(free ?? 0));
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
@@ -515,12 +558,6 @@ public sealed partial class DetailsPage : Page
         Nav.Section(typeof(DownloadsPage));
     }
 
-    private static string Size(long bytes) => bytes >= 1L << 30
-        ? L.F("{0:0.0} Go", bytes / (double)(1L << 30))
-        : L.F("{0:0} Mo", bytes / (double)(1L << 20));
-
-    private static readonly HttpClient PosterHttp = new();
-
     /// <summary>Affiche gardée pour la page Téléchargements, sans connexion (facultatif).</summary>
     private static async Task SavePosterAsync(MediaItem item)
     {
@@ -528,7 +565,10 @@ public sealed partial class DetailsPage : Page
         {
             if (item.Poster is not { } poster || AppServices.Images is not { } images) return;
             var url = images.Image(poster, 128, 2, format: "Jpg");
-            await File.WriteAllBytesAsync(AppServices.Downloads.PosterPathOf(item.Id), await PosterHttp.GetByteArrayAsync(url));
+            var bytes = await JellyfinClient.GetPublicBytesAsync(url, TimeSpan.FromSeconds(10));
+            var path = AppServices.Downloads.PosterPathOf(item.Id);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await File.WriteAllBytesAsync(path, bytes);
         }
         catch (Exception e)
         {
@@ -536,14 +576,14 @@ public sealed partial class DetailsPage : Page
         }
     }
 
-    private async Task Toggle(Func<Task<UserState>> call)
+    private async Task Toggle(Func<Task<UserState>> call, bool reloadSeries)
     {
         try
         {
             var state = await call();
             _item = _item with { User = state };
             // Série ou saison marquée vue : les coches de tous ses épisodes changent aussi.
-            if (_item.Kind is MediaKind.Series or MediaKind.Season) await LoadAsync();
+            if (reloadSeries && _item.Kind is MediaKind.Series or MediaKind.Season) await LoadAsync();
             else BuildActions(_item);
         }
         catch (ApiException e)
@@ -557,7 +597,7 @@ public sealed partial class DetailsPage : Page
         var lines = new List<(string Label, string Value)>();
         if (item.Genres.Count > 0) lines.Add(("Genres", string.Join(", ", item.Genres.Select(g => g.Name))));
         var directors = item.People.Where(p => p.Kind == PersonKind.Director).Select(p => p.Name).ToList();
-        if (directors.Count > 0) lines.Add((directors.Count > 1 ? L.T("Réalisation") : L.T("Réalisation"), string.Join(", ", directors)));
+        if (directors.Count > 0) lines.Add((L.T("Réalisation"), string.Join(", ", directors)));
         var writers = item.People.Where(p => p.Kind == PersonKind.Writer).Select(p => p.Name).Take(3).ToList();
         if (writers.Count > 0) lines.Add((L.T("Scénario"), string.Join(", ", writers)));
         if (item.Studios.Count > 0) lines.Add(("Studio", string.Join(", ", item.Studios.Take(2).Select(s => s.Name))));
@@ -627,12 +667,11 @@ public sealed partial class DetailsPage : Page
         var nextTask = media.NextUpForAsync(series.Id, ct);
         var seasons = await seasonsTask;
         var next = await nextTask;
-        if (next != null)
+        if (ct.IsCancellationRequested) return;
+        if (_nextUp?.Id != next?.Id || _nextUp?.User.PositionTicks != next?.User.PositionTicks)
         {
-            var label = next.User.PositionTicks > 0 ? L.T("Reprendre") : L.T("Lecture");
-            var play = Ui.Primary($"{label} {next.EpisodeLabel}", "");
-            play.Click += (_, _) => PlayerLauncher.Play(next);
-            _actions.Children.Insert(0, play);
+            _nextUp = next;
+            BuildActions(_item);
         }
         if (seasons.Count == 0) return;
 
@@ -651,7 +690,10 @@ public sealed partial class DetailsPage : Page
         void Select(MediaItem season)
         {
             foreach (var child in tabs.Children.OfType<ToggleButton>()) child.IsChecked = (string)child.Tag == season.Id;
-            _ = EpisodesAsync(series.Id, season.Id, media, ct, episodes, replace: true);
+            _episodesCts?.Cancel();
+            _episodesCts?.Dispose();
+            _episodesCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            _ = EpisodesAsync(series.Id, season.Id, media, _episodesCts.Token, episodes, replace: true);
         }
         foreach (var season in seasons)
         {
@@ -677,11 +719,16 @@ public sealed partial class DetailsPage : Page
         {
             list = await media.EpisodesAsync(seriesId, seasonId, ct);
         }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
         catch (ApiException e)
         {
             AppLog.Warn("details", $"Épisodes indisponibles : {e.Message}");
             return;
         }
+        if (ct.IsCancellationRequested) return;
         if (replace) target.Children.Clear();
         var column = new StackPanel { Spacing = 8, Padding = new Thickness(Gutter - 12, 0, Gutter, 0), MaxWidth = 1200, HorizontalAlignment = HorizontalAlignment.Left };
         foreach (var episode in list) column.Children.Add(EpisodeRow(episode));
@@ -697,15 +744,19 @@ public sealed partial class DetailsPage : Page
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var thumb = new Grid { Height = 146, Width = 260, CornerRadius = new CornerRadius(10), Background = Ui.Res("OFSurfaceBrush") };
         if (AppServices.Images?.Maybe(e.Landscape, 260, 1.5) is { } url)
-            thumb.Children.Add(Ui.FadeIn(new Image { Source = new BitmapImage(url) { DecodePixelWidth = 390 }, Stretch = Stretch.UniformToFill }));
+            thumb.Children.Add(Ui.FadeIn(new Image
+            {
+                Source = new BitmapImage(url) { DecodePixelWidth = 390, DecodePixelType = DecodePixelType.Physical },
+                Stretch = Stretch.UniformToFill,
+            }));
         if (e.User.Progress is { } progress)
             thumb.Children.Add(new ProgressBar { Value = progress * 100, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(8, 0, 8, 8), Foreground = AccentBrush });
         var playIcon = new Border
         {
             Width = 44, Height = 44, CornerRadius = new CornerRadius(22), Opacity = 0,
-            Background = new SolidColorBrush(Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF)),
+            Background = EpisodePlayBg,
             HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-            Child = new FontIcon { Glyph = "", FontSize = 16, Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0, 0, 0)) },
+            Child = new FontIcon { Glyph = "", FontSize = 16, Foreground = Ui.BlackBrush },
             OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(150) },
         };
         thumb.Children.Add(playIcon);
@@ -713,9 +764,9 @@ public sealed partial class DetailsPage : Page
         var badge = new Border
         {
             Width = 24, Height = 24, CornerRadius = new CornerRadius(12), Margin = new Thickness(8),
-            Background = new SolidColorBrush(Color.FromArgb(0xCC, 0, 0, 0)),
+            Background = EpisodeBadgeBg,
             HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
-            Child = new FontIcon { Glyph = "", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)) },
+            Child = new FontIcon { Glyph = "", FontSize = 12, Foreground = Ui.WhiteBrush },
         };
         thumb.Children.Add(badge);
         row.Children.Add(thumb);
@@ -724,7 +775,7 @@ public sealed partial class DetailsPage : Page
         text.Children.Add(new TextBlock { Text = head, FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
         var meta = new List<string>();
         if (MediaFormat.Duration(e.Runtime) is { } d) meta.Add(d);
-        if (e.PremiereDate is { } date) meta.Add(date.ToString("d MMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("fr-FR")));
+        if (e.PremiereDate is { } date) meta.Add(date.ToString("d MMM yyyy", L.Culture));
         if (meta.Count > 0) text.Children.Add(new TextBlock { Text = string.Join(" · ", meta), Style = Ui.StyleOf("OFCaption") });
         if (e.Overview is { } overview)
             text.Children.Add(new TextBlock { Text = overview, FontSize = 14, MaxLines = 3, TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.WordEllipsis, Foreground = Ui.Res("OFTextSecondaryBrush") });
@@ -763,9 +814,8 @@ public sealed partial class DetailsPage : Page
         Grid.SetColumn(toggle, 2);
         row.Children.Add(toggle);
 
-        var transparent = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
-        row.Background = transparent;
-        Ui.Clickable(row, () => PlayerLauncher.Play(e), transparent, Ui.Res("OFSurfaceBrush"));
+        row.Background = Ui.TransparentBrush;
+        Ui.Clickable(row, () => PlayerLauncher.Play(e), Ui.TransparentBrush, Ui.Res("OFSurfaceBrush"));
         row.PointerEntered += (_, _) => playIcon.Opacity = 1;
         row.PointerExited += (_, _) => playIcon.Opacity = 0;
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(row, L.F("Lire {0}", head));
@@ -775,7 +825,7 @@ public sealed partial class DetailsPage : Page
     private static FrameworkElement CastRow(IReadOnlyList<PersonCredit> cast)
     {
         var section = new StackPanel { Spacing = 12 };
-        section.Children.Add(new TextBlock { Text = "Distribution", Style = Ui.StyleOf("OFTitle2"), Margin = new Thickness(Gutter, 0, Gutter, 0) });
+        section.Children.Add(new TextBlock { Text = L.T("Distribution"), Style = Ui.StyleOf("OFTitle2"), Margin = new Thickness(Gutter, 0, Gutter, 0) });
         var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 20, Padding = new Thickness(Gutter, 4, Gutter, 4) };
         foreach (var p in cast)
         {
@@ -788,9 +838,8 @@ public sealed partial class DetailsPage : Page
             if (p.Role is { } role)
                 stack.Children.Add(new TextBlock { Text = role, Style = Ui.StyleOf("OFCaption"), TextAlignment = TextAlignment.Center, MaxLines = 1 });
             cell.Children.Add(stack);
-            var transparent = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
-            cell.Background = transparent;
-            Ui.Clickable(cell, () => HomePage.Open(new MediaItem { Id = p.Id, Name = p.Name, Kind = MediaKind.Person }), transparent, Ui.Res("OFSurfaceBrush"));
+            cell.Background = Ui.TransparentBrush;
+            Ui.Clickable(cell, () => HomePage.Open(new MediaItem { Id = p.Id, Name = p.Name, Kind = MediaKind.Person }), Ui.TransparentBrush, Ui.Res("OFSurfaceBrush"));
             panel.Children.Add(cell);
         }
         section.Children.Add(new ScrollViewer

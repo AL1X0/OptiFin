@@ -91,6 +91,7 @@ public static class AppServices
     {
         if (Accounts.Restore(accountId) is { } session)
         {
+            MediaActions.EndSelection();
             Activate(session);
             SessionChanged?.Invoke();
         }
@@ -103,6 +104,12 @@ public static class AppServices
             await Auth.LogoutAsync(s);
             Accounts.SignOut(s.Account.Id, forget);
         }
+        ClearSession();
+        SessionChanged?.Invoke();
+    }
+
+    private static void ClearSession()
+    {
         Session = null;
         Client = null;
         Media = null;
@@ -111,7 +118,7 @@ public static class AppServices
         Images = null;
         Downloads.Attach(null, null);
         WatchParty.Attach(null);
-        SessionChanged?.Invoke();
+        Nav.Ui(MediaActions.EndSelection);
     }
 
     private static void Activate(ActiveSession session)
@@ -122,8 +129,10 @@ public static class AppServices
         {
             OnUnauthorized = () =>
             {
+                if (Session?.Account.Id != session.Account.Id) return;
                 AppLog.Warn("auth", "Jeton refusé par le serveur : reconnexion nécessaire");
                 Accounts.SignOut(session.Account.Id, forget: false);
+                ClearSession();
                 SessionLost?.Invoke();
             },
         };

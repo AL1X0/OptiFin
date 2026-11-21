@@ -14,10 +14,6 @@ public static class MediaKindExtensions
     public static bool IsPlayableVideo(this MediaKind k) =>
         k is MediaKind.Movie or MediaKind.Episode or MediaKind.Video or MediaKind.MusicVideo or MediaKind.Trailer;
 
-    /// <summary>Format affiche 2:3 plutôt que paysage.</summary>
-    public static bool PrefersPoster(this MediaKind k) =>
-        k is MediaKind.Movie or MediaKind.Series or MediaKind.Season or MediaKind.BoxSet or MediaKind.Person or MediaKind.Playlist;
-
     public static string? ApiName(this MediaKind k) => k switch
     {
         MediaKind.Other => null,
@@ -76,7 +72,8 @@ public sealed record MediaVersion(
     string? Name,
     long? SizeBytes,
     string? Container,
-    IReadOnlyList<StreamSummary> Streams)
+    IReadOnlyList<StreamSummary> Streams,
+    Playback.TrackSet? Tracks = null)
 {
     public string Label => !string.IsNullOrWhiteSpace(Name) ? Name.Trim() : MediaFormat.VersionLabel(this);
 }
@@ -119,6 +116,9 @@ public sealed record MediaItem
 
     public IReadOnlyList<StreamSummary> StreamsFor(string? versionId) =>
         versionId != null && Versions.FirstOrDefault(v => v.Id == versionId) is { } v ? v.Streams : Streams;
+
+    public Playback.TrackSet? TracksFor(string? versionId) =>
+        versionId != null && Versions.FirstOrDefault(v => v.Id == versionId)?.Tracks is { } t ? t : Tracks;
     public ImageRef? Primary { get; init; }
     public IReadOnlyList<ImageRef> Backdrops { get; init; } = [];
     public ImageRef? Logo { get; init; }

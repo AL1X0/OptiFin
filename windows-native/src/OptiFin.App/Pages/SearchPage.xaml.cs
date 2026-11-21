@@ -27,6 +27,12 @@ public sealed partial class SearchPage : Page
         _debounce.Tick += (_, _) => _ = SearchAsync(_term);
     }
 
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        _debounce.Stop();
+        _cts?.Cancel();
+    }
+
     private string _term = "";
 
     /// <summary>Texte de la barre de recherche (en haut de la fenêtre) : recherche 300 ms après la dernière frappe.</summary>
@@ -40,15 +46,19 @@ public sealed partial class SearchPage : Page
     private async Task SearchAsync(string term)
     {
         _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = null;
         if (term.Length < 2 || AppServices.Media is not { } media)
         {
             Results.Children.Clear();
             HintText.Text = L.T("Recherchez dans toutes vos bibliothèques.");
             Hint.Visibility = Visibility.Visible;
+            Spinner.IsActive = false;
             return;
         }
-        _cts = new CancellationTokenSource();
-        var ct = _cts.Token;
+        var myCts = new CancellationTokenSource();
+        _cts = myCts;
+        var ct = myCts.Token;
         Spinner.IsActive = true;
         try
         {
@@ -74,7 +84,7 @@ public sealed partial class SearchPage : Page
         }
         finally
         {
-            Spinner.IsActive = false;
+            if (ReferenceEquals(_cts, myCts)) Spinner.IsActive = false;
         }
     }
 

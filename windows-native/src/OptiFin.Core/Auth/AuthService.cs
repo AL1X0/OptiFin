@@ -18,15 +18,35 @@ public sealed class AuthService(ClientIdentity identity)
     {
         var candidates = ServerAddress.Candidates(input);
         if (candidates.Count == 0) throw new ApiException(ApiErrorKind.Unreachable);
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var probes = candidates.Select(url => ProbeOneAsync(url, cts.Token)).ToList();
         ApiException? last = null;
         try
         {
-            foreach (var probe in probes)
+            for (var i = 0; i < probes.Count; i++)
             {
+                var probe = probes[i];
                 try
                 {
+                    if (!probe.IsCompleted)
+                    {
+                        while (!probe.IsCompleted && !probes.Skip(i + 1).Any(p => p.IsCompletedSuccessfully))
+                        {
+                            var pendingLater = probes.Skip(i + 1).Where(p => !p.IsCompleted).ToList();
+                            if (pendingLater.Count == 0) break;
+                            await Task.WhenAny([probe, .. pendingLater]);
+                        }
+                        if (!probe.IsCompleted && probes.Skip(i + 1).Any(p => p.IsCompletedSuccessfully))
+                        {
+                            // Une sonde ultérieure a déjà répondu : on laisse au plus 2 s à la sonde prioritaire.
+                            var finished = await Task.WhenAny(probe, Task.Delay(2000, cts.Token));
+                            if (finished != probe)
+                            {
+                                last = new ApiException(ApiErrorKind.Timeout);
+                                continue;
+                            }
+                        }
+                    }
                     return await probe;
                 }
                 catch (ApiException e) when (e.Kind != ApiErrorKind.UnsupportedVersion)
@@ -38,9 +58,10 @@ public sealed class AuthService(ClientIdentity identity)
         }
         finally
         {
-            // Sondes restantes abandonnées ; leurs erreurs (annulation) sont observées sans bruit.
+            // Sondes restantes abandonnées ; cts est libéré une fois toutes les tâches terminées.
             cts.Cancel();
             foreach (var probe in probes) _ = probe.ContinueWith(t => t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            _ = Task.WhenAll(probes).ContinueWith(_ => cts.Dispose(), TaskScheduler.Default);
         }
         throw last ?? new ApiException(ApiErrorKind.Unreachable);
     }
@@ -86,7 +107,7 @@ public sealed class AuthService(ClientIdentity identity)
             var enabled = await Client(server.BaseUrl).GetAsync("QuickConnect/Enabled", JellyfinJson.Default.JsonElement, ct: ct);
             return enabled.ValueKind == System.Text.Json.JsonValueKind.True;
         }
-        catch
+        catch (Exception) when (!ct.IsCancellationRequested)
         {
             return false;
         }

@@ -166,6 +166,7 @@ public sealed partial class SettingsPage : Page
         {
         }
         FilmAccent.Clear();
+        AppServices.Home?.ClearCache();
         AppLog.Info("app", $"Cache vidé ({freed} octets)");
         return freed;
     }
@@ -175,8 +176,8 @@ public sealed partial class SettingsPage : Page
         var os = Environment.OSVersion.Version;
         var windows = os.Build >= 22000 ? "Windows 11" : "Windows 10";
         var memory = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024.0 / 1024 / 1024;
-        return $"{windows} (build {os.Build}) · {Environment.ProcessorCount} cœurs · {memory:0} Go de mémoire · " +
-               "lecture mpv (gpu-next, Direct3D 11, décodage matériel, HDR transmis à l’écran quand Windows l’active)";
+        return L.F("{0} (build {1}) · {2} cœurs · {3} Go de mémoire · lecture mpv (gpu-next, Direct3D 11, décodage matériel, HDR transmis à l’écran quand Windows l’active)",
+            windows, os.Build, Environment.ProcessorCount, memory.ToString("0", L.Culture));
     }
 
     // ------------------------------------------------------------ À propos
@@ -191,19 +192,27 @@ public sealed partial class SettingsPage : Page
         stack.Children.Add(check);
         check.Click += async (_, _) =>
         {
-            status.Text = L.T("Recherche…");
-            var update = await AppUpdater.CheckAsync();
-            if (update is null)
+            check.IsEnabled = false;
+            try
             {
-                status.Text = L.T("OptiFin est à jour.");
-                return;
+                status.Text = L.T("Recherche…");
+                var update = await AppUpdater.CheckAsync();
+                if (update is null)
+                {
+                    status.Text = L.T("OptiFin est à jour.");
+                    return;
+                }
+                status.Text = L.F("Version {0} disponible.", update.Version);
+                if (XamlRoot != null) await UpdateDialog.ShowAsync(XamlRoot, update);
             }
-            status.Text = L.F("Version {0} disponible.", update.Version);
-            await UpdateDialog.ShowAsync(XamlRoot, update);
+            finally
+            {
+                check.IsEnabled = true;
+            }
         };
         Panel.Children.Add(AppUpdater.ByStore
-            ? Row($"OptiFin {AppServices.Version}", "Lecteur Jellyfin pour Windows · mises à jour par le Microsoft Store.", new TextBlock())
-            : Row($"OptiFin {AppServices.Version}", "Lecteur Jellyfin pour Windows · mises à jour automatiques.", stack));
+            ? Row($"OptiFin {AppServices.Version}", L.T("Lecteur Jellyfin pour Windows · mises à jour par le Microsoft Store."), new TextBlock())
+            : Row($"OptiFin {AppServices.Version}", L.T("Lecteur Jellyfin pour Windows · mises à jour automatiques."), stack));
         var licences = Ui.Secondary(L.T("Afficher"));
         licences.Click += async (_, _) => await ShowLicencesAsync();
         Panel.Children.Add(Row(L.T("Licences"), L.T("Composants libres utilisés par OptiFin."), licences));
@@ -214,11 +223,11 @@ public sealed partial class SettingsPage : Page
         var list = new StackPanel { Spacing = 10 };
         foreach (var (name, licence) in new[]
         {
-            ("mpv / libmpv (mpv.io, build shinchiro)", "GPL v2 ou ultérieure / LGPL v2.1 ou ultérieure selon la compilation ; inclut FFmpeg (LGPL / GPL)"),
-            ("Windows App SDK et WinUI 3 (Microsoft)", "Licence MIT"),
-            (".NET (Microsoft)", "Licence MIT"),
-            ("Inno Setup (installateur)", "Licence Inno Setup"),
-            ("Jellyfin (serveur, API)", "GPL v2 ; OptiFin est un client indépendant"),
+            ("mpv / libmpv (mpv.io, build shinchiro)", L.T("GPL v2 ou ultérieure / LGPL v2.1 ou ultérieure selon la compilation ; inclut FFmpeg (LGPL / GPL)")),
+            ("Windows App SDK et WinUI 3 (Microsoft)", L.T("Licence MIT")),
+            (".NET (Microsoft)", L.T("Licence MIT")),
+            ("Inno Setup (installateur)", L.T("Licence Inno Setup")),
+            ("Jellyfin (serveur, API)", L.T("GPL v2 ; OptiFin est un client indépendant")),
         })
         {
             var item = new StackPanel { Spacing = 2 };

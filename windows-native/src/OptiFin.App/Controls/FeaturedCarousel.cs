@@ -20,20 +20,26 @@ namespace OptiFin.App.Controls;
 /// </summary>
 public sealed partial class FeaturedCarousel : Grid
 {
+    private static readonly SolidColorBrush DotInactive = new(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
+    private static readonly SolidColorBrush DotDefaultActive = new(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
+
     private readonly IReadOnlyList<MediaItem> _items;
     private readonly Image[] _layers = [new() { Stretch = Stretch.UniformToFill, Opacity = 1 }, new() { Stretch = Stretch.UniformToFill, Opacity = 0 }];
     private readonly StackPanel _info = new() { Spacing = 16, VerticalAlignment = VerticalAlignment.Bottom, MaxWidth = 620, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly StackPanel _dots = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
+    private readonly RectangleGeometry _clip = new();
     private readonly DispatcherQueueTimer _timer;
     private int _index;
     private int _front;
+    private bool _hovered;
 
     public FeaturedCarousel(IReadOnlyList<MediaItem> items)
     {
         _items = items;
         Height = 620;
         // Le zoom lent du fond ne déborde pas du carrousel.
-        SizeChanged += (_, e) => Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height) };
+        Clip = _clip;
+        SizeChanged += (_, e) => _clip.Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height);
         foreach (var layer in _layers)
         {
             layer.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(900) };
@@ -70,9 +76,9 @@ public sealed partial class FeaturedCarousel : Grid
             var dot = new Border
             {
                 Height = 6, Width = 6, CornerRadius = new CornerRadius(3),
-                Background = new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF)),
+                Background = DotInactive,
             };
-            var hit = new HandGrid { Padding = new Thickness(2, 6, 2, 6), Background = new SolidColorBrush(Colors.Transparent) };
+            var hit = new HandGrid { Padding = new Thickness(2, 6, 2, 6), Background = Ui.TransparentBrush };
             hit.Children.Add(dot);
             hit.Tapped += (_, _) => Show(index, user: true);
             _dots.Children.Add(hit);
@@ -81,12 +87,31 @@ public sealed partial class FeaturedCarousel : Grid
         _timer = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _timer.Interval = TimeSpan.FromSeconds(8);
         _timer.Tick += (_, _) => Show((_index + 1) % _items.Count);
-        PointerEntered += (_, _) => _timer.Stop();
-        PointerExited += (_, _) => _timer.Start();
-        Unloaded += (_, _) => _timer.Stop();
+        void OnPlayerActive(bool open)
+        {
+            if (open) _timer.Stop();
+            else if (_items.Count > 1 && IsLoaded && !_hovered) _timer.Start();
+        }
+        PointerEntered += (_, _) =>
+        {
+            _hovered = true;
+            _timer.Stop();
+        };
+        PointerExited += (_, _) =>
+        {
+            _hovered = false;
+            if (_items.Count > 1 && IsLoaded && !PlayerLauncher.IsOpen) _timer.Start();
+        };
+        Unloaded += (_, _) =>
+        {
+            _timer.Stop();
+            PlayerLauncher.ActiveChanged -= OnPlayerActive;
+        };
         Loaded += (_, _) =>
         {
-            if (_items.Count > 1) _timer.Start();
+            PlayerLauncher.ActiveChanged -= OnPlayerActive;
+            PlayerLauncher.ActiveChanged += OnPlayerActive;
+            if (_items.Count > 1 && !_hovered && !PlayerLauncher.IsOpen) _timer.Start();
         };
         KeyDown += (_, e) =>
         {
@@ -143,14 +168,14 @@ public sealed partial class FeaturedCarousel : Grid
         _front = 1 - _front;
         Children.Move((uint)Children.IndexOf(back), 1);
         if (AppServices.Images?.Maybe(item.Backdrop, 1920, 1, 80) is { } url)
-            back.Source = new BitmapImage(url) { DecodePixelWidth = 1920 };
+            back.Source = new BitmapImage(url) { DecodePixelWidth = 1920, DecodePixelType = DecodePixelType.Physical };
 
         _info.Children.Clear();
         if (AppServices.Images?.Maybe(item.Logo, 460, 1.5) is { } logo)
         {
             _info.Children.Add(Ui.FadeIn(new Image
             {
-                Source = new BitmapImage(logo),
+                Source = new BitmapImage(logo) { DecodePixelWidth = 690, DecodePixelType = DecodePixelType.Physical },
                 MaxHeight = 150,
                 MaxWidth = 460,
                 HorizontalAlignment = HorizontalAlignment.Left,
@@ -195,10 +220,14 @@ public sealed partial class FeaturedCarousel : Grid
         PaintDots(index, accent);
         if (accent is null)
         {
-            _ = FilmAccent.ForAsync(item).ContinueWith(t => DispatcherQueue.TryEnqueue(() =>
+            _ = FilmAccent.ForAsync(item).ContinueWith(t =>
             {
-                if (_index == index && t.Result is { } c) PaintDots(index, c);
-            }), TaskScheduler.Default);
+                if (!t.IsCompletedSuccessfully || t.Result is not { } c) return;
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (_index == index) PaintDots(index, c);
+                });
+            }, TaskScheduler.Default);
         }
     }
 
@@ -208,7 +237,9 @@ public sealed partial class FeaturedCarousel : Grid
         {
             var dot = (Border)((Grid)_dots.Children[i]).Children[0];
             dot.Width = i == index ? 22 : 6;
-            dot.Background = new SolidColorBrush(i == index ? accent ?? Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
+            dot.Background = i == index
+                ? (accent is { } c ? new SolidColorBrush(c) : DotDefaultActive)
+                : DotInactive;
         }
     }
 }

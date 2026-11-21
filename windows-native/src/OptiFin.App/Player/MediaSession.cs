@@ -14,6 +14,7 @@ public static class MediaSession
 {
     private static SystemMediaTransportControls? _smtc;
     private static string? _artworkFor;
+    private static string? _currentItemId;
 
     public static event Action<SystemMediaTransportControlsButton>? ButtonPressed;
 
@@ -40,19 +41,36 @@ public static class MediaSession
         if (_smtc is null) return;
         try
         {
+            if (_currentItemId != item.Id)
+            {
+                _currentItemId = item.Id;
+                var updater = _smtc.DisplayUpdater;
+                updater.Type = MediaPlaybackType.Video;
+                var episode = item.Kind == MediaKind.Episode;
+                updater.VideoProperties.Title = episode ? item.SeriesName ?? item.Name : item.Name;
+                updater.VideoProperties.Subtitle = episode ? $"{item.EpisodeLabel} · {item.Name}" : item.Year?.ToString() ?? "";
+                if (_artworkFor != item.Id && AppServices.Images?.Maybe(item.Poster ?? item.Primary, 300) is { } url)
+                {
+                    _artworkFor = item.Id;
+                    updater.Thumbnail = RandomAccessStreamReference.CreateFromUri(url);
+                }
+                updater.Update();
+            }
+            UpdateTimeline(playing, position, duration);
+        }
+        catch (Exception e)
+        {
+            AppLog.Debug("smtc", e.Message);
+        }
+    }
+
+    public static void UpdateTimeline(bool playing, TimeSpan position, TimeSpan duration)
+    {
+        if (_smtc is null) return;
+        try
+        {
             _smtc.IsEnabled = true;
             _smtc.PlaybackStatus = playing ? MediaPlaybackStatus.Playing : MediaPlaybackStatus.Paused;
-            var updater = _smtc.DisplayUpdater;
-            updater.Type = MediaPlaybackType.Video;
-            var episode = item.Kind == MediaKind.Episode;
-            updater.VideoProperties.Title = episode ? item.SeriesName ?? item.Name : item.Name;
-            updater.VideoProperties.Subtitle = episode ? $"{item.EpisodeLabel} · {item.Name}" : item.Year?.ToString() ?? "";
-            if (_artworkFor != item.Id && AppServices.Images?.Maybe(item.Poster ?? item.Primary, 300) is { } url)
-            {
-                _artworkFor = item.Id;
-                updater.Thumbnail = RandomAccessStreamReference.CreateFromUri(url);
-            }
-            updater.Update();
             _smtc.UpdateTimelineProperties(new SystemMediaTransportControlsTimelineProperties
             {
                 StartTime = TimeSpan.Zero,
@@ -80,6 +98,8 @@ public static class MediaSession
         catch
         {
         }
+        _smtc = null;
         _artworkFor = null;
+        _currentItemId = null;
     }
 }

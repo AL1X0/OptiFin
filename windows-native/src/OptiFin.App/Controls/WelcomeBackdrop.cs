@@ -16,11 +16,14 @@ namespace OptiFin.App.Controls;
 /// </summary>
 public sealed partial class WelcomeBackdrop : Grid
 {
+    private readonly RectangleGeometry _clip = new();
+
     public WelcomeBackdrop()
     {
         IsHitTestVisible = false;
-        SizeChanged += (_, e) => Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height) };
-        Background = new SolidColorBrush(Color.FromArgb(0xFF, 0, 0, 0));
+        Clip = _clip;
+        SizeChanged += (_, e) => _clip.Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height);
+        Background = Ui.BlackBrush;
         Add(Color.FromArgb(0x66, 0x4D, 0xA3, 0xFF), 900, HorizontalAlignment.Left, VerticalAlignment.Top, new Thickness(-260, -300, 0, 0), new Vector3(180, 120, 0), 19);
         Add(Color.FromArgb(0x55, 0x8B, 0x5C, 0xF6), 820, HorizontalAlignment.Right, VerticalAlignment.Bottom, new Thickness(0, 0, -240, -280), new Vector3(-160, -140, 0), 23);
         Add(Color.FromArgb(0x33, 0x2D, 0xD4, 0xBF), 640, HorizontalAlignment.Center, VerticalAlignment.Center, new Thickness(-420, 260, 0, 0), new Vector3(220, -160, 0), 29);
@@ -75,6 +78,7 @@ public sealed partial class WelcomeBackdrop : Grid
             move.IterationBehavior = AnimationIterationBehavior.Forever;
             visual.StartAnimation("Translation", move);
         };
+        blob.Unloaded += (_, _) => ElementCompositionPreview.GetElementVisual(blob).StopAnimation("Translation");
     }
 }
 
@@ -164,6 +168,12 @@ public sealed partial class WelcomeLogo : Grid
             glow.Duration = TimeSpan.FromSeconds(4.5);
             glow.IterationBehavior = AnimationIterationBehavior.Forever;
             haloVisual.StartAnimation("Opacity", glow);
+        };
+        Unloaded += (_, _) =>
+        {
+            var haloVisual = ElementCompositionPreview.GetElementVisual(halo);
+            haloVisual.StopAnimation("Scale");
+            haloVisual.StopAnimation("Opacity");
         };
     }
 }

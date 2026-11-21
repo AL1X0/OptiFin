@@ -46,26 +46,44 @@ public static class SyncPlayParser
         try
         {
             using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            var type = Str(root, "MessageType");
-            if (!root.TryGetProperty("Data", out var data)) return null;
-            return type switch
-            {
-                "ForceKeepAlive" => new KeepAliveRequest(data.ValueKind == JsonValueKind.Number ? data.GetInt32() : 60),
-                "SyncPlayCommand" => new CommandMessage(Command(data)),
-                "SyncPlayGroupUpdate" => GroupUpdate(data),
-                "Play" when data.TryGetProperty("ItemIds", out var ids) && ids.ValueKind == JsonValueKind.Array && ids.GetArrayLength() > 0
-                    && ids[0].GetString() is { Length: > 0 } id && Str(data, "PlayCommand") is null or "PlayNow"
-                    => new RemotePlayMessage(id, TimeSpan.FromTicks(Long(data, "StartPositionTicks"))),
-                "Playstate" when Str(data, "Command") is { } command => new RemoteCommandMessage(command,
-                    data.TryGetProperty("SeekPositionTicks", out var seek) && seek.ValueKind == JsonValueKind.Number ? TimeSpan.FromTicks(seek.GetInt64()) : null),
-                _ => null,
-            };
+            return ParseDocument(doc);
         }
         catch (Exception e) when (e is JsonException or InvalidOperationException or FormatException or KeyNotFoundException)
         {
             return null;
         }
+    }
+
+    public static SyncPlayMessage? Parse(ReadOnlyMemory<byte> utf8)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(utf8);
+            return ParseDocument(doc);
+        }
+        catch (Exception e) when (e is JsonException or InvalidOperationException or FormatException or KeyNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    private static SyncPlayMessage? ParseDocument(JsonDocument doc)
+    {
+        var root = doc.RootElement;
+        var type = Str(root, "MessageType");
+        if (!root.TryGetProperty("Data", out var data)) return null;
+        return type switch
+        {
+            "ForceKeepAlive" => new KeepAliveRequest(data.ValueKind == JsonValueKind.Number ? data.GetInt32() : 60),
+            "SyncPlayCommand" => new CommandMessage(Command(data)),
+            "SyncPlayGroupUpdate" => GroupUpdate(data),
+            "Play" when data.TryGetProperty("ItemIds", out var ids) && ids.ValueKind == JsonValueKind.Array && ids.GetArrayLength() > 0
+                && ids[0].GetString() is { Length: > 0 } id && Str(data, "PlayCommand") is null or "PlayNow"
+                => new RemotePlayMessage(id, TimeSpan.FromTicks(Long(data, "StartPositionTicks"))),
+            "Playstate" when Str(data, "Command") is { } command => new RemoteCommandMessage(command,
+                data.TryGetProperty("SeekPositionTicks", out var seek) && seek.ValueKind == JsonValueKind.Number ? TimeSpan.FromTicks(seek.GetInt64()) : null),
+            _ => null,
+        };
     }
 
     private static SyncPlayMessage? GroupUpdate(JsonElement update)

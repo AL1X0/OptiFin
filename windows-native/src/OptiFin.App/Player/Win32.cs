@@ -7,7 +7,6 @@ namespace OptiFin.App.Player;
 internal static unsafe partial class Win32
 {
     public const uint WS_POPUP = 0x80000000;
-    public const uint WS_VISIBLE = 0x10000000;
     public const uint WS_CLIPCHILDREN = 0x02000000;
     public const int WS_EX_TOOLWINDOW = 0x00000080;
     public const int WS_EX_NOACTIVATE = 0x08000000;
@@ -34,8 +33,6 @@ internal static unsafe partial class Win32
     public const uint SWP_NOACTIVATE = 0x0010;
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_SHOWWINDOW = 0x0040;
-    public const uint WM_ERASEBKGND = 0x0014;
-    public const uint WM_NCHITTEST = 0x0084;
     public const uint WM_MOUSEACTIVATE = 0x0021;
     public const int MA_NOACTIVATE = 3;
     public const uint ES_CONTINUOUS = 0x80000000;
@@ -57,12 +54,6 @@ internal static unsafe partial class Win32
         public nint MenuName;
         public nint ClassName;
         public nint IconSm;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct Rect
-    {
-        public int Left, Top, Right, Bottom;
     }
 
     /// <summary>Identité de l'appli pour la barre des tâches et les contrôles multimédias (même valeur que le raccourci de l'installateur).</summary>
@@ -156,10 +147,6 @@ internal static unsafe partial class Win32
         var value = (int)color;
         DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &value, sizeof(int));
     }
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static partial bool GetClientRect(nint hwnd, out Rect rect);
 
     [LibraryImport("gdi32.dll", EntryPoint = "GetStockObject")]
     public static partial nint GdiStockObject(int index);
@@ -302,18 +289,20 @@ internal sealed unsafe class VideoHost : IDisposable
     {
         if (!_registered)
         {
-            var name = Marshal.StringToHGlobalUni(ClassName);
-            var wc = new Win32.WndClassEx
+            fixed (char* name = ClassName)
             {
-                Size = (uint)sizeof(Win32.WndClassEx),
-                WndProc = &WndProc,
-                Instance = Win32.GetModuleHandle(0),
-                Background = Win32.GdiStockObject(Win32.BLACK_BRUSH),
-                Cursor = Win32.LoadCursor(0, 32512 /* IDC_ARROW */),
-                ClassName = name,
-            };
-            Win32.RegisterClassEx(&wc);
-            _registered = true;
+                var wc = new Win32.WndClassEx
+                {
+                    Size = (uint)sizeof(Win32.WndClassEx),
+                    WndProc = &WndProc,
+                    Instance = Win32.GetModuleHandle(0),
+                    Background = Win32.GdiStockObject(Win32.BLACK_BRUSH),
+                    Cursor = Win32.LoadCursor(0, 32512 /* IDC_ARROW */),
+                    ClassName = (nint)name,
+                };
+                Win32.RegisterClassEx(&wc);
+                _registered = true;
+            }
         }
         Hwnd = Win32.CreateWindowEx(Win32.WS_EX_TOOLWINDOW | Win32.WS_EX_NOACTIVATE, ClassName, "OptiFin vidéo",
             Win32.WS_POPUP | Win32.WS_CLIPCHILDREN, 0, 0, 1280, 720, 0, 0, Win32.GetModuleHandle(0), 0);

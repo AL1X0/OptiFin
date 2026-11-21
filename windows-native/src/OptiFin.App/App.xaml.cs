@@ -11,8 +11,13 @@ public partial class App : Application
     private Window? _window;
 
     /// <summary>Lancement du processus, en <see cref="Environment.TickCount64"/> (chronos du démarrage).</summary>
-    public static readonly long ProcessStarted = Environment.TickCount64 -
-        (long)(DateTime.Now - System.Diagnostics.Process.GetCurrentProcess().StartTime).TotalMilliseconds;
+    public static readonly long ProcessStarted = ComputeProcessStarted();
+
+    private static long ComputeProcessStarted()
+    {
+        using var proc = System.Diagnostics.Process.GetCurrentProcess();
+        return Environment.TickCount64 - (long)(DateTime.Now - proc.StartTime).TotalMilliseconds;
+    }
 
     /// <summary>Premier accueil affiché (chrono « depuis le lancement » une seule fois).</summary>
     public static bool HomeShown { get; set; }
@@ -23,7 +28,6 @@ public partial class App : Application
         if (!Environment.GetCommandLineArgs().Contains("--capture") && !SingleInstance.Claim()) Environment.Exit(0);
         OptiFin.Core.Localization.L.UseSystemLanguage();
         InitializeComponent();
-        OptiFin.App.Controls.Ui.Translate(this);
         AppLog.Open();
         // Test de fiabilité (tools/check-player) : ramasse-miettes en continu, pour révéler dès maintenant
         // ce qui ne tient qu'à son passage tardif (minuteur non retenu…) et ne casse que sur certaines machines.
@@ -98,7 +102,10 @@ public partial class App : Application
     {
         if (AppUpdater.ByStore || AppServices.Version == "1.0.0" || Environment.GetCommandLineArgs().Contains("--capture")) return;
         await Task.Delay(TimeSpan.FromSeconds(6));
-        if (await AppUpdater.CheckAsync() is not { } update || _window?.Content?.XamlRoot is not { } root) return;
-        _window.DispatcherQueue.TryEnqueue(() => _ = UpdateDialog.ShowAsync(root, update));
+        if (await AppUpdater.CheckAsync() is not { } update || _window is not MainWindow window) return;
+        window.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!window.IsClosed && window.Content?.XamlRoot is { } root) _ = UpdateDialog.ShowAsync(root, update);
+        });
     }
 }

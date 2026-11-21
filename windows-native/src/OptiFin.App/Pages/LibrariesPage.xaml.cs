@@ -11,6 +11,8 @@ namespace OptiFin.App.Pages;
 /// <summary>Bibliothèques du serveur (Films, Séries…), en grandes tuiles paysage.</summary>
 public sealed partial class LibrariesPage : Page
 {
+    private CancellationTokenSource? _cts;
+
     public LibrariesPage()
     {
         InitializeComponent();
@@ -18,12 +20,25 @@ public sealed partial class LibrariesPage : Page
         Nav.TrackScroll(Scroll);
     }
 
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = null;
+    }
+
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         if (AppServices.Media is not { } media) return;
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+        Spinner.IsActive = true;
         try
         {
-            var views = await media.UserViewsAsync();
+            var views = await media.UserViewsAsync(ct);
+            if (ct.IsCancellationRequested) return;
             Grid.Children.Clear();
             foreach (var view in views)
             {
@@ -32,8 +47,12 @@ public sealed partial class LibrariesPage : Page
                 Grid.Children.Add(card);
             }
         }
+        catch (OperationCanceledException)
+        {
+        }
         catch (ApiException ex)
         {
+            Grid.Children.Clear();
             Grid.Children.Add(new TextBlock { Text = ex.UserMessage, Style = Ui.StyleOf("OFBody") });
         }
         finally

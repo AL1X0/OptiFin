@@ -341,4 +341,48 @@ public sealed class DownloadManagerTests : IDisposable
         Assert.True(plan.StreamUrl.IsFile);
         Assert.Equal(TimeSpan.FromSeconds(30), plan.Start);
     }
+
+    [Fact]
+    public async Task Pause_et_Resume_n_alterent_pas_un_telechargement_termine()
+    {
+        using var manager = await WithFinishedDownload(_dir);
+        manager.Pause("movie");
+        Assert.Equal(DownloadStatus.Complete, manager.Find("movie")?.Status);
+        manager.Resume("movie");
+        Assert.Equal(DownloadStatus.Complete, manager.Find("movie")?.Status);
+    }
+
+    [Fact]
+    public async Task Fichier_termine_filtre_par_version()
+    {
+        using var server = new Server(File8Mb);
+        using var manager = new DownloadManager(_dir);
+        manager.Attach(Client(server), "compte");
+        manager.Enqueue(new BaseItemDto
+        {
+            Id = "movie",
+            Name = "Horizon",
+            Type = "Movie",
+            MediaSources =
+            [
+                new MediaSourceInfo { Id = "v1", Container = "mkv" },
+                new MediaSourceInfo { Id = "v2", Container = "mp4" },
+            ],
+        }, mediaSourceId: "v2");
+        await Until(() => manager.Find("movie")?.Status == DownloadStatus.Complete, "fin");
+        Assert.NotNull(manager.CompletedFile("movie"));
+        Assert.NotNull(manager.CompletedFile("movie", "v2"));
+        Assert.Null(manager.CompletedFile("movie", "v1"));
+    }
+
+    [Fact]
+    public async Task Ajouts_consecutifs_rapides_finissent_tous_sans_rester_en_file()
+    {
+        using var server = new Server(File8Mb);
+        using var manager = new DownloadManager(_dir);
+        manager.Attach(Client(server), "compte");
+        for (var i = 1; i <= 6; i++) manager.Enqueue(Dto($"m{i}"));
+        await Until(() => manager.Records().Count == 6 && manager.Records().All(r => r.Status == DownloadStatus.Complete), "tous terminés");
+        await manager.IdleAsync();
+    }
 }

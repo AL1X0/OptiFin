@@ -20,6 +20,7 @@ public sealed partial class LoginPage : Page
     private readonly TextBlock _error = new() { Foreground = Ui.Res("OFDangerBrush"), TextWrapping = TextWrapping.Wrap, Visibility = Visibility.Collapsed };
     private readonly Button _signIn = Ui.Primary(L.T("Se connecter"));
     private readonly StackPanel _users = new() { Orientation = Orientation.Horizontal, Spacing = 20, HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly CancellationTokenSource _cts = new();
 
     public LoginPage()
     {
@@ -27,6 +28,7 @@ public sealed partial class LoginPage : Page
         OptiFin.App.Controls.Ui.Translate(this);
         RootGrid.Children.Insert(0, new WelcomeBackdrop());
         Column.Children.Insert(0, new WelcomeLogo());
+        Unloaded += (_, _) => _cts.Cancel();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -44,14 +46,16 @@ public sealed partial class LoginPage : Page
 
     private async Task BuildAsync()
     {
-        var quickConnect = AppServices.Auth.IsQuickConnectEnabledAsync(_server);
-        var users = AppServices.Auth.PublicUsersAsync(_server);
+        var ct = _cts.Token;
+        var quickConnect = AppServices.Auth.IsQuickConnectEnabledAsync(_server, ct);
+        var users = AppServices.Auth.PublicUsersAsync(_server, ct);
 
         var back = Ui.Secondary(L.T("Changer de serveur"), "");
         back.Click += (_, _) => Nav.Root(typeof(ConnectPage));
 
         if (await quickConnect)
         {
+            if (ct.IsCancellationRequested) return;
             Subtitle.Text = L.T("Le plus simple : Quick Connect.");
             var qc = Ui.Primary(L.T("Se connecter avec Quick Connect"), "");
             qc.HorizontalAlignment = HorizontalAlignment.Stretch;
@@ -67,6 +71,7 @@ public sealed partial class LoginPage : Page
         }
 
         var list = await users;
+        if (ct.IsCancellationRequested) return;
         if (list.Count > 0)
         {
             var images = new ImageUrls(_server.BaseUrl);
@@ -82,7 +87,7 @@ public sealed partial class LoginPage : Page
                 {
                     _username.Text = u.Name;
                     _password.Focus(FocusState.Programmatic);
-                }, new SolidColorBrush(Microsoft.UI.Colors.Transparent), Ui.Res("OFSurfaceBrush"));
+                }, Ui.TransparentBrush, Ui.Res("OFSurfaceBrush"));
                 _users.Children.Add(cell);
             }
             Form.Children.Add(new ScrollViewer
@@ -112,6 +117,7 @@ public sealed partial class LoginPage : Page
 
     private async Task LoginAsync()
     {
+        if (!_signIn.IsEnabled) return;
         if (string.IsNullOrWhiteSpace(_username.Text))
         {
             ShowError(L.T("Saisissez votre nom d’utilisateur."));
@@ -121,9 +127,12 @@ public sealed partial class LoginPage : Page
         _signIn.IsEnabled = false;
         try
         {
-            var session = await AppServices.Auth.LoginAsync(_server, _username.Text.Trim(), _password.Password);
+            var session = await AppServices.Auth.LoginAsync(_server, _username.Text.Trim(), _password.Password, _cts.Token);
             _password.Password = "";
             AppServices.SignIn(session);
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (ApiException e)
         {
@@ -137,13 +146,14 @@ public sealed partial class LoginPage : Page
 
     private async Task QuickConnectAsync()
     {
-        using var cts = new CancellationTokenSource();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
         var code = new TextBlock
         {
             FontSize = 44, FontWeight = Microsoft.UI.Text.FontWeights.Bold, CharacterSpacing = 400,
             HorizontalAlignment = HorizontalAlignment.Center, IsTextSelectionEnabled = true,
         };
-        var status = new TextBlock { Text = "En attente d’autorisation…", Style = Ui.StyleOf("OFCaption"), HorizontalAlignment = HorizontalAlignment.Center };
+        var spinner = new ProgressRing { IsActive = true, Width = 32, Height = 32 };
+        var status = new TextBlock { Text = L.T("En attente d’autorisation…"), Style = Ui.StyleOf("OFCaption"), HorizontalAlignment = HorizontalAlignment.Center };
         var content = new StackPanel { Spacing = 16, Width = 420 };
         content.Children.Add(new TextBlock
         {
@@ -151,7 +161,7 @@ public sealed partial class LoginPage : Page
             TextWrapping = TextWrapping.Wrap,
             Foreground = Ui.Res("OFTextSecondaryBrush"),
         });
-        content.Children.Add(new ProgressRing { IsActive = true, Width = 32, Height = 32 });
+        content.Children.Add(spinner);
         content.Children.Add(code);
         content.Children.Add(status);
         var dialog = new ContentDialog
@@ -166,7 +176,8 @@ public sealed partial class LoginPage : Page
         try
         {
             var ticket = await AppServices.Auth.InitiateQuickConnectAsync(_server, cts.Token);
-            ((ProgressRing)content.Children[1]).Visibility = Visibility.Collapsed;
+            spinner.IsActive = false;
+            spinner.Visibility = Visibility.Collapsed;
             code.Text = ticket.Code;
             var waiting = AppServices.Auth.AwaitQuickConnectAsync(_server, ticket, cts.Token);
             var finished = await Task.WhenAny(waiting, shown.AsTask());
@@ -183,11 +194,15 @@ public sealed partial class LoginPage : Page
         }
         catch (ApiException e)
         {
+            spinner.IsActive = false;
+            spinner.Visibility = Visibility.Collapsed;
             status.Text = e.UserMessage;
             status.Foreground = Ui.Res("OFDangerBrush");
         }
         catch (TimeoutException)
         {
+            spinner.IsActive = false;
+            spinner.Visibility = Visibility.Collapsed;
             status.Text = L.T("Le code a expiré. Réessayez.");
         }
         catch (OperationCanceledException)

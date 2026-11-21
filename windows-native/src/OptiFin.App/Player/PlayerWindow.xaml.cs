@@ -42,6 +42,7 @@ public sealed partial class PlayerWindow : Window
     private readonly DispatcherQueueTimer _startupTimer;
     private readonly DispatcherQueueTimer _levelTimer;
     private readonly DispatcherQueueTimer _seekTimer;
+    private readonly DispatcherQueueTimer _volumeSaveTimer;
     private readonly HashSet<MediaSegment> _autoSkipped = [];
     private TimeSpan _position;
     private TimeSpan? _pendingSeek;
@@ -51,6 +52,11 @@ public sealed partial class PlayerWindow : Window
     private TimeSpan _buffered;
     private bool _paused;
     private bool _started;
+    private bool _volumeDirty;
+    private long _lastSmtcSecond = -1;
+    private long _lastClockPosRem = -1;
+    private long _lastEndsMinute = -1;
+    private string _lastChapter = "";
     /// <summary>Début du lancement de la lecture (chrono jusqu'à la première image).</summary>
     private long _startTicks;
     private bool _transcodeTried;
@@ -72,6 +78,15 @@ public sealed partial class PlayerWindow : Window
     private readonly Dictionary<string, string> _addedSubtitles = [];
     private readonly IntPtr _hwnd;
     private string? _mediaSourceId;
+
+    private bool HasFloatingOverlay =>
+        _stats
+        || Preparing.Visibility == Visibility.Visible
+        || ErrorPanel.Visibility == Visibility.Visible
+        || SkipButton.Visibility == Visibility.Visible
+        || UpNext.Visibility == Visibility.Visible
+        || Buffering.IsActive
+        || Level.Opacity > 0;
 
     public PlayerWindow(MediaItem item, bool fromStart, PartyStart? party = null, string? mediaSourceId = null)
     {
@@ -121,8 +136,7 @@ public sealed partial class PlayerWindow : Window
         _startupTimer = Timer(dispatcher, TimeSpan.FromSeconds(30), () => _ = OnStartupFailureAsync("aucune image après 30 s"));
         _overlayTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(300), () =>
         {
-            if (_active && Controls.Opacity == 0 && !_stats && Preparing.Visibility == Visibility.Collapsed && ErrorPanel.Visibility == Visibility.Collapsed
-                && !Win32.SystemKeyHeld())
+            if (_active && Controls.Opacity == 0 && !HasFloatingOverlay && !Win32.SystemKeyHeld())
                 SetOverlayVisible(false);
         });
         _cursorTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(100), () =>
@@ -130,8 +144,18 @@ public sealed partial class PlayerWindow : Window
             if (Win32.GetCursorPos(out var p) && (Math.Abs(p.X - _cursorWhenCloaked.X) > 2 || Math.Abs(p.Y - _cursorWhenCloaked.Y) > 2))
                 ShowControls(autoHide: true);
         }, repeating: true);
-        _levelTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(900), () => Level.Opacity = 0);
+        _levelTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(900), () =>
+        {
+            Level.Opacity = 0;
+            SyncFloatingOverlayVisibility();
+        });
         _seekTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(400), () => _ = ReloadAtPendingSeekAsync());
+        _volumeSaveTimer = Timer(dispatcher, TimeSpan.FromMilliseconds(500), () =>
+        {
+            if (!_volumeDirty) return;
+            _volumeDirty = false;
+            AppServices.SaveSettings();
+        });
 
         _statsTimer = Timer(dispatcher, TimeSpan.FromSeconds(1), UpdateStats, repeating: true);
         WireControls();
@@ -237,6 +261,10 @@ public sealed partial class PlayerWindow : Window
         _startTicks = Environment.TickCount64;
         _startPosition = start;
         _started = false;
+        _lastSmtcSecond = -1;
+        _lastClockPosRem = -1;
+        _lastEndsMinute = -1;
+        _lastChapter = "";
         _startupTimer.Stop();
         _seekWaiting = false;
         _seekTimer.Stop();
@@ -245,35 +273,37 @@ public sealed partial class PlayerWindow : Window
         {
             ShowPreparing(forceTranscode ? L.T("Le serveur prépare une version compatible…") : null);
             // Fichier téléchargé : lu directement, sans passer par le serveur (qui peut être injoignable).
-            var downloaded = forceTranscode ? null : AppServices.Downloads.CompletedFile(item.Id);
+            var downloaded = forceTranscode ? null : AppServices.Downloads.CompletedFile(item.Id, _mediaSourceId);
             if (downloaded != null)
             {
-                var stored = OptiFin.Core.Downloads.DownloadManager.ItemOf(AppServices.Downloads.Find(item.Id)!);
+                var record = AppServices.Downloads.Find(item.Id)!;
+                var stored = OptiFin.Core.Downloads.DownloadManager.ItemOf(record);
                 _item = stored;
                 SetTitles(stored);
-                var localPlan = PlaybackService.LocalPlan(stored, downloaded, start);
+                var localPlan = PlaybackService.LocalPlan(stored, downloaded, start, record.MediaSourceId);
                 var (localAudio, localSubtitle) = TrackPreferences.Preferred(localPlan, AppServices.Settings);
                 _plan = localPlan with { AudioIndex = localAudio, SubtitleIndex = localSubtitle };
                 AppLog.Info("player", $"« {stored.Name} » → fichier téléchargé");
-                _ = LoadExtrasAsync(stored, generation);
+                _ = LoadExtrasAsync(stored, localPlan.MediaSourceId, generation);
                 _mpv ??= CreatePlayer();
                 _position = start;
                 _duration = TimeSpan.Zero;
                 _buffered = TimeSpan.Zero;
-                UpdateTimes();
+                UpdateTimes(force: true);
                 LoadStream(_plan, start, stored.Name);
                 if (_sync != null) _mpv.Pause();
                 ApplySubtitleStyle();
                 return;
             }
-            var full = item.Kind.IsPlayableVideo() && item.Overview is null ? await media.ItemAsync(item.Id) : item;
+            var full = string.IsNullOrEmpty(item.Name) || (item.Kind == MediaKind.Episode && item.SeriesId is null)
+                ? await media.ItemAsync(item.Id)
+                : item;
             if (Stale()) return;
             _item = full;
             SetTitles(full);
             var settings = AppServices.Settings;
             // Pistes connues par la fiche : préférences demandées d'emblée (pas de 2e requête en transcodage).
-            var sameSource = _mediaSourceId is null || full.Versions.FirstOrDefault()?.Id == _mediaSourceId;
-            var (hintAudio, hintSubtitle) = sameSource && full.Tracks is { } tracks
+            var (hintAudio, hintSubtitle) = full.TracksFor(_mediaSourceId) is { } tracks
                 ? TrackPreferences.Preferred(tracks, settings)
                 : (null, null);
             var plan = await playback.PrepareAsync(full.Id, start, hintAudio, hintSubtitle, forceTranscode, settings.EffectiveMaxBitrate, _mediaSourceId);
@@ -289,13 +319,13 @@ public sealed partial class PlayerWindow : Window
             AppLog.Timing("player", "Plan de lecture prêt", _startTicks);
             AppLog.Info("player", $"« {full.Name} » → {plan.Method.Label()} : conteneur {plan.Container}, vidéo {plan.VideoCodec} " +
                                   $"{plan.VideoRangeType}, {plan.Bitrate / 1_000_000.0:0.#} Mb/s");
-            _ = LoadExtrasAsync(full, generation);
+            _ = LoadExtrasAsync(full, plan.MediaSourceId, generation);
 
             _mpv ??= CreatePlayer();
             _position = start;
             _duration = TimeSpan.Zero;
             _buffered = TimeSpan.Zero;
-            UpdateTimes();
+            UpdateTimes(force: true);
             LoadStream(plan, start, full.Name);
             // En soirée : chargé en pause, le groupe donne le départ.
             if (_sync != null) _mpv.Pause();
@@ -328,6 +358,10 @@ public sealed partial class PlayerWindow : Window
         if (_mpv is null) return;
         _started = false;
         _startPosition = start;
+        _lastSmtcSecond = -1;
+        _lastClockPosRem = -1;
+        _lastEndsMinute = -1;
+        _lastChapter = "";
         _streamGeneration++;
         _addedSubtitles.Clear();
         _startupTimer.Stop();
@@ -365,11 +399,14 @@ public sealed partial class PlayerWindow : Window
             if (paused) ShowControls(autoHide: false);
             else ScheduleHide();
             if (_plan != null && _started) _ = AppServices.Playback!.ReportProgressAsync(_plan, _position, paused);
-            MediaSession.Update(_item, !paused, _position, _duration);
+            MediaSession.UpdateTimeline(!paused, _position, _duration);
         });
         mpv.BufferingChanged += b => Ui(() =>
         {
-            Buffering.IsActive = b && _started;
+            var active = b && _started;
+            if (Buffering.IsActive == active) return;
+            Buffering.IsActive = active;
+            SyncFloatingOverlayVisibility();
         });
         mpv.CacheStallChanged += stalled => Ui(() =>
         {
@@ -406,11 +443,12 @@ public sealed partial class PlayerWindow : Window
             if (_pendingSeek != null && _mpv != null)
             {
                 _position = _mpv.Position;
-                UpdateTimes();
+                UpdateTimes(force: true);
             }
             _pendingSeek = null;
             Preparing.Visibility = Visibility.Collapsed;
             ScheduleHide();
+            SyncFloatingOverlayVisibility();
         }
         _reportTimer.Start();
         if (_plan != null)
@@ -499,7 +537,7 @@ public sealed partial class PlayerWindow : Window
             {
                 _recoveries++;
                 AppLog.Warn("player", $"Reprise automatique à {MediaFormat.Clock(_position)} (essai {_recoveries})");
-                ShowPreparing("Reconnexion…");
+                ShowPreparing(L.T("Reconnexion…"));
                 LoadStream(current, _position);
                 return;
             }
@@ -543,9 +581,9 @@ public sealed partial class PlayerWindow : Window
         await StartAsync(_item, _startPosition, forceTranscode: true);
     }
 
-    private async Task LoadExtrasAsync(MediaItem item, int generation)
+    private async Task LoadExtrasAsync(MediaItem item, string? mediaSourceId, int generation)
     {
-        var extras = await AppServices.Playback!.ExtrasAsync(item, AppServices.Media!);
+        var extras = await AppServices.Playback!.ExtrasAsync(item, AppServices.Media!, mediaSourceId);
         // Titre changé entre-temps (épisode suivant) : chapitres et segments de l'ancien ignorés.
         if (generation != _loadGeneration || _closing) return;
         // Sans connexion, le serveur ne dit pas quel épisode suit : celui déjà téléchargé enchaîne.
@@ -585,6 +623,8 @@ public sealed partial class PlayerWindow : Window
         if (_pendingSeek != null) return;
         _position = position;
         if (!_scrubbing) UpdateTimes();
+        var prevSkip = SkipButton.Visibility;
+        var prevUpNext = UpNext.Visibility;
         var segment = _extras.SkippableAt(position);
         if (segment != null && _sync is null && AppServices.Settings.AutoSkipSegments && _autoSkipped.Add(segment))
         {
@@ -608,20 +648,54 @@ public sealed partial class PlayerWindow : Window
             UpNextTitle.Text = $"{_extras.NextEpisode!.EpisodeLabel} · {_extras.NextEpisode.Name}";
         UpNext.Visibility = showUpNext ? Visibility.Visible : Visibility.Collapsed;
         if (showUpNext) SkipButton.Visibility = Visibility.Collapsed;
-        ChapterText.Text = _extras.ChapterAt(position)?.Name ?? "";
+        if (SkipButton.Visibility != prevSkip || UpNext.Visibility != prevUpNext) SyncFloatingOverlayVisibility();
+        var chapter = _extras.ChapterAt(position)?.Name ?? "";
+        if (chapter != _lastChapter)
+        {
+            _lastChapter = chapter;
+            ChapterText.Text = chapter;
+        }
     }
 
-    private void UpdateTimes()
+    private void UpdateTimes(bool force = false)
     {
+        if (_started)
+        {
+            var sec = (long)_position.TotalSeconds;
+            if (sec % 5 == 0 && sec != _lastSmtcSecond)
+            {
+                _lastSmtcSecond = sec;
+                MediaSession.UpdateTimeline(!_paused, _position, _duration);
+            }
+        }
+        if (!force && !_overlayVisible && Controls.Opacity == 0) return;
         var width = Scrubber.ActualWidth;
         var total = _duration.TotalSeconds;
         PlayedBar.Width = total > 0 ? Math.Clamp(_position.TotalSeconds / total, 0, 1) * width : 0;
         BufferedBar.Width = total > 0 ? Math.Clamp(_buffered.TotalSeconds / total, 0, 1) * width : 0;
-        PositionText.Text = MediaFormat.Clock(_position);
         var remaining = _duration > _position ? _duration - _position : TimeSpan.Zero;
-        RemainingText.Text = $"-{MediaFormat.Clock(remaining)}";
-        EndsAtText.Text = _duration > TimeSpan.Zero ? L.F("Fin à {0:HH:mm}", DateTime.Now.Add(remaining)) : "";
-        if (_started && (int)_position.TotalSeconds % 5 == 0) MediaSession.Update(_item, !_paused, _position, _duration);
+        var posAndRemKey = ((long)_position.TotalSeconds << 32) ^ (uint)(long)remaining.TotalSeconds;
+        if (force || posAndRemKey != _lastClockPosRem)
+        {
+            _lastClockPosRem = posAndRemKey;
+            PositionText.Text = MediaFormat.Clock(_position);
+            RemainingText.Text = $"-{MediaFormat.Clock(remaining)}";
+        }
+        if (_duration > TimeSpan.Zero)
+        {
+            var endsAt = DateTime.Now.Add(remaining);
+            var endsMinute = endsAt.Ticks / TimeSpan.TicksPerMinute;
+            if (force || endsMinute != _lastEndsMinute)
+            {
+                _lastEndsMinute = endsMinute;
+                EndsAtText.Text = L.F("Fin à {0:HH:mm}", endsAt);
+            }
+        }
+        else if (_lastEndsMinute != -1 || force)
+        {
+            _lastEndsMinute = -1;
+            EndsAtText.Text = "";
+        }
     }
 
     // ------------------------------------------------------------ Commandes
@@ -648,6 +722,7 @@ public sealed partial class PlayerWindow : Window
         {
             _upNextDismissed = true;
             UpNext.Visibility = Visibility.Collapsed;
+            SyncFloatingOverlayVisibility();
         };
         VolumeButton.Click += (_, _) => ShowVolume();
         UpdateVolumeIcon();
@@ -712,6 +787,9 @@ public sealed partial class PlayerWindow : Window
     }
 
     private readonly Microsoft.UI.Xaml.Media.TranslateTransform _hoverShift = new();
+    private string? _lastHoverText;
+    private bool _lastHoverPreviewVisible;
+    private double _lastHoverDesiredWidth;
 
     private void ShowHover(double x)
     {
@@ -719,51 +797,77 @@ public sealed partial class PlayerWindow : Window
         if (_duration <= TimeSpan.Zero) return;
         var at = At(x);
         var chapter = _extras.ChapterAt(at);
-        HoverText.Text = chapter is null ? MediaFormat.Clock(at) : $"{MediaFormat.Clock(at)} · {chapter.Name}";
+        var text = chapter is null ? MediaFormat.Clock(at) : $"{MediaFormat.Clock(at)} · {chapter.Name}";
+        if (text != _lastHoverText)
+        {
+            _lastHoverText = text;
+            HoverText.Text = text;
+            _lastHoverDesiredWidth = 0;
+        }
         ShowPreview(at);
-        HoverLabel.Visibility = Visibility.Visible;
-        HoverLabel.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
-        var w = HoverLabel.DesiredSize.Width;
+        var previewVisible = HoverPreview.Visibility == Visibility.Visible;
+        if (HoverLabel.Visibility != Visibility.Visible || previewVisible != _lastHoverPreviewVisible || _lastHoverDesiredWidth <= 0)
+        {
+            _lastHoverPreviewVisible = previewVisible;
+            HoverLabel.Visibility = Visibility.Visible;
+            HoverLabel.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            _lastHoverDesiredWidth = HoverLabel.DesiredSize.Width;
+        }
         // Déplacement par translation : une marge gauche changeante faisait recalculer la mise en page de la
         // barre, et l'étiquette restait en retard sur le curseur dans la moitié droite.
-        _hoverShift.X = Math.Clamp(x - w / 2, 0, Math.Max(0, Scrubber.ActualWidth - w));
+        _hoverShift.X = Math.Clamp(x - _lastHoverDesiredWidth / 2, 0, Math.Max(0, Scrubber.ActualWidth - _lastHoverDesiredWidth));
     }
 
     private double PreviewWidth => _floating ? 150 : 240;
 
     /// <summary>Planches déjà chargées (trois au plus : chacune occupe plusieurs dizaines de Mo une fois décodée).</summary>
-    private readonly Dictionary<(string Item, int Sheet), Task<Microsoft.UI.Xaml.Media.Imaging.BitmapImage?>> _sheets = [];
+    private readonly Dictionary<(string MediaSourceId, int Sheet), Task<Microsoft.UI.Xaml.Media.Imaging.BitmapImage?>> _sheets = [];
     private readonly Microsoft.UI.Xaml.Media.TranslateTransform _previewShift = new();
     private readonly Microsoft.UI.Xaml.Media.RectangleGeometry _previewClip = new();
-    private (string Item, int Sheet) _previewSheet;
+    private (string MediaSourceId, int Sheet) _previewSheet;
+    private (int Sheet, int Column, int Row) _lastPreviewTile = (-1, -1, -1);
+    private double _lastPreviewWidth;
+    private TrickplayManifest? _lastPreviewManifest;
 
     private void ShowPreview(TimeSpan at)
     {
         if (_extras.Trickplay is not { } t || _plan is not { } plan)
         {
             HoverPreview.Visibility = Visibility.Collapsed;
+            _lastPreviewTile = (-1, -1, -1);
             return;
         }
         var tile = t.TileAt(at);
-        var height = PreviewWidth * t.Height / t.Width;
-        HoverPreview.Width = PreviewWidth;
-        HoverPreview.Height = height;
-        _previewClip.Rect = new Windows.Foundation.Rect(0, 0, PreviewWidth, height);
-        HoverPreview.Clip = _previewClip;
-        HoverImage.Width = PreviewWidth * t.TileWidth;
-        HoverImage.Height = height * t.TileHeight;
-        HoverImage.RenderTransform = _previewShift;
-        _previewShift.X = -tile.Column * PreviewWidth;
-        _previewShift.Y = -tile.Row * height;
+        var pw = PreviewWidth;
+        var height = pw * t.Height / t.Width;
+        if (_lastPreviewManifest != t || Math.Abs(_lastPreviewWidth - pw) > 0.1)
+        {
+            _lastPreviewManifest = t;
+            _lastPreviewWidth = pw;
+            _lastHoverDesiredWidth = 0;
+            HoverPreview.Width = pw;
+            HoverPreview.Height = height;
+            _previewClip.Rect = new Windows.Foundation.Rect(0, 0, pw, height);
+            HoverPreview.Clip = _previewClip;
+            HoverImage.Width = pw * t.TileWidth;
+            HoverImage.Height = height * t.TileHeight;
+            HoverImage.RenderTransform = _previewShift;
+        }
+        if (tile != _lastPreviewTile)
+        {
+            _lastPreviewTile = tile;
+            _previewShift.X = -tile.Column * pw;
+            _previewShift.Y = -tile.Row * height;
+        }
         HoverPreview.Visibility = Visibility.Visible;
-        var key = (plan.ItemId, tile.Sheet);
+        var key = (plan.MediaSourceId, tile.Sheet);
         if (_previewSheet == key) return;
         _previewSheet = key;
         HoverImage.Source = null;
         _ = ShowSheetAsync(key, t, plan);
     }
 
-    private async Task ShowSheetAsync((string Item, int Sheet) key, TrickplayManifest t, PlaybackPlan plan)
+    private async Task ShowSheetAsync((string MediaSourceId, int Sheet) key, TrickplayManifest t, PlaybackPlan plan)
     {
         if (!_sheets.TryGetValue(key, out var sheet))
         {
@@ -771,17 +875,18 @@ public sealed partial class PlayerWindow : Window
             _sheets[key] = sheet = LoadSheetAsync(key, t, plan);
         }
         var image = await sheet;
+        if (image is null) _sheets.Remove(key);
         // Le curseur a pu changer de planche entre-temps.
         if (_previewSheet != key) return;
         if (image is null) HoverPreview.Visibility = Visibility.Collapsed;
         else HoverImage.Source = image;
     }
 
-    private static async Task<Microsoft.UI.Xaml.Media.Imaging.BitmapImage?> LoadSheetAsync((string Item, int Sheet) key, TrickplayManifest t, PlaybackPlan plan)
+    private static async Task<Microsoft.UI.Xaml.Media.Imaging.BitmapImage?> LoadSheetAsync((string MediaSourceId, int Sheet) key, TrickplayManifest t, PlaybackPlan plan)
     {
         try
         {
-            var bytes = await AppServices.Playback!.TrickplaySheetAsync(key.Item, plan.MediaSourceId, t.Width, key.Sheet);
+            var bytes = await AppServices.Playback!.TrickplaySheetAsync(plan.ItemId, key.MediaSourceId, t.Width, key.Sheet);
             using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
             await stream.WriteAsync(System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.AsBuffer(bytes));
             stream.Seek(0);
@@ -892,6 +997,7 @@ public sealed partial class PlayerWindow : Window
         LevelIcon.Glyph = "";
         LevelBar.Value = _speed / 3 * 100;
         Level.Opacity = 1;
+        SetOverlayVisible(true);
         _levelTimer.Stop();
         _levelTimer.Start();
         AppLog.Info("player", $"Vitesse {_speed}×");
@@ -1042,7 +1148,9 @@ public sealed partial class PlayerWindow : Window
         if (_muted && delta > 0) ToggleMute(flash);
         if (flash) FlashLevel(s.Volume);
         UpdateVolumeIcon();
-        AppServices.SaveSettings();
+        _volumeDirty = true;
+        _volumeSaveTimer.Stop();
+        _volumeSaveTimer.Start();
     }
 
     /// <summary>Icône du bouton volume : coupé, faible, moyen, fort.</summary>
@@ -1062,7 +1170,7 @@ public sealed partial class PlayerWindow : Window
         };
         var mute = new Button
         {
-            Style = OptiFin.App.Controls.Ui.StyleOf("OFIconButton"), Width = 36, Height = 36, Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            Style = OptiFin.App.Controls.Ui.StyleOf("OFIconButton"), Width = 36, Height = 36, Background = OptiFin.App.Controls.Ui.TransparentBrush,
             Content = new FontIcon { Glyph = _muted ? "" : "", FontSize = 15 },
         };
         var muteTip = L.T("Couper le son (M)");
@@ -1102,6 +1210,7 @@ public sealed partial class PlayerWindow : Window
         LevelIcon.Glyph = value <= 0 ? "" : "";
         LevelBar.Value = value * 100;
         Level.Opacity = 1;
+        SetOverlayVisible(true);
         _levelTimer.Stop();
         _levelTimer.Start();
     }
@@ -1267,12 +1376,27 @@ public sealed partial class PlayerWindow : Window
         }
     }
 
+    private void SyncFloatingOverlayVisibility()
+    {
+        if (HasFloatingOverlay)
+        {
+            SetOverlayVisible(true);
+            return;
+        }
+        if (_active && Controls.Opacity == 0)
+        {
+            _overlayTimer.Stop();
+            _overlayTimer.Start();
+        }
+    }
+
     private void ShowControls(bool autoHide)
     {
         if (!_overlayVisible) SetOverlayVisible(true);
         Controls.Opacity = 1;
         Controls.IsHitTestVisible = true;
-        Root.ProtectedCursorReset();
+        UpdateTimes(force: true);
+        Win32.SetCursorHidden(false);
         if (autoHide) ScheduleHide();
         else _hideTimer.Stop();
     }
@@ -1288,10 +1412,13 @@ public sealed partial class PlayerWindow : Window
         if (_paused || !_started || _scrubbing) return;
         Controls.Opacity = 0;
         Controls.IsHitTestVisible = false;
-        Root.HideCursor();
+        Win32.SetCursorHidden(true);
         // Après le fondu des commandes.
-        _overlayTimer.Stop();
-        _overlayTimer.Start();
+        if (!HasFloatingOverlay)
+        {
+            _overlayTimer.Stop();
+            _overlayTimer.Start();
+        }
     }
 
     // ------------------------------------------------------------ Menus
@@ -1426,7 +1553,7 @@ public sealed partial class PlayerWindow : Window
     {
         _stats = on;
         StatsPanel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
-        InfoButton.Background = on ? OptiFin.App.Controls.Ui.Res("OFGlassBrush") : new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        InfoButton.Background = on ? OptiFin.App.Controls.Ui.Res("OFGlassBrush") : OptiFin.App.Controls.Ui.TransparentBrush;
         InfoIcon.Foreground = on ? OptiFin.App.Controls.Ui.Res("OFAccentBrush") : OptiFin.App.Controls.Ui.Res("OFTextPrimaryBrush");
         if (on)
         {
@@ -1437,6 +1564,7 @@ public sealed partial class PlayerWindow : Window
         else
         {
             _statsTimer.Stop();
+            SyncFloatingOverlayVisibility();
             ScheduleHide();
         }
     }
@@ -1456,7 +1584,7 @@ public sealed partial class PlayerWindow : Window
         {
             string? G(string name) => mpv.Get(name) is { Length: > 0 } v ? v : null;
             double? D(string name) => mpv.GetDouble(name);
-            var culture = CultureInfo.CurrentUICulture;
+            var culture = L.Culture;
             var w = G("video-params/w");
             var h = G("video-params/h");
             var fps = D("container-fps") ?? D("estimated-vf-fps");
@@ -1464,7 +1592,7 @@ public sealed partial class PlayerWindow : Window
             {
                 G("video-codec-name") ?? G("video-format"),
                 w != null && h != null ? $"{w}×{h}" : null,
-                fps is { } f ? $"{f.ToString("0.###", culture)} i/s" : null,
+                fps is { } f ? L.F("{0} i/s", f.ToString("0.###", culture)) : null,
                 G("video-params/pixelformat"),
             }.Where(x => x != null))));
             rows.Add((L.T("Couleurs"), $"{G("video-params/gamma") ?? "?"} · {G("video-params/primaries") ?? "?"}{(G("video-params/max-luma") is { } luma ? $" · {luma} nits" : "")}"));
@@ -1493,7 +1621,7 @@ public sealed partial class PlayerWindow : Window
             var speed = D("cache-speed");
             rows.Add(("Cache", $"{(cache is { } cd ? $"{cd:0} s" : "?")}{(speed is { } sp ? $" · {sp * 8 / 1e6:0.0} Mb/s" : "")}"));
             var avsync = D("avsync");
-            rows.Add((L.T("Images perdues"), $"{mpv.DroppedFrames}{(D("vo-delayed-frame-count") is { } late ? $" · {late:0} en retard" : "")}{(avsync is { } av ? $" · synchro A/V {av * 1000:0} ms" : "")}"));
+            rows.Add((L.T("Images perdues"), $"{mpv.DroppedFrames}{(D("vo-delayed-frame-count") is { } late ? $" · {L.F("{0} en retard", late.ToString("0", culture))}" : "")}{(avsync is { } av ? $" · {L.F("synchro A/V {0} ms", (av * 1000).ToString("0", culture))}" : "")}"));
         }
         var sameLabels = _statsRows.Count == rows.Count;
         for (var i = 0; sameLabels && i < rows.Count; i++)
@@ -1524,7 +1652,7 @@ public sealed partial class PlayerWindow : Window
     private double _audioDelay;
 
     private static string Seconds(double value) =>
-        value == 0 ? "aucun" : (value > 0 ? "+" : "−") + Math.Abs(value).ToString("0.0", CultureInfo.CurrentUICulture) + " s";
+        value == 0 ? L.T("aucun") : (value > 0 ? "+" : "−") + Math.Abs(value).ToString("0.0", L.Culture) + " s";
 
     private static MenuFlyoutSubItem DelayMenu(string title, string hint, Func<double> current, Action<double> set)
     {
@@ -1533,7 +1661,7 @@ public sealed partial class PlayerWindow : Window
         menu.Items.Add(new MenuFlyoutSeparator());
         foreach (var step in new[] { -1.0, -0.5, -0.1, 0.1, 0.5, 1.0 })
         {
-            var item = new MenuFlyoutItem { Text = (step > 0 ? "+" : "−") + Math.Abs(step).ToString("0.0", CultureInfo.CurrentUICulture) + " s" };
+            var item = new MenuFlyoutItem { Text = (step > 0 ? "+" : "−") + Math.Abs(step).ToString("0.0", L.Culture) + " s" };
             item.Click += (_, _) => set(Math.Round(current() + step, 2));
             menu.Items.Add(item);
         }
@@ -1543,20 +1671,15 @@ public sealed partial class PlayerWindow : Window
         return menu;
     }
 
-    private static readonly (string Code, string Name)[] SubtitleLanguages =
-    [
-        ("fre", L.T("Français")), ("eng", L.T("Anglais")), ("spa", L.T("Espagnol")), ("ger", L.T("Allemand")), ("ita", L.T("Italien")),
-        ("por", L.T("Portugais")), ("dut", L.T("Néerlandais")), ("jpn", L.T("Japonais")), ("ara", L.T("Arabe")),
-    ];
-
     /// <summary>Recherche de sous-titres par les fournisseurs du serveur, puis affichage immédiat.</summary>
     private async Task SearchSubtitlesAsync()
     {
         if (_plan is not { } plan || Content.XamlRoot is not { } root) return;
         ShowControls(autoHide: false);
+        var languages = AppSettings.Languages;
         var language = new ComboBox { MinWidth = 180 };
-        foreach (var (code, name) in SubtitleLanguages) language.Items.Add(name);
-        var preferred = Array.FindIndex(SubtitleLanguages, l => l.Code == (AppServices.Settings.SubtitleLanguage ?? "fre"));
+        foreach (var (_, name) in languages) language.Items.Add(name);
+        var preferred = languages.ToList().FindIndex(l => l.Code == (AppServices.Settings.SubtitleLanguage ?? "fre"));
         language.SelectedIndex = preferred < 0 ? 0 : preferred;
         var results = new StackPanel { Spacing = 6 };
         var status = new TextBlock { Style = OptiFin.App.Controls.Ui.StyleOf("OFCaption"), TextWrapping = TextWrapping.Wrap };
@@ -1579,13 +1702,17 @@ public sealed partial class PlayerWindow : Window
             },
         };
 
+        var searchGen = 0;
+        using var cts = new CancellationTokenSource();
         async Task SearchAsync()
         {
+            var gen = ++searchGen;
             results.Children.Clear();
             status.Text = L.T("Recherche…");
             try
             {
-                var found = await AppServices.Playback!.SearchSubtitlesAsync(plan.ItemId, SubtitleLanguages[language.SelectedIndex].Code);
+                var found = await AppServices.Playback!.SearchSubtitlesAsync(plan.ItemId, languages[language.SelectedIndex].Code, cts.Token);
+                if (gen != searchGen || cts.IsCancellationRequested) return;
                 status.Text = found.Count == 0 ? L.T("Aucun sous-titre trouvé dans cette langue.") : L.Count(found.Count, "{0} résultat", "{0} résultats");
                 foreach (var subtitle in found.Take(40))
                 {
@@ -1622,15 +1749,19 @@ public sealed partial class PlayerWindow : Window
                     results.Children.Add(row);
                 }
             }
+            catch (OperationCanceledException)
+            {
+            }
             catch (ApiException e)
             {
-                status.Text = e.UserMessage;
+                if (gen == searchGen) status.Text = e.UserMessage;
             }
         }
 
         language.SelectionChanged += (_, _) => _ = SearchAsync();
         _ = SearchAsync();
         await dialog.ShowAsync();
+        cts.Cancel();
         ScheduleHide();
     }
 
@@ -1702,7 +1833,7 @@ public sealed partial class PlayerWindow : Window
         var speed = new MenuFlyoutSubItem { Text = L.T("Vitesse") };
         foreach (var s in new[] { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 })
         {
-            var item = new MenuFlyoutItem { Text = s == 1 ? L.T("Normale") : $"{s.ToString("0.##", CultureInfo.CurrentUICulture)}×" };
+            var item = new MenuFlyoutItem { Text = s == 1 ? L.T("Normale") : $"{s.ToString("0.##", L.Culture)}×" };
             item.Click += (_, _) => SetSpeed(s);
             speed.Items.Add(item);
         }
@@ -1838,7 +1969,7 @@ public sealed partial class PlayerWindow : Window
         ErrorText.Text = message;
         ErrorDetail.Text = AppServices.Settings.DebugMode ? detail ?? "" : "";
         ErrorPanel.Visibility = Visibility.Visible;
-        Root.ProtectedCursorReset();
+        Win32.SetCursorHidden(false);
         _video.Show(false);
         // Plus de son derrière le message (flux encore ouvert après un échec de changement de titre).
         _mpv?.Pause();
@@ -1873,6 +2004,16 @@ public sealed partial class PlayerWindow : Window
         _cursorTimer.Stop();
         _overlayTimer.Stop();
         _statsTimer.Stop();
+        _levelTimer.Stop();
+        _closeFade?.Stop();
+        _volumeSaveTimer.Stop();
+        if (_volumeDirty)
+        {
+            _volumeDirty = false;
+            AppServices.SaveSettings();
+        }
+        _sheets.Clear();
+        HoverImage.Source = null;
         Win32.WatchSystemKeys(null);
         Win32.SetCursorHidden(false);
         _reportTimer.Stop();
@@ -1894,13 +2035,17 @@ public sealed partial class PlayerWindow : Window
         {
             AppLog.Error("player", "Retour à la fenêtre principale impossible", e);
         }
-        // Rapport final (position où l'on s'arrête) et libération de mpv en arrière-plan.
+        // Rapport final et libération de mpv en parallèle (une coupure serveur ne retarde pas la libération GPU).
         var started = _started;
         _ = Task.Run(async () =>
         {
             try
             {
-                if (plan != null && started) await AppServices.Playback!.ReportStoppedAsync(plan, position);
+                if (plan != null && !plan.StreamUrl.IsFile)
+                {
+                    if (started) await AppServices.Playback!.ReportStoppedAsync(plan, position);
+                    else await AppServices.Playback!.StopEncodingAsync(plan);
+                }
                 await AppServices.Downloads.SyncPositionsAsync();
                 Nav.Ui(PlayerLauncher.OnProgressSaved);
             }
@@ -1908,6 +2053,9 @@ public sealed partial class PlayerWindow : Window
             {
                 AppLog.Warn("player", $"Rapport de fin impossible : {e.Message}");
             }
+        });
+        _ = Task.Run(async () =>
+        {
             try
             {
                 // mpv peut tarder à se libérer (pilote vidéo) : on n'attend pas indéfiniment.
@@ -1920,12 +2068,4 @@ public sealed partial class PlayerWindow : Window
             Nav.Ui(() => _video.Dispose());
         });
     }
-}
-
-internal static class CursorExtensions
-{
-    /// <summary>Masque le curseur au-dessus de la vidéo (contrôles masqués) ; il revient au moindre mouvement.</summary>
-    public static void HideCursor(this Grid _) => Win32.SetCursorHidden(true);
-
-    public static void ProtectedCursorReset(this Grid _) => Win32.SetCursorHidden(false);
 }

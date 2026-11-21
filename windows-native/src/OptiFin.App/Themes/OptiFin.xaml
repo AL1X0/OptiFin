@@ -10,7 +10,6 @@
     <Color x:Key="OFBackground">#FF000000</Color>
     <Color x:Key="OFSurface">#FF121214</Color>
     <Color x:Key="OFSurfaceRaised">#FF1C1C1E</Color>
-    <Color x:Key="OFSidebar">#FF0B0B0D</Color>
     <Color x:Key="OFStroke">#14FFFFFF</Color>
     <Color x:Key="OFTextPrimary">#FFF2F2F7</Color>
     <Color x:Key="OFTextSecondary">#B3EBEBF5</Color>
@@ -22,7 +21,6 @@
     <SolidColorBrush x:Key="OFBackgroundBrush" Color="{StaticResource OFBackground}" />
     <SolidColorBrush x:Key="OFSurfaceBrush" Color="{StaticResource OFSurface}" />
     <SolidColorBrush x:Key="OFSurfaceRaisedBrush" Color="{StaticResource OFSurfaceRaised}" />
-    <SolidColorBrush x:Key="OFSidebarBrush" Color="{StaticResource OFSidebar}" />
     <SolidColorBrush x:Key="OFStrokeBrush" Color="{StaticResource OFStroke}" />
     <SolidColorBrush x:Key="OFTextPrimaryBrush" Color="{StaticResource OFTextPrimary}" />
     <SolidColorBrush x:Key="OFTextSecondaryBrush" Color="{StaticResource OFTextSecondary}" />
@@ -36,10 +34,6 @@
     <Color x:Key="SystemAccentColorLight1">#FF6FB5FF</Color>
     <Color x:Key="SystemAccentColorLight2">#FF92C7FF</Color>
     <Color x:Key="SystemAccentColorDark1">#FF3A8EE6</Color>
-
-    <x:Double x:Key="OFGutter">40</x:Double>
-    <CornerRadius x:Key="OFRadiusCard">12</CornerRadius>
-    <CornerRadius x:Key="OFRadiusPill">999</CornerRadius>
 
     <Style x:Key="OFDisplay" TargetType="TextBlock">
         <Setter Property="FontSize" Value="40" />

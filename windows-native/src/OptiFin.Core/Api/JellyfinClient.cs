@@ -10,21 +10,16 @@ namespace OptiFin.Core.Api;
 /// <summary>Identité du client envoyée dans l'en-tête <c>Authorization</c>.</summary>
 public sealed record ClientIdentity(string ClientName, string DeviceName, string DeviceId, string Version)
 {
+    private readonly string _prefix = $"MediaBrowser Client={Q(ClientName)}, Device={Q(DeviceName)}, DeviceId={Q(DeviceId)}, Version={Q(Version)}";
+
+    private static string Q(string v) => $"\"{Uri.EscapeDataString(v)}\"";
+
     /// <summary>
     /// <c>Authorization: MediaBrowser …</c> attendu par Jellyfin 10.9+. Valeurs encodées (le serveur
     /// les décode) : noms d'appareil avec guillemets, virgules ou accents acceptés.
     /// </summary>
-    public string AuthorizationHeader(string? token)
-    {
-        static string Q(string v) => $"\"{Uri.EscapeDataString(v)}\"";
-        var header = new StringBuilder("MediaBrowser ")
-            .Append("Client=").Append(Q(ClientName))
-            .Append(", Device=").Append(Q(DeviceName))
-            .Append(", DeviceId=").Append(Q(DeviceId))
-            .Append(", Version=").Append(Q(Version));
-        if (!string.IsNullOrEmpty(token)) header.Append(", Token=").Append(Q(token));
-        return header.ToString();
-    }
+    public string AuthorizationHeader(string? token) =>
+        string.IsNullOrEmpty(token) ? _prefix : $"{_prefix}, Token={Q(token)}";
 }
 
 /// <summary>
@@ -35,6 +30,9 @@ public sealed record ClientIdentity(string ClientName, string DeviceName, string
 public sealed class JellyfinClient
 {
     private static readonly HttpClient Shared = CreateHttp();
+    private static readonly MediaTypeWithQualityHeaderValue AcceptJson = new("application/json");
+
+    public static HttpClient SharedHttp => Shared;
 
     private static HttpClient CreateHttp()
     {
@@ -43,6 +41,7 @@ public sealed class JellyfinClient
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
             AutomaticDecompression = System.Net.DecompressionMethods.All,
             ConnectTimeout = TimeSpan.FromSeconds(10),
+            EnableMultipleHttp2Connections = true,
         };
         return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
     }
@@ -90,18 +89,44 @@ public sealed class JellyfinClient
         using var response = await SendRawAsync(HttpMethod.Delete, path, null, null, ct).ConfigureAwait(false);
     }
 
+    public static async Task<byte[]> GetPublicBytesAsync(Uri url, TimeSpan? timeout = null, CancellationToken ct = default)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(timeout ?? TimeSpan.FromSeconds(10));
+        try
+        {
+            using var response = await Shared.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsByteArrayAsync(cts.Token).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            throw ApiException.From(e);
+        }
+    }
+
     public async Task<byte[]> GetBytesAsync(string path, IEnumerable<KeyValuePair<string, string?>>? query = null, CancellationToken ct = default)
     {
-        using var response = await SendRawAsync(HttpMethod.Get, path, query, null, ct).ConfigureAwait(false);
-        return await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+        try
+        {
+            using var response = await SendRawAsync(HttpMethod.Get, path, query, null, ct, acceptJson: false).ConfigureAwait(false);
+            return await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not ApiException && (e is not OperationCanceledException || !ct.IsCancellationRequested))
+        {
+            throw ApiException.From(e);
+        }
     }
 
     /// <summary>Réponse brute pour un long téléchargement, éventuellement à partir d'un octet (reprise).</summary>
     public Task<HttpResponseMessage> GetResponseAsync(string path, long from = 0, CancellationToken ct = default) =>
-        SendRawAsync(HttpMethod.Get, path, null, null, ct, from);
+        SendRawAsync(HttpMethod.Get, path, null, null, ct, from, acceptJson: false);
 
     public static HttpContent Json<T>(T value, JsonTypeInfo<T> type) =>
-        new StringContent(JsonSerializer.Serialize(value, type), Encoding.UTF8, "application/json");
+        new ByteArrayContent(JsonSerializer.SerializeToUtf8Bytes(value, type))
+        {
+            Headers = { ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" } },
+        };
 
     public static HttpContent Json(JsonObject value) =>
         new StringContent(value.ToJsonString(), Encoding.UTF8, "application/json");
@@ -120,16 +145,20 @@ public sealed class JellyfinClient
         {
             throw new ApiException(ApiErrorKind.Unexpected, $"Réponse illisible : {e.Message}");
         }
+        catch (Exception e) when (e is not ApiException && (e is not OperationCanceledException || !ct.IsCancellationRequested))
+        {
+            throw ApiException.From(e);
+        }
     }
 
     private async Task<HttpResponseMessage> SendRawAsync(HttpMethod method, string path,
-        IEnumerable<KeyValuePair<string, string?>>? query, HttpContent? body, CancellationToken ct, long from = 0)
+        IEnumerable<KeyValuePair<string, string?>>? query, HttpContent? body, CancellationToken ct, long from = 0, bool acceptJson = true)
     {
         var url = Resolve(path, query);
         using var request = new HttpRequestMessage(method, url) { Content = body };
         if (from > 0) request.Headers.Range = new RangeHeaderValue(from, null);
         request.Headers.TryAddWithoutValidation("Authorization", AuthorizationHeader);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        if (acceptJson) request.Headers.Accept.Add(AcceptJson);
         HttpResponseMessage response;
         var started = Environment.TickCount64;
         try

@@ -196,7 +196,10 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
     public Task DownloadSubtitleAsync(string itemId, string subtitleId, CancellationToken ct = default) =>
         api.PostAsync($"Items/{itemId}/RemoteSearch/Subtitles/{Uri.EscapeDataString(subtitleId)}", ct: ct);
 
-    public async Task<PlaybackExtras> ExtrasAsync(MediaItem item, MediaRepository media, CancellationToken ct = default)
+    public Task<PlaybackExtras> ExtrasAsync(MediaItem item, MediaRepository media, CancellationToken ct = default) =>
+        ExtrasAsync(item, media, null, ct);
+
+    public async Task<PlaybackExtras> ExtrasAsync(MediaItem item, MediaRepository media, string? mediaSourceId, CancellationToken ct = default)
     {
         async Task<T?> Safe<T>(string what, Func<Task<T?>> call) where T : class
         {
@@ -223,23 +226,27 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
             ChaptersFrom(dto),
             SegmentsFrom(segments.Result?.Items ?? []),
             next.Result,
-            TrickplayFrom(dto, item.Id));
+            TrickplayFrom(dto, mediaSourceId ?? item.Id));
     }
 
     /// <summary>Plan de lecture d'un fichier téléchargé : aucun appel au serveur.</summary>
-    public static PlaybackPlan LocalPlan(MediaItem item, string path, TimeSpan start) => new()
+    public static PlaybackPlan LocalPlan(MediaItem item, string path, TimeSpan start, string? mediaSourceId = null)
     {
-        ItemId = item.Id,
-        MediaSourceId = item.Id,
-        Method = PlayMethod.DirectPlay,
-        StreamUrl = new Uri(path),
-        AudioTracks = item.Tracks?.Audio ?? [],
-        SubtitleTracks = item.Tracks?.Subtitles.Where(t => !t.IsExternal).ToList() ?? [],
-        AudioIndex = item.Tracks?.AudioIndex,
-        SubtitleIndex = item.Tracks?.SubtitleIndex,
-        Start = start,
-        Runtime = item.Runtime,
-    };
+        var tracks = item.TracksFor(mediaSourceId);
+        return new()
+        {
+            ItemId = item.Id,
+            MediaSourceId = mediaSourceId ?? item.Versions.FirstOrDefault()?.Id ?? item.Id,
+            Method = PlayMethod.DirectPlay,
+            StreamUrl = new Uri(path),
+            AudioTracks = tracks?.Audio ?? [],
+            SubtitleTracks = tracks?.Subtitles.Where(t => !t.IsExternal).ToList() ?? [],
+            AudioIndex = tracks?.AudioIndex,
+            SubtitleIndex = tracks?.SubtitleIndex,
+            Start = start,
+            Runtime = item.Runtime,
+        };
+    }
 
     /// <summary>Résolution de vignettes la plus proche de 320 px (lisible et légère), comme sur mobile.</summary>
     public static TrickplayManifest? TrickplayFrom(BaseItemDto? dto, string mediaSourceId)
@@ -247,7 +254,9 @@ public sealed class PlaybackService(JellyfinClient api, string userId)
         var all = dto?.Trickplay;
         if (all is null || all.Count == 0) return null;
         var byWidth = all.TryGetValue(mediaSourceId, out var own) ? own : all.Values.FirstOrDefault();
-        var info = byWidth?.Values.Where(i => i.Width > 0 && i.Interval > 0).OrderBy(i => Math.Abs(i.Width!.Value - 320)).FirstOrDefault();
+        var info = byWidth?.Values
+            .Where(i => i.Width > 0 && i.Interval > 0 && i.TileWidth is null or > 0 && i.TileHeight is null or > 0)
+            .OrderBy(i => Math.Abs(i.Width!.Value - 320)).FirstOrDefault();
         return info is null ? null : new TrickplayManifest(info.Width!.Value, info.Height ?? info.Width.Value * 9 / 16,
             info.TileWidth ?? 10, info.TileHeight ?? 10, info.ThumbnailCount ?? 0, TimeSpan.FromMilliseconds(info.Interval!.Value));
     }

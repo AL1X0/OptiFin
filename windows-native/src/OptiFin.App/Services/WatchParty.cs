@@ -41,7 +41,7 @@ public static class WatchParty
 
     public static void Attach(JellyfinClient? api)
     {
-        _ui ??= DispatcherQueue.GetForCurrentThread();
+        _ui ??= DispatcherQueue.GetForCurrentThread() ?? Nav.Dispatcher;
         var old = _client;
         _client = null;
         _openedPlaylistItem = null;
@@ -49,7 +49,7 @@ public static class WatchParty
         if (old != null) _ = old.DisposeAsync().AsTask();
         if (api is null)
         {
-            Changed?.Invoke();
+            Nav.Ui(() => Changed?.Invoke());
             return;
         }
         var client = new SyncPlayClient(api);
@@ -57,10 +57,10 @@ public static class WatchParty
         client.ConnectionChanged += _ => Ui(() => Changed?.Invoke());
         _client = client;
         client.Start();
-        Changed?.Invoke();
+        Nav.Ui(() => Changed?.Invoke());
     }
 
-    private static void Ui(Action action) => _ui?.TryEnqueue(() => action());
+    private static void Ui(Action action) => (_ui ?? Nav.Dispatcher)?.TryEnqueue(() => action());
 
     private static void OnMessage(SyncPlayClient client, SyncPlayMessage message)
     {
@@ -153,6 +153,7 @@ public static class WatchParty
         }
         catch (ApiException e)
         {
+            if (_openedPlaylistItem == current.PlaylistItemId) _openedPlaylistItem = null;
             Notice?.Invoke(L.F("Le titre de la soirée est introuvable : {0}", e.UserMessage));
         }
     }
@@ -165,7 +166,7 @@ public static class WatchParty
     {
         if (_client is not { } c) return;
         _creating = true;
-        await Safe(() => c.CreateAsync(name));
+        await Safe(() => c.CreateAsync(name), () => _creating = false);
     }
 
     public static async Task JoinAsync(string groupId)
@@ -189,7 +190,7 @@ public static class WatchParty
         if (_client is not { } c) return;
         AppLog.Info("syncplay", $"Lancement pour la soirée : « {item.Name} »");
         _launching = true;
-        await Safe(() => c.SetQueueAsync([item.Id], 0, start));
+        await Safe(() => c.SetQueueAsync([item.Id], 0, start), () => _launching = false);
     }
 
     /// <summary>L'hôte quitte le lecteur : arrêt de la lecture pour toute la soirée.</summary>
@@ -198,10 +199,10 @@ public static class WatchParty
         if (_client is not { } c || !IsHost) return;
         AppLog.Info("syncplay", "L’hôte quitte la lecture : arrêt pour la soirée");
         _stopping = true;
-        await Safe(() => c.StopAsync());
+        await Safe(() => c.StopAsync(), () => _stopping = false);
     }
 
-    private static async Task Safe(Func<Task> action)
+    private static async Task Safe(Func<Task> action, Action? onError = null)
     {
         try
         {
@@ -209,10 +210,12 @@ public static class WatchParty
         }
         catch (ApiException e)
         {
+            onError?.Invoke();
             Notice?.Invoke(e.UserMessage);
         }
         catch (Exception e)
         {
+            onError?.Invoke();
             AppLog.Warn("syncplay", e.Message);
             Notice?.Invoke(L.T("La soirée n’a pas pu être mise à jour."));
         }

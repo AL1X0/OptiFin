@@ -15,11 +15,15 @@ namespace OptiFin.Core.SyncPlay;
 /// </summary>
 public sealed class SyncPlayClient : IAsyncDisposable
 {
+    private static readonly ReadOnlyMemory<byte> KeepAlivePayload = "{\"MessageType\":\"KeepAlive\"}"u8.ToArray();
+
     private readonly JellyfinClient _api;
     private readonly CancellationTokenSource _cts = new();
-    private ClientWebSocket? _socket;
+    private volatile ClientWebSocket? _socket;
     private Task? _loop;
-    private int _keepAliveSeconds = 30;
+    private volatile int _keepAliveSeconds = 30;
+    private volatile GroupInfo? _group;
+    private volatile bool _connected;
 
     public SyncPlayClient(JellyfinClient api, TimeSync? time = null)
     {
@@ -30,9 +34,17 @@ public sealed class SyncPlayClient : IAsyncDisposable
     public TimeSync Time { get; }
 
     /// <summary>Soirée rejointe (null hors soirée).</summary>
-    public GroupInfo? Group { get; private set; }
+    public GroupInfo? Group
+    {
+        get => _group;
+        private set => _group = value;
+    }
 
-    public bool Connected { get; private set; }
+    public bool Connected
+    {
+        get => _connected;
+        private set => _connected = value;
+    }
 
     public event Action<SyncPlayMessage>? MessageReceived;
     public event Action<bool>? ConnectionChanged;
@@ -137,9 +149,17 @@ public sealed class SyncPlayClient : IAsyncDisposable
                 _ = SyncTimeAsync(4, ct).ContinueWith(t => AppLog.Debug("syncplay", $"Horloge : décalage {Time.Offset.TotalMilliseconds:0} ms, aller-retour {Time.RoundTrip.TotalMilliseconds:0} ms"),
                     ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
                 using var keepAlive = new CancellationTokenSource();
-                _ = KeepAliveAsync(socket, CancellationTokenSource.CreateLinkedTokenSource(ct, keepAlive.Token).Token);
-                await ReceiveAsync(socket, ct);
-                keepAlive.Cancel();
+                using var keepAliveLinked = CancellationTokenSource.CreateLinkedTokenSource(ct, keepAlive.Token);
+                var keepAliveTask = KeepAliveAsync(socket, keepAliveLinked.Token);
+                try
+                {
+                    await ReceiveAsync(socket, ct);
+                }
+                finally
+                {
+                    keepAlive.Cancel();
+                    try { await keepAliveTask; } catch { }
+                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -180,15 +200,14 @@ public sealed class SyncPlayClient : IAsyncDisposable
             if (result.MessageType == WebSocketMessageType.Close) return;
             message.Write(buffer, 0, result.Count);
             if (!result.EndOfMessage) continue;
-            var json = Encoding.UTF8.GetString(message.GetBuffer(), 0, (int)message.Length);
+            Handle(new ReadOnlyMemory<byte>(message.GetBuffer(), 0, (int)message.Length));
             message.SetLength(0);
-            Handle(json);
         }
     }
 
-    private void Handle(string json)
+    private void Handle(ReadOnlyMemory<byte> utf8)
     {
-        var msg = SyncPlayParser.Parse(json);
+        var msg = SyncPlayParser.Parse(utf8);
         switch (msg)
         {
             case null:
@@ -228,13 +247,12 @@ public sealed class SyncPlayClient : IAsyncDisposable
 
     private async Task KeepAliveAsync(ClientWebSocket socket, CancellationToken ct)
     {
-        var payload = Encoding.UTF8.GetBytes("{\"MessageType\":\"KeepAlive\"}");
         try
         {
             while (!ct.IsCancellationRequested && socket.State == WebSocketState.Open)
             {
                 await Task.Delay(TimeSpan.FromSeconds(_keepAliveSeconds), ct);
-                await socket.SendAsync(payload, WebSocketMessageType.Text, true, ct);
+                await socket.SendAsync(KeepAlivePayload, WebSocketMessageType.Text, true, ct);
             }
         }
         catch (Exception)

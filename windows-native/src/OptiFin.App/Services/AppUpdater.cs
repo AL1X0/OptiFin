@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -34,7 +35,12 @@ public static partial class AppUpdater
 
     private static HttpClient CreateHttp()
     {
-        var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+        var handler = new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            AutomaticDecompression = DecompressionMethods.All,
+        };
+        var http = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("OptiFin");
         http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         return http;
@@ -115,11 +121,16 @@ public static partial class AppUpdater
                 var buffer = new byte[1 << 16];
                 long done = 0;
                 int read;
+                var lastReport = Environment.TickCount64;
                 while ((read = await input.ReadAsync(buffer)) > 0)
                 {
                     await output.WriteAsync(buffer.AsMemory(0, read));
                     done += read;
-                    if (total > 0) progress.Report((double)done / total);
+                    if (total > 0 && (Environment.TickCount64 - lastReport >= 100 || done >= total))
+                    {
+                        lastReport = Environment.TickCount64;
+                        progress.Report((double)done / total);
+                    }
                 }
             }
             // Verrou maintenu en lecture seule (FileShare.Read) entre hachage et exécution : aucune

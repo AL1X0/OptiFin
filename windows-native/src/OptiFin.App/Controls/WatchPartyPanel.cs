@@ -19,7 +19,7 @@ public sealed partial class WatchPartyPanel : StackPanel
     {
         Width = 360;
         Spacing = 12;
-        Children.Add(new TextBlock { Text = "Soirée", Style = Ui.StyleOf("OFTitle2") });
+        Children.Add(new TextBlock { Text = L.T("Soirée"), Style = Ui.StyleOf("OFTitle2") });
         Children.Add(_body);
         Loaded += (_, _) =>
         {
@@ -54,7 +54,7 @@ public sealed partial class WatchPartyPanel : StackPanel
             GroupState.Waiting => L.T("En attente des participants…"),
             _ => L.T("Lancez un film ou un épisode : il démarre chez tout le monde, au même moment."),
         }, "OFCaption"));
-        if (!connected) _body.Children.Add(Ui.Text("Connexion au serveur interrompue, reconnexion…", "OFCaption", Ui.Res("OFDangerBrush")));
+        if (!connected) _body.Children.Add(Ui.Text(L.T("Connexion au serveur interrompue, reconnexion…"), "OFCaption", Ui.Res("OFDangerBrush")));
 
         _body.Children.Add(Ui.Section(L.F("Participants ({0})", group.Participants.Count)));
         foreach (var name in group.Participants)
@@ -70,7 +70,14 @@ public sealed partial class WatchPartyPanel : StackPanel
         leave.Click += async (_, _) =>
         {
             leave.IsEnabled = false;
-            await WatchParty.LeaveAsync();
+            try
+            {
+                await WatchParty.LeaveAsync();
+            }
+            finally
+            {
+                leave.IsEnabled = true;
+            }
         };
         _body.Children.Add(leave);
     }
@@ -138,7 +145,14 @@ public sealed partial class WatchPartyPanel : StackPanel
             join.Click += async (_, _) =>
             {
                 join.IsEnabled = false;
-                await WatchParty.JoinAsync(g.Id);
+                try
+                {
+                    await WatchParty.JoinAsync(g.Id);
+                }
+                finally
+                {
+                    join.IsEnabled = true;
+                }
             };
             Grid.SetColumn(join, 1);
             row.Children.Add(join);

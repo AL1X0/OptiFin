@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
@@ -31,12 +32,12 @@ internal sealed partial class TransparentBackdrop : SystemBackdrop
 
     private static Windows.System.DispatcherQueueController CreateDispatcherQueue()
     {
-        var options = new DispatcherQueueOptions { Size = System.Runtime.InteropServices.Marshal.SizeOf<DispatcherQueueOptions>(), ThreadType = 2, ApartmentType = 2 };
+        var options = new DispatcherQueueOptions { Size = Marshal.SizeOf<DispatcherQueueOptions>(), ThreadType = 2, ApartmentType = 2 };
         CreateDispatcherQueueController(options, out var raw);
         return Windows.System.DispatcherQueueController.FromAbi(raw);
     }
 
-    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential)]
     private struct DispatcherQueueOptions
     {
         public int Size;
@@ -44,6 +45,6 @@ internal sealed partial class TransparentBackdrop : SystemBackdrop
         public int ApartmentType;
     }
 
-    [System.Runtime.InteropServices.DllImport("CoreMessaging.dll")]
-    private static extern int CreateDispatcherQueueController(DispatcherQueueOptions options, out nint controller);
+    [LibraryImport("CoreMessaging.dll")]
+    private static partial int CreateDispatcherQueueController(DispatcherQueueOptions options, out nint controller);
 }

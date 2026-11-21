@@ -9,6 +9,7 @@ using OptiFin.App.Player;
 using OptiFin.App.Services;
 using OptiFin.Core.Downloads;
 using OptiFin.Core.Localization;
+using OptiFin.Core.Media;
 
 namespace OptiFin.App.Pages;
 
@@ -43,6 +44,7 @@ public sealed partial class DownloadsPage : Page
     /// <summary>Lignes refaites seulement si la liste ou un état change : sinon un clic pouvait tomber dans le vide.</summary>
     private void Refresh()
     {
+        if (!IsLoaded) return;
         var records = AppServices.Downloads.Records().Where(r => !_pendingDeletes.ContainsKey(r.ItemId)).ToList();
         var signature = string.Join(";", records.Select(r => $"{r.ItemId}:{r.Status}"));
         if (signature != _shown)
@@ -62,17 +64,13 @@ public sealed partial class DownloadsPage : Page
         }
     }
 
-    private static string Size(long bytes) => bytes >= 1L << 30
-        ? L.F("{0:0.0} Go", bytes / (double)(1L << 30))
-        : L.F("{0:0} Mo", bytes / (double)(1L << 20));
-
     private static string Detail(DownloadRecord r) => r.Status switch
     {
-        DownloadStatus.Complete => Size(r.DoneBytes),
+        DownloadStatus.Complete => MediaFormat.FileSize(r.DoneBytes),
         DownloadStatus.Failed => r.Error ?? L.T("Échec du téléchargement"),
-        DownloadStatus.Paused => L.F("En pause · {0} / {1}", Size(r.DoneBytes), Size(r.TotalBytes)),
+        DownloadStatus.Paused => L.F("En pause · {0} / {1}", MediaFormat.FileSize(r.DoneBytes), MediaFormat.FileSize(r.TotalBytes)),
         DownloadStatus.Queued => L.T("En attente"),
-        _ => L.F("{0} / {1}", Size(r.DoneBytes), Size(r.TotalBytes)),
+        _ => L.F("{0} / {1}", MediaFormat.FileSize(r.DoneBytes), MediaFormat.FileSize(r.TotalBytes)),
     };
 
     private Grid Row(DownloadRecord r)
@@ -84,7 +82,14 @@ public sealed partial class DownloadsPage : Page
 
         var poster = new Border { Width = 64, Height = 96, CornerRadius = new CornerRadius(6), Background = Ui.Res("OFSurfaceRaisedBrush") };
         var posterPath = AppServices.Downloads.PosterPathOf(r.ItemId);
-        if (File.Exists(posterPath)) poster.Child = new Image { Source = new BitmapImage(new Uri(posterPath)), Stretch = Microsoft.UI.Xaml.Media.Stretch.UniformToFill };
+        if (File.Exists(posterPath))
+        {
+            poster.Child = new Image
+            {
+                Source = new BitmapImage(new Uri(posterPath)) { DecodePixelWidth = 128, DecodePixelType = DecodePixelType.Physical },
+                Stretch = Microsoft.UI.Xaml.Media.Stretch.UniformToFill,
+            };
+        }
         row.Children.Add(poster);
 
         var text = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };

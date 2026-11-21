@@ -26,7 +26,11 @@ public sealed partial class ShellPage : Page
         InitializeComponent();
         OptiFin.App.Controls.Ui.Translate(this);
         Nav.ContentFrame = ContentFrame;
-        Logo.Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "Logo.png")));
+        Logo.Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "Logo.png")))
+        {
+            DecodePixelWidth = 46,
+            DecodePixelType = DecodePixelType.Physical,
+        };
         if (AppServices.Session is { } session)
         {
             ServerName.Text = session.Server.Name;
@@ -79,7 +83,7 @@ public sealed partial class ShellPage : Page
             MediaActions.Notice -= ShowActionNotice;
             MediaActions.SelectionChanged -= UpdateSelectionBar;
             MediaActions.EndSelection();
-            Nav.Window.UseTitleBar(null);
+            if (ReferenceEquals(Nav.ContentFrame, ContentFrame)) Nav.Window.UseTitleBar(null);
         };
         ContentFrame.Navigated += (_, e) =>
         {
@@ -198,7 +202,7 @@ public sealed partial class ShellPage : Page
             if (ContentFrame.Content is not SearchPage)
             {
                 if (text.Trim().Length == 0) return;
-                Nav.Section(typeof(SearchPage));
+                Nav.Go(typeof(SearchPage));
             }
             (ContentFrame.Content as SearchPage)?.SetQuery(text);
         };
@@ -226,7 +230,7 @@ public sealed partial class ShellPage : Page
         PartyLabel.Text = group is null ? L.T("Soirée") : $"{group.Name} · {group.Participants.Count}";
         PartyIcon.Foreground = Ui.Res(group is null ? "OFTextPrimaryBrush" : "OFAccentBrush");
         PartyButton.BorderBrush = group is null
-            ? new SolidColorBrush(Microsoft.UI.Colors.Transparent)
+            ? Ui.TransparentBrush
             : Ui.Res("OFAccentBrush");
     }
 
@@ -243,10 +247,7 @@ public sealed partial class ShellPage : Page
         var unfavorite = new MenuFlyoutItem { Text = L.T("Retirer des favoris"), Icon = new FontIcon { Glyph = "" } };
         unfavorite.Click += (_, _) => _ = MediaActions.SetFavoriteAsync([.. MediaActions.Selected], false);
         var clear = new MenuFlyoutItem { Text = L.T("Tout désélectionner"), Icon = new FontIcon { Glyph = "" } };
-        clear.Click += (_, _) =>
-        {
-            foreach (var item in MediaActions.Selected.ToList()) MediaActions.Toggle(item);
-        };
+        clear.Click += (_, _) => MediaActions.ClearSelection();
         more.Items.Add(unfavorite);
         more.Items.Add(clear);
         SelectionMore.Flyout = more;
@@ -286,12 +287,15 @@ public sealed partial class ShellPage : Page
 
     private void ShowActionNotice(string text) => ShowNotice(text, "");
 
+    private static readonly SolidColorBrush NoticeBg = new(Windows.UI.Color.FromArgb(0xF2, 0x1C, 0x1C, 0x20));
+    private static readonly SolidColorBrush NoticeStroke = new(Windows.UI.Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF));
+
     private void ShowNotice(string text, string glyph)
     {
         var notice = new Border
         {
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0xF2, 0x1C, 0x1C, 0x20)),
-            BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)),
+            Background = NoticeBg,
+            BorderBrush = NoticeStroke,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(14),
             Padding = new Thickness(14, 10, 16, 10),
@@ -330,6 +334,9 @@ public sealed partial class ShellPage : Page
 /// <summary>Rubrique de la barre du haut : pastille au survol, soulignée d'un trait d'accent une fois choisie.</summary>
 public sealed partial class NavTab : Grid
 {
+    private static readonly SolidColorBrush PillIdle = new(Windows.UI.Color.FromArgb(0, 0xFF, 0xFF, 0xFF));
+    private static readonly SolidColorBrush PillHover = new(Windows.UI.Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF));
+
     private readonly TextBlock _label;
     private readonly FontIcon _icon;
     private readonly Border _indicator;
@@ -345,11 +352,11 @@ public sealed partial class NavTab : Grid
         IsTabStop = true;
         UseSystemFocusVisuals = true;
         CornerRadius = new CornerRadius(20);
-        ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.Hand);
+        ProtectedCursor = Ui.HandCursor;
         _pill = new Border
         {
             CornerRadius = new CornerRadius(20),
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0, 0xFF, 0xFF, 0xFF)),
+            Background = PillIdle,
             BackgroundTransition = new BrushTransition { Duration = TimeSpan.FromMilliseconds(150) },
         };
         Children.Add(_pill);
@@ -405,7 +412,7 @@ public sealed partial class NavTab : Grid
 
     private void Refresh()
     {
-        _pill.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(_hovered ? (byte)0x1F : (byte)0, 0xFF, 0xFF, 0xFF));
+        _pill.Background = _hovered ? PillHover : PillIdle;
         var brush = Ui.Res(_selected || _hovered ? "OFTextPrimaryBrush" : "OFTextSecondaryBrush");
         _label.Foreground = brush;
         _icon.Foreground = brush;

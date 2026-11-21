@@ -27,6 +27,9 @@ public sealed partial class LibraryPage : Page
     // Génération en cours de chargement : un rechargement (filtre, tri) n'attend pas la page précédente.
     private int? _loadingFor;
     private int _generation;
+    private CancellationTokenSource? _cts;
+    private CancellationTokenSource? _jumpCts;
+    private (string LibraryId, LibraryFilterOptions Options)? _filterOptions;
     private ScrollViewer? _scroll;
     private CardStyle _style = CardStyle.Poster;
     private bool _listView;
@@ -72,7 +75,7 @@ public sealed partial class LibraryPage : Page
                 Text = letter, FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center,
                 Foreground = Ui.Res("OFTextSecondaryBrush"), Padding = new Thickness(4, 1, 4, 1),
             };
-            var hit = new HandGrid { Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent) };
+            var hit = new HandGrid { Background = Ui.TransparentBrush };
             hit.Children.Add(b);
             hit.Tapped += (_, _) => _ = JumpToLetterAsync(letter);
             ToolTipService.SetToolTip(hit, letter == "#" ? L.T("Début") : letter);
@@ -80,6 +83,7 @@ public sealed partial class LibraryPage : Page
         }
         Items.Loaded += (_, _) =>
         {
+            if (_scroll != null) return;
             _scroll = FindScrollViewer(Items);
             if (_scroll != null)
             {
@@ -91,8 +95,17 @@ public sealed partial class LibraryPage : Page
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
-        if (e.NavigationMode == NavigationMode.Back && _items.Count > 0) return;
+        if (e.NavigationMode == NavigationMode.Back && _items.Count > 0)
+        {
+            if (_cts is null || _cts.IsCancellationRequested)
+            {
+                _cts?.Dispose();
+                _cts = new CancellationTokenSource();
+            }
+            return;
+        }
         _library = (MediaItem)e.Parameter;
+        _filterOptions = null;
         Title.Text = _library.Name;
         _query = LibraryQuery.For(_library);
         _style = _query.Kinds.Contains(MediaKind.MusicAlbum) ? CardStyle.Square : CardStyle.Poster;
@@ -100,37 +113,57 @@ public sealed partial class LibraryPage : Page
         _ = ReloadAsync();
     }
 
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        _cts?.Cancel();
+        _jumpCts?.Cancel();
+    }
+
     private async Task ReloadAsync()
     {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        _jumpCts?.Cancel();
         var generation = ++_generation;
+        var ct = _cts.Token;
         _items.Clear();
         _total = 0;
         Empty.Visibility = Visibility.Collapsed;
         Spinner.IsActive = true;
-        await LoadPageAsync(generation);
-        if (generation != _generation) return;
-        Spinner.IsActive = false;
-        if (_items.Count == 0 && Empty.Visibility == Visibility.Collapsed) // (erreur déjà affichée sinon)
+        try
         {
-            Empty.Text = _query.ActiveFilterCount > 0 ? L.T("Aucun élément ne correspond à ces filtres.") : L.T("Cette bibliothèque est vide.");
-            Empty.Visibility = Visibility.Visible;
+            await LoadPageAsync(generation, ct);
+            if (generation != _generation || ct.IsCancellationRequested) return;
+            if (_items.Count == 0 && Empty.Visibility == Visibility.Collapsed) // (erreur déjà affichée sinon)
+            {
+                Empty.Text = _query.ActiveFilterCount > 0 ? L.T("Aucun élément ne correspond à ces filtres.") : L.T("Cette bibliothèque est vide.");
+                Empty.Visibility = Visibility.Visible;
+            }
+        }
+        finally
+        {
+            if (generation == _generation) Spinner.IsActive = false;
         }
     }
 
-    private async Task LoadPageAsync(int generation)
+    private async Task LoadPageAsync(int generation, CancellationToken ct)
     {
         if (_loadingFor == generation || AppServices.Media is not { } media) return;
         _loadingFor = generation;
         var started = Environment.TickCount64;
         try
         {
-            var page = await media.PageAsync(_query, _items.Count, PageSize);
-            if (generation != _generation) return;
+            var page = await media.PageAsync(_query, _items.Count, PageSize, ct);
+            if (generation != _generation || ct.IsCancellationRequested) return;
             _total = page.Total;
             var first = _items.Count;
             foreach (var item in page.Items) _items.Add(item);
             AppLog.Timing("library", $"Page {first}–{_items.Count} / {_total} affichée", started);
             Count.Text = L.Count(_total, "{0} élément", "{0} éléments");
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (ApiException e)
         {
@@ -150,8 +183,8 @@ public sealed partial class LibraryPage : Page
 
     private void MaybeLoadMore()
     {
-        if (_scroll is null || _loadingFor != null || _items.Count >= _total) return;
-        if (_scroll.VerticalOffset > _scroll.ScrollableHeight - _scroll.ViewportHeight * 1.5) _ = LoadPageAsync(_generation);
+        if (_scroll is null || _loadingFor != null || _items.Count >= _total || _cts is null) return;
+        if (_scroll.VerticalOffset > _scroll.ScrollableHeight - _scroll.ViewportHeight * 1.5) _ = LoadPageAsync(_generation, _cts.Token);
     }
 
     private static ScrollViewer? FindScrollViewer(DependencyObject root)
@@ -199,6 +232,7 @@ public sealed partial class LibraryPage : Page
         played.SelectionChanged += (_, _) =>
         {
             _query = _query with { Played = played.SelectedIndex switch { 1 => false, 2 => true, _ => null } };
+            BuildToolbar();
             _ = ReloadAsync();
         };
         Toolbar.Children.Add(played);
@@ -207,6 +241,7 @@ public sealed partial class LibraryPage : Page
         favorites.Click += (_, _) =>
         {
             _query = _query with { FavoritesOnly = favorites.IsChecked == true };
+            BuildToolbar();
             _ = ReloadAsync();
         };
         Toolbar.Children.Add(favorites);
@@ -219,6 +254,7 @@ public sealed partial class LibraryPage : Page
         resolution.SelectionChanged += (_, _) =>
         {
             _query = _query with { Resolution = (ResolutionFilter)resolution.SelectedIndex };
+            BuildToolbar();
             _ = ReloadAsync();
         };
         Toolbar.Children.Add(resolution);
@@ -256,7 +292,8 @@ public sealed partial class LibraryPage : Page
         {
             _listView = !_listView;
             BuildToolbar();
-            _ = ReloadAsync();
+            Items.ItemsSource = null;
+            Items.ItemsSource = _items;
         };
         Toolbar.Children.Add(view);
         // Index alphabétique : utile seulement en tri par titre croissant.
@@ -268,19 +305,26 @@ public sealed partial class LibraryPage : Page
     /// <summary>Saut à la première lettre : position calculée par le serveur, pages chargées jusque-là.</summary>
     private async Task JumpToLetterAsync(string letter)
     {
-        if (AppServices.Media is not { } media) return;
+        if (AppServices.Media is not { } media || _cts is null) return;
+        _jumpCts?.Cancel();
+        _jumpCts?.Dispose();
+        _jumpCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+        var ct = _jumpCts.Token;
         try
         {
-            var index = await media.IndexOfLetterAsync(_query, letter);
+            var index = await media.IndexOfLetterAsync(_query, letter, ct);
             var generation = _generation;
-            while (_items.Count <= index && _items.Count < _total && generation == _generation)
+            while (_items.Count <= index && _items.Count < _total && generation == _generation && !ct.IsCancellationRequested)
             {
                 var before = _items.Count;
-                await LoadPageAsync(generation);
+                await LoadPageAsync(generation, ct);
                 if (_items.Count == before) break;
             }
-            if (_items.Count == 0) return;
+            if (_items.Count == 0 || ct.IsCancellationRequested || generation != _generation) return;
             Items.ScrollIntoView(_items[Math.Min(index, _items.Count - 1)], ScrollIntoViewAlignment.Leading);
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (ApiException)
         {
@@ -297,13 +341,29 @@ public sealed partial class LibraryPage : Page
             ColumnSpacing = 16,
             Padding = new Thickness(8),
             CornerRadius = new CornerRadius(12),
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            Background = Ui.TransparentBrush,
         };
+        void Resize(object s, SizeChangedEventArgs e) => row.Width = Math.Max(400, e.NewSize.Width - 40);
+        row.Loaded += (_, _) =>
+        {
+            row.Width = Math.Max(400, Items.ActualWidth - 40);
+            Items.SizeChanged -= Resize;
+            Items.SizeChanged += Resize;
+        };
+        row.Unloaded += (_, _) => Items.SizeChanged -= Resize;
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(64) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         var art = new Border { Width = 64, Height = 96, CornerRadius = new CornerRadius(8), Background = Ui.Res("OFSurfaceBrush") };
         if (AppServices.Images?.Maybe(item.Poster ?? item.Primary, 64, 1.5) is { } url)
-            art.Child = Ui.FadeIn(new Image { Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(url) { DecodePixelWidth = 96 }, Stretch = Stretch.UniformToFill });
+            art.Child = Ui.FadeIn(new Image
+            {
+                Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(url)
+                {
+                    DecodePixelWidth = 96,
+                    DecodePixelType = Microsoft.UI.Xaml.Media.Imaging.DecodePixelType.Physical,
+                },
+                Stretch = Stretch.UniformToFill,
+            });
         row.Children.Add(art);
         var texts = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
         texts.Children.Add(new TextBlock { Text = item.Name, FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
@@ -313,22 +373,35 @@ public sealed partial class LibraryPage : Page
             texts.Children.Add(new TextBlock { Text = overview, Style = Ui.StyleOf("OFCaption"), MaxLines = 2, TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.WordEllipsis, Foreground = Ui.Res("OFTextSecondaryBrush") });
         Grid.SetColumn(texts, 1);
         row.Children.Add(texts);
-        Ui.Clickable(row, () => HomePage.Open(item), new SolidColorBrush(Microsoft.UI.Colors.Transparent), Ui.Res("OFSurfaceBrush"));
+        Ui.Clickable(row, () => HomePage.Open(item), Ui.TransparentBrush, Ui.Res("OFSurfaceBrush"));
         return row;
+    }
+
+    private async Task<LibraryFilterOptions?> GetFilterOptionsAsync(MediaRepository media, CancellationToken ct)
+    {
+        if (_filterOptions is { } cached && cached.LibraryId == _library.Id) return cached.Options;
+        var options = await media.FilterOptionsAsync(_query, ct);
+        _filterOptions = (_library.Id, options);
+        return options;
     }
 
     private async Task ShowYearsAsync(DropDownButton anchor)
     {
         if (AppServices.Media is not { } media) return;
-        LibraryFilterOptions options;
+        LibraryFilterOptions? options;
         try
         {
-            options = await media.FilterOptionsAsync(_query);
+            options = await GetFilterOptionsAsync(media, _cts?.Token ?? CancellationToken.None);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
         }
         catch (ApiException)
         {
             return;
         }
+        if (options is null || !anchor.IsLoaded) return;
         var flyout = new MenuFlyout();
         foreach (var year in options.Years)
         {
@@ -351,15 +424,20 @@ public sealed partial class LibraryPage : Page
     private async Task ShowGenresAsync(DropDownButton anchor)
     {
         if (AppServices.Media is not { } media) return;
-        LibraryFilterOptions options;
+        LibraryFilterOptions? options;
         try
         {
-            options = await media.FilterOptionsAsync(_query);
+            options = await GetFilterOptionsAsync(media, _cts?.Token ?? CancellationToken.None);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
         }
         catch (ApiException)
         {
             return;
         }
+        if (options is null || !anchor.IsLoaded) return;
         var flyout = new MenuFlyout();
         foreach (var genre in options.Genres)
         {

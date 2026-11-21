@@ -84,6 +84,8 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private bool _closed;
 
+    public bool IsClosed => _closed;
+
     /// <summary>Retour du lecteur : la fenêtre réapparaît en fondu avec un léger recul.</summary>
     public void PlayEntrance()
     {
@@ -159,9 +161,12 @@ internal static class WindowPlacement
             {
                 // Agrandie : on garde la taille « normale » précédente.
                 var parts = File.ReadAllText(FilePath).Split(';');
-                parts[4] = "1";
-                File.WriteAllText(FilePath, string.Join(';', parts));
-                return;
+                if (parts.Length >= 5)
+                {
+                    parts[4] = "1";
+                    File.WriteAllText(FilePath, string.Join(';', parts));
+                    return;
+                }
             }
             var p = window.Position;
             var s = window.Size;

@@ -40,10 +40,15 @@ public sealed partial class MediaCard : Grid
     private readonly Border _playedBadge;
     private readonly Border _check;
     private readonly FontIcon _checkIcon;
+    private readonly ScalarTransition _fadeTransition;
     private static readonly SolidColorBrush PlayIdle = new(Windows.UI.Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush PlayHover = new(Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush NoStroke = new(Windows.UI.Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush HoverStroke = new(Windows.UI.Color.FromArgb(0x8C, 0xFF, 0xFF, 0xFF));
+    private static readonly SolidColorBrush ProgressBg = new(Windows.UI.Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF));
+    private static readonly SolidColorBrush BadgeBg = new(Windows.UI.Color.FromArgb(0xCC, 0, 0, 0));
+    private static readonly SolidColorBrush HoverBg = new(Windows.UI.Color.FromArgb(0x40, 0, 0, 0));
+    private static readonly SolidColorBrush CheckBg = new(Windows.UI.Color.FromArgb(0x66, 0, 0, 0));
 
     public MediaCard(MediaItem item, CardStyle style, double width, bool loadImage = true)
     {
@@ -65,6 +70,7 @@ public sealed partial class MediaCard : Grid
         };
         var artwork = new Grid { Height = height, Background = Brush("OFSurfaceBrush") };
         _image = Ui.FadeIn(new Image { Stretch = Stretch.UniformToFill });
+        _fadeTransition = _image.OpacityTransition;
         artwork.Children.Add(_image);
         _fallback = new TextBlock
         {
@@ -76,6 +82,8 @@ public sealed partial class MediaCard : Grid
             Margin = new Thickness(12),
             MaxLines = 4,
         };
+        _image.ImageOpened += (_, _) => _fallback.Visibility = Visibility.Collapsed;
+        _image.ImageFailed += (_, _) => _fallback.Visibility = Visibility.Visible;
         artwork.Children.Add(_fallback);
 
         // Progression (aux couleurs du film, comme sur mobile) et pastille « vu » : mises à jour
@@ -88,16 +96,16 @@ public sealed partial class MediaCard : Grid
             VerticalAlignment = VerticalAlignment.Bottom,
             Margin = new Thickness(10, 0, 10, 10),
             CornerRadius = new CornerRadius(2),
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
+            Background = ProgressBg,
         };
         artwork.Children.Add(_progress);
         _playedBadge = new Border
         {
             Width = 24, Height = 24, CornerRadius = new CornerRadius(12),
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0xCC, 0, 0, 0)),
+            Background = BadgeBg,
             HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
             Margin = new Thickness(8),
-            Child = new FontIcon { Glyph = "\uE73E", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) },
+            Child = new FontIcon { Glyph = "\uE73E", FontSize = 12, Foreground = Ui.WhiteBrush },
         };
         artwork.Children.Add(_playedBadge);
 
@@ -105,14 +113,14 @@ public sealed partial class MediaCard : Grid
         // ouvre la fiche). Série : prochain épisode à voir.
         _hover = new Border
         {
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x40, 0, 0, 0)),
+            Background = HoverBg,
             Opacity = 0,
             OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(150) },
             IsHitTestVisible = false,
         };
         artwork.Children.Add(_hover);
         {
-            var playIcon = new FontIcon { Glyph = "", FontSize = 18, Foreground = new SolidColorBrush(Colors.Black) };
+            var playIcon = new FontIcon { Glyph = "", FontSize = 18, Foreground = Ui.BlackBrush };
             _play = new Border
             {
                 Width = 48, Height = 48, CornerRadius = new CornerRadius(24),
@@ -137,15 +145,15 @@ public sealed partial class MediaCard : Grid
         }
 
         // Sélection multiple : rond coché en haut à gauche.
-        _checkIcon = new FontIcon { Glyph = "\uE73E", FontSize = 13, Foreground = new SolidColorBrush(Colors.White), Opacity = 0 };
+        _checkIcon = new FontIcon { Glyph = "\uE73E", FontSize = 13, Foreground = Ui.WhiteBrush, Opacity = 0 };
         _check = new Border
         {
             Width = 26, Height = 26, CornerRadius = new CornerRadius(13),
             HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
             Margin = new Thickness(8),
             BorderThickness = new Thickness(2),
-            BorderBrush = new SolidColorBrush(Colors.White),
-            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x66, 0, 0, 0)),
+            BorderBrush = Ui.WhiteBrush,
+            Background = CheckBg,
             Visibility = Visibility.Collapsed,
             IsHitTestVisible = false,
             Child = _checkIcon,
@@ -153,8 +161,7 @@ public sealed partial class MediaCard : Grid
         artwork.Children.Add(_check);
 
         _frame = new Border { CornerRadius = new CornerRadius(12), Child = artwork, BorderThickness = new Thickness(1), BorderBrush = NoStroke };
-        var frame = _frame;
-        Children.Add(frame);
+        Children.Add(_frame);
 
         var text = new StackPanel { Margin = new Thickness(2, 8, 2, 0), Spacing = 1 };
         _title = new TextBlock
@@ -182,25 +189,33 @@ public sealed partial class MediaCard : Grid
             if (MediaActions.Selecting) MediaActions.Toggle(Item);
             else Activated?.Invoke(Item);
         };
-        // Clic droit (ou touche Menu / Maj+F10) : actions sur l'élément ou sur la sélection.
-        var menu = new MenuFlyout();
-        menu.Opening += (_, _) => FillMenu(menu);
-        ContextFlyout = menu;
+        // Clic droit (ou touche Menu / Maj+F10) : menu construit à la demande.
+        ContextRequested += (_, args) =>
+        {
+            var menu = new MenuFlyout();
+            FillMenu(menu);
+            if (args.TryGetPosition(this, out var pos)) menu.ShowAt(this, pos);
+            else menu.ShowAt(this);
+            args.Handled = true;
+        };
         Loaded += (_, _) =>
         {
+            MediaActions.UserStateChanged -= OnUserStateChanged;
             MediaActions.UserStateChanged += OnUserStateChanged;
+            MediaActions.SelectionChanged -= ApplySelection;
             MediaActions.SelectionChanged += ApplySelection;
             ApplySelection();
         };
         Unloaded += (_, _) =>
         {
+            EffectiveViewportChanged -= OnEffectiveViewportChanged;
             MediaActions.UserStateChanged -= OnUserStateChanged;
             MediaActions.SelectionChanged -= ApplySelection;
         };
         KeyDown += OnKeyDown;
         GotFocus += (_, _) => SetHover(true);
         LostFocus += (_, _) => SetHover(false);
-        ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.Hand);
+        ProtectedCursor = Ui.HandCursor;
         Bind(item, loadImage);
     }
 
@@ -250,6 +265,7 @@ public sealed partial class MediaCard : Grid
     public void LoadImageWhenNear()
     {
         if (_image.Source is not null) return;
+        EffectiveViewportChanged -= OnEffectiveViewportChanged;
         EffectiveViewportChanged += OnEffectiveViewportChanged;
     }
 
@@ -264,8 +280,10 @@ public sealed partial class MediaCard : Grid
     /// <summary>Libère l'image (carte sortie de l'écran ou réaffectée) : mémoire rendue, téléchargement abandonné.</summary>
     public void ClearImage()
     {
+        _image.OpacityTransition = null;
         _image.Source = null;
         _image.Opacity = 0;
+        _image.OpacityTransition = _fadeTransition;
     }
 
     private void OnUserStateChanged(string id, UserState state)
@@ -287,11 +305,15 @@ public sealed partial class MediaCard : Grid
             {
                 _progress.ClearValue(Control.ForegroundProperty);
                 var bar = _progress;
-                _ = FilmAccent.ForAsync(item).ContinueWith(t => bar.DispatcherQueue.TryEnqueue(() =>
+                _ = FilmAccent.ForAsync(item).ContinueWith(t =>
                 {
-                    // Carte recyclée entre-temps : la teinte n'est plus la sienne.
-                    if (t.Result is { } c && Item.Id == item.Id) bar.Foreground = new SolidColorBrush(c);
-                }), TaskScheduler.Default);
+                    if (!t.IsCompletedSuccessfully || t.Result is not { } c) return;
+                    bar.DispatcherQueue.TryEnqueue(() =>
+                    {
+                        // Carte recyclée entre-temps : la teinte n'est plus la sienne.
+                        if (Item.Id == item.Id) bar.Foreground = new SolidColorBrush(c);
+                    });
+                }, TaskScheduler.Default);
             }
         }
         else _progress.Visibility = Visibility.Collapsed;
@@ -304,8 +326,8 @@ public sealed partial class MediaCard : Grid
     {
         var selected = MediaActions.Selecting && MediaActions.IsSelected(Item);
         _check.Visibility = MediaActions.Selecting ? Visibility.Visible : Visibility.Collapsed;
-        _check.Background = selected ? Brush("OFAccentBrush") : new SolidColorBrush(Windows.UI.Color.FromArgb(0x66, 0, 0, 0));
-        _check.BorderBrush = selected ? Brush("OFAccentBrush") : new SolidColorBrush(Colors.White);
+        _check.Background = selected ? Brush("OFAccentBrush") : CheckBg;
+        _check.BorderBrush = selected ? Brush("OFAccentBrush") : Ui.WhiteBrush;
         _checkIcon.Opacity = selected ? 1 : 0;
         _frame.BorderThickness = new Thickness(selected ? 2 : 1);
         _frame.BorderBrush = selected ? Brush("OFAccentBrush") : NoStroke;

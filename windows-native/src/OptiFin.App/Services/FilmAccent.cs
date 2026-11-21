@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices.WindowsRuntime;
+using OptiFin.Core.Api;
 using OptiFin.Core.Logging;
 using OptiFin.Core.Media;
 using Windows.Graphics.Imaging;
@@ -14,7 +15,6 @@ namespace OptiFin.App.Services;
 /// </summary>
 public static class FilmAccent
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
     private static readonly ConcurrentDictionary<string, Task<Color?>> Cache = new();
 
     /// <summary>Accent par défaut d'OptiFin.</summary>
@@ -29,23 +29,24 @@ public static class FilmAccent
         if (Cache.TryGetValue(key, out var existing)) return existing;
         // Cache borné (mémoire) : vidé d'un coup au-delà de 512 teintes, recalculées au besoin.
         if (Cache.Count >= 512) Cache.Clear();
-        return Cache.GetOrAdd(key, _ => ComputeAsync(url));
+        return Cache.GetOrAdd(key, _ => ComputeAsync(key, url));
     }
 
     public static void Clear() => Cache.Clear();
 
-    /// <summary>Accent déjà calculé (sans attendre), sinon null.</summary>
+    /// <summary>Accent déjà calculé (sans attendre ni déclencher de requête), sinon null.</summary>
     public static Color? Cached(MediaItem item)
     {
-        var task = ForAsync(item);
-        return task.IsCompletedSuccessfully ? task.Result : null;
+        if (AppServices.Images is not { } images || (item.Backdrop ?? item.Primary) is not { } image) return null;
+        var key = images.Image(image, 120, 1, 70, "Jpg").ToString();
+        return Cache.TryGetValue(key, out var task) && task.IsCompletedSuccessfully ? task.Result : null;
     }
 
-    private static async Task<Color?> ComputeAsync(Uri url)
+    private static async Task<Color?> ComputeAsync(string key, Uri url)
     {
         try
         {
-            var bytes = await Http.GetByteArrayAsync(url).ConfigureAwait(false);
+            var bytes = await JellyfinClient.GetPublicBytesAsync(url, TimeSpan.FromSeconds(10)).ConfigureAwait(false);
             using var stream = new InMemoryRandomAccessStream();
             await stream.WriteAsync(bytes.AsBuffer());
             stream.Seek(0);
@@ -58,6 +59,7 @@ public static class FilmAccent
         }
         catch (Exception e)
         {
+            Cache.TryRemove(key, out _);
             AppLog.Debug("accent", $"Accent indisponible : {e.Message}");
             return null;
         }

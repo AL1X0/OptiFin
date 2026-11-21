@@ -13,6 +13,11 @@ namespace OptiFin.App.Controls;
 /// <summary>Petits éléments d'interface réutilisés (style OptiFin), construits en code.</summary>
 public static class Ui
 {
+    public static readonly SolidColorBrush TransparentBrush = new(Microsoft.UI.Colors.Transparent);
+    public static readonly SolidColorBrush WhiteBrush = new(Microsoft.UI.Colors.White);
+    public static readonly SolidColorBrush BlackBrush = new(Microsoft.UI.Colors.Black);
+    public static readonly InputSystemCursor HandCursor = InputSystemCursor.Create(InputSystemCursorShape.Hand);
+
     // ---------------------------------------------------------------- Langue
 
     /// <summary>Traduit les textes écrits dans le XAML d'une page et nomme les contrôles à info-bulle pour le lecteur d'écran.</summary>
@@ -34,6 +39,9 @@ public static class Ui
                 break;
             case TextBox box when english:
                 box.PlaceholderText = OptiFin.Core.Localization.L.T(box.PlaceholderText);
+                break;
+            case PasswordBox pwd when english:
+                pwd.PlaceholderText = OptiFin.Core.Localization.L.T(pwd.PlaceholderText);
                 break;
             case ContentControl { Content: string label } control when english:
                 control.Content = OptiFin.Core.Localization.L.T(label);
@@ -108,6 +116,15 @@ public static class Ui
         pulse.Duration = TimeSpan.FromMilliseconds(1500);
         pulse.IterationBehavior = AnimationIterationBehavior.Forever;
         visual.StartAnimation("Opacity", pulse);
+        if (element is FrameworkElement fe)
+        {
+            void OnUnloaded(object s, RoutedEventArgs e)
+            {
+                fe.Unloaded -= OnUnloaded;
+                visual.StopAnimation("Opacity");
+            }
+            fe.Unloaded += OnUnloaded;
+        }
     }
 
     /// <summary>Les enfants ajoutés au panneau glissent et apparaissent en cascade.</summary>
@@ -268,5 +285,5 @@ public static class Ui
 /// <summary>Grille avec le curseur « main » (éléments cliquables).</summary>
 public partial class HandGrid : Grid
 {
-    public HandGrid() => ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.Hand);
+    public HandGrid() => ProtectedCursor = Ui.HandCursor;
 }

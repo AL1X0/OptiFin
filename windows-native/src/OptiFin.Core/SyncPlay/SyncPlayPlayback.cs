@@ -202,6 +202,12 @@ public sealed class SyncPlayPlayback(ISyncTarget target, ISyncRequests requests,
         PlaylistItemId = playlistItemId;
         _playingFrom = null;
         _pendingUnpause = null;
+        _waitingForSeek = false;
+        _readyAfterSeekPlaying = false;
+        _buffering = false;
+        _stallSince = null;
+        _settleUntil = default;
+        Drift = TimeSpan.Zero;
         Waiting = true;
         ResetSpeed();
     }

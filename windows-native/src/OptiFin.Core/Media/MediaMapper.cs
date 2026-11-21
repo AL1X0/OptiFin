@@ -43,6 +43,9 @@ public static partial class MediaMapper
             ? new ImageRef(dto.SeriesId, ImageKind.Primary, dto.SeriesPrimaryImageTag, BlurOf(blur?.Primary, dto.SeriesPrimaryImageTag))
             : null;
 
+        var versions = Versions(dto);
+        var streams = versions.Count > 0 ? versions[0].Streams : MapStreams(dto.MediaStreams ?? []);
+        var tracks = versions.Count > 0 ? versions[0].Tracks : null;
         var ud = dto.UserData;
         return new MediaItem
         {
@@ -77,9 +80,9 @@ public static partial class MediaMapper
             ParentIndexNumber = dto.ParentIndexNumber,
             ChildCount = dto.ChildCount ?? dto.RecursiveItemCount,
             LibraryType = LibraryTypeOf(dto.CollectionType),
-            Streams = Streams(dto),
-            Versions = Versions(dto),
-            Tracks = dto.MediaSources?.FirstOrDefault() is { } source ? Playback.PlaybackService.TracksOf(source) : null,
+            Streams = streams,
+            Versions = versions,
+            Tracks = tracks,
             Primary = Own(ImageKind.Primary, "Primary", blur?.Primary),
             Backdrops = backdrops,
             Logo = logo,
@@ -160,13 +163,10 @@ public static partial class MediaMapper
         _ => VideoRange.Sdr,
     };
 
-    /// <summary>Flux de la première source (ou de l'élément si MediaSources n'est pas demandé).</summary>
-    private static IReadOnlyList<StreamSummary> Streams(BaseItemDto dto) =>
-        MapStreams(dto.MediaSources?.FirstOrDefault()?.MediaStreams ?? dto.MediaStreams ?? []);
-
     private static IReadOnlyList<MediaVersion> Versions(BaseItemDto dto) =>
         [.. (dto.MediaSources ?? []).Select(s => new MediaVersion(
-            s.Id ?? dto.Id, s.Name, s.Size, s.Container, MapStreams(s.MediaStreams ?? [])))];
+            s.Id ?? dto.Id, s.Name, s.Size, s.Container, MapStreams(s.MediaStreams ?? []),
+            Playback.PlaybackService.TracksOf(s)))];
 
     private static IReadOnlyList<StreamSummary> MapStreams(IEnumerable<MediaStream> streams)
     {
@@ -203,6 +203,11 @@ public static partial class MediaMapper
     public static string? Clean(string? text)
     {
         if (text is null) return null;
+        if (!text.Contains('<') && !text.Contains('&'))
+        {
+            var trimmed = text.Trim();
+            return trimmed.Length == 0 ? null : trimmed;
+        }
         var cleaned = TagPattern().Replace(BreakPattern().Replace(text, "\n"), "")
             .Replace("&amp;", "&").Replace("&quot;", "\"").Replace("&#39;", "'").Trim();
         return cleaned.Length == 0 ? null : cleaned;

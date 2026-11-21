@@ -107,9 +107,11 @@ public sealed record TrickplayManifest(int Width, int Height, int TileWidth, int
     {
         var last = Math.Max(0, ThumbnailCount - 1);
         var index = Math.Clamp((long)(position.TotalMilliseconds / Math.Max(1, Interval.TotalMilliseconds)), 0, last);
-        var perSheet = TileWidth * TileHeight;
+        var tileW = Math.Max(1, TileWidth);
+        var tileH = Math.Max(1, TileHeight);
+        var perSheet = tileW * tileH;
         var inSheet = (int)(index % perSheet);
-        return ((int)(index / perSheet), inSheet % TileWidth, inSheet / TileWidth);
+        return ((int)(index / perSheet), inSheet % tileW, inSheet / tileW);
     }
 }
 
@@ -162,7 +164,7 @@ public sealed record RemoteSubtitle(string Id, string Name, string? Provider, st
         Format?.ToUpperInvariant(),
         Downloads is > 0 and var d ? L.F("{0} téléchargements", d) : null,
         HashMatch ? L.T("correspond au fichier") : null,
-        HearingImpaired ? "malentendants" : null,
+        HearingImpaired ? L.T("malentendants") : null,
         Forced ? L.T("forcés") : null,
     }.Where(x => !string.IsNullOrEmpty(x)));
 

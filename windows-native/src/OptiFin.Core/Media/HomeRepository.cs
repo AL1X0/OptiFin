@@ -44,10 +44,13 @@ public sealed class HomeRepository(MediaRepository media, string accountId, stri
 
     /// <summary>Dernier accueil affiché : les retours sur l'accueil gardent la même sélection « à la une ».</summary>
     private HomeSnapshot? _shown;
+    private readonly SemaphoreSlim _cacheLock = new(1, 1);
+
+    public void ClearCache() => _shown = null;
 
     public async IAsyncEnumerable<HomeData> WatchAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
-        var cached = _shown ?? ReadCache();
+        var cached = _shown ?? await ReadCacheAsync(ct);
         if (cached != null) yield return Build(cached, fromCache: true);
 
         HomeSnapshot? fresh = null;
@@ -75,7 +78,7 @@ public sealed class HomeRepository(MediaRepository media, string accountId, stri
         }
         _shown = shown;
         yield return Build(shown, fromCache: false);
-        WriteCache(fresh);
+        _ = WriteCacheAsync(fresh);
     }
 
     private static HashSet<string> StartedIds(HomeSnapshot s) =>
@@ -88,12 +91,25 @@ public sealed class HomeRepository(MediaRepository media, string accountId, stri
 
     public async Task<HomeSnapshot> FetchAsync(CancellationToken ct = default)
     {
-        var views = await media.UserViewsRawAsync(ct);
-        var latestViews = views.Where(v => LatestLibraryTypes.Contains(v.CollectionType?.ToLowerInvariant() ?? "")).ToList();
+        var viewsTask = media.UserViewsRawAsync(ct);
         var featured = media.FeaturedRawAsync(ct: ct);
         var resume = media.ResumeRawAsync(ct: ct);
         var nextUp = media.NextUpRawAsync(ct: ct);
         var favorites = media.FavoritesRawAsync(ct: ct);
+
+        IReadOnlyList<BaseItemDto> views;
+        try
+        {
+            views = await viewsTask;
+        }
+        catch
+        {
+            foreach (var t in new Task[] { featured, resume, nextUp, favorites })
+                _ = t.ContinueWith(x => x.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            throw;
+        }
+
+        var latestViews = views.Where(v => LatestLibraryTypes.Contains(v.CollectionType?.ToLowerInvariant() ?? "")).ToList();
         // Une bibliothèque en échec ne fait pas tomber l'accueil entier.
         var latest = latestViews.Select(async v =>
         {
@@ -148,13 +164,19 @@ public sealed class HomeRepository(MediaRepository media, string accountId, stri
         return new HomeData(featured, sections, libraries, fromCache);
     }
 
-    private HomeSnapshot? ReadCache()
+    private async Task<HomeSnapshot?> ReadCacheAsync(CancellationToken ct)
     {
         try
         {
             if (!File.Exists(_cachePath)) return null;
-            var s = JsonSerializer.Deserialize(File.ReadAllText(_cachePath), HomeJson.Default.HomeSnapshot);
+            await using var stream = new FileStream(_cachePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                bufferSize: 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            var s = await JsonSerializer.DeserializeAsync(stream, HomeJson.Default.HomeSnapshot, ct).ConfigureAwait(false);
             return s?.V == 1 ? s : null;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {
@@ -162,16 +184,27 @@ public sealed class HomeRepository(MediaRepository media, string accountId, stri
         }
     }
 
-    private void WriteCache(HomeSnapshot s)
+    private async Task WriteCacheAsync(HomeSnapshot s)
     {
+        await _cacheLock.WaitAsync().ConfigureAwait(false);
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_cachePath)!);
-            File.WriteAllText(_cachePath, JsonSerializer.Serialize(s, HomeJson.Default.HomeSnapshot));
+            var tmp = _cachePath + ".tmp";
+            await using (var stream = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None,
+                bufferSize: 4096, FileOptions.Asynchronous))
+            {
+                await JsonSerializer.SerializeAsync(stream, s, HomeJson.Default.HomeSnapshot).ConfigureAwait(false);
+            }
+            File.Move(tmp, _cachePath, overwrite: true);
         }
         catch (Exception e)
         {
             AppLog.Warn("home", $"Cache de l'accueil non écrit : {e.Message}");
+        }
+        finally
+        {
+            _cacheLock.Release();
         }
     }
 }

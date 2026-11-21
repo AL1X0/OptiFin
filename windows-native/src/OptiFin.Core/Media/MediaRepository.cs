@@ -13,7 +13,7 @@ public sealed class MediaRepository(JellyfinClient api, string userId)
     private const string FeaturedFields = "Overview,Genres,PrimaryImageAspectRatio";
     private const string EpisodeFields = "Overview,PrimaryImageAspectRatio";
     private const string DetailFields =
-        "Overview,Genres,Studios,People,Taglines,RemoteTrailers,MediaSources,MediaStreams,ChildCount,OriginalTitle,PrimaryImageAspectRatio,ExternalUrls";
+        "Overview,Genres,Studios,People,Taglines,RemoteTrailers,MediaSources,MediaStreams,ChildCount,OriginalTitle,PrimaryImageAspectRatio";
     private const string CardImages = "Primary,Backdrop,Thumb,Logo";
 
     public JellyfinClient Api => api;
@@ -198,6 +198,15 @@ public sealed class MediaRepository(JellyfinClient api, string userId)
             [.. (filters.Result.Genres ?? []).Where(g => g.Id != null && g.Name != null).Select(g => new NamedRef(g.Id!, g.Name!))
                 .OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase)],
             [.. (legacy.Result.Years ?? []).OrderDescending()]);
+    }
+
+    public async Task<IReadOnlyList<NamedRef>> GenresAsync(LibraryQuery q, CancellationToken ct = default)
+    {
+        var kinds = q.Kinds.Count > 0 ? string.Join(',', q.Kinds.Select(k => k.ApiName()).OfType<string>()) : null;
+        var filters = await api.GetAsync("Items/Filters2", JellyfinJson.Default.QueryFilters,
+            [new("UserId", userId), new("ParentId", q.ParentId), new("IncludeItemTypes", kinds)], ct);
+        return [.. (filters.Genres ?? []).Where(g => g.Id != null && g.Name != null).Select(g => new NamedRef(g.Id!, g.Name!))
+            .OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase)];
     }
 
     // ---------------------------------------------------------------- Surprends-moi

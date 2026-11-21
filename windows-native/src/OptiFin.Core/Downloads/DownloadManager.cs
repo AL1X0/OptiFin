@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using OptiFin.Core.Api;
@@ -38,7 +39,7 @@ internal sealed partial class DownloadJson : JsonSerializerContext;
 /// Téléchargements hors ligne : un fichier à la fois, reprise après pause ou coupure (Range), état
 /// conservé d'un lancement à l'autre dans <c>downloads.json</c>. Fichier d'origine, sans transcodage.
 /// </summary>
-public sealed class DownloadManager
+public sealed class DownloadManager : IDisposable
 {
     private readonly string _directory;
     private readonly string _index;
@@ -50,7 +51,9 @@ public sealed class DownloadManager
     private DownloadRecord? _running;
     private CancellationTokenSource? _cancel;
     private Task _worker = Task.CompletedTask;
+    private bool _pumping;
     private int _syncing;
+    private bool _disposed;
     /// <summary>Nouvel essai régulier : rien n'annonce le retour du serveur.</summary>
     private Timer? _syncTimer;
 
@@ -102,16 +105,24 @@ public sealed class DownloadManager
     /// <summary>Compte actif : ses téléchargements en attente reprennent (null à la déconnexion).</summary>
     public void Attach(JellyfinClient? api, string? accountId, string? userId = null)
     {
-        _cancel?.Cancel();
         lock (_gate)
         {
+            _cancel?.Cancel();
             _api = api;
             _account = accountId;
             _userId = userId;
+            if (api is null || userId is null)
+            {
+                _syncTimer?.Dispose();
+                _syncTimer = null;
+            }
         }
         Pump();
-        if (api is null || userId is null) return;
-        _syncTimer ??= new Timer(_ => _ = SyncPositionsAsync(), null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(2));
+        if (api is null || userId is null || _disposed) return;
+        lock (_gate)
+        {
+            _syncTimer ??= new Timer(_ => _ = SyncPositionsAsync(), null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(2));
+        }
         _ = SyncPositionsAsync();
     }
 
@@ -136,7 +147,7 @@ public sealed class DownloadManager
     /// </summary>
     public async Task SyncPositionsAsync(CancellationToken ct = default)
     {
-        if (Interlocked.Exchange(ref _syncing, 1) == 1) return;
+        if (_disposed || Interlocked.Exchange(ref _syncing, 1) == 1) return;
         try
         {
             JellyfinClient? api;
@@ -154,19 +165,26 @@ public sealed class DownloadManager
                 var dto = (await api.GetAsync($"Users/{userId}/Items", JellyfinJson.Default.BaseItemDtoQueryResult,
                     [new("Ids", record.ItemId), new("EnableImages", "false"), new("EnableTotalRecordCount", "false")], ct).ConfigureAwait(false)).Items?.FirstOrDefault();
                 var user = dto?.UserData;
-                if (user?.LastPlayedDate > record.LocalWatchedAt)
+                DateTimeOffset? localWatchedAt;
+                long? localPositionTicks;
+                lock (_gate)
                 {
-                    record.LocalPositionTicks = user.PlaybackPositionTicks ?? 0;
+                    localWatchedAt = record.LocalWatchedAt;
+                    localPositionTicks = record.LocalPositionTicks;
+                }
+                if (user?.LastPlayedDate > localWatchedAt)
+                {
+                    lock (_gate) record.LocalPositionTicks = user.PlaybackPositionTicks ?? 0;
                     AppLog.Info("downloads", $"« {record.Name} » : position plus récente sur le serveur, gardée");
                 }
-                else if (dto != null && record.LocalPositionTicks is { } ticks)
+                else if (dto != null && localPositionTicks is { } ticks)
                 {
                     // Comme une fin de lecture : le serveur enregistre la position et marque « vu » près de la fin.
                     var report = new PlaybackReportDto { ItemId = record.ItemId, MediaSourceId = record.MediaSourceId ?? record.ItemId, PositionTicks = ticks };
                     await api.PostAsync("Sessions/Playing/Stopped", JellyfinClient.Json(report, JellyfinJson.Default.PlaybackReportDto), ct: ct).ConfigureAwait(false);
                     AppLog.Info("downloads", $"« {record.Name} » : position hors ligne envoyée au serveur");
                 }
-                record.PositionUnsent = false;
+                lock (_gate) record.PositionUnsent = false;
                 Save();
             }
         }
@@ -220,8 +238,11 @@ public sealed class DownloadManager
     public string PosterPathOf(string itemId) => Path.Combine(_directory, itemId + ".jpg");
 
     /// <summary>Fichier d'un téléchargement terminé, pour le lire sans serveur.</summary>
-    public string? CompletedFile(string itemId) =>
-        Find(itemId) is { Status: DownloadStatus.Complete } r && File.Exists(PathOf(r)) ? PathOf(r) : null;
+    public string? CompletedFile(string itemId, string? mediaSourceId = null) =>
+        Find(itemId) is { Status: DownloadStatus.Complete } r
+        && (mediaSourceId is null || r.MediaSourceId is null || r.MediaSourceId == mediaSourceId)
+        && File.Exists(PathOf(r))
+            ? PathOf(r) : null;
 
     /// <summary>Fiche enregistrée au téléchargement, avec la dernière position lue sur ce PC.</summary>
     public static MediaItem ItemOf(DownloadRecord record)
@@ -262,11 +283,10 @@ public sealed class DownloadManager
 
     public void Pause(string itemId)
     {
-        DownloadRecord? record;
         lock (_gate)
         {
-            record = _records.FirstOrDefault(r => r.ItemId == itemId && r.AccountId == _account);
-            if (record is null) return;
+            var record = _records.FirstOrDefault(r => r.ItemId == itemId && r.AccountId == _account);
+            if (record is null || record.Status is not (DownloadStatus.Queued or DownloadStatus.Running)) return;
             record.Status = DownloadStatus.Paused;
             if (_running == record) _cancel?.Cancel();
         }
@@ -280,6 +300,7 @@ public sealed class DownloadManager
         lock (_gate)
         {
             if (_records.FirstOrDefault(r => r.ItemId == itemId && r.AccountId == _account) is not { } record) return;
+            if (record.Status is not (DownloadStatus.Paused or DownloadStatus.Failed)) return;
             record.Status = DownloadStatus.Queued;
             record.Error = null;
         }
@@ -292,16 +313,18 @@ public sealed class DownloadManager
     {
         DownloadRecord? record;
         Task worker;
+        bool wasRunning;
         lock (_gate)
         {
             record = _records.FirstOrDefault(r => r.ItemId == itemId && r.AccountId == _account);
             if (record is null) return;
             _records.Remove(record);
-            if (_running == record) _cancel?.Cancel();
+            wasRunning = _running == record;
+            if (wasRunning) _cancel?.Cancel();
             worker = _worker;
         }
         // Le fichier en cours d'écriture n'est libéré qu'une fois le téléchargement interrompu.
-        if (_running == record) await worker.ConfigureAwait(false);
+        if (wasRunning) await worker.ConfigureAwait(false);
         foreach (var file in new[] { PathOf(record), PathOf(record) + ".part", PosterPathOf(itemId) })
         {
             try
@@ -319,13 +342,17 @@ public sealed class DownloadManager
     }
 
     /// <summary>Attend la fin de la file (tests).</summary>
-    public Task IdleAsync() => _worker;
+    public Task IdleAsync()
+    {
+        lock (_gate) return _worker;
+    }
 
     private void Pump()
     {
         lock (_gate)
         {
-            if (!_worker.IsCompleted) return;
+            if (_disposed || _pumping) return;
+            _pumping = true;
             _worker = Task.Run(RunQueueAsync);
         }
     }
@@ -336,25 +363,39 @@ public sealed class DownloadManager
         {
             DownloadRecord? record;
             JellyfinClient? api;
+            CancellationTokenSource cancel;
             CancellationToken ct;
             lock (_gate)
             {
                 api = _api;
-                record = api is null ? null : _records.FirstOrDefault(r => r.AccountId == _account && r.Status == DownloadStatus.Queued);
+                record = _disposed || api is null ? null : _records.FirstOrDefault(r => r.AccountId == _account && r.Status == DownloadStatus.Queued);
                 if (record is null)
                 {
                     _running = null;
+                    _pumping = false;
                     return;
                 }
                 _running = record;
                 record.Status = DownloadStatus.Running;
-                _cancel = new CancellationTokenSource();
-                ct = _cancel.Token;
+                cancel = new CancellationTokenSource();
+                _cancel = cancel;
+                ct = cancel.Token;
             }
             Save();
             Changed?.Invoke();
-            await DownloadAsync(record, api!, ct).ConfigureAwait(false);
-            lock (_gate) _running = null;
+            try
+            {
+                await DownloadAsync(record, api!, ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                lock (_gate)
+                {
+                    if (ReferenceEquals(_cancel, cancel)) _cancel = null;
+                    _running = null;
+                }
+                cancel.Dispose();
+            }
             Save();
             Changed?.Invoke();
         }
@@ -363,6 +404,8 @@ public sealed class DownloadManager
     private async Task DownloadAsync(DownloadRecord record, JellyfinClient api, CancellationToken ct)
     {
         var part = PathOf(record) + ".part";
+        const int bufferSize = 1 << 18;
+        var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
         try
         {
             Directory.CreateDirectory(_directory);
@@ -375,19 +418,23 @@ public sealed class DownloadManager
             // Le serveur a ignoré la reprise : il renvoie tout depuis le début.
             if (response.StatusCode != System.Net.HttpStatusCode.PartialContent) offset = 0;
             var length = response.Content.Headers.ContentLength;
-            if (length is { } l) record.TotalBytes = offset + l;
-            record.DoneBytes = offset;
-            await using var input = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            await using (var output = new FileStream(part, offset > 0 ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.Read))
+            lock (_gate)
             {
-                var buffer = new byte[1 << 18];
+                if (length is { } l) record.TotalBytes = offset + l;
+                record.DoneBytes = offset;
+            }
+            await using var input = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            await using (var output = new FileStream(part, offset > 0 ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.Read,
+                bufferSize: 0, FileOptions.Asynchronous | FileOptions.SequentialScan))
+            {
+                using var stall = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 var lastNotice = Environment.TickCount64;
                 while (true)
                 {
                     // Connexion muette pendant une minute : échec (à reprendre), pas d'attente sans fin.
-                    using var stall = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     stall.CancelAfter(TimeSpan.FromMinutes(1));
-                    var read = await input.ReadAsync(buffer, stall.Token).ConfigureAwait(false);
+                    var read = await input.ReadAsync(buffer.AsMemory(0, bufferSize), stall.Token).ConfigureAwait(false);
+                    stall.CancelAfter(Timeout.Infinite);
                     if (read == 0) break;
                     await output.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
                     record.DoneBytes += read;
@@ -399,20 +446,45 @@ public sealed class DownloadManager
             // Coupure silencieuse : une taille annoncée non atteinte n'est pas un fichier complet.
             if (length is not null && record.DoneBytes < record.TotalBytes) throw new IOException("Fichier incomplet");
             File.Move(part, PathOf(record), overwrite: true);
-            record.TotalBytes = record.DoneBytes;
-            record.Status = DownloadStatus.Complete;
+            lock (_gate)
+            {
+                record.TotalBytes = record.DoneBytes;
+                record.Status = DownloadStatus.Complete;
+            }
             AppLog.Info("downloads", $"Téléchargé : {record.Name} ({record.DoneBytes / 1024 / 1024} Mo)");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             // Pause (état déjà posé), suppression ou déconnexion : reprendra au prochain lancement.
-            if (record.Status == DownloadStatus.Running) record.Status = DownloadStatus.Queued;
+            lock (_gate)
+            {
+                if (record.Status == DownloadStatus.Running) record.Status = DownloadStatus.Queued;
+            }
         }
         catch (Exception e)
         {
             AppLog.Warn("downloads", $"Échec de « {record.Name} » : {e.Message}");
-            record.Status = DownloadStatus.Failed;
-            record.Error = e is ApiException api2 ? api2.UserMessage : e.Message;
+            lock (_gate)
+            {
+                record.Status = DownloadStatus.Failed;
+                record.Error = e is ApiException api2 ? api2.UserMessage : e.Message;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _cancel?.Cancel();
+            _syncTimer?.Dispose();
+            _syncTimer = null;
         }
     }
 }

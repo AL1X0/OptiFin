@@ -19,7 +19,7 @@ public sealed record LogEntry(DateTime Time, LogLevel Level, string Tag, string 
 public static partial class AppLog
 {
     private const int Capacity = 3000;
-    private static readonly List<LogEntry> Entries = [];
+    private static readonly Queue<LogEntry> Entries = new(Capacity + 1);
     private static readonly Lock Gate = new();
     private static StreamWriter? _file;
 
@@ -67,21 +67,33 @@ public static partial class AppLog
                 {
                     lock (Gate)
                     {
-                        Entries.Add(new LogEntry(DateTime.Now, LogLevel.Info, "log", "──── Session précédente ────"));
+                        Entries.Enqueue(new LogEntry(DateTime.Now, LogLevel.Info, "log", "──── Session précédente ────"));
                         foreach (var l in tail)
-                            Entries.Add(new LogEntry(DateTime.Now, l.Length > 13 && l[13] == 'E' ? LogLevel.Error : LogLevel.Info, "avant", l));
-                        Entries.Add(new LogEntry(DateTime.Now, LogLevel.Info, "log", "──── Session actuelle ────"));
+                        {
+                            var lvl = l.Length > 13 ? l[13] switch { 'E' => LogLevel.Error, 'W' => LogLevel.Warning, _ => LogLevel.Info } : LogLevel.Info;
+                            Entries.Enqueue(new LogEntry(DateTime.Now, lvl, "avant", l));
+                        }
+                        Entries.Enqueue(new LogEntry(DateTime.Now, LogLevel.Info, "log", "──── Session actuelle ────"));
+                        while (Entries.Count > Capacity) Entries.Dequeue();
                     }
                 }
             }
-            _file = new StreamWriter(new FileStream(FilePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite), Encoding.UTF8)
+            lock (Gate)
             {
-                AutoFlush = true,
-            };
+                _file?.Dispose();
+                _file = new StreamWriter(new FileStream(FilePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite), Encoding.UTF8)
+                {
+                    AutoFlush = true,
+                };
+            }
         }
         catch
         {
-            _file = null; // journal en mémoire seulement
+            lock (Gate)
+            {
+                _file?.Dispose();
+                _file = null; // journal en mémoire seulement
+            }
         }
     }
 
@@ -106,8 +118,8 @@ public static partial class AppLog
         var entry = new LogEntry(DateTime.Now, level, tag, Redact(message));
         lock (Gate)
         {
-            Entries.Add(entry);
-            if (Entries.Count > Capacity) Entries.RemoveRange(0, Entries.Count - Capacity);
+            Entries.Enqueue(entry);
+            if (Entries.Count > Capacity) Entries.Dequeue();
             try
             {
                 _file?.WriteLine(entry.Format());
@@ -141,9 +153,11 @@ public static partial class AppLog
     /// <summary>Masque les secrets connus dans un texte.</summary>
     public static string Redact(string input)
     {
-        var s = TokenPattern().Replace(input, "Token=\"***\"");
-        s = ApiKeyPattern().Replace(s, "$1=***");
-        s = HeaderPattern().Replace(s, "$1: ***");
-        return JsonSecretPattern().Replace(s, "\"$1\":\"***\"");
+        var s = input;
+        if (s.Contains("Token=", StringComparison.Ordinal)) s = TokenPattern().Replace(s, "Token=\"***\"");
+        if (s.Contains("api", StringComparison.OrdinalIgnoreCase)) s = ApiKeyPattern().Replace(s, "$1=***");
+        if (s.Contains("token", StringComparison.OrdinalIgnoreCase)) s = HeaderPattern().Replace(s, "$1: ***");
+        if (s.Contains('"') && s.Contains(':')) s = JsonSecretPattern().Replace(s, "\"$1\":\"***\"");
+        return s;
     }
 }

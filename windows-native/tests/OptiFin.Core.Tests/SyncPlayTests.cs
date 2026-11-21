@@ -52,6 +52,16 @@ public class SyncPlayParserTests
         Assert.Null(SyncPlayParser.Parse("""{"MessageType":"Sessions","Data":[]}"""));
         Assert.Null(SyncPlayParser.Parse("pas du json"));
     }
+
+    [Fact]
+    public void LectureDepuisUtf8SansChaineIntermediaire()
+    {
+        var joined = Assert.IsType<GroupJoinedMessage>(SyncPlayParser.Parse(System.Text.Encoding.UTF8.GetBytes(Joined)));
+        Assert.Equal("Soirée test", joined.Group.Name);
+        var cmd = Assert.IsType<CommandMessage>(SyncPlayParser.Parse(System.Text.Encoding.UTF8.GetBytes(Unpause)));
+        Assert.Equal(SyncCommandKind.Unpause, cmd.Command.Kind);
+        Assert.Null(SyncPlayParser.Parse(System.Text.Encoding.UTF8.GetBytes("pas du json")));
+    }
 }
 
 public class TimeSyncTests
@@ -194,6 +204,24 @@ public class SyncPlayPlaybackTests
         sync.Tick();
         sync.OnBuffering(false);
         Assert.Equal("buffering False", requests.Sent[^2]);
+    }
+
+    [Fact]
+    public void ChangeItem_reinitialiseSautEtMiseEnTamponEnCours()
+    {
+        var (sync, _, requests, setNow) = Make();
+        sync.Apply(Cmd(SyncCommandKind.Seek, T0.AddSeconds(2), 120));
+        sync.OnBuffering(true);
+        setNow(T0.AddSeconds(1));
+        sync.Tick();
+        var countBefore = requests.Sent.Count;
+
+        sync.ChangeItem("pl2");
+        Assert.Equal("pl2", sync.PlaylistItemId);
+        Assert.Equal(TimeSpan.Zero, sync.Drift);
+        sync.OnSeekCompleted();
+        sync.OnBuffering(false);
+        Assert.Equal(countBefore, requests.Sent.Count);
     }
 }
 

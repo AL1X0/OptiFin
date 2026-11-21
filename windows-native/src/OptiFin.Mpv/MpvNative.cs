@@ -7,8 +7,6 @@ internal static unsafe partial class MpvNative
 {
     private const string Lib = "libmpv-2.dll";
 
-    public const int FormatNone = 0;
-    public const int FormatString = 1;
     public const int FormatFlag = 3;
     public const int FormatInt64 = 4;
     public const int FormatDouble = 5;
@@ -19,13 +17,10 @@ internal static unsafe partial class MpvNative
     public const int EventStartFile = 6;
     public const int EventEndFile = 7;
     public const int EventFileLoaded = 8;
-    public const int EventVideoReconfig = 17;
     public const int EventPlaybackRestart = 21;
     public const int EventPropertyChange = 22;
 
     public const int EndFileEof = 0;
-    public const int EndFileStop = 2;
-    public const int EndFileQuit = 3;
     public const int EndFileError = 4;
 
     [StructLayout(LayoutKind.Sequential)]

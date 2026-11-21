@@ -16,7 +16,10 @@ public sealed class TimeSync(Func<DateTime>? utcNow = null)
     /// <summary>Aller-retour réseau du meilleur échantillon.</summary>
     public TimeSpan RoundTrip { get; private set; }
 
-    public bool HasSamples => _samples.Count > 0;
+    public bool HasSamples
+    {
+        get { lock (_lock) return _samples.Count > 0; }
+    }
 
     /// <summary>
     /// t0 : envoi (local), t1 : réception (serveur), t2 : réponse (serveur), t3 : réception (local).

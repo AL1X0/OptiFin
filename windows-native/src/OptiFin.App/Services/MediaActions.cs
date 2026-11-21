@@ -45,6 +45,13 @@ public static class MediaActions
         SelectionChanged?.Invoke();
     }
 
+    public static void ClearSelection()
+    {
+        if (_selected.Count == 0) return;
+        _selected.Clear();
+        SelectionChanged?.Invoke();
+    }
+
     public static void EndSelection()
     {
         if (!Selecting && _selected.Count == 0) return;
@@ -60,8 +67,6 @@ public static class MediaActions
     public static Task SetFavoriteAsync(IReadOnlyList<MediaItem> items, bool favorite) =>
         ApplyAsync(items.Where(CanFavorite).ToList(), (m, id) => m.SetFavoriteAsync(id, favorite),
             n => favorite ? L.Count(n, "{0} élément ajouté aux favoris", "{0} éléments ajoutés aux favoris") : L.Count(n, "{0} élément retiré des favoris", "{0} éléments retirés des favoris"));
-
-    private static string S(int n) => n > 1 ? "s" : "";
 
     private static async Task ApplyAsync(List<MediaItem> items, Func<MediaRepository, string, Task<UserState>> action, Func<int, string> done)
     {

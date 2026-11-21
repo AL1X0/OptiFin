@@ -16,6 +16,9 @@ public static class PlayerLauncher
     /// <summary>Lecteur ouvert (outil de capture).</summary>
     internal static PlayerWindow? Current => _current;
 
+    public static bool IsOpen => _current != null;
+    public static event Action<bool>? ActiveChanged;
+
     /// <summary>Lecteur fermé : les pages rafraîchissent progression et « Reprendre ».</summary>
     public static event Action? Closed;
 
@@ -51,6 +54,7 @@ public static class PlayerLauncher
             var main = Nav.Window.AppWindow;
             var player = new PlayerWindow(item, fromStart, party, mediaSourceId);
             _current = player;
+            ActiveChanged?.Invoke(true);
             player.ShowOver(main);
             // La fenêtre principale disparaît une fois le lecteur apparu en fondu par-dessus.
             OptiFin.App.Controls.Ui.After(TimeSpan.FromMilliseconds(300), () =>
@@ -70,6 +74,7 @@ public static class PlayerLauncher
         // Ancien lecteur qui finit de se fermer alors qu'un autre est déjà ouvert : rien à rétablir.
         if (_current != null && _current != closed) return;
         _current = null;
+        ActiveChanged?.Invoke(false);
         var main = Nav.Window.AppWindow;
         Nav.Window.PlayEntrance();
         main.Show();

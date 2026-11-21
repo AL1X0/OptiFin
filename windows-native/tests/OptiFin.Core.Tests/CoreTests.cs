@@ -1,6 +1,8 @@
+using System.Net;
 using System.Text;
 using OptiFin.Core.Api;
 using OptiFin.Core.Auth;
+using OptiFin.Core.Localization;
 using OptiFin.Core.Logging;
 using OptiFin.Core.Media;
 using OptiFin.Core.Playback;
@@ -481,5 +483,254 @@ public class AccentTests
         var (h, s, l) = Accent.ToHsl(77, 163, 255);
         var back = Accent.FromHsl(h, s, l);
         Assert.Equal(new Rgb(77, 163, 255), back);
+    }
+}
+
+[Collection("Localization")]
+public class AppSettingsLocalizationTests
+{
+    [Fact]
+    public void Langues_refletentLaLangueCouranteDynamiquement()
+    {
+        var previous = L.IsEnglish;
+        try
+        {
+            L.IsEnglish = false;
+            Assert.Equal("Français", AppSettings.Languages.First(l => l.Code == "fre").Name);
+            Assert.Equal("Anglais", AppSettings.Languages.First(l => l.Code == "eng").Name);
+
+            L.IsEnglish = true;
+            Assert.Equal("French", AppSettings.Languages.First(l => l.Code == "fre").Name);
+            Assert.Equal("English", AppSettings.Languages.First(l => l.Code == "eng").Name);
+        }
+        finally
+        {
+            L.IsEnglish = previous;
+        }
+    }
+}
+
+public class AppLogTests
+{
+    [Fact]
+    public void Redact_masqueLesQuatreFormatsDeSecretsEtPreserveLeTextePropre()
+    {
+        Assert.Equal("MediaBrowser Client=\"OptiFin\", Token=\"***\"", AppLog.Redact("MediaBrowser Client=\"OptiFin\", Token=\"secret-123\""));
+        Assert.Equal("https://s/v?api_key=***&k=2", AppLog.Redact("https://s/v?api_key=abc999&k=2"));
+        Assert.Equal("X-Emby-Token: *** reste", AppLog.Redact("X-Emby-Token: tok-xyz reste"));
+        Assert.Equal("{\"AccessToken\":\"***\",\"User\":\"alice\"}", AppLog.Redact("{\"AccessToken\":\"acc\",\"User\":\"alice\"}"));
+        Assert.Equal("{\"Password\":\"***\"}", AppLog.Redact("{\"Password\":\"p@ss\"}"));
+
+        const string clean = "GET /Users/u1/Items 200 (12 ms)";
+        Assert.Same(clean, AppLog.Redact(clean));
+    }
+
+    [Fact]
+    public void Add_borneLeJournalATroisMilleEntrees()
+    {
+        var tag = "cap-" + Guid.NewGuid().ToString("N");
+        for (var i = 0; i < 3050; i++) AppLog.Add(LogLevel.Info, tag, $"m{i}");
+        var snap = AppLog.Snapshot();
+        Assert.Equal(3000, snap.Count);
+        Assert.DoesNotContain(snap, e => e.Tag == tag && e.Message == "m0");
+        Assert.Contains(snap, e => e.Tag == tag && e.Message == "m3049");
+    }
+}
+
+public class MediaMapperExtrasTests
+{
+    [Fact]
+    public void Clean_rapideEtSansHtml()
+    {
+        Assert.Null(MediaMapper.Clean(null));
+        Assert.Null(MediaMapper.Clean("   \t\r\n "));
+        Assert.Equal("Synopsis brut.", MediaMapper.Clean("  Synopsis brut.  "));
+        Assert.Equal("A\n\"B\" & 'C'", MediaMapper.Clean("<p>A<br/>&quot;B&quot; &amp; &#39;C&#39;</p>"));
+    }
+
+    [Fact]
+    public void MultiVersions_tracksEtPlanLocalParVersion()
+    {
+        var dto = new BaseItemDto
+        {
+            Id = "m1",
+            Name = "Film",
+            Type = "Movie",
+            MediaSources =
+            [
+                new MediaSourceInfo
+                {
+                    Id = "v1",
+                    DefaultAudioStreamIndex = 1,
+                    DefaultSubtitleStreamIndex = 2,
+                    MediaStreams =
+                    [
+                        new MediaStream { Type = "Audio", Index = 1, Codec = "aac", Language = "fre" },
+                        new MediaStream { Type = "Subtitle", Index = 2, Codec = "srt", Language = "fre" },
+                    ],
+                },
+                new MediaSourceInfo
+                {
+                    Id = "v2",
+                    DefaultAudioStreamIndex = 3,
+                    DefaultSubtitleStreamIndex = 5,
+                    MediaStreams =
+                    [
+                        new MediaStream { Type = "Audio", Index = 3, Codec = "dts", Language = "eng" },
+                        new MediaStream { Type = "Subtitle", Index = 4, Codec = "srt", Language = "eng", IsExternal = true },
+                        new MediaStream { Type = "Subtitle", Index = 5, Codec = "ass", Language = "eng" },
+                    ],
+                },
+            ],
+        };
+
+        var item = MediaMapper.FromDto(dto);
+        Assert.Equal(3, item.TracksFor("v2")?.AudioIndex);
+        Assert.Equal(1, item.TracksFor("unknown")?.AudioIndex);
+
+        var plan = PlaybackService.LocalPlan(item, Path.Combine(Path.GetTempPath(), "v2.mkv"), TimeSpan.FromSeconds(15), "v2");
+        Assert.Equal("v2", plan.MediaSourceId);
+        Assert.Equal(3, plan.AudioIndex);
+        Assert.Equal(5, plan.SubtitleIndex);
+        Assert.Single(plan.SubtitleTracks); // externe filtré en lecture locale
+    }
+
+    [Fact]
+    public void Trickplay_dimensionsNullesIgnoreesEtProtegees()
+    {
+        var manifest = new TrickplayManifest(320, 180, 0, 0, 10, TimeSpan.FromSeconds(5));
+        Assert.Equal((2, 0, 0), manifest.TileAt(TimeSpan.FromSeconds(12)));
+
+        var dto = new BaseItemDto
+        {
+            Trickplay = new()
+            {
+                ["src"] = new()
+                {
+                    ["bad"] = new TrickplayInfoDto { Width = 320, Interval = 5000, TileWidth = 0, TileHeight = 4, ThumbnailCount = 10 },
+                    ["ok"] = new TrickplayInfoDto { Width = 160, Height = 90, Interval = 5000, TileWidth = 4, TileHeight = 4, ThumbnailCount = 10 },
+                },
+            },
+        };
+        var picked = PlaybackService.TrickplayFrom(dto, "src");
+        Assert.NotNull(picked);
+        Assert.Equal(160, picked.Width);
+
+        dto.Trickplay["src"].Remove("ok");
+        Assert.Null(PlaybackService.TrickplayFrom(dto, "src"));
+    }
+}
+
+public sealed class HomeRepositoryTests : IDisposable
+{
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "optifin-home-" + Guid.NewGuid().ToString("N"));
+    private readonly HttpListener _listener = new();
+    private readonly string _url;
+
+    public HomeRepositoryTests()
+    {
+        Directory.CreateDirectory(_dir);
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var port = 25_000 + Random.Shared.Next(2000);
+            _url = $"http://127.0.0.1:{port}/";
+            try
+            {
+                _listener.Prefixes.Clear();
+                _listener.Prefixes.Add(_url);
+                _listener.Start();
+                _ = Task.Run(ServeAsync);
+                return;
+            }
+            catch
+            {
+                _listener = new HttpListener();
+            }
+        }
+        throw new InvalidOperationException("Port de test indisponible");
+    }
+
+    public void Dispose()
+    {
+        _listener.Abort();
+        if (Directory.Exists(_dir)) Directory.Delete(_dir, recursive: true);
+    }
+
+    private async Task ServeAsync()
+    {
+        while (_listener.IsListening)
+        {
+            HttpListenerContext c;
+            try
+            {
+                c = await _listener.GetContextAsync();
+            }
+            catch
+            {
+                return;
+            }
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var path = c.Request.Url!.AbsolutePath;
+                    var json = path switch
+                    {
+                        "/Users/u1/Views" => """{"Items":[{"Id":"lib1","Name":"Films","CollectionType":"movies"}]}""",
+                        "/Users/u1/Items/Resume" => """{"Items":[{"Id":"r1","Name":"Reprise","Type":"Movie"}]}""",
+                        "/Shows/NextUp" => """{"Items":[{"Id":"n1","Name":"Suite","Type":"Episode"}]}""",
+                        "/Users/u1/Items/Latest" => """[{"Id":"l1","Name":"Récent","Type":"Movie"}]""",
+                        "/Users/u1/Items" when c.Request.QueryString["IsFavorite"] == "true" =>
+                            """{"Items":[{"Id":"fav1","Name":"Favori","Type":"Movie"}]}""",
+                        "/Users/u1/Items" =>
+                            """{"Items":[{"Id":"f1","Name":"Vedette","Type":"Movie","BackdropImageTags":["b1"]}]}""",
+                        _ => "{}",
+                    };
+                    var bytes = Encoding.UTF8.GetBytes(json);
+                    c.Response.ContentType = "application/json";
+                    c.Response.ContentLength64 = bytes.Length;
+                    await c.Response.OutputStream.WriteAsync(bytes);
+                    c.Response.Close();
+                }
+                catch
+                {
+                    // Arrêt du serveur de test.
+                }
+            });
+        }
+    }
+
+    [Fact]
+    public async Task FetchAsync_chargeEnParallele_etClearCacheReinitialiseWatchAsync()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var api = new JellyfinClient(new Uri(_url), new ClientIdentity("OptiFin", "Tests", "t", "1.0"), () => "secret");
+        var media = new MediaRepository(api, "u1");
+
+        // Parent fichier : évite toute écriture disque asynchrone pendant l'essai de ClearCache.
+        var fileAsDir = Path.Combine(_dir, "not-a-dir");
+        await File.WriteAllTextAsync(fileAsDir, "x", ct);
+        var repo = new HomeRepository(media, "compte", Path.Combine(fileAsDir, "cache"));
+
+        var snap = await repo.FetchAsync(ct);
+        Assert.Equal("lib1", Assert.Single(snap.Views).Id);
+        Assert.Equal("f1", Assert.Single(snap.Featured).Id);
+        Assert.Equal("r1", Assert.Single(snap.Resume).Id);
+        Assert.Equal("n1", Assert.Single(snap.NextUp).Id);
+        Assert.Equal("fav1", Assert.Single(snap.Favorites).Id);
+        Assert.Equal("l1", Assert.Single(snap.Latest["lib1"]).Id);
+
+        var first = new List<HomeData>();
+        await foreach (var d in repo.WatchAsync(ct)) first.Add(d);
+        Assert.False(Assert.Single(first).FromCache);
+
+        var second = new List<HomeData>();
+        await foreach (var d in repo.WatchAsync(ct)) second.Add(d);
+        Assert.Equal([true, false], second.Select(d => d.FromCache));
+
+        repo.ClearCache();
+        var afterClear = new List<HomeData>();
+        await foreach (var d in repo.WatchAsync(ct)) afterClear.Add(d);
+        Assert.False(Assert.Single(afterClear).FromCache);
     }
 }

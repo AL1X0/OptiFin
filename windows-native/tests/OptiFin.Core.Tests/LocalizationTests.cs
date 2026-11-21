@@ -4,6 +4,7 @@ using OptiFin.Core.Localization;
 namespace OptiFin.Core.Tests;
 
 /// <summary>Traduction anglaise : aucune phrase du code oubliée, variables identiques des deux côtés.</summary>
+[Collection("Localization")]
 public partial class LocalizationTests
 {
     [GeneratedRegex("""L\.(?:T|F)\("((?:[^"\\]|\\.)*)"|L\.Count\([^,"]+,\s*"((?:[^"\\]|\\.)*)",\s*"((?:[^"\\]|\\.)*)"\)""")]

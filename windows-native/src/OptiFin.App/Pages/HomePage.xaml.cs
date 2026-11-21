@@ -17,6 +17,11 @@ public sealed partial class HomePage : Page
     private CancellationTokenSource? _cts;
     private bool _loaded;
     private string? _rendered;
+    private string? _featuredSig;
+    private FeaturedCarousel? _carousel;
+    private Border? _spacer;
+    private TextBlock? _emptyText;
+    private readonly List<(string Sig, MediaRow Row)> _rows = [];
 
     public HomePage()
     {
@@ -42,6 +47,7 @@ public sealed partial class HomePage : Page
     {
         if (AppServices.Home is not { } home) return;
         _cts?.Cancel();
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
         ErrorPanel.Visibility = Visibility.Collapsed;
@@ -111,6 +117,26 @@ public sealed partial class HomePage : Page
         data.Featured.Select(i => i.Id).Concat(data.Sections.SelectMany(s =>
             s.Items.Select(i => $"{s.Title}:{i.Id}:{i.User.Progress:F3}:{i.User.Played}:{i.User.Favorite}"))));
 
+    private static string FeaturedSignature(HomeData data) =>
+        string.Join('|', data.Featured.Select(i => $"{i.Id}:{i.Name}:{i.Overview}:{i.Backdrop?.Tag}:{i.Logo?.Tag}"));
+
+    private static string SectionSignature(HomeSection s) =>
+        $"{s.Title}|{s.Landscape}|{s.LibraryId}|" +
+        string.Join('|', s.Items.Select(i => $"{i.Id}:{i.User.Progress:F3}:{i.User.Played}:{i.User.Favorite}:{i.Primary?.Tag}:{i.Thumb?.Tag}"));
+
+    private static MediaRow BuildRow(HomeSection section, IReadOnlyList<MediaItem> libraries)
+    {
+        var style = section.Landscape ? CardStyle.Landscape : CardStyle.Poster;
+        var row = new MediaRow(section.Title, section.Items, style, Gutter, seeAll: section.LibraryId != null);
+        row.ItemActivated += Open;
+        if (section.LibraryId is { } libraryId)
+        {
+            var library = libraries.FirstOrDefault(l => l.Id == libraryId);
+            if (library != null) row.SeeAll += () => Nav.Go(typeof(LibraryPage), library);
+        }
+        return row;
+    }
+
     private void Render(HomeData data)
     {
         var signature = Signature(data);
@@ -118,34 +144,116 @@ public sealed partial class HomePage : Page
         var first = _rendered is null;
         _rendered = signature;
         var offset = Scroll.VerticalOffset;
-        // Première apparition : carrousel et rangées arrivent en cascade. Ensuite, mise à jour sans animation.
+        // Première apparition : carrousel et rangées arrivent en cascade. Ensuite, mise à jour incrémentale sans animation.
         Body.ChildrenTransitions = first ? Ui.Entrance(vertical: 60) : null;
-        Body.Children.Clear();
-        if (data.Featured.Count > 0) Body.Children.Add(new FeaturedCarousel(data.Featured));
-        else Body.Children.Add(new Border { Height = 64 });
+
+        var featuredSig = FeaturedSignature(data);
+        if (first)
+        {
+            Body.Children.Clear();
+            _rows.Clear();
+            _carousel = null;
+            _spacer = null;
+            _emptyText = null;
+            if (data.Featured.Count > 0)
+            {
+                _carousel = new FeaturedCarousel(data.Featured);
+                _featuredSig = featuredSig;
+                Body.Children.Add(_carousel);
+            }
+            else
+            {
+                _featuredSig = null;
+                _spacer = new Border { Height = 64 };
+                Body.Children.Add(_spacer);
+            }
+            foreach (var section in data.Sections)
+            {
+                var row = BuildRow(section, data.Libraries);
+                _rows.Add((SectionSignature(section), row));
+                Body.Children.Add(row);
+            }
+            if (data.Sections.Count == 0 && data.Featured.Count == 0)
+            {
+                _emptyText = new TextBlock
+                {
+                    Text = L.T("Vos bibliothèques sont vides pour l’instant."),
+                    Style = Ui.StyleOf("OFBody"),
+                    Margin = new Thickness(Gutter, 80, Gutter, 0),
+                };
+                Body.Children.Add(_emptyText);
+            }
+            Scroll.UpdateLayout();
+            Scroll.ChangeView(null, offset, null, disableAnimation: true);
+            return;
+        }
+
+        // En-tête (carrousel ou espace réservé) : conservé s'il n'a pas changé.
+        if (data.Featured.Count > 0)
+        {
+            if (_carousel is null || featuredSig != _featuredSig)
+            {
+                _carousel = new FeaturedCarousel(data.Featured);
+                _featuredSig = featuredSig;
+                _spacer = null;
+                if (Body.Children.Count > 0) Body.Children[0] = _carousel;
+                else Body.Children.Add(_carousel);
+            }
+        }
+        else if (_spacer is null)
+        {
+            _carousel = null;
+            _featuredSig = null;
+            _spacer = new Border { Height = 64 };
+            if (Body.Children.Count > 0) Body.Children[0] = _spacer;
+            else Body.Children.Add(_spacer);
+        }
+
+        if (_emptyText != null && (data.Sections.Count > 0 || data.Featured.Count > 0))
+        {
+            Body.Children.Remove(_emptyText);
+            _emptyText = null;
+        }
+
+        // Rangées : réutilise celles dont le contenu est identique.
+        var desired = new List<(string Sig, MediaRow Row)>(data.Sections.Count);
+        var reused = new HashSet<MediaRow>();
         foreach (var section in data.Sections)
         {
-            var style = section.Landscape ? CardStyle.Landscape : CardStyle.Poster;
-            var row = new MediaRow(section.Title, section.Items, style, Gutter, seeAll: section.LibraryId != null);
-            row.ItemActivated += Open;
-            if (section.LibraryId is { } libraryId)
-            {
-                var library = data.Libraries.FirstOrDefault(l => l.Id == libraryId);
-                if (library != null) row.SeeAll += () => Nav.Go(typeof(LibraryPage), library);
-            }
-            Body.Children.Add(row);
+            var sig = SectionSignature(section);
+            var existing = _rows.FirstOrDefault(r => r.Sig == sig && !reused.Contains(r.Row)).Row;
+            var row = existing ?? BuildRow(section, data.Libraries);
+            reused.Add(row);
+            desired.Add((sig, row));
         }
-        if (data.Sections.Count == 0 && data.Featured.Count == 0)
+
+        for (var i = Body.Children.Count - 1; i >= 1; i--)
         {
-            Body.Children.Add(new TextBlock
+            if (Body.Children[i] is MediaRow r && reused.Contains(r)) continue;
+            Body.Children.RemoveAt(i);
+        }
+        for (var i = 0; i < desired.Count; i++)
+        {
+            var targetIndex = i + 1;
+            var row = desired[i].Row;
+            if (targetIndex < Body.Children.Count && ReferenceEquals(Body.Children[targetIndex], row)) continue;
+            Body.Children.Remove(row);
+            Body.Children.Insert(targetIndex, row);
+        }
+        while (Body.Children.Count > desired.Count + 1) Body.Children.RemoveAt(Body.Children.Count - 1);
+        _rows.Clear();
+        _rows.AddRange(desired);
+
+        if (data.Sections.Count == 0 && data.Featured.Count == 0 && _emptyText is null)
+        {
+            _emptyText = new TextBlock
             {
                 Text = L.T("Vos bibliothèques sont vides pour l’instant."),
                 Style = Ui.StyleOf("OFBody"),
                 Margin = new Thickness(Gutter, 80, Gutter, 0),
-            });
+            };
+            Body.Children.Add(_emptyText);
         }
-        Scroll.UpdateLayout();
-        Scroll.ChangeView(null, offset, null, disableAnimation: true);
     }
 
     public static void Open(MediaItem item) => Nav.Go(typeof(DetailsPage), item);

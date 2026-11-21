@@ -71,8 +71,6 @@ public static class QualityBadges
 /// <summary>Mise en forme des métadonnées (mêmes règles que sur iPhone et Android).</summary>
 public static class MediaFormat
 {
-    private static readonly System.Globalization.CultureInfo French = System.Globalization.CultureInfo.GetCultureInfo("fr-FR");
-
     /// <summary>« 2 h 14 min », « 48 min » ; null si moins d'une minute.</summary>
     public static string? Duration(TimeSpan? d)
     {

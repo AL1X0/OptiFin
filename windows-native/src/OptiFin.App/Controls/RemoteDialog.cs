@@ -46,6 +46,7 @@ public static class RemoteDialog
         {
             menu.Items.Add(new MenuFlyoutItem { Text = e.UserMessage, IsEnabled = false });
         }
+        if (!anchor.IsLoaded) return;
         menu.ShowAt(anchor);
     }
 
@@ -95,13 +96,18 @@ public static class RemoteDialog
             RequestedTheme = ElementTheme.Dark,
         };
 
+        using var cts = new CancellationTokenSource();
+        var polling = false;
         var timer = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().CreateTimer();
         timer.Interval = TimeSpan.FromSeconds(2);
         timer.Tick += async (_, _) =>
         {
+            if (polling || cts.IsCancellationRequested) return;
+            polling = true;
             try
             {
-                if ((await remote.DevicesAsync()).FirstOrDefault(d => d.SessionId == id) is not { } now) return;
+                if ((await remote.DevicesAsync(cts.Token)).FirstOrDefault(d => d.SessionId == id) is not { } now) return;
+                if (cts.IsCancellationRequested) return;
                 current = now;
                 if (now.NowPlaying is { } playing) name.Text = playing;
                 playIcon.Glyph = now.Paused ? "" : "";
@@ -111,13 +117,21 @@ public static class RemoteDialog
                     time.Text = $"{MediaFormat.Clock(now.Position)} / {MediaFormat.Clock(total)}";
                 }
             }
+            catch (OperationCanceledException)
+            {
+            }
             catch (ApiException e)
             {
                 AppLog.Debug("remote", e.UserMessage);
             }
+            finally
+            {
+                polling = false;
+            }
         };
         timer.Start();
         await dialog.ShowAsync();
+        cts.Cancel();
         timer.Stop();
     }
 

@@ -121,7 +121,7 @@ public sealed class AccountStore(string? directory = null)
         {
             var file = Load();
             var stored = file.Accounts.FirstOrDefault(a => a.Id == (accountId ?? file.ActiveId));
-            if (stored is null) return null;
+            if (stored is null || !Uri.TryCreate(stored.BaseUrl, UriKind.Absolute, out _)) return null;
             var token = Dpapi.Unprotect(stored.ProtectedToken);
             if (string.IsNullOrEmpty(token)) return null;
             if (accountId != null && file.ActiveId != accountId)
@@ -162,7 +162,9 @@ internal static partial class Dpapi
     public static string Protect(string secret)
     {
         var data = Encoding.UTF8.GetBytes(secret);
-        return Convert.ToBase64String(Transform(data, protect: true) ?? []);
+        var protectedBytes = Transform(data, protect: true)
+            ?? throw new InvalidOperationException("Échec du chiffrement DPAPI du jeton");
+        return Convert.ToBase64String(protectedBytes);
     }
 
     public static string? Unprotect(string protectedBase64)
